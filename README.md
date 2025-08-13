@@ -1,13 +1,13 @@
-# Consigleire
+# Consigliere
 *Developed by DXS*
 
-> **Consigleire – The DXS-built BSV STAS indexer with Back-to-Genesis resolution, powered by RavenDB and real-time SignalR updates.**
+> **Consigliere – The DXS-built BSV STAS indexer with Back-to-Genesis resolution, powered by RavenDB and real-time SignalR updates.**
 
 ---
 
 ## 📌 Overview
 
-**Consigleire** is a high-performance blockchain indexer for the Bitcoin SV (BSV) network, purpose-built to handle **STAS token** transactions and fully resolve the **Back to Genesis** problem.  
+**Consigliere** is a high-performance blockchain indexer for the Bitcoin SV (BSV) network, purpose-built to handle **STAS token** transactions and fully resolve the **Back to Genesis** problem.  
 It maintains an accurate, real-time state of all STAS token UTXOs by tracing their provenance back to the original issuance transaction, ensuring reliable token ownership verification.
 
 ---
@@ -33,12 +33,12 @@ It maintains an accurate, real-time state of all STAS token UTXOs by tracing the
 
 ## 📦 Installation
 
-> ⚠️ Consigleire was developed by **DXS** for internal operations. External deployment may require adjustments.
+> ⚠️ Consigliere was developed by **DXS** for internal operations. External deployment may require adjustments.
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-org>/consigleire.git
-cd consigleire
+git clone https://github.com/dxsapp/dxs-consigliere.git
+cd dxs-consigliere
 
 # Restore dependencies
 dotnet restore
