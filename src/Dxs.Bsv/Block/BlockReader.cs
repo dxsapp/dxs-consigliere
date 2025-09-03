@@ -49,7 +49,7 @@ public class BlockReader : IDisposable
 
     public static BlockReader Parse(string hex, Network network)
     {
-        var bytes = BinaryHelpers.FromHexString(hex);
+        var bytes = hex.FromHexString();
 
         return Parse(bytes, network);
     }

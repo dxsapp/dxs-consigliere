@@ -58,7 +58,6 @@ public class JsonRpcResultNetworkStream(Stream stream) : Stream
 
     private int _availableBytes;
 
-
     public override void Flush() => stream.Flush();
 
     private bool ReadStream()
@@ -124,6 +123,7 @@ public class JsonRpcResultNetworkStream(Stream stream) : Stream
                         _payloadBuffer[_payloadBufferWriteCursor] = BinaryHelpers.HexToByte(_hexCharBuffer[0], _hexCharBuffer[1]);
 
                         _payloadBufferWriteCursor++;
+                        
                         if (_payloadBufferWriteCursor == _payloadBuffer.Length)
                             _payloadBufferWriteCursor = 0;
 

@@ -1,5 +1,4 @@
 using Dxs.Bsv;
-using Dxs.Common.Interfaces;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
@@ -9,8 +8,6 @@ using Dxs.Consigliere.Services;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.WebSockets;
@@ -21,7 +18,7 @@ public class WalletHub(
     ILogger<WalletHub> logger
 ) : Hub<IWalletHub>, IWalletServer
 {
-    public static string Route => "/ws/app";
+    public static string Route => "/ws/consigliere";
 
     public Task SubscribeToTransactionStream(SubscribeToTransactionStreamRequest request)
         => connectionManager.SubscribeToTransactionStream(Context.ConnectionId, request.Address);
@@ -48,7 +45,7 @@ public class WalletHub(
 
     public async Task<Dictionary<string, string>> GetTransactions(List<string> ids, [FromServices] IDocumentStore store)
     {
-        const int maxTxCount = 1000;
+        const int maxTxCount = 100;
 
         if (ids?.Any() != true)
             throw new Exception("No transaction ids provided");

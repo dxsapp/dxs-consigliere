@@ -9,7 +9,6 @@ using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using TrustMargin.Common.Extensions;
 
@@ -57,7 +56,6 @@ public class JungleBusBlockchainDataProvider(
                 {
                     if (x.BlockHeight == height)
                     {
-
                         if (x.TransactionBase64 == null)
                         {
                             _logger.LogDebug("No body transaction: {Hash}", x.Id);
@@ -65,14 +63,15 @@ public class JungleBusBlockchainDataProvider(
                         else
                         {
                             var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), Network.Mainnet);
-
-                            txMessageBus.Post(TxMessage.FoundInBlock(
+                            var message = TxMessage.FoundInBlock(
                                 transaction,
                                 x.BlockTime,
                                 x.BlockHash,
                                 x.BlockHeight,
                                 x.BlockIndex
-                            ));
+                            );
+
+                            txMessageBus.Post(message);
                         }
                         
                         txCount++;
@@ -112,11 +111,6 @@ public class JungleBusBlockchainDataProvider(
                     }
 
                 }
-                // else
-                // {
-                // _logger.LogError("Another block: {@Message}", x);
-                // error = $"Another block started to crawl: {x.Block}; {x.Message}";
-                // }
             })
             .AddToCompositeDisposable(compositeSub);
 

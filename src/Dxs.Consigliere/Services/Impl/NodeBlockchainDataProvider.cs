@@ -4,7 +4,6 @@ using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Block;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Consigliere.Data.Models;
-using Microsoft.Extensions.Logging;
 
 namespace Dxs.Consigliere.Services.Impl;
 
@@ -15,21 +14,17 @@ public class NodeBlockchainDataProvider(
 )
     : IBlockDataProvider
 {
-    
-    public Task<int> ProcessBlock(int height, CancellationToken cancellationToken)
-        => throw new NotImplementedException();
-    
     public async Task<int> ProcessBlock(BlockProcessContext context, CancellationToken cancellationToken)
     {
         using var _ = logger.BeginScope("NodeBlockchainDataProvider.ProcessBlock: {Height}", context.Height);
 
         var blockStream = await rpcClient.GetBlockAsStream(context.Id);
+        
         using var blockReader = BlockReader.Parse(blockStream, Network.Mainnet);
-
-        var count = 0;
 
         logger.LogDebug("Start parse block");
 
+        var count = 0;
         var logProgress = context.TransactionsCount > 10_000;
         var logStep = context.TransactionsCount / 20;
 

@@ -4,7 +4,6 @@ using Dxs.Bsv.Models;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Retry;
@@ -24,7 +23,7 @@ public class BroadcastService(
 
     private readonly AsyncRetryPolicy _simpleRetryPolicy = Policy
         .Handle<Exception>()
-        .WaitAndRetryAsync(60, _ => TimeSpan.FromSeconds(2));
+        .WaitAndRetryAsync(10, _ => TimeSpan.FromSeconds(2));
 
     public Task<decimal> SatoshisPerByte() => bitcoindService.SatoshisPerByte();
 
@@ -40,7 +39,7 @@ public class BroadcastService(
     {
         using var _ = logger.BeginScope("{TransactionId}", transaction.Id);
 
-        var broadcastAttempt = new Broadcast()
+        var broadcastAttempt = new Broadcast
         {
             TxId = transaction.Id,
             BatchId = batchId
@@ -53,7 +52,7 @@ public class BroadcastService(
         broadcastAttempt.Message = message;
         broadcastAttempt.Success = success;
 
-        await documentStore.AddOrUpdateEntity(broadcastAttempt);
+        await documentStore.UpdateEntity(broadcastAttempt);
 
         return broadcastAttempt;
     }

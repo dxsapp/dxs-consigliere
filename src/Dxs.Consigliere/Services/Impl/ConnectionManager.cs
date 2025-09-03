@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Disposables;
 using Dxs.Bsv;
@@ -6,17 +5,13 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Interfaces;
 using Dxs.Consigliere.Configs;
-using Dxs.Consigliere.Dto;
-using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.WebSockets;
 using MediatR;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raven.Client.Documents;
-using Raven.Client.Documents.Session;
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Consigliere.Services.Impl;
@@ -26,20 +21,13 @@ public class ConnectionManager :
     INotificationHandler<TransactionDeleted>,
     IDisposable
 {
-    private readonly IDocumentStore _documentStore;
     private readonly IHubContext<WalletHub, IWalletHub> _appContext;
-    private readonly IUtxoManager _utxoManager;
     private readonly IAppCache<ConnectionManager> _cache;
-    private readonly AppConfig _appConfig;
     private readonly ILogger<ConnectionManager> _logger;
 
     private readonly CompositeDisposable _subscriptions = new();
 
     private static readonly TimeSpan TxNotificationDelay = TimeSpan.FromSeconds(5);
-
-    // awful temporary solution
-    private static readonly Dictionary<string, List<string>> ConnectedUsers = new();
-
     private static readonly DateTime CreateDate = DateTime.UtcNow;
 
     public ConnectionManager(
@@ -52,11 +40,8 @@ public class ConnectionManager :
         ILogger<ConnectionManager> logger
     )
     {
-        _documentStore = documentStore;
         _appContext = appContext;
-        _utxoManager = utxoManager;
         _cache = cache;
-        _appConfig = appConfig.Value;
         _logger = logger;
 
         transactionMessageBus
@@ -96,6 +81,7 @@ public class ConnectionManager :
 
     #region .pvt
 
+    // ReSharper disable once AsyncVoidMethod
     private async void OnTransactionFound(FilteredTransactionMessage message)
         => await Throttle(
             message.Transaction.Id,

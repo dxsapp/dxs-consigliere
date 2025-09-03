@@ -70,7 +70,9 @@ public class BitcoindService(IRpcClient rpcClient, ILogger<BitcoindService> logg
                 result.Add(tx);
 
                 if (notInMempool)
+                {
                     txInBlock.Add(txId, memoPoolIdx++);
+                }
             }
 
             var c = 0;
