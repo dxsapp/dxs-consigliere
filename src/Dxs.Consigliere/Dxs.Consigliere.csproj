@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
     <PropertyGroup>
         <TargetFramework>net9.0</TargetFramework>
@@ -32,10 +32,6 @@
     <ItemGroup>
       <ProjectReference Include="..\Dxs.Bsv\Dxs.Bsv.csproj" />
       <ProjectReference Include="..\Dxs.Infrastructure\Dxs.Infrastructure.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="Data\Migrations\" />
     </ItemGroup>
 
 </Project>
