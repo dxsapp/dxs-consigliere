@@ -2,6 +2,7 @@ using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
+using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Queries;
@@ -9,6 +10,7 @@ using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using MediatR;
+using Microsoft.Extensions.Options;
 using Raven.Client.Documents;
 using Raven.Client.Documents.Operations;
 
@@ -17,6 +19,7 @@ namespace Dxs.Consigliere.Services.Impl;
 public class TransactionStore(
     IDocumentStore store,
     IPublisher mediator,
+    IOptions<TransactionFilterConfig> config,
     ILogger<TransactionStore> logger
 ): IMetaTransactionStore
 {
@@ -24,8 +27,7 @@ public class TransactionStore(
     {
         using var session = store.GetSession();
 
-        var result = new List<Address>();
-
+        var result = config.Value.Addresses.Select(address => new Address(address)).ToList();
         var query = session
             .Query<WatchingAddress>()
             .Select(x => x.Address)
@@ -46,6 +48,14 @@ public class TransactionStore(
         using var session = store.GetSession();
 
         var result = new List<TokenId>();
+
+        foreach (var token in config.Value.Tokens)
+        {
+            if (TokenId.TryParse(token, Network.Mainnet, out var tokenId))
+                result.Add(tokenId);
+            else
+                throw new Exception($"Malformed tokenId in database: {token}");
+        }
 
         var query = session.Query<WatchingToken>()
             .Select(x => x.TokenId)

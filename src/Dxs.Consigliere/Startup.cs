@@ -53,6 +53,7 @@ public class Startup(IConfiguration configuration)
         services
             .Configure<ZmqClientConfig>(configuration.GetSection("ZmqClient"))
             .Configure<RpcConfig>(configuration.GetSection("Rpc"))
+            .Configure<TransactionFilterConfig>(configuration.GetSection("TransactionFilter"))
             .AddSingleton<ITransactionStore>(sp => sp.GetRequiredService<IMetaTransactionStore>())
             .AddSingleton<ITxMessageBus, TxMessageBus>()
             .AddSingleton<IBlockMessageBus, BlockMessageBus>()
