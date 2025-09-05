@@ -24,6 +24,8 @@ public class JungleBusBlockchainDataProvider(
     private readonly JungleBusConfig _jungleBusConfig = appConfig.Value.JungleBus;
     private readonly ILogger _logger = logger;
 
+    public bool Enabled => _jungleBusConfig.Enabled;
+    
     public Task<int> ProcessBlock(BlockProcessContext context, CancellationToken cancellationToken)
         => ProcessBlock(context.Height, cancellationToken);
 
@@ -32,6 +34,11 @@ public class JungleBusBlockchainDataProvider(
 
     public async Task<int> ProcessBlock(int height, string subscriptionId, CancellationToken cancellationToken)
     {
+        if (!Enabled)
+        {
+            throw new ApplicationException("JungleBus is not enabled");
+        }
+        
         using var _ = serviceProvider.GetScopedService(out JungleBusWebsocketClient jungleBus);
 
         await jungleBus.StartSubscription(subscriptionId);
@@ -39,7 +46,7 @@ public class JungleBusBlockchainDataProvider(
         return await ProcessBlock(height, jungleBus, cancellationToken);
     }
 
-    public async Task<int> ProcessBlock(int height, JungleBusWebsocketClient jungleBus, CancellationToken cancellationToken)
+    private async Task<int> ProcessBlock(int height, JungleBusWebsocketClient jungleBus, CancellationToken cancellationToken)
     {
         using var compositeSub = new CompositeDisposable();
 

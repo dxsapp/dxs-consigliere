@@ -189,7 +189,7 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
             out JungleBusBlockchainDataProvider jungleBusBlockchainDataProvider,
             out NodeBlockchainDataProvider nodeBlockchainDataProvider
         );
-        var dataProvider = _webHostEnvironment.IsProduction() && context.ErrorsCount % 2 == 1
+        var dataProvider = context.ErrorsCount % 2 == 1 && jungleBusBlockchainDataProvider.Enabled
             ? jungleBusBlockchainDataProvider
             : (IBlockDataProvider)nodeBlockchainDataProvider;
 
