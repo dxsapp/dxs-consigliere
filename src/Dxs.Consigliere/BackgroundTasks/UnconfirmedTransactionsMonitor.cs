@@ -11,8 +11,6 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.WoC;
 using Dxs.Infrastructure.WoC.Dto;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RateLimiter;
 using Raven.Client.Documents;
@@ -47,21 +45,9 @@ public class UnconfirmedTransactionsMonitor(
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
-        using var _ = _logger.BeginScope("UnconfirmedTransactionsMonitor.Run: {StartedAt}", DateTime.UtcNow.ToUnixSeconds());
-
-        // try
-        // {
-        //     await SyncDisappeared(cancellationToken);
-        // }
-        // catch (Exception exception)
-        // {
-        //     _logger.LogError(exception, "SyncDisappeared Failed");
-        // }
-        //
-        // return;
-
         var store = serviceProvider.GetRequiredService<IDocumentStore>();
-
+        
+        using var _ = _logger.BeginScope("UnconfirmedTransactionsMonitor.Run: {StartedAt}", DateTime.UtcNow.ToUnixSeconds());
         using var session = store.GetSession();
 
         var foundBefore = (DateTime.UtcNow - TimeSpan.FromMinutes(20)).ToUnixSeconds();

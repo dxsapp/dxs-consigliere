@@ -3,4 +3,4 @@ using Dxs.Common.Dataflow;
 
 namespace Dxs.Bsv.BitcoinMonitor.Impl;
 
-public class BlockMessageBus : RxPubSub<BlockMessage>, IBlockMessageBus { }
+public class BlockMessageBus : RxPubSub<BlockMessage>, IBlockMessageBus;

@@ -9,7 +9,6 @@ using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Raven.Client.Documents;
 using Raven.Client.Documents.Operations;
 

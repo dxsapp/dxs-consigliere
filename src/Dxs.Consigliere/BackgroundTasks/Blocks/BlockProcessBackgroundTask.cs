@@ -4,18 +4,13 @@ using Dxs.Common.BackgroundTasks;
 using Dxs.Common.Dataflow;
 using Dxs.Common.Extensions;
 using Dxs.Consigliere.Configs;
-using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
-using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
 using MediatR;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Raven.Client.Documents;
 using Raven.Client.Documents.Session;
@@ -135,6 +130,7 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
             blockProcessCtx.Finish -= 1;
 
             var message = new BlockProcessed(blockProcessCtx.Height, blockProcessCtx.Id);
+            
             await _publisher.Publish(message);
         }
         catch (Exception exception)

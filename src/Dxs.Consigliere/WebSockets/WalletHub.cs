@@ -64,6 +64,7 @@ public class WalletHub(
         }
 
         using var session = store.GetNoCacheNoTrackingSession();
+        
         var transactions = await session.LoadAsync<TransactionHexData>(checkedIds.Select(TransactionHexData.GetId));
         var result = transactions
             .ToDictionary(

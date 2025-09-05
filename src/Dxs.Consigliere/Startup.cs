@@ -119,7 +119,6 @@ public class Startup(IConfiguration configuration)
             .AddSingletonHostedService<JungleBusSyncMissingDataBackgroundTask>()
             .AddSingletonHostedService<UnconfirmedTransactionsMonitor>()
             .AddSingletonHostedService<JungleBusMempoolMonitor>()
-            .AddSingletonHostedService<BitailsMempoolMonitor>()
             ;
 
         // others

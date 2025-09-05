@@ -8,12 +8,12 @@ namespace Dxs.Consigliere.WebSockets;
 
 public interface IWalletServer
 {
-
     #region Address
 
     Task<List<BalanceDto>> GetBalance(BalanceRequest request, IUtxoManager utxoManager);
 
-    Task<AddressHistoryResponse> GetHistory(GetAddressHistoryRequest request, IAddressHistoryService addressHistoryService);
+    Task<AddressHistoryResponse> GetHistory(GetAddressHistoryRequest request,
+        IAddressHistoryService addressHistoryService);
 
     Task<GetUtxoSetResponse> GetUtxoSet(GetUtxoSetRequest request, IUtxoManager utxoManager);
 

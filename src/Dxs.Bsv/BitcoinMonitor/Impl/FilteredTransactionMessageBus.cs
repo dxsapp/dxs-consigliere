@@ -3,4 +3,4 @@ using Dxs.Common.Dataflow;
 
 namespace Dxs.Bsv.BitcoinMonitor.Impl;
 
-public class FilteredTransactionMessageBus : RxPubSub<FilteredTransactionMessage>, IFilteredTransactionMessageBus { }
+public class FilteredTransactionMessageBus : RxPubSub<FilteredTransactionMessage>, IFilteredTransactionMessageBus;

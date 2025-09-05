@@ -19,7 +19,7 @@ try
         .UseSystemd()
         .ConfigureAppConfiguration(configBuilder =>
             {
-                configBuilder.AddJsonFile($"appsettings.{environmentName}.json", false);
+                configBuilder.AddJsonFile($"appsettings.{environmentName}.json", true);
             }
         )
         .ConfigureWebHostDefaults(webBuilder =>

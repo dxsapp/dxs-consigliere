@@ -1,15 +1,24 @@
+using Dxs.Common.Extensions;
+
 namespace Dxs.Bsv.Script.Build;
 
 public class Mnee1SatScriptBuilder: ScriptBuilder
 {
     public const int DataIdx = 6;
-    public const int ApproverIds = 13;
+    public const int ApproverIdx = 13;
     
-    public Mnee1SatScriptBuilder(Address toAddress, string approverPk): base(ScriptType.Mnee1Sat, toAddress)
+    private const string TokenInfoTemplate = """{"p":"bsv-20","op":"{OPERATION}","id":"{TOKEN_ID}","amt":"{AMOUNT}"}""";
+
+    public Mnee1SatScriptBuilder(
+        Address toAddress,
+        string approverPubKey,
+        string tokenData
+    ): base(ScriptType.Mnee1Sat, toAddress)
     {
         for (var i = 0; i < ScriptSamples.Mnee1SatTokens.Count; i++)
         {
             var token = ScriptSamples.Mnee1SatTokens[i];
+
             if (token.IsReceiverId)
             {
                 Tokens.Add(new(toAddress.Hash160)
@@ -17,9 +26,13 @@ public class Mnee1SatScriptBuilder: ScriptBuilder
                     IsReceiverId = true
                 });
             }
-            else if (i == ApproverIds)
+            else if (i == ApproverIdx)
             {
-                Tokens.Add(new(approverPk.FromHexString()));
+                Tokens.Add(new(approverPubKey.FromHexString()));
+            }
+            else if (i == DataIdx)
+            {
+                Tokens.Add(new(tokenData.ToUtf8Bytes()));
             }
             else
             {
@@ -27,4 +40,10 @@ public class Mnee1SatScriptBuilder: ScriptBuilder
             }
         }
     }
+    
+    public static string BuildTransferTokenInfo(string tokenId, long amount)
+        => TokenInfoTemplate
+            .Replace("{OPERATION}", "transfer")
+            .Replace("{TOKEN_ID}", tokenId)
+            .Replace("{AMOUNT}", amount.ToString());
 }

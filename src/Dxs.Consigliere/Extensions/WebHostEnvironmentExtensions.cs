@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Hosting;
-
 namespace Dxs.Consigliere.Extensions;
 
 public static class WebHostEnvironmentExtensions
