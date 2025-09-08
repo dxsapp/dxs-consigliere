@@ -41,9 +41,8 @@ git clone https://github.com/dxsapp/dxs-consigliere.git
 cd dxs-consigliere/src/Dxs.Consigliere
 ```
 
-Add some BSV addresses or STAS token IDs to TransactionFilter config:
+Add some BSV addresses and/or STAS token IDs to TransactionFilter config:
   "TransactionFilter": {...}
-
 
 Update the appsettings.json file with your RavenDB connection details:
   "RavenDb": {...}
