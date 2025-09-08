@@ -1,5 +1,6 @@
 # Consigliere
-*Developed by DXS*
+
+_Developed by DXS_
 
 > **Consigliere – The DXS-built BSV STAS indexer with Back-to-Genesis resolution, powered by RavenDB and real-time SignalR updates.**
 
@@ -14,20 +15,20 @@ It maintains an accurate, real-time state of all STAS token UTXOs by tracing the
 
 ## 🚀 Key Features
 
-- **Back to Genesis Resolution** – Automatically walks transaction history to the original genesis UTXO for each STAS token, guaranteeing accurate lineage tracking.  
-- **Real-Time Indexing** – Efficiently processes BSV blocks as they are mined, keeping the index up to date.  
-- **Robust Data Model with RavenDB** – Stores STAS token metadata, ownership, and transaction history in a highly-performant RavenDB database.  
-- **Fault Tolerance** – Resilient to blockchain reorganizations, with automatic reindexing of affected transactions.  
-- **Live WebSocket Updates (SignalR)** – Push-based notifications for token balance changes, transaction events, and provenance updates.  
+- **Back to Genesis Resolution** – Automatically walks transaction history to the original genesis UTXO for each STAS token, guaranteeing accurate lineage tracking.
+- **Real-Time Indexing** – Efficiently processes BSV blocks as they are mined, keeping the index up to date.
+- **Robust Data Model with RavenDB** – Stores STAS token metadata, ownership, and transaction history in a highly-performant RavenDB database.
+- **Fault Tolerance** – Resilient to blockchain reorganizations, with automatic reindexing of affected transactions.
+- **Live WebSocket Updates (SignalR)** – Push-based notifications for token balance changes, transaction events, and provenance updates.
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Language:** C# (.NET)  
-- **Blockchain:** Bitcoin SV (BSV)  
-- **Database:** RavenDB  
-- **Realtime Updates:** SignalR WebSockets  
+- **Language:** C# (.NET)
+- **Blockchain:** Bitcoin SV (BSV)
+- **Database:** RavenDB
+- **Realtime Updates:** SignalR WebSockets
 
 ---
 
@@ -41,18 +42,46 @@ git clone https://github.com/dxsapp/dxs-consigliere.git
 cd dxs-consigliere/src/Dxs.Consigliere
 ```
 
-Add some BSV addresses and/or STAS token IDs to TransactionFilter config:
-  "TransactionFilter": {...}
+## Setup
 
-Update the appsettings.json file with your RavenDB connection details:
-  "RavenDb": {...}
+Update the appsettings.json file according to the requirements.
 
-Add your BSV Node API and ZMQ client settings to appsettings.json:
-  "ZmqClient": {...},
-  "BsvNodeApi": {...}
-  
+```json
+// Add some BSV addresses and/or STAS token IDs to TransactionFilter:
+"TransactionFilter": {
+  "Addresses": [
+    // If you specify a BSV address here, Consigliere will build an index for all new transactions related to this address of all output types it recognizes: P2PKH, STAS, 1SatMnee.
+  ],
+  "Tokens": [
+    // If you specify a STAS token ID here, Consigliere will build an index for all new STAS transactions related to this STAS token.
+  ]
+},
+
+// Update your RavenDB connection details:
+"RavenDb": {
+  "Urls": [
+    "http://localhost:8080"
+  ],
+  "DbName": "Consigliere"
+},
+
+// Add your BSV Node API and ZMQ client settings:
+"ZmqClient": {
+  "RawTx2Address": "tcp://{Node IP or Domain}:{Default port is 28332}",
+  "RemovedFromMempoolBlockAddress": "tcp://{Node IP or Domain}:{Default port is 28332}",
+  "DiscardedFromMempoolAddress": "tcp://{Node IP or Domain}:{Default port is 28332}",
+  "HashBlock2Address": "tcp://{Node IP or Domain}:{Default port is 28332}"
+},
+"BsvNodeApi": {
+  "BaseUrl": "http{s}://{Node IP or Domain}:{Default port is 28332}",
+  "User": "{Node user}",
+  "Password": "{Node user password}"
+},
+```
+
+## Run
+
 ```bash
-
 # Restore dependencies
 dotnet restore
 
@@ -62,7 +91,7 @@ dotnet build
 # Run the project
 dotnet run
 ```
----
 
-Swagger available by url http://localhost:5000/swagger
+## Usage
 
+Swagger can be found at the http://localhost:5000/swagger
