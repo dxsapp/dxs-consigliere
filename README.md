@@ -32,7 +32,30 @@ It maintains an accurate, real-time state of all STAS token UTXOs by tracing the
 
 ---
 
-## 📦 Installation
+## Docker Setup
+
+[Docker hub](https://hub.docker.com/r/dxsapp/consigliere)
+
+```bash
+docker run -p 5000:5000 \
+-e "RavenDb:Urls:0=RAVEN URL" \
+-e "RavenDb:DbName=Consigliere" \
+-e "ZmqClient:RawTx2Address=tcp://NODE URL" \
+-e "ZmqClient:RemovedFromMempoolBlockAddress=tcp://NODE URL" \
+-e "ZmqClient:DiscardedFromMempoolAddress=tcp://NODE URL" \
+-e "ZmqClient:HashBlock2Address=tcp://NODE URL" \
+-e "BsvNodeApi:BaseUrl=NODE URL" \
+-e "BsvNodeApi:User=USER" \
+-e "BsvNodeApi:Password=PASSWORD \
+-e "TransactionFilter:Addresses:0=BSV ADDRESS 1" \
+-e "TransactionFilter:Addresses:1=BSV ADDRESS 2" \
+-e "TransactionFilter:Addresses:2=BSV ADDRESS ETC" \
+-e "TransactionFilter:Tokens:0=STAS TOKEN ID" \
+-e "TransactionFilter:Tokens:1=STAS TOKEN ID" \
+consigliere:latest
+```
+
+## 📦 Manual Setup
 
 > ⚠️ Consigliere was developed by **DXS** for internal operations. External deployment may require adjustments.
 
@@ -73,7 +96,7 @@ Update the appsettings.json file according to the requirements.
   "HashBlock2Address": "tcp://{Node IP or Domain}:{Default port is 28332}"
 },
 "BsvNodeApi": {
-  "BaseUrl": "http{s}://{Node IP or Domain}:{Default port is 28332}",
+  "BaseUrl": "http{s}://{Node IP or Domain}:{Default port is 8332}",
   "User": "{Node user}",
   "Password": "{Node user password}"
 },

@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build-env
+
+WORKDIR /build
+
+# Copy everything
+COPY ./src ./
+# Restore as distinct layers
+RUN dotnet restore ./Dxs.Consigliere/Dxs.Consigliere.csproj
+# Build and publish a release
+RUN dotnet publish ./Dxs.Consigliere/Dxs.Consigliere.csproj -c Release -o out
+
+# Build runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
+WORKDIR /build
+
+COPY --from=build-env /build/out .
+ENV ASPNETCORE_HTTP_PORTS=5000
+
+ENTRYPOINT ["dotnet", "Dxs.Consigliere.dll"]
+EXPOSE 5000
