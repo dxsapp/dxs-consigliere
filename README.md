@@ -38,10 +38,26 @@ It maintains an accurate, real-time state of all STAS token UTXOs by tracing the
 ```bash
 # Clone the repository
 git clone https://github.com/dxsapp/dxs-consigliere.git
-cd dxs-consigliere
+cd cd dxs-consigliere/src/Dxs.Consigliere
+
+# Add some BSV addresses or STAS token IDs to appsettings.TransactionFilter.json
+
+# Update the appsettings.json file with your RavenDB connection details:
+  "RavenDb": {...}
+
+# Add your BSV Node API and ZMQ client settings to appsettings.json:
+  "ZmqClient": {...},
+  "BsvNodeApi": {...}
 
 # Restore dependencies
 dotnet restore
 
 # Build the project
 dotnet build
+
+# Run the project
+dotnet run
+
+# Check an API
+http://localhost:5000/swagger
+
