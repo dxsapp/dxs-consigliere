@@ -17,7 +17,6 @@ try
         .ConfigureAppConfiguration(configBuilder =>
             {
                 configBuilder.AddJsonFile($"appsettings.{environmentName}.json", true);
-                configBuilder.AddJsonFile("appsettings.TransactionFilter.json", true);
             }
         )
         .ConfigureWebHostDefaults(webBuilder =>
