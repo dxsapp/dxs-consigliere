@@ -8,25 +8,25 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="MediatR" Version="12.4.1" />
-      <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="9.0.0" />
-      <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.0" />
-      <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
-      <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
-      <PackageReference Include="Polly" Version="8.5.0" />
+      <PackageReference Include="MediatR" Version="13.0.0" />
+      <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="9.0.8" />
+      <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.8" />
+      <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
+      <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0" />
+      <PackageReference Include="Polly" Version="8.6.3" />
       <PackageReference Include="RateLimiter" Version="2.2.0" />
-      <PackageReference Include="RavenDB.Client" Version="6.2.1" />
+      <PackageReference Include="RavenDB.Client" Version="7.1.2" />
       <PackageReference Include="RavenMigrations" Version="6.0.2" />
-      <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
+      <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
       <PackageReference Include="Serilog.Expressions" Version="5.0.0" />
       <PackageReference Include="Serilog.Filters.Expressions" Version="2.1.0" />
       <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
-      <PackageReference Include="Serilog.Sinks.Grafana.Loki" Version="8.3.0" />
+      <PackageReference Include="Serilog.Sinks.Grafana.Loki" Version="8.3.1" />
       <PackageReference Include="Serilog.Sinks.Map" Version="2.0.0" />
       <PackageReference Include="SocketIOClient" Version="3.1.2" />
       <PackageReference Include="SpanJson" Version="4.2.1" />
-      <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
-      <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="7.0.0" />
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />
+      <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.4" />
     </ItemGroup>
 
     <ItemGroup>
