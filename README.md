@@ -31,7 +31,7 @@ It maintains an accurate, real-time state of all STAS token UTXOs by tracing the
 
 ---
 
-## 📦 Installation
+## 📦 Build and Run
 
 > ⚠️ Consigliere was developed by **DXS** for internal operations. External deployment may require adjustments.
 
