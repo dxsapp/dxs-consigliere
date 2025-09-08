@@ -24,6 +24,7 @@ using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.WoC;
 using MediatR;
+using Microsoft.OpenApi.Models;
 using Raven.Migrations;
 using TrustMargin.Common.Extensions;
 
@@ -69,11 +70,20 @@ public class Startup(IConfiguration configuration)
             .AddJsonOptions(options =>
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter())).Services
             .AddEndpointsApiExplorer()
-            .AddResponseCompression(x =>
-            {
-                x.EnableForHttps = true;
-            })
+            .AddResponseCompression(x => { x.EnableForHttps = true; })
             .AddRequestDecompression()
+            .AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc(
+                    "Consigliere",
+                    new OpenApiInfo
+                    {
+                        Version = "v1",
+                        Title = "Consigliere API",
+                        Description = "Dxs Consigliere API",
+                    }
+                );
+            })
             ;
 
         // Add self dependencies
@@ -119,10 +129,7 @@ public class Startup(IConfiguration configuration)
             ;
 
         // others
-        services.AddMediatR(cfg =>
-        {
-            cfg.RegisterServicesFromAssemblyContaining<IMediator>();
-        });
+        services.AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<IMediator>(); });
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -154,6 +161,9 @@ public class Startup(IConfiguration configuration)
                 pattern: "{controller}/{action=Index}/{id?}");
         });
         app.UseSignalR();
+
+        app.UseSwagger();
+        app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/Consigliere/swagger.json", "Consigliere"); });
     }
 
     public static void InitializeDatabase(IServiceProvider serviceProvider)
