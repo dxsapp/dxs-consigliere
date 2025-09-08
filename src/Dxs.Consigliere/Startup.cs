@@ -24,10 +24,6 @@ using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.WoC;
 using MediatR;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Raven.Migrations;
 using TrustMargin.Common.Extensions;
 
@@ -52,7 +48,7 @@ public class Startup(IConfiguration configuration)
         // add bsv dependencies
         services
             .Configure<ZmqClientConfig>(configuration.GetSection("ZmqClient"))
-            .Configure<RpcConfig>(configuration.GetSection("Rpc"))
+            .Configure<RpcConfig>(configuration.GetSection("BsvNodeApi"))
             .Configure<TransactionFilterConfig>(configuration.GetSection("TransactionFilter"))
             .AddSingleton<ITransactionStore>(sp => sp.GetRequiredService<IMetaTransactionStore>())
             .AddSingleton<ITxMessageBus, TxMessageBus>()
@@ -148,7 +144,6 @@ public class Startup(IConfiguration configuration)
 
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseRateLimiter();
         app.UseResponseCompression();
         app.UseRequestDecompression();
 
