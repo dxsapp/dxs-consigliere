@@ -2,7 +2,6 @@ using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Dxs.Consigliere.Controllers;
