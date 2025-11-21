@@ -12,7 +12,7 @@ using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class UtxoSetManager(IDocumentStore documentStore):
+public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider networkProvider):
     IUtxoManager,
     IUtxoSetProvider
 {
@@ -24,7 +24,7 @@ public class UtxoSetManager(IDocumentStore documentStore):
 
         var tokenIds = request
             .TokenIds?
-            .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId().Value)
+            .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId(networkProvider.Network).Value)
             .ToList();
 
         using var session = documentStore.GetNoCacheNoTrackingSession();
@@ -40,7 +40,7 @@ public class UtxoSetManager(IDocumentStore documentStore):
 
         var tokenIds = request
             .TokenIds?
-            .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId().Value)
+            .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId(networkProvider.Network).Value)
             .ToList();
 
         return GetBalance(session, addresses, tokenIds);
@@ -86,7 +86,7 @@ public class UtxoSetManager(IDocumentStore documentStore):
     public async Task<GetUtxoSetResponse> GetUtxoSet(GetUtxoSetRequest request)
     {
         var address = request.Address.EnsureValidBsvAddress();
-        var tokenId = request.TokenId?.EnsureValidTokenId();
+        var tokenId = request.TokenId?.EnsureValidTokenId(networkProvider.Network);
 
         var utxoSet = request.Satoshis is {} satoshis and > 0
             ? await GetUtxoSet(address, tokenId, satoshis)
@@ -103,7 +103,7 @@ public class UtxoSetManager(IDocumentStore documentStore):
 
         var tokenIds = request
             .TokenIds?
-            .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId().Value)
+            .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId(networkProvider.Network).Value)
             .ToList();
 
         using var session = documentStore.GetNoCacheNoTrackingSession();

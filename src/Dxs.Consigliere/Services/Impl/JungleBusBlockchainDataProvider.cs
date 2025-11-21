@@ -17,6 +17,7 @@ namespace Dxs.Consigliere.Services.Impl;
 public class JungleBusBlockchainDataProvider(
     IServiceProvider serviceProvider,
     ITxMessageBus txMessageBus,
+    INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<JungleBusBlockchainDataProvider> logger
 ): IBlockDataProvider
@@ -69,7 +70,7 @@ public class JungleBusBlockchainDataProvider(
                         }
                         else
                         {
-                            var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), Network.Mainnet);
+                            var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), networkProvider.Network);
                             var message = TxMessage.FoundInBlock(
                                 transaction,
                                 x.BlockTime,

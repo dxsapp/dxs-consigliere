@@ -10,6 +10,7 @@ namespace Dxs.Consigliere.Services.Impl;
 public class NodeBlockchainDataProvider(
     IRpcClient rpcClient,
     ITxMessageBus txMessageBus,
+    INetworkProvider networkProvider,
     ILogger<NodeBlockchainDataProvider> logger
 )
     : IBlockDataProvider
@@ -20,7 +21,7 @@ public class NodeBlockchainDataProvider(
 
         var blockStream = await rpcClient.GetBlockAsStream(context.Id);
         
-        using var blockReader = BlockReader.Parse(blockStream, Network.Mainnet);
+        using var blockReader = BlockReader.Parse(blockStream, networkProvider.Network);
 
         logger.LogDebug("Start parse block");
 

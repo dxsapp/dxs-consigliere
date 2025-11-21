@@ -7,6 +7,7 @@ using Dxs.Common.Extensions;
 using Dxs.Common.Time;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Extensions;
+using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ namespace Dxs.Consigliere.BackgroundTasks;
 public class JungleBusMempoolMonitor(
     ITxMessageBus messageBus,
     IServiceProvider serviceProvider,
+    INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<JungleBusMempoolMonitor> logger
 ): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
@@ -43,7 +45,7 @@ public class JungleBusMempoolMonitor(
             if (x.TransactionBase64.IsNullOrEmpty())
                 return;
 
-            var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), Network.Mainnet);
+            var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), networkProvider.Network);
 
             messageBus.Post(TxMessage.AddedToMempool(transaction, DateTime.UtcNow.ToUnixSeconds()));
             _logger.LogDebug("Tx found in GorillaPool mempool: {Id}", x.Id);

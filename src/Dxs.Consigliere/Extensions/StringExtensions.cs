@@ -12,9 +12,9 @@ public static class StringExtensions
         return address;
     }
 
-    public static TokenId EnsureValidTokenId(this string value)
+    public static TokenId EnsureValidTokenId(this string value, Network network)
     {
-        if (!TokenId.TryParse(value, Network.Mainnet, out var tokenId))
+        if (!TokenId.TryParse(value, network, out var tokenId))
             throw new Exception($"Unable to parse TokenId: \"{value}\"");
 
         return tokenId;

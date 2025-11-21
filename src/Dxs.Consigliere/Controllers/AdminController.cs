@@ -3,13 +3,14 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Extensions;
+using Dxs.Consigliere.Services;
 using Microsoft.AspNetCore.Mvc;
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Controllers;
 
 [Route("api/admin")]
-public class AdminController: BaseController
+public class AdminController(INetworkProvider networkProvider) : BaseController
 {
     [HttpPost("manage/address")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -55,7 +56,7 @@ public class AdminController: BaseController
         [FromServices] ITransactionFilter transactionFilter
     )
     {
-        if (!TokenId.TryParse(request.TokenId, Network.Mainnet, out var tokenId))
+        if (!TokenId.TryParse(request.TokenId, networkProvider.Network, out var tokenId))
             return BadRequest($"Unable to parse TokenId: \"{request.TokenId}\"");
 
         try

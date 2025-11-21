@@ -20,6 +20,7 @@ public class TransactionStore(
     IDocumentStore store,
     IPublisher mediator,
     IOptions<TransactionFilterConfig> config,
+    INetworkProvider networkProvider,
     ILogger<TransactionStore> logger
 ): IMetaTransactionStore
 {
@@ -51,7 +52,7 @@ public class TransactionStore(
 
         foreach (var token in config.Value.Tokens)
         {
-            if (TokenId.TryParse(token, Network.Mainnet, out var tokenId))
+            if (TokenId.TryParse(token, networkProvider.Network, out var tokenId))
                 result.Add(tokenId);
             else
                 throw new Exception($"Malformed tokenId in database: {token}");
@@ -65,7 +66,7 @@ public class TransactionStore(
 
         while (await stream.MoveNextAsync())
         {
-            if (TokenId.TryParse(stream.Current.Document, Network.Mainnet, out var tokenId))
+            if (TokenId.TryParse(stream.Current.Document, networkProvider.Network, out var tokenId))
                 result.Add(tokenId);
             else
                 throw new Exception($"Malformed tokenId in database: {stream.Current.Document}");
@@ -589,7 +590,7 @@ if (this.{nameof(MetaOutput.SpendTxId)} == ${nameof(MetaOutput.SpendTxId)}) {{
                 await session.SaveChangesAsync();
 
                 var transaction = rawData != null
-                    ? Transaction.Parse(rawData.Hex, Network.Mainnet)
+                    ? Transaction.Parse(rawData.Hex, networkProvider.Network)
                     : null;
 
                 logger.LogError("Transaction was removed: {@Transaction}",
