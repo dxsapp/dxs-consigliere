@@ -15,6 +15,7 @@ public class BroadcastService(
     IBitcoindService bitcoindService,
     IDocumentStore documentStore,
     IUtxoCache utxoCache,
+    INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<BroadcastService> logger
 ): IBroadcastService
@@ -29,7 +30,7 @@ public class BroadcastService(
 
     public Task<Broadcast> Broadcast(string transaction, string batchId = null)
     {
-        if (!Transaction.TryParse(transaction, Network.Mainnet, out var parsed))
+        if (!Transaction.TryParse(transaction, networkProvider.Network, out var parsed))
             throw new Exception("Unable to parse transaction");
 
         return Broadcast(parsed, batchId);

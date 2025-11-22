@@ -38,22 +38,19 @@ It maintains an accurate, real-time state of all STAS token UTXOs by tracing the
 
 ```bash
 docker run -p 5000:5000 \
--e "RavenDb:Urls:0=RAVEN URL" \
--e "RavenDb:DbName=Consigliere" \
--e "ZmqClient:RawTx2Address=tcp://NODE URL" \
--e "ZmqClient:RemovedFromMempoolBlockAddress=tcp://NODE URL" \
--e "ZmqClient:DiscardedFromMempoolAddress=tcp://NODE URL" \
--e "ZmqClient:HashBlock2Address=tcp://NODE URL" \
--e "BsvNodeApi:BaseUrl=NODE URL" \
--e "BsvNodeApi:User=USER" \
--e "BsvNodeApi:Password=PASSWORD \
--e "TransactionFilter:Addresses:0=BSV ADDRESS 1" \
--e "TransactionFilter:Addresses:1=BSV ADDRESS 2" \
--e "TransactionFilter:Addresses:2=BSV ADDRESS ETC" \
--e "TransactionFilter:Tokens:0=STAS TOKEN ID" \
--e "TransactionFilter:Tokens:1=STAS TOKEN ID" \
-consigliere:latest
+  -e "RavenDb__Urls__0=http://ravendb:8080" \
+  -e "RavenDb__DbName=Consigliere" \
+  -e "BsvNodeApi__BaseUrl=http://your-node:18332" \
+  -e "BsvNodeApi__User=your_user" \
+  -e "BsvNodeApi__Password=your_password" \
+  -e "ZmqClient__RawTx2Address=tcp://your-node:28332" \
+  -e "ZmqClient__RemovedFromMempoolBlockAddress=tcp://your-node:28332" \
+  -e "ZmqClient__DiscardedFromMempoolAddress=tcp://your-node:28332" \
+  -e "ZmqClient__HashBlock2Address=tcp://your-node:28332" \
+  dxsapp/consigliere:latest
 ```
+
+Use Admin API to add addresses/tokens to watch after startup.
 
 ## 📦 Manual Setup
 
@@ -65,42 +62,64 @@ git clone https://github.com/dxsapp/dxs-consigliere.git
 cd dxs-consigliere/src/Dxs.Consigliere
 ```
 
-## Setup
+## Configuration
 
-Update the appsettings.json file according to the requirements.
+### Using appsettings.json
+
+Create `src/Dxs.Consigliere/appsettings.Development.json` for local development:
 
 ```json
-// Add some BSV addresses and/or STAS token IDs to TransactionFilter:
-"TransactionFilter": {
-  "Addresses": [
-    // If you specify a BSV address here, Consigliere will build an index for all new transactions related to this address of all output types it recognizes: P2PKH, STAS, 1SatMnee.
-  ],
-  "Tokens": [
-    // If you specify a STAS token ID here, Consigliere will build an index for all new STAS transactions related to this STAS token.
-  ]
-},
-
-// Update your RavenDB connection details:
-"RavenDb": {
-  "Urls": [
-    "http://localhost:8080"
-  ],
-  "DbName": "Consigliere"
-},
-
-// Add your BSV Node API and ZMQ client settings:
-"ZmqClient": {
-  "RawTx2Address": "tcp://{Node IP or Domain}:{Default port is 28332}",
-  "RemovedFromMempoolBlockAddress": "tcp://{Node IP or Domain}:{Default port is 28332}",
-  "DiscardedFromMempoolAddress": "tcp://{Node IP or Domain}:{Default port is 28332}",
-  "HashBlock2Address": "tcp://{Node IP or Domain}:{Default port is 28332}"
-},
-"BsvNodeApi": {
-  "BaseUrl": "http{s}://{Node IP or Domain}:{Default port is 8332}",
-  "User": "{Node user}",
-  "Password": "{Node user password}"
-},
+{
+  "Network": "Testnet",
+  "RavenDb": {
+    "Urls": ["http://localhost:8080"],
+    "DbName": "Consigliere"
+  },
+  "ZmqClient": {
+    "RawTx2Address": "tcp://localhost:28332",
+    "RemovedFromMempoolBlockAddress": "tcp://localhost:28332",
+    "DiscardedFromMempoolAddress": "tcp://localhost:28332",
+    "HashBlock2Address": "tcp://localhost:28332"
+  },
+  "BsvNodeApi": {
+    "BaseUrl": "http://localhost:18332",
+    "User": "your_rpc_user",
+    "Password": "your_rpc_password"
+  },
+  "TransactionFilter": {
+    "Addresses": [],
+    "Tokens": []
+  }
+}
 ```
+
+**Configuration Notes**:
+- `Network`: Set to `"Mainnet"` or `"Testnet"` to match your BSV node
+- RavenDB: `8080` (default)
+- BSV Node RPC: `8332` (mainnet) or `18332` (testnet)
+- BSV Node ZMQ: `28332` (default)
+
+### Managing Watched Addresses & Tokens
+
+Use the **Admin API** to dynamically add/remove addresses and tokens (recommended):
+
+```bash
+# Add an address to watch
+POST /api/admin/manage/address
+{
+  "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+  "name": "Genesis Address"
+}
+
+# Add a STAS token to watch
+POST /api/admin/manage/stas-token
+{
+  "tokenId": "542a56ec7a307fd68bf925d8f4d525ca61e868ad",
+  "symbol": "USDT-TON"
+}
+```
+
+These settings persist in RavenDB and survive restarts. Alternatively, you can bootstrap addresses/tokens in `TransactionFilter` config, but the API approach is more flexible.
 
 ## Run
 

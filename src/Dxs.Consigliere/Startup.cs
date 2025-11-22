@@ -89,6 +89,8 @@ public class Startup(IConfiguration configuration)
         // Add self dependencies
         services
             .Configure<AppConfig>(configuration)
+            .Configure<NetworkConfig>(configuration)
+            .AddSingleton<INetworkProvider, NetworkProvider>()
             .AddTransient<IBitcoindService, BitcoindService>()
             .AddTransient<IBroadcastProvider>(sp => sp.GetRequiredService<IBitcoindService>())
 

@@ -22,6 +22,7 @@ public class AddressHistoryService: IAddressHistoryService, IDisposable
 {
     private readonly IDocumentStore _documentStore;
     private readonly IConnectionManager _connectionManager;
+    private readonly INetworkProvider _networkProvider;
     private readonly ILogger _logger;
 
     private readonly IDisposable _subscription;
@@ -30,11 +31,13 @@ public class AddressHistoryService: IAddressHistoryService, IDisposable
         IDocumentStore documentStore,
         IFilteredTransactionMessageBus filteredTransactionMessageBus,
         IConnectionManager connectionManager,
+        INetworkProvider networkProvider,
         ILogger<AddressHistoryService> logger
     )
     {
         _documentStore = documentStore;
         _connectionManager = connectionManager;
+        _networkProvider = networkProvider;
         _logger = logger;
 
         _subscription = filteredTransactionMessageBus.SubscribeAsync(OnTransactionFound, OnTransactionFoundError);
@@ -75,7 +78,7 @@ public class AddressHistoryService: IAddressHistoryService, IDisposable
                     continue;
                 }
 
-                tokenIds.Add(tokenIdStr.EnsureValidTokenId());
+                tokenIds.Add(tokenIdStr.EnsureValidTokenId(_networkProvider.Network));
             }
         }
 
@@ -135,7 +138,7 @@ public class AddressHistoryService: IAddressHistoryService, IDisposable
 
             if (output.Type == ScriptType.NullData && note == null)
             {
-                note = ParseNote(output.ScriptPubKey, transaction.Raw);
+                note = ParseNote(output.ScriptPubKey, transaction.Raw, _networkProvider.Network);
             }
         }
 
@@ -155,7 +158,7 @@ public class AddressHistoryService: IAddressHistoryService, IDisposable
     private void OnTransactionFoundError(Exception exception)
         => _logger.LogError(exception, "Failed to process FilteredTransactionMessage");
 
-    public static string ParseNote(Slice scriptPubKey, byte[] transactionRaw)
+    public static string ParseNote(Slice scriptPubKey, byte[] transactionRaw, Network network)
     {
         if (scriptPubKey.Length > 200)
             return null;
@@ -163,7 +166,7 @@ public class AddressHistoryService: IAddressHistoryService, IDisposable
         var start = scriptPubKey.Start;
         var end = scriptPubKey.Start + scriptPubKey.Length;
         var script = transactionRaw[start..end];
-        var reader = LockingScriptReader.Read(script, Network.Mainnet);
+        var reader = LockingScriptReader.Read(script, network);
 
         return ParseNote(reader);
     }

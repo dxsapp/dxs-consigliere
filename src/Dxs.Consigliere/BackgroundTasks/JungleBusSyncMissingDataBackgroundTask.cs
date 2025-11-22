@@ -10,6 +10,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
+using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ public class JungleBusSyncMissingDataBackgroundTask(
     ITxMessageBus txMessageBus,
     ITransactionFilter transactionFilter,
     IServiceProvider serviceProvider,
+    INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<JungleBusSyncMissingDataBackgroundTask> logger
 ): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
@@ -190,7 +192,7 @@ public class JungleBusSyncMissingDataBackgroundTask(
         {
             var transactionDto = await GetTransaction(transactionId);
             var txRaw = Convert.FromBase64String(transactionDto.TransactionBase64);
-            var transaction = Transaction.Parse(txRaw, Network.Mainnet);
+            var transaction = Transaction.Parse(txRaw, networkProvider.Network);
 
             await transactionStore.SaveTransaction(
                 transaction,
@@ -242,7 +244,7 @@ public class JungleBusSyncMissingDataBackgroundTask(
                     }
                     else
                     {
-                        var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), Network.Mainnet);
+                        var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), networkProvider.Network);
 
                         txMessageBus.Post(TxMessage.FoundInBlock(
                             transaction,

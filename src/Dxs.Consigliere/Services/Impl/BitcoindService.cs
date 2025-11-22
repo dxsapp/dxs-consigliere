@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class BitcoindService(IRpcClient rpcClient, ILogger<BitcoindService> logger): IBitcoindService
+public class BitcoindService(IRpcClient rpcClient, INetworkProvider networkProvider, ILogger<BitcoindService> logger): IBitcoindService
 {
     public string Name => "Rpc";
 
@@ -42,7 +42,7 @@ public class BitcoindService(IRpcClient rpcClient, ILogger<BitcoindService> logg
             var blockId = await rpcClient.GetBlockHash(height - count).EnsureSuccess();
             var block = await rpcClient.GetBlockAsStream(blockId);
 
-            var blockReader = BlockReader.Parse(block, Network.Mainnet);
+            var blockReader = BlockReader.Parse(block, networkProvider.Network);
 
             return blockReader;
         }
@@ -119,7 +119,7 @@ public class BitcoindService(IRpcClient rpcClient, ILogger<BitcoindService> logg
             return (null, false);
         }
 
-        var tx = Transaction.Parse(response.Result, Network.Mainnet);
+        var tx = Transaction.Parse(response.Result, networkProvider.Network);
 
         return (tx, false);
     }
