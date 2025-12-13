@@ -17,7 +17,7 @@ public class AddressController: BaseController
         [FromServices] IUtxoManager utxoManager
     ) => Ok(await utxoManager.GetBalance(request));
 
-    [HttpPost("utxo-set/batch")]
+    [HttpPost("batch/utxo-set")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces(typeof(GetUtxoSetResponse))]

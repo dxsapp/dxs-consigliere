@@ -5,14 +5,13 @@ using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Controllers;
 
 [Route("api/tx")]
-public class TransactionController: BaseController
+public class TransactionController : BaseController
 {
     [HttpGet("get/{id}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -36,12 +35,11 @@ public class TransactionController: BaseController
                 : InternalError("Missing transaction data");
     }
 
-    [HttpGet("get/batch")]
     [HttpGet("batch/get")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(Dictionary<string, string>))]
     public async Task<IActionResult> GetTransactions(
-        [Required] [FromQuery] List<string> ids,
+        [Required][FromQuery] List<string> ids,
         [FromServices] IDocumentStore store
     )
     {
@@ -68,7 +66,7 @@ public class TransactionController: BaseController
         var result = transactions
             .ToDictionary(
                 x => TransactionHexData.Parse(x.Key),
-                x => x.Value is {} mtx
+                x => x.Value is { } mtx
                     ? mtx.Hex
                     : string.Empty
             );

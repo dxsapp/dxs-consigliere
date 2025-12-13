@@ -69,21 +69,10 @@ public class Startup(IConfiguration configuration)
             .AddControllers()
             .AddJsonOptions(options =>
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter())).Services
-            .AddEndpointsApiExplorer()
             .AddResponseCompression(x => { x.EnableForHttps = true; })
             .AddRequestDecompression()
-            .AddSwaggerGen(options =>
-            {
-                options.SwaggerDoc(
-                    "Consigliere",
-                    new OpenApiInfo
-                    {
-                        Version = "v1",
-                        Title = "Consigliere API",
-                        Description = "Dxs Consigliere API",
-                    }
-                );
-            })
+            .AddEndpointsApiExplorer()
+            .AddSwaggerGen()
             ;
 
         // Add self dependencies
@@ -145,11 +134,11 @@ public class Startup(IConfiguration configuration)
         app.UseStaticFiles();
         app.UseRouting();
 
-        if (env.IsProduction())
-        {
-            //app.UseHttpsRedirection();
-            app.UseHsts();
-        }
+        // if (env.IsProduction())
+        // {
+        //     //app.UseHttpsRedirection();
+        //     app.UseHsts();
+        // }
 
         app.UseAuthentication();
         app.UseAuthorization();
@@ -165,7 +154,7 @@ public class Startup(IConfiguration configuration)
         app.UseSignalR();
 
         app.UseSwagger();
-        app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/Consigliere/swagger.json", "Consigliere"); });
+        app.UseSwaggerUI();
     }
 
     public static void InitializeDatabase(IServiceProvider serviceProvider)
