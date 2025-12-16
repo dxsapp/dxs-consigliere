@@ -1,7 +1,10 @@
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
+using Dxs.Bsv.Rpc.Models;
+using Dxs.Bsv.Rpc.Services;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Dto.Requests;
+using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -46,7 +49,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
 
         return Ok();
     }
-    
+
     [HttpPost("manage/stas-token")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -78,5 +81,32 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         }
 
         return Ok();
+    }
+
+    [HttpGet("blockchain/sync-status")]
+    [Produces(typeof(SyncStatusResponse))]
+    public async Task<IActionResult> GetSyncState(
+        [FromServices] IDocumentStore documentStore,
+        [FromServices] IRpcClient rpcClient
+    )
+    {
+        var top = await rpcClient.GetBlockCount().EnsureSuccess();
+        var topHash = await rpcClient.GetBlockHash(top).EnsureSuccess();
+
+        using var session = documentStore.GetSession();
+
+        var topKnownBlock = await session
+            .Query<BlockProcessContext>()
+            .Where(x => x.Height != 0)
+            .OrderByDescending(x => x.Height)
+            .FirstAsync();
+        var isReorg = topKnownBlock != null && top == topKnownBlock.Height && topHash != topKnownBlock.Id;
+        var result = new SyncStatusResponse
+        {
+            Height = top,
+            IsSynced = topKnownBlock != null && !isReorg && top == topKnownBlock.Height,
+        };
+
+        return Ok(result);
     }
 }

@@ -7,6 +7,7 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 using Microsoft.AspNetCore.Mvc;
 using Raven.Client.Documents;
+using Raven.Client.Documents.Linq;
 
 namespace Dxs.Consigliere.Controllers;
 
@@ -39,7 +40,7 @@ public class TransactionController : BaseController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(Dictionary<string, string>))]
     public async Task<IActionResult> GetTransactions(
-        [Required][FromQuery] List<string> ids,
+        [Required] [FromQuery] List<string> ids,
         [FromServices] IDocumentStore store
     )
     {
@@ -70,6 +71,52 @@ public class TransactionController : BaseController
                     ? mtx.Hex
                     : string.Empty
             );
+
+        return Ok(result);
+    }
+
+    [HttpGet("by-height/get")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(GetTransactionsByBlockResponse))]
+    public async Task<IActionResult> GetTransactionsByBlock(
+        [Required] [FromQuery] int blockHeight,
+        [Required] [FromQuery] int skip,
+        [FromServices] IDocumentStore store,
+        CancellationToken cancellationToken
+    )
+    {
+        const int maxTxCount = 500;
+
+        if (blockHeight == 0)
+            return BadRequest("Block height not specified");
+
+        using var session = store.GetNoCacheNoTrackingSession();
+
+        var txIds = await session.Query<MetaTransaction>()
+            .Where(x => x.Height == blockHeight)
+            .OrderBy(x => x.Index)
+            .Skip(skip)
+            .Take(maxTxCount)
+            .Select(x => x.Id)
+            .ToListAsync(token: cancellationToken);
+        var result = new GetTransactionsByBlockResponse
+        {
+            BlockHeight = blockHeight,
+            PageSize = maxTxCount,
+        };
+        var datasIds = txIds.Select(TransactionHexData.GetId).ToList();
+        var datasQuery = session
+            .Query<TransactionHexData>()
+            .Where(x => x.TxId.In(datasIds));
+        var enumerator = session
+            .Enumerate((IQueryable<TransactionHexData>)datasQuery)
+            .WithCancellation(cancellationToken);
+
+        await foreach (var (data, totalCount) in enumerator)
+        {
+            result.TotalCount = totalCount;
+            result.Transactions.Add(data.TxId, data.Hex);
+        }
 
         return Ok(result);
     }
