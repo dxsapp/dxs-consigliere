@@ -1,8 +1,16 @@
 # Consigliere
 
-_Developed by DXS_
+A high-performance BSV indexer designed for scalable payment processing and real-time UTXO tracking.
+Built for payment processors that need real-time visibility, low latency,
+and cost-efficient blockchain monitoring at scale.
 
-> **Consigliere – The DXS-built BSV STAS indexer with Back-to-Genesis resolution, powered by RavenDB and real-time SignalR updates.**
+- **Selective UTXO indexing** – Track only relevant payment and settlement addresses, not the full chain  
+- **High-throughput ready** – Designed for large volumes of micro-payments with minimal latency  
+- **Dynamic address onboarding** – Add new payment or merchant addresses instantly, without reindexing  
+- **Back-to-Genesis for STAS** – Full provenance verification for token-based payment flows  
+- **Real-time updates** – Live transaction and balance notifications via SignalR  
+- **RavenDB-powered** – Fast, scalable document storage optimized for transactional workloads  
+
 
 ---
 
@@ -11,15 +19,37 @@ _Developed by DXS_
 **Consigliere** is a high-performance blockchain indexer for the Bitcoin SV (BSV) network, purpose-built to handle **STAS token** transactions and fully resolve the **Back to Genesis** problem.  
 It maintains an accurate, real-time state of all STAS token UTXOs by tracing their provenance back to the original issuance transaction, ensuring reliable token ownership verification.
 
+Rather than indexing the entire blockchain, Consigliere is built around **selective UTXO indexing**. It monitors only explicitly configured addresses—such as payment, settlement, or merchant deposit addresses—making it well suited for high-throughput payment flows and micro-payment workloads. This targeted approach significantly reduces infrastructure load, storage requirements, and operational costs.
+
+Addresses can be **added dynamically at runtime**, allowing payment processors to onboard new merchants, rotate addresses, or scale transaction volume without reindexing or service interruption. Combined with real-time updates delivered via SignalR and a RavenDB-backed data model, Consigliere delivers low-latency visibility into both confirmed and unconfirmed funds, enabling fast payment detection, reconciliation, and settlement at scale.
+
 ---
 
 ## 🚀 Key Features
 
-- **Back to Genesis Resolution** – Automatically walks transaction history to the original genesis UTXO for each STAS token, guaranteeing accurate lineage tracking.
-- **Real-Time Indexing** – Efficiently processes BSV blocks as they are mined, keeping the index up to date.
-- **Robust Data Model with RavenDB** – Stores STAS token metadata, ownership, and transaction history in a highly-performant RavenDB database.
-- **Fault Tolerance** – Resilient to blockchain reorganizations, with automatic reindexing of affected transactions.
-- **Live WebSocket Updates (SignalR)** – Push-based notifications for token balance changes, transaction events, and provenance updates.
+- **Selective UTXO Indexing**  
+  Indexes only explicitly configured addresses (payment, settlement, merchant deposits), avoiding full-chain address tracking and significantly reducing infrastructure load and operating costs.
+
+- **High-Throughput Payment Processing**  
+  Designed to handle large volumes of transactions and micro-payments with low latency, making it suitable for sustained, high-frequency payment workloads.
+
+- **STAS Back-to-Genesis Resolution**  
+  Fully resolves token provenance by tracing each STAS UTXO back to its original genesis transaction, ensuring accurate ownership and lineage verification.
+
+- **Multiple Transaction Types Support (STAS & P2PKH)**  
+  Natively indexes various transaction types, including STAS tokens and standard P2PKH transactions, enabling unified handling of token-based and native BSV payment flows.
+
+- **Dynamic Address Onboarding**  
+  Allows new addresses to be added at runtime without reindexing or downtime, supporting merchant onboarding, address rotation, and scalable payment operations.
+
+- **Real-Time Event Streaming (SignalR)**  
+  Push-based WebSocket notifications for transaction detection, balance changes, and UTXO state updates, enabling immediate reaction to incoming payments.
+
+- **RavenDB-Powered Data Model**  
+  Uses RavenDB’s document-oriented architecture for fast writes, efficient queries, and scalable storage of UTXO state and transaction history.
+
+- **Blockchain Reorganization Safety**  
+  Automatically detects and handles chain reorganizations, reindexing affected data to maintain a consistent and correct view of the blockchain state.
 
 ---
 
