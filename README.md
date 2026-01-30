@@ -168,6 +168,79 @@ dotnet run
 
 Swagger can be found at the http://localhost:5000/swagger
 
+## WebSocket API (SignalR)
+
+Hub route: `/ws/consigliere`
+
+Server methods (client calls):
+- `SubscribeToTransactionStream({ address, slim })`
+- `UnsubscribeToTransactionStream({ address, slim })`
+- `GetBalance({ addresses, tokenIds })`
+- `GetHistory({ address, tokenIds, desc, skipZeroBalance, skip, take })`
+- `GetUtxoSet({ tokenId, address, satoshis })`
+- `GetTransactions([txId, ...])`
+- `Broadcast(rawTxHex)`
+
+Client callbacks (server calls):
+- `OnTransactionFound(hex)`
+- `OnTransactionDeleted(txid)`
+- `OnBalanceChanged(balanceDto)`
+
+### Client example (JavaScript, SignalR)
+
+```js
+import * as signalR from "@microsoft/signalr";
+
+const connection = new signalR.HubConnectionBuilder()
+  .withUrl("http://localhost:5000/ws/consigliere")
+  .withAutomaticReconnect()
+  .build();
+
+connection.on("OnTransactionFound", (hex) => {
+  console.log("tx found", hex);
+});
+
+connection.on("OnBalanceChanged", (balanceDto) => {
+  console.log("balance changed", balanceDto);
+});
+
+await connection.start();
+
+await connection.invoke("SubscribeToTransactionStream", {
+  address: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+  slim: false
+});
+```
+
+### Client example (.NET, SignalR)
+
+```csharp
+using Microsoft.AspNetCore.SignalR.Client;
+
+var connection = new HubConnectionBuilder()
+    .WithUrl("http://localhost:5000/ws/consigliere")
+    .WithAutomaticReconnect()
+    .Build();
+
+connection.On<string>("OnTransactionFound", hex =>
+{
+    Console.WriteLine($"tx found {hex}");
+});
+
+connection.On<object>("OnBalanceChanged", balance =>
+{
+    Console.WriteLine($"balance changed {balance}");
+});
+
+await connection.StartAsync();
+
+await connection.InvokeAsync("SubscribeToTransactionStream", new
+{
+    address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+    slim = false
+});
+```
+
 ## Author
 
-- Oleg (author) — https://github.com/panagushin
+- Oleg Panagushin (author) — https://github.com/panagushin
