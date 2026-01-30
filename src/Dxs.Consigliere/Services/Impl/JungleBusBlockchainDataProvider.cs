@@ -1,4 +1,5 @@
 using System.Reactive.Disposables;
+
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
@@ -9,7 +10,9 @@ using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
+
 using Microsoft.Extensions.Options;
+
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Consigliere.Services.Impl;
@@ -20,13 +23,13 @@ public class JungleBusBlockchainDataProvider(
     INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<JungleBusBlockchainDataProvider> logger
-): IBlockDataProvider
+) : IBlockDataProvider
 {
     private readonly JungleBusConfig _jungleBusConfig = appConfig.Value.JungleBus;
     private readonly ILogger _logger = logger;
 
     public bool Enabled => _jungleBusConfig.Enabled;
-    
+
     public Task<int> ProcessBlock(BlockProcessContext context, CancellationToken cancellationToken)
         => ProcessBlock(context.Height, cancellationToken);
 
@@ -39,11 +42,11 @@ public class JungleBusBlockchainDataProvider(
         {
             throw new ApplicationException("JungleBus is not enabled");
         }
-        
+
         using var _ = serviceProvider.GetScopedService(out JungleBusWebsocketClient jungleBus);
 
         await jungleBus.StartSubscription(subscriptionId);
-        
+
         return await ProcessBlock(height, jungleBus, cancellationToken);
     }
 
@@ -81,9 +84,9 @@ public class JungleBusBlockchainDataProvider(
 
                             txMessageBus.Post(message);
                         }
-                        
+
                         txCount++;
-                        
+
                         if ((txCount + 1) % 10000 == 0 || txCount + 1 == txsInBlock)
                             _logger.LogDebug("JungleBus processed: {Count}", txCount);
                     }

@@ -11,14 +11,16 @@ using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
+
 using Microsoft.Extensions.Logging;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
 using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class AddressHistoryService: IAddressHistoryService, IDisposable
+public class AddressHistoryService : IAddressHistoryService, IDisposable
 {
     private readonly IDocumentStore _documentStore;
     private readonly IConnectionManager _connectionManager;

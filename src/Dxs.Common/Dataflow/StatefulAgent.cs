@@ -1,9 +1,10 @@
 using System.Threading.Tasks.Dataflow;
+
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Common.Dataflow;
 
-public sealed class StatefulAgent<TState, TMessage>: IAgent<TMessage>, IDisposable
+public sealed class StatefulAgent<TState, TMessage> : IAgent<TMessage>, IDisposable
 {
     private TState _state;
     private readonly ActionBlock<TMessage> _actionBlock;

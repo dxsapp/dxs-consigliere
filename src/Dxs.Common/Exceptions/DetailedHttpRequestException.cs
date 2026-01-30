@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
+
 using Dxs.Common.Extensions;
 
 namespace Dxs.Common.Exceptions;
@@ -18,7 +19,7 @@ public class DetailedHttpRequestException(
     public static async Task<DetailedHttpRequestException> FromResponseAsync(HttpResponseMessage response)
     {
         string responseContent;
-        
+
         try
         {
             responseContent = await response.Content.ReadAsStringAsync();

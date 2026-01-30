@@ -5,18 +5,22 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+
 using ComposableAsync;
+
 using Dxs.Common.Exceptions;
 using Dxs.Common.Extensions;
 using Dxs.Infrastructure.Common;
 using Dxs.Infrastructure.WoC.Dto;
+
 using Newtonsoft.Json;
+
 using RateLimiter;
 
 namespace Dxs.Infrastructure.WoC;
 
 // https://developers.whatsonchain.com/
-public class WhatsOnChainRestApiClient(HttpClient client): IWhatsOnChainRestApiClient
+public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApiClient
 {
     private static class Internal
     {

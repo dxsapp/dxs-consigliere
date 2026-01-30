@@ -6,7 +6,7 @@ namespace Dxs.Consigliere.Data.Indexes;
 
 using Raven.Client.Documents.Indexes;
 
-public class AddressHistoryIndex: AbstractIndexCreationTask<MetaTransaction, AddressHistory>
+public class AddressHistoryIndex : AbstractIndexCreationTask<MetaTransaction, AddressHistory>
 {
     public AddressHistoryIndex()
     {

@@ -1,15 +1,16 @@
 using Dxs.Bsv.Script;
 using Dxs.Consigliere.Data.Models.Transactions;
+
 using Raven.Client.Documents.Indexes;
 
 namespace Dxs.Consigliere.Data.Indexes;
 
-public class StasUtxoSetIndex: AbstractIndexCreationTask<MetaOutput>
+public class StasUtxoSetIndex : AbstractIndexCreationTask<MetaOutput>
 {
     public class Result
     {
         public string Id { get; set; }
-        public  string TxId { get; set; }
+        public string TxId { get; set; }
         public string Address { get; set; }
         public string TokenId { get; set; }
         public long Satoshis { get; set; }

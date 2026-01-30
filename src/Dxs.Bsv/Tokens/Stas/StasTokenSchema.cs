@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 
 namespace Dxs.Bsv.Tokens.Stas;
 
-public class StasTokenSchema: ITokenSchema
+public class StasTokenSchema : ITokenSchema
 {
     [JsonPropertyName("name")]
     public string Name { get; init; }

@@ -1,13 +1,14 @@
-using SpanJson;
-using SpanJson.Formatters;
 using System;
 using System.Globalization;
 
+using SpanJson;
+using SpanJson.Formatters;
+
 namespace Dxs.Infrastructure.Serialization;
 
-public sealed class DecimalAsStringFormatter: ICustomJsonFormatter<decimal>
+public sealed class DecimalAsStringFormatter : ICustomJsonFormatter<decimal>
 {
-    public static readonly DecimalAsStringFormatter Default = new ();
+    public static readonly DecimalAsStringFormatter Default = new();
 
     public object Arguments { get; set; }
 
@@ -19,7 +20,7 @@ public sealed class DecimalAsStringFormatter: ICustomJsonFormatter<decimal>
     public decimal Deserialize(ref JsonReader<byte> reader)
     {
         var value = StringUtf8Formatter.Default.Deserialize(ref reader);
-            
+
         if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal result))
         {
             return result;
@@ -36,7 +37,7 @@ public sealed class DecimalAsStringFormatter: ICustomJsonFormatter<decimal>
     public decimal Deserialize(ref JsonReader<char> reader)
     {
         var value = StringUtf16Formatter.Default.Deserialize(ref reader);
-            
+
         if (decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal result))
         {
             return result;

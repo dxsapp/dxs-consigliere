@@ -1,4 +1,4 @@
-﻿using System.Reactive;
+using System.Reactive;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 
@@ -6,10 +6,10 @@ namespace Dxs.Common.Extensions;
 
 public static class ObservableExtensions
 {
-    private static readonly Action<Exception> IgnoreError = _ => {};
+    private static readonly Action<Exception> IgnoreError = _ => { };
 
     private static IObservable<T> Handle<T>(this IObservable<T> tasks, Action<Exception> onError) =>
-        tasks.Do(_ => {}, onError ?? IgnoreError);
+        tasks.Do(_ => { }, onError ?? IgnoreError);
 
     private static IObservable<Unit> SelectAsync<T>(this IObservable<T> source, Func<T, Task> onNext) =>
         source

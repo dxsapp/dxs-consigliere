@@ -1,4 +1,4 @@
-﻿namespace Dxs.Common.Extensions;
+namespace Dxs.Common.Extensions;
 
 /// <summary>
 /// Provides access to <see cref="Task"/> with configurable and resettable timeout.
@@ -24,7 +24,7 @@ public class TimedTaskSource
         _timeoutTask = Task.Delay(timeout, _cancellationToken);
         _taskLazy = new(Await);
         _timeoutChangeEvent = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        
+
         oldEvent?.SetResult();
     }
 

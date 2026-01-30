@@ -1,9 +1,9 @@
 namespace Dxs.Consigliere.Data.Models;
 
-public class MissingTransaction: Entity
+public class MissingTransaction : Entity
 {
-    public string TxId { get; set; } 
-        
+    public string TxId { get; set; }
+
     public override string GetId() => GetId(TxId);
     public static string GetId(string txId) => $"MissingTransaction/{txId}";
 

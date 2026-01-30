@@ -13,4 +13,4 @@ public record GetUtxoSetRequest(
     string Address,
     [SwaggerParameter("Optional. If specified ")]
     long? Satoshis
-): AddressBaseRequest(Address);
+) : AddressBaseRequest(Address);

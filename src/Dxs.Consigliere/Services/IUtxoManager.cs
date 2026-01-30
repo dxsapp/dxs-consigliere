@@ -3,6 +3,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
+
 using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services;

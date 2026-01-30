@@ -1,13 +1,14 @@
 using System;
 using System.Globalization;
+
 using SpanJson;
 using SpanJson.Formatters;
 
 namespace Dxs.Infrastructure.Serialization;
 
-public sealed class DoubleAsStringFormatter: ICustomJsonFormatter<double>
+public sealed class DoubleAsStringFormatter : ICustomJsonFormatter<double>
 {
-    public static readonly DoubleAsStringFormatter Default = new ();
+    public static readonly DoubleAsStringFormatter Default = new();
 
     public object Arguments { get; set; }
 

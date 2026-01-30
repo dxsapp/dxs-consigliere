@@ -1,4 +1,5 @@
 using ComposableAsync;
+
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Rpc.Models;
@@ -11,8 +12,11 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.WoC;
 using Dxs.Infrastructure.WoC.Dto;
+
 using Microsoft.Extensions.Options;
+
 using RateLimiter;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
 
@@ -32,7 +36,7 @@ public class UnconfirmedTransactionsMonitor(
     IRpcClient rpcClient,
     IOptions<AppConfig> appConfig,
     ILogger<UnconfirmedTransactionsMonitor> logger
-): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
+) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     private readonly ILogger _logger = logger;
 
@@ -46,7 +50,7 @@ public class UnconfirmedTransactionsMonitor(
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
         var store = serviceProvider.GetRequiredService<IDocumentStore>();
-        
+
         using var _ = _logger.BeginScope("UnconfirmedTransactionsMonitor.Run: {StartedAt}", DateTime.UtcNow.ToUnixSeconds());
         using var session = store.GetSession();
 

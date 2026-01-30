@@ -1,8 +1,10 @@
 using Dxs.Consigliere.Data.Models;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Operations;
 using Raven.Client.Documents.Operations.CompareExchange;
 using Raven.Client.Documents.Session;
+
 using SessionOptions = Raven.Client.Documents.Session.SessionOptions;
 
 namespace Dxs.Consigliere.Extensions;
@@ -44,7 +46,7 @@ public static class DocumentStoreExtensions
     public static async Task<OperationResult> AddOrUpdateEntity<T>(
         this IDocumentStore store,
         T entity
-    ) where T: Entity
+    ) where T : Entity
     {
         var values = GetValues(entity);
 
@@ -55,7 +57,7 @@ public static class DocumentStoreExtensions
         this IDocumentStore store,
         T entity,
         Dictionary<string, object> values
-    ) where T: Entity
+    ) where T : Entity
     {
         return AddOrUpdateEntity(store, entity, values, values);
     }
@@ -65,7 +67,7 @@ public static class DocumentStoreExtensions
         T entity,
         Dictionary<string, object> insertValues,
         Dictionary<string, object> updateValues
-    ) where T: Entity
+    ) where T : Entity
     {
         var insertRequest = BuildInsertRequest(store, entity, insertValues);
         var updateRequest = BuildUpdateRequest(entity, updateValues);
@@ -92,7 +94,7 @@ public static class DocumentStoreExtensions
     public static async Task<bool> AddEntity<T>(
         this IDocumentStore store,
         T entity
-    ) where T: Entity
+    ) where T : Entity
     {
         var values = GetValues(entity);
         var insertRequest = BuildInsertRequest(store, entity, values);
@@ -116,7 +118,7 @@ public static class DocumentStoreExtensions
     public static async Task<bool> UpdateEntity<T>(
         this IDocumentStore store,
         T entity
-    ) where T: Entity
+    ) where T : Entity
     {
         var values = GetValues(entity);
         var updateRequest = BuildUpdateRequest(entity, values);
@@ -151,7 +153,7 @@ public static class DocumentStoreExtensions
         var insertScript = BuildInsertScript<TEntity>(store, updateScript);
         var updateRequest = new PatchRequest
         {
-            Script = updateScript, 
+            Script = updateScript,
             Values = values
         };
         var insertRequest = new PatchRequest
@@ -172,7 +174,7 @@ public static class DocumentStoreExtensions
         return result == PatchStatus.Patched;
     }
 
-    private static Dictionary<string, object> GetValues<T>(T entity) where T: Entity
+    private static Dictionary<string, object> GetValues<T>(T entity) where T : Entity
     {
         var values = new Dictionary<string, object>
         {
@@ -189,7 +191,7 @@ public static class DocumentStoreExtensions
         this IDocumentStore store,
         T entity,
         Dictionary<string, object> values
-    ) where T: Entity
+    ) where T : Entity
         => new()
         {
             Script = $@"
@@ -210,7 +212,7 @@ this['@metadata'] = {{
     private static PatchRequest BuildUpdateRequest<T>(
         T entity,
         Dictionary<string, object> values
-    ) where T: Entity
+    ) where T : Entity
         => new()
         {
             Script = $@"

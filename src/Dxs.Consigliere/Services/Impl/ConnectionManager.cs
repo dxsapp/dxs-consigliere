@@ -1,5 +1,6 @@
 using System.Reactive;
 using System.Reactive.Disposables;
+
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
@@ -8,10 +9,14 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.WebSockets;
+
 using MediatR;
+
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
+
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Consigliere.Services.Impl;

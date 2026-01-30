@@ -6,7 +6,7 @@ public class MetaTransaction
 {
     public class Input
     {
-        public Input(){}
+        public Input() { }
 
         public Input(MetaOutput output)
             => (Id, TxId, Vout)
@@ -19,7 +19,7 @@ public class MetaTransaction
 
     public class Output
     {
-        public Output(){}
+        public Output() { }
 
         public Output(MetaOutput output)
             => (Id, Satoshis, Type, Address, TokenId, Hash160)
@@ -34,14 +34,14 @@ public class MetaTransaction
     }
 
     public const int DefaultHeight = int.MaxValue;
-    
+
     public string Id { get; init; }
     public string Block { get; set; }
     public int Height { get; set; }
     public int Index { get; set; }
-    
+
     public long Timestamp { get; set; }
-    
+
     public IList<Input> Inputs { get; set; }
     public IList<Output> Outputs { get; set; }
 
@@ -53,11 +53,11 @@ public class MetaTransaction
     public bool IsRedeem { get; set; }
     public bool IsWithFee { get; set; }
     public bool IsWithNote { get; set; }
-    
+
     // public List<string> Roots { get; set; }
     public List<string> IllegalRoots { get; set; }
     public List<string> MissingTransactions { get; set; }
-    
+
     public bool AllStasInputsKnown { get; set; }
     public string RedeemAddress { get; set; }
     public string StasFrom { get; set; }

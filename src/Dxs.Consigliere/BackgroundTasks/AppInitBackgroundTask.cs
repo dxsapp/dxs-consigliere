@@ -9,8 +9,10 @@ using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.BackgroundTasks;
@@ -30,7 +32,7 @@ public class AppInitBackgroundTask(
 
     // ReSharper disable once NotAccessedField.Local
     private readonly ITransactionFilter _transactionFilter = transactionFilter;
-    
+
     private readonly AppConfig _appConfig = appConfig.Value;
     private readonly ILogger _logger = logger;
 

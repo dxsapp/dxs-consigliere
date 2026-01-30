@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 
 namespace Dxs.Common.Extensions;
@@ -17,23 +17,23 @@ public static class CollectionExtensions
         dictionary.Add(key, value);
         return value;
     }
-        
-    public static void AddOrUpdate<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key,  Action<TValue> update) where TValue: new()
+
+    public static void AddOrUpdate<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, Action<TValue> update) where TValue : new()
     {
         dictionary.TryAdd(key, new TValue());
         update(dictionary[key]);
     }
-        
-    public static void AddOrUpdate<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key,  TValue value) where TValue: new()
+
+    public static void AddOrUpdate<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value) where TValue : new()
     {
         dictionary.TryAdd(key, new TValue());
         dictionary[key] = value;
     }
 
-    public static TValue GetOrNull<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key) where TValue: class =>
+    public static TValue GetOrNull<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key) where TValue : class =>
         dictionary.TryGetValue(key, out var existing) ? existing : null;
 
-    public static TValue GetOrNull<TKey, TValue>(this IReadOnlyDictionary<TKey, TValue> dictionary, TKey key) where TValue: class =>
+    public static TValue GetOrNull<TKey, TValue>(this IReadOnlyDictionary<TKey, TValue> dictionary, TKey key) where TValue : class =>
         dictionary.TryGetValue(key, out var existing) ? existing : null;
 
     public static IEnumerable<TValue> Values<TKey, TValue>(this ILookup<TKey, TValue> lookup) => lookup.SelectMany(g => g);

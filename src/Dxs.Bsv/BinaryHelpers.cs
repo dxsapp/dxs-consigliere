@@ -33,7 +33,7 @@ public static class BinaryHelpers
     {
         return bytes.ToArray().Reverse();
     }
-        
+
     public static byte[] Reverse(this byte[] bytes)
     {
         var mIdx = bytes.Length - 1;

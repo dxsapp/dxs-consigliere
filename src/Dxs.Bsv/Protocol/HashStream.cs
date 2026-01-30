@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace Dxs.Bsv.Protocol;
 
-public class HashStream: Stream
+public class HashStream : Stream
 {
     private const int BufferSize = 4096;
     private readonly byte[] _buffer = ArrayPool<byte>.Shared.Rent(BufferSize);

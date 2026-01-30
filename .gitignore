@@ -62,7 +62,6 @@ nunit-*.xml
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
 *.sw?
 package-lock.json
 launchSettings.json

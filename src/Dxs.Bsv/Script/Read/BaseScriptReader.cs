@@ -1,4 +1,5 @@
 using System;
+
 using Dxs.Bsv.Protocol;
 
 namespace Dxs.Bsv.Script.Read;
@@ -39,75 +40,75 @@ public abstract class BaseScriptReader(BitcoinStreamReader bitcoinStreamReader, 
             switch (opCodeNum)
             {
                 case > 0 and < (byte)OpCode.OP_PUSHDATA1:
-                {
-                    var count = opCodeNum;
+                    {
+                        var count = opCodeNum;
 
-                    if (!HandleBytes(opCodeNum, count, tokenIdx, count))
-                        return -1;
+                        if (!HandleBytes(opCodeNum, count, tokenIdx, count))
+                            return -1;
 
-                    break;
-                }
+                        break;
+                    }
                 case (byte)OpCode.OP_PUSHDATA1:
-                {
-                    if (ReadBytes == ExpectedLength)
                     {
-                        if (!HandleRest(opCodeNum, tokenIdx))
+                        if (ReadBytes == ExpectedLength)
+                        {
+                            if (!HandleRest(opCodeNum, tokenIdx))
+                                return -1;
+
+                            break;
+                        }
+
+                        var count = BitcoinStreamReader.ReadByte();
+                        ReadBytes++;
+
+                        if (!HandleBytes(opCodeNum, count, tokenIdx, count))
                             return -1;
 
                         break;
                     }
-
-                    var count = BitcoinStreamReader.ReadByte();
-                    ReadBytes++;
-
-                    if (!HandleBytes(opCodeNum, count, tokenIdx, count))
-                        return -1;
-
-                    break;
-                }
                 case (byte)OpCode.OP_PUSHDATA2:
-                {
-                    if (ReadBytes + sizeof(ushort) >= ExpectedLength)
                     {
-                        if (!HandleRest(opCodeNum, tokenIdx))
+                        if (ReadBytes + sizeof(ushort) >= ExpectedLength)
+                        {
+                            if (!HandleRest(opCodeNum, tokenIdx))
+                                return -1;
+
+                            break;
+                        }
+
+                        var count = BitcoinStreamReader.ReadUInt16Le();
+                        ReadBytes += 2;
+
+                        if (!HandleBytes(opCodeNum, count, tokenIdx, count))
                             return -1;
 
                         break;
                     }
-
-                    var count = BitcoinStreamReader.ReadUInt16Le();
-                    ReadBytes += 2;
-
-                    if (!HandleBytes(opCodeNum, count, tokenIdx, count))
-                        return -1;
-
-                    break;
-                }
                 case (byte)OpCode.OP_PUSHDATA4:
-                {
-                    if (ReadBytes + sizeof(uint) >= ExpectedLength)
                     {
-                        if (!HandleRest(opCodeNum, tokenIdx))
+                        if (ReadBytes + sizeof(uint) >= ExpectedLength)
+                        {
+                            if (!HandleRest(opCodeNum, tokenIdx))
+                                return -1;
+
+                            break;
+                        }
+
+                        var count = BitcoinStreamReader.ReadUInt32Le();
+                        ReadBytes += 4;
+
+                        if (!HandleBytes(opCodeNum, count, tokenIdx, count))
                             return -1;
 
                         break;
                     }
-
-                    var count = BitcoinStreamReader.ReadUInt32Le();
-                    ReadBytes += 4;
-
-                    if (!HandleBytes(opCodeNum, count, tokenIdx, count))
-                        return -1;
-
-                    break;
-                }
                 default:
-                {
-                    if (!HandleTokenInternal(new ScriptReadToken(opCodeNum, default), tokenIdx, ReadBytes == ExpectedLength))
-                        return -1;
+                    {
+                        if (!HandleTokenInternal(new ScriptReadToken(opCodeNum, default), tokenIdx, ReadBytes == ExpectedLength))
+                            return -1;
 
-                    break;
-                }
+                        break;
+                    }
             }
 
             tokenIdx++;

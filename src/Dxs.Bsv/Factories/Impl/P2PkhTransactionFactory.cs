@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+
 using Dxs.Bsv.Factories.Models;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Transactions.Build;
 using Dxs.Common.Exceptions.Transactions;
 using Dxs.Common.Extensions;
 using Dxs.Common.Utils;
+
 using Microsoft.Extensions.Logging;
 
 namespace Dxs.Bsv.Factories.Impl;
@@ -15,7 +17,7 @@ namespace Dxs.Bsv.Factories.Impl;
 public class P2PkhTransactionFactory(
     IUtxoCache utxoCache,
     ILogger<P2PkhTransactionFactory> logger
-): IP2PkhTransactionFactory
+) : IP2PkhTransactionFactory
 {
     private readonly ILogger _logger = logger;
 

@@ -6,17 +6,23 @@ using System.Reactive.Subjects;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
 using Dxs.Common.Extensions;
 using Dxs.Common.Utils;
+
 using Microsoft.Extensions.Logging;
+
 using OneOf;
+
 using SpanJson;
+
 using TrustMargin.Common.Extensions;
+
 using Websocket.Client;
 
 namespace Dxs.Infrastructure.Websocket;
 
-public abstract class BaseWebsocketClient<TTickerDto>: IWebsocketClient
+public abstract class BaseWebsocketClient<TTickerDto> : IWebsocketClient
 {
     protected readonly ILogger Logger;
     protected readonly CompositeDisposable Subscriptions = new();

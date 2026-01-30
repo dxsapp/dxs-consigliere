@@ -1,4 +1,4 @@
-﻿using Dxs.Common.Extensions;
+using Dxs.Common.Extensions;
 
 namespace Dxs.Common.Exceptions.Transactions;
 

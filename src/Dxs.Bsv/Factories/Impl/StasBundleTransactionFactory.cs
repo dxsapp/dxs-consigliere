@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+
 using Dxs.Bsv.Factories.Models;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Tokens;
 using Dxs.Common.Extensions;
+
 using Microsoft.Extensions.Logging;
 
 namespace Dxs.Bsv.Factories.Impl;
@@ -15,7 +17,7 @@ public class StasBundleTransactionFactory(
     ITokenTransactionFactory stasTransactionFactory,
     IUtxoCache utxoCache,
     ILogger<StasBundleTransactionFactory> logger
-): IStasBundleTransactionFactory
+) : IStasBundleTransactionFactory
 {
     private readonly ILogger _logger = logger;
 

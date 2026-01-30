@@ -9,13 +9,13 @@ public class ChainTipsResponse : RpcResponseBase<IList<ChainTipsResponse.ChainTi
     {
         [JsonPropertyName("height")]
         public int Height { get; set; }
-            
+
         [JsonPropertyName("hash")]
         public string Hash { get; set; }
-            
+
         [JsonPropertyName("branchlen")]
         public int BranchLength { get; set; }
-            
+
         [JsonPropertyName("status")]
         public string Status { get; set; }
     }

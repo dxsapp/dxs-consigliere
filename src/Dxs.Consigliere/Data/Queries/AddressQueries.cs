@@ -1,5 +1,6 @@
 using Dxs.Bsv;
 using Dxs.Consigliere.Data.Models;
+
 using Raven.Client.Documents.Linq;
 using Raven.Client.Documents.Session;
 

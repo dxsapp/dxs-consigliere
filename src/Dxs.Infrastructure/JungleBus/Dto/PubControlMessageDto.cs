@@ -37,7 +37,7 @@ public class PubControlMessageDto
     {
         Connecting = 1,
         Connected = 2,
-        Disconnecting= 10,
+        Disconnecting = 10,
         Disconnected = 11,
         Subscribing = 20,
         Subscribed = 21,

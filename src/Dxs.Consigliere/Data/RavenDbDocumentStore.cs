@@ -1,8 +1,11 @@
 using System.Security.Cryptography.X509Certificates;
+
 using Dxs.Common.Extensions;
 using Dxs.Common.Utils;
 using Dxs.Consigliere.Data.Indexes;
+
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 using Raven.Client.ServerWide;
 using Raven.Client.ServerWide.Operations;

@@ -137,3 +137,7 @@ dotnet run
 ## Usage
 
 Swagger can be found at the http://localhost:5000/swagger
+
+## Author
+
+- Oleg (author) — https://github.com/panagushin

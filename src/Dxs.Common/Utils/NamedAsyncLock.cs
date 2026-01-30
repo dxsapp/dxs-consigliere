@@ -1,4 +1,4 @@
-﻿using Nito.AsyncEx;
+using Nito.AsyncEx;
 
 namespace Dxs.Common.Utils;
 
@@ -17,7 +17,7 @@ public class NamedAsyncLock
         public void RemoveRef() => Count--;
     }
 
-    private class NamedAsyncLockScope(NamedAsyncLock namedLock, string key, IDisposable lockScope): IDisposable
+    private class NamedAsyncLockScope(NamedAsyncLock namedLock, string key, IDisposable lockScope) : IDisposable
     {
         public void Dispose()
         {
@@ -40,7 +40,7 @@ public class NamedAsyncLock
 
     public Task<IDisposable> LockAsync(string key) => LockAsync(key, CancellationToken.None);
 
-    private readonly Dictionary<string, RefCount> _locks = new ();
+    private readonly Dictionary<string, RefCount> _locks = new();
 
     private AsyncLock GetOrCreateLock(string key)
     {

@@ -1,4 +1,5 @@
 using Dxs.Consigliere;
+
 using Serilog;
 
 var environmentName = Environment.GetEnvironmentVariable(HostDefaults.EnvironmentKey) ?? "Development";

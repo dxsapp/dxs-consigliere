@@ -1,6 +1,8 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+
 using Dxs.Common.Utils;
+
 using Microsoft.Extensions.Logging;
 
 namespace Dxs.Common.Extensions;

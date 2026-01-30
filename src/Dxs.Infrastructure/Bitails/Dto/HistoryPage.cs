@@ -2,13 +2,14 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 
 namespace Dxs.Infrastructure.Bitails.Dto;
 
 [JsonObject]
-public class HistoryPage: IEnumerable<HistoryEntry>
+public class HistoryPage : IEnumerable<HistoryEntry>
 {
     [JsonProperty("pgkey")]
     public string Pgkey { get; private init; }

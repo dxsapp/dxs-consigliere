@@ -1,12 +1,15 @@
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
+
 using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Services;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Changes;
 
@@ -17,7 +20,7 @@ public class StasAttributesChangeObserverTask(
     IMetaTransactionStore transactionStore,
     IOptions<AppConfig> appConfig,
     ILogger<StasAttributesChangeObserverTask> logger
-): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
+) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     private static readonly TimeSpan LogPeriod = TimeSpan.FromMinutes(1);
 

@@ -4,7 +4,7 @@ using System.Reactive.Subjects;
 
 namespace Dxs.Common.Dataflow;
 
-public class RxPubSub<T>: IDisposable, IObservable<T>
+public class RxPubSub<T> : IDisposable, IObservable<T>
 {
     private readonly ISubject<T> _subject = new Subject<T>();
     private readonly List<IObserver<T>> _observers = new();

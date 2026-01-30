@@ -1,4 +1,5 @@
-﻿using LazyCache.Providers;
+using LazyCache.Providers;
+
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dxs.Common.Extensions;

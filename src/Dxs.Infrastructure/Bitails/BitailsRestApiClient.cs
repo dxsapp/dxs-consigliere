@@ -5,19 +5,23 @@ using System.Net.Http;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
+
 using ComposableAsync;
+
 using Dxs.Common.Exceptions;
 using Dxs.Common.Extensions;
 using Dxs.Common.Utils;
 using Dxs.Infrastructure.Bitails.Dto;
+
 using Polly;
+
 using RateLimiter;
 
 namespace Dxs.Infrastructure.Bitails;
 
 // https://docs.bitails.io/
 // https://api.bitails.io/swagger
-public class BitailsRestApiClient: IBitailsRestApiClient
+public class BitailsRestApiClient : IBitailsRestApiClient
 {
     private const int HistoryMaxCount = 5000;
 

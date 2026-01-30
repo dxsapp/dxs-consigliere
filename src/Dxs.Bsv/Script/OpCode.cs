@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Dxs.Bsv.Script;
 
 [SuppressMessage("ReSharper", "InconsistentNaming")]
-public enum OpCode: byte
+public enum OpCode : byte
 {
     // push value
     // OP_FALSE = 0x00,

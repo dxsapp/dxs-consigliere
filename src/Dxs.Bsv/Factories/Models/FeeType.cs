@@ -1,4 +1,4 @@
-﻿namespace Dxs.Bsv.Factories.Models;
+namespace Dxs.Bsv.Factories.Models;
 
 public enum FeeType
 {

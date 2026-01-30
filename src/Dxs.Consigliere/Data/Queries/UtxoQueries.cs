@@ -3,6 +3,7 @@ using Dxs.Bsv.Script;
 using Dxs.Consigliere.Data.Indexes;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto;
+
 using Raven.Client.Documents.Linq;
 using Raven.Client.Documents.Session;
 

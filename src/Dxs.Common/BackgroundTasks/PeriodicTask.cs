@@ -1,12 +1,14 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
+
 using Dxs.Common.Extensions;
 using Dxs.Common.Interfaces;
+
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Dxs.Common.BackgroundTasks;
 
-public abstract class PeriodicTask: IHostedService, IBackgroundTask
+public abstract class PeriodicTask : IHostedService, IBackgroundTask
 {
     protected virtual TimeSpan StartDelay => TimeSpan.Zero;
     protected abstract TimeSpan Period { get; }

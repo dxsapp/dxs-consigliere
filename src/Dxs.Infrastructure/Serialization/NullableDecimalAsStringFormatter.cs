@@ -1,10 +1,11 @@
 using System.Globalization;
+
 using SpanJson;
 using SpanJson.Formatters;
 
 namespace Dxs.Infrastructure.Serialization;
 
-public class NullableDecimalAsStringFormatter: ICustomJsonFormatter<decimal?>
+public class NullableDecimalAsStringFormatter : ICustomJsonFormatter<decimal?>
 {
     public static readonly NullableDecimalAsStringFormatter Default = new();
 
@@ -12,7 +13,7 @@ public class NullableDecimalAsStringFormatter: ICustomJsonFormatter<decimal?>
 
     public void Serialize(ref JsonWriter<byte> writer, decimal? nullableValue)
     {
-        if (nullableValue is {} value)
+        if (nullableValue is { } value)
         {
             StringUtf8Formatter.Default.Serialize(ref writer, value.ToString(CultureInfo.InvariantCulture));
         }
@@ -32,7 +33,7 @@ public class NullableDecimalAsStringFormatter: ICustomJsonFormatter<decimal?>
 
     public void Serialize(ref JsonWriter<char> writer, decimal? nullableValue)
     {
-        if (nullableValue is {} value)
+        if (nullableValue is { } value)
         {
             StringUtf16Formatter.Default.Serialize(ref writer, value.ToString(CultureInfo.InvariantCulture));
         }

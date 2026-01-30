@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Script.Read;
 
@@ -95,23 +96,23 @@ public class BufferWriter
                 WriteByte((byte)value);
                 break;
             case >= 0xFD and <= 0xFFFF:
-            {
-                WriteByte(0xFD);
-                WriteUInt16LittleEndian(sizeof(ushort), (ushort)value);
-                break;
-            }
+                {
+                    WriteByte(0xFD);
+                    WriteUInt16LittleEndian(sizeof(ushort), (ushort)value);
+                    break;
+                }
             case >= 0x10000 and <= 0xFFFFFFFF:
-            {
-                WriteByte(0xFE);
-                WriteUInt32LittleEndian(sizeof(uint), (uint)value);
-                break;
-            }
+                {
+                    WriteByte(0xFE);
+                    WriteUInt32LittleEndian(sizeof(uint), (uint)value);
+                    break;
+                }
             case >= 0x100000000 and <= 0xffffffffffffffff:
-            {
-                WriteByte(0xFF);
-                WriteUInt64LittleEndian(sizeof(ulong), value);
-                break;
-            }
+                {
+                    WriteByte(0xFF);
+                    WriteUInt64LittleEndian(sizeof(ulong), value);
+                    break;
+                }
         }
 
         return this;
@@ -150,38 +151,38 @@ public class BufferWriter
         switch (token.OpCodeNum)
         {
             case > 0 and < (byte)OpCode.OP_PUSHDATA1:
-            {
-                Write(token.Bytes.ToArray());
+                {
+                    Write(token.Bytes.ToArray());
 
-                break;
-            }
+                    break;
+                }
             case (byte)OpCode.OP_PUSHDATA1:
-            {
-                var count = (byte)token.Bytes.Length;
+                {
+                    var count = (byte)token.Bytes.Length;
 
-                WriteByte(count);
-                Write(token.Bytes.ToArray());
+                    WriteByte(count);
+                    Write(token.Bytes.ToArray());
 
-                break;
-            }
+                    break;
+                }
             case (byte)OpCode.OP_PUSHDATA2:
-            {
-                var count = (ushort)token.Bytes.Length;
+                {
+                    var count = (ushort)token.Bytes.Length;
 
-                WriteUInt16Le(count);
-                Write(token.Bytes.ToArray());
+                    WriteUInt16Le(count);
+                    Write(token.Bytes.ToArray());
 
-                break;
-            }
+                    break;
+                }
             case (byte)OpCode.OP_PUSHDATA4:
-            {
-                var count = (uint)token.Bytes.Length;
+                {
+                    var count = (uint)token.Bytes.Length;
 
-                WriteUInt32Le(count);
-                Write(token.Bytes.ToArray());
+                    WriteUInt32Le(count);
+                    Write(token.Bytes.ToArray());
 
-                break;
-            }
+                    break;
+                }
         }
 
         return this;

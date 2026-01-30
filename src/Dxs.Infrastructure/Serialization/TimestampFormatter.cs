@@ -1,11 +1,12 @@
 using System;
+
 using SpanJson;
 
 namespace Dxs.Infrastructure.Serialization;
 
-public class TimestampFormatter: ICustomJsonFormatter<DateTime>
+public class TimestampFormatter : ICustomJsonFormatter<DateTime>
 {
-    public static readonly TimestampFormatter Default = new ();
+    public static readonly TimestampFormatter Default = new();
 
     public object Arguments { get; set; }
 

@@ -9,7 +9,7 @@ namespace TrustMargin.Common.Extensions
         {
             if (value == null)
                 return false;
-            
+
             if (value is not IDisposable disposable)
                 return false;
 

@@ -1,4 +1,4 @@
-﻿namespace Dxs.Common.Time;
+namespace Dxs.Common.Time;
 
 public static class TimeMath
 {
@@ -35,7 +35,7 @@ public static class TimeMath
         dateTime1 < dateTime2 ? dateTime1 : dateTime2;
 
     public static DateTime Min(DateTime dateTime1, DateTime? dateTime2) =>
-        dateTime2 is {} dateTime ? Min(dateTime1, dateTime) : dateTime1;
+        dateTime2 is { } dateTime ? Min(dateTime1, dateTime) : dateTime1;
 
     public static DateTime Max(DateTime dateTime1, DateTime dateTime2) =>
         dateTime1 > dateTime2 ? dateTime1 : dateTime2;

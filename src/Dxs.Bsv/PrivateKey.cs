@@ -1,8 +1,11 @@
 using System;
+
 using Dxs.Bsv.Extensions;
+
 using NBitcoin;
 using NBitcoin.DataEncoders;
 using NBitcoin.Secp256k1;
+
 using ScriptType = Dxs.Bsv.Script.ScriptType;
 
 namespace Dxs.Bsv;
@@ -64,19 +67,19 @@ public class PrivateKey : IEquatable<PrivateKey>
         {
             // WIF
             case 52 or 51:
-            {
-                var pKeyWif = Encoders.Base58.DecodeData(key);
-                var privateKeyBytes = pKeyWif[1..33];
+                {
+                    var pKeyWif = Encoders.Base58.DecodeData(key);
+                    var privateKeyBytes = pKeyWif[1..33];
 
-                privateKey = Context.Instance.CreateECPrivKey(privateKeyBytes);
-                network = pKeyWif[0] == 0x80
-                    ? Network.Mainnet
-                    : pKeyWif[0] == 0xEF
-                        ? Network.Testnet
-                        : throw new Exception("Unknown WIF format");
+                    privateKey = Context.Instance.CreateECPrivKey(privateKeyBytes);
+                    network = pKeyWif[0] == 0x80
+                        ? Network.Mainnet
+                        : pKeyWif[0] == 0xEF
+                            ? Network.Testnet
+                            : throw new Exception("Unknown WIF format");
 
-                break;
-            }
+                    break;
+                }
             // HEX
             case 64:
                 privateKey = Context.Instance.CreateECPrivKey(key.FromHexString());

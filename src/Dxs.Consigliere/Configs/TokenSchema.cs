@@ -1,11 +1,12 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using Dxs.Bsv.Tokens;
 
 namespace Dxs.Consigliere.Configs;
 
-public class TokenSchema: ITokenSchema
+public class TokenSchema : ITokenSchema
 {
 
     [JsonPropertyName("name")]

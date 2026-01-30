@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
+
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dxs.Common.Interfaces;
@@ -13,22 +14,22 @@ public interface IAppCache<out TService>
     T Get<T>(string key);
 
     void Set<T>(string key, T item, TimeSpan? relativeExpiration = null);
-        
+
     void Set<T>(string key, T item, DateTime absolutExpiration);
-        
+
     T GetOrAdd<T>(
-        string key, 
+        string key,
         Func<T> addItemFactory,
-        TimeSpan? relativeExpiration = null, 
+        TimeSpan? relativeExpiration = null,
         TimeSpan? slidingExpiration = null
     );
 
     Task<T> GetOrAddAsync<T>(string key, Func<ICacheEntry, Task<T>> addItemFactory);
 
     Task<T> GetOrAddAsync<T>(
-        string key, 
+        string key,
         Func<Task<T>> addItemFactory,
-        TimeSpan? relativeExpiration = null, 
+        TimeSpan? relativeExpiration = null,
         TimeSpan? slidingExpiration = null
     );
 

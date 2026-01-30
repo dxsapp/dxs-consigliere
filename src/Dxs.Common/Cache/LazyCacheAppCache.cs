@@ -1,19 +1,22 @@
-﻿using Dxs.Common.Extensions;
+using Dxs.Common.Extensions;
 using Dxs.Common.Interfaces;
+
 using LazyCache;
+
 using Microsoft.Extensions.Caching.Memory;
+
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Common.Cache;
 
-public class LazyCacheAppCache<TService>: IAppCache<TService>
+public class LazyCacheAppCache<TService> : IAppCache<TService>
 {
     private readonly struct Entry<T>
     {
         public T Value { get; }
         public bool HasValue { get; }
 
-        public Entry(T value): this()
+        public Entry(T value) : this()
         {
             Value = value;
             HasValue = true;
@@ -73,7 +76,7 @@ public class LazyCacheAppCache<TService>: IAppCache<TService>
     public async Task<T> GetOrAddAsync<T>(
         string key,
         Func<Task<T>> addItemFactory,
-        TimeSpan? relativeExpiration = null, 
+        TimeSpan? relativeExpiration = null,
         TimeSpan? slidingExpiration = null
     )
     {

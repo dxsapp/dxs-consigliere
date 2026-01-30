@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
@@ -13,8 +14,10 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.BackgroundTasks;
@@ -30,7 +33,7 @@ public class JungleBusSyncMissingDataBackgroundTask(
     INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<JungleBusSyncMissingDataBackgroundTask> logger
-): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
+) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     protected override TimeSpan Period => TimeSpan.FromSeconds(5);
 

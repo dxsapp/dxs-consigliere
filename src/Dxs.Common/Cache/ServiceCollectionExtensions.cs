@@ -1,4 +1,5 @@
 using Dxs.Common.Interfaces;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dxs.Common.Cache;

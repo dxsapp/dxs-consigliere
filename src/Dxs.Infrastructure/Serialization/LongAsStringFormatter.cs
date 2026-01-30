@@ -1,11 +1,12 @@
 using System;
 using System.Globalization;
+
 using SpanJson;
 using SpanJson.Formatters;
 
 namespace Dxs.Infrastructure.Serialization;
 
-public class LongAsStringFormatter: ICustomJsonFormatter<long>
+public class LongAsStringFormatter : ICustomJsonFormatter<long>
 {
     public static readonly LongAsStringFormatter Default = new();
 

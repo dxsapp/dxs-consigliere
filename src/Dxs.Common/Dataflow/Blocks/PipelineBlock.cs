@@ -1,18 +1,19 @@
-﻿using System.Threading.Tasks.Dataflow;
+using System.Threading.Tasks.Dataflow;
+
 using Dxs.Common.Extensions;
 
 namespace Dxs.Common.Dataflow.Blocks;
 
-public class PipelineBlock<TInput, TOutput>: PipelineBlock<TInput>, IPropagatorBlock<TInput, TOutput>
+public class PipelineBlock<TInput, TOutput> : PipelineBlock<TInput>, IPropagatorBlock<TInput, TOutput>
 {
     private readonly ISourceBlock<TOutput> _sourceBlock;
 
-    private PipelineBlock(ITargetBlock<TInput> targetBlock, ISourceBlock<TOutput> sourceBlock): base(targetBlock, sourceBlock)
+    private PipelineBlock(ITargetBlock<TInput> targetBlock, ISourceBlock<TOutput> sourceBlock) : base(targetBlock, sourceBlock)
     {
         _sourceBlock = sourceBlock;
     }
 
-    public PipelineBlock(IPropagatorBlock<TInput, TOutput> block): this(block, block) {}
+    public PipelineBlock(IPropagatorBlock<TInput, TOutput> block) : this(block, block) { }
 
     public PipelineBlock<TInput, TOutputNew> Add<TOutputNew>(IPropagatorBlock<TOutput, TOutputNew> block)
     {

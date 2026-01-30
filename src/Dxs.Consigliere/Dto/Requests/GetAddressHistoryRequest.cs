@@ -9,4 +9,4 @@ public record GetAddressHistoryRequest(
     bool SkipZeroBalance,
     [Required] int Skip,
     [Required] int Take
-): PageRequest(Skip, Take, Desc);
+) : PageRequest(Skip, Take, Desc);

@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
+
 using NBitcoin;
 using NBitcoin.DataEncoders;
+
 using ScriptType = Dxs.Bsv.Script.ScriptType;
 
 namespace Dxs.Bsv;
@@ -93,7 +95,7 @@ public static class BitcoinHelpers
     public static byte[] Base58Decode(string encoded) => Encoders.Base58.DecodeData(encoded);
     public static string Base58Encode(byte[] data) => Encoders.Base58.EncodeData(data);
     public static string Base58Encode(ReadOnlySpan<byte> data) => Encoders.Base58.EncodeData(data);
-        
+
     public static string GeneratePrivateKey(Network network)
     {
         var key = new Key();

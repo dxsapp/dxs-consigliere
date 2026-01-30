@@ -1,11 +1,11 @@
-﻿using System.Threading.Tasks.Dataflow;
+using System.Threading.Tasks.Dataflow;
 
 namespace Dxs.Common.Dataflow.Blocks;
 
 /// <summary>
 /// Enumerates queued <see cref="IAsyncEnumerable{T}"/> to linked blocks.
 /// </summary>
-public class EnumeratorBlock<T>: IPropagatorBlock<IAsyncEnumerable<T>, T>
+public class EnumeratorBlock<T> : IPropagatorBlock<IAsyncEnumerable<T>, T>
 {
     private readonly ActionBlock<IAsyncEnumerable<T>> _enumerator;
     private readonly BufferBlock<T> _buffer;
@@ -24,7 +24,7 @@ public class EnumeratorBlock<T>: IPropagatorBlock<IAsyncEnumerable<T>, T>
 
         _enumerator.Completion.ContinueWith(t =>
         {
-            if (t.Exception is {} exception)
+            if (t.Exception is { } exception)
                 BufferAsPropagator.Fault(exception);
             else
                 BufferAsPropagator.Complete();

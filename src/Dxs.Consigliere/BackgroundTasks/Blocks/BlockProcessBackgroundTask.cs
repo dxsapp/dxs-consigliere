@@ -10,14 +10,17 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+
 using MediatR;
+
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.BackgroundTasks.Blocks;
 
-public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
+public class BlockProcessBackgroundTask : PeriodicTask, IDisposable
 {
     public static readonly TimeSpan BlockProcessDelayStep = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan MaxBlockProcessDelay = TimeSpan.FromMinutes(5);
@@ -42,7 +45,7 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
         IOptions<AppConfig> appConfig,
         IWebHostEnvironment webHostEnvironment,
         ILogger<BlockProcessBackgroundTask> logger
-    ): base(appConfig.Value.BackgroundTasks, logger)
+    ) : base(appConfig.Value.BackgroundTasks, logger)
     {
         _rpcClient = rpcClient;
         _publisher = publisher;
@@ -89,10 +92,10 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
                 .OrderBy(x => x.NextProcessAt)
                 .Take(effectiveQueueSize)
                 .ToListAsync(cancellationToken);
-            
+
             if (processContexts.Count == 0)
                 return;
-            
+
             _logger.LogDebug("Found {Count} blocks to handle", processContexts.Count);
 
             foreach (var processContext in processContexts)
@@ -121,7 +124,7 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
         try
         {
             _logger.LogDebug("Starting block process");
-            
+
             await HandleBlock(blockProcessCtx, session);
             utcNow = DateTime.UtcNow;
 
@@ -130,7 +133,7 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
             blockProcessCtx.Finish -= 1;
 
             var message = new BlockProcessed(blockProcessCtx.Height, blockProcessCtx.Id);
-            
+
             await _publisher.Publish(message);
         }
         catch (Exception exception)
@@ -235,7 +238,7 @@ public class BlockProcessBackgroundTask: PeriodicTask, IDisposable
         if (ctx == null)
         {
             _logger.LogDebug("Creating new block process context for block: {BlockHash}", blockHash);
-            
+
             ctx = new BlockProcessContext
             {
                 Id = blockHash

@@ -9,8 +9,11 @@ using Dxs.Consigliere.Data.Queries;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
+
 using MediatR;
+
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Operations;
 
@@ -22,7 +25,7 @@ public class TransactionStore(
     IOptions<TransactionFilterConfig> config,
     INetworkProvider networkProvider,
     ILogger<TransactionStore> logger
-): IMetaTransactionStore
+) : IMetaTransactionStore
 {
     public async Task<List<Address>> GetWatchingAddresses()
     {
@@ -329,7 +332,7 @@ if (${nameof(MetaTransaction.IsStas)}) {{
         {
             return TransactionProcessStatus.NotModified;
         }
-        
+
         return TransactionProcessStatus.Unexpected;
     }
 

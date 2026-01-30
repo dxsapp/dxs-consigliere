@@ -5,7 +5,7 @@ using System.IO;
 
 namespace Dxs.Bsv.Protocol;
 
-public class BitcoinStreamReader: IDisposable
+public class BitcoinStreamReader : IDisposable
 {
     private readonly Stream _stream;
 
@@ -13,32 +13,32 @@ public class BitcoinStreamReader: IDisposable
     private bool _fillHashStream;
 
     private int _bytesRead;
-        
-    private readonly Stack<ICollection<byte>> _bytesReceivers = new ();
+
+    private readonly Stack<ICollection<byte>> _bytesReceivers = new();
 
     public BitcoinStreamReader(Stream stream)
     {
         _stream = stream;
     }
 
-    public BitcoinStreamReader(byte[] buffer) : this(new MemoryStream(buffer)) {}
+    public BitcoinStreamReader(byte[] buffer) : this(new MemoryStream(buffer)) { }
 
-    public BitcoinStreamReader(string hex): this(hex.FromHexString()) {}
+    public BitcoinStreamReader(string hex) : this(hex.FromHexString()) { }
 
     public int Position => _bytesRead;
-        
+
     public void StopHashStream()
     {
         _fillHashStream = false;
         HashStream.Stop();
     }
-        
+
     public void StartHashStream() => _fillHashStream = true;
-        
+
     public void ResetHashStream() => HashStream.Reset();
 
     public void AddBytesReceiver(ICollection<byte> receiver) => _bytesReceivers.Push(receiver);
-        
+
     public void RemoveBytesReceiver() => _bytesReceivers.Pop();
 
     public byte ReadByte()

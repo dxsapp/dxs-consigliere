@@ -1,4 +1,4 @@
-﻿namespace Dxs.Common.Time;
+namespace Dxs.Common.Time;
 
 public static class TimeUnitExtensions
 {
@@ -11,7 +11,7 @@ public static class TimeUnitExtensions
         TimeUnit.Day => timeSpan.TotalDays,
         _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, null)
     };
-        
+
     public static DateTime FromNow(this TimeSpan timeSpan)
         => DateTime.UtcNow.Add(timeSpan);
 }

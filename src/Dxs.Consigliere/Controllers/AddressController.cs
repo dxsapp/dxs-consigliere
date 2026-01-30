@@ -2,12 +2,13 @@ using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
+
 using Microsoft.AspNetCore.Mvc;
 
 namespace Dxs.Consigliere.Controllers;
 
 [Route("api/address")]
-public class AddressController: BaseController
+public class AddressController : BaseController
 {
     [HttpPost("balance")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -25,7 +26,7 @@ public class AddressController: BaseController
         [FromBody] GetUtxoSetBatchRequest request,
         [FromServices] IUtxoManager utxoManager
     ) => Ok(await utxoManager.GetUtxoSet(request));
-    
+
     [HttpPost("utxo-set")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status200OK)]

@@ -4,8 +4,10 @@ using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.BackgroundTasks;
@@ -15,7 +17,7 @@ public class StasAttributesMissingTransactions(
     IMetaTransactionStore transactionStore,
     IOptions<AppConfig> appConfig,
     ILogger<StasAttributesMissingTransactions> logger
-): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
+) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     private readonly ILogger _logger = logger;
 

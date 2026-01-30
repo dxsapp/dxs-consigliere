@@ -1,9 +1,9 @@
 namespace Dxs.Consigliere.Data.Models;
 
-public class Broadcast: AuditableEntity
+public class Broadcast : AuditableEntity
 {
-    public Broadcast(): base() {}
-    
+    public Broadcast() : base() { }
+
     public string TxId { get; set; }
     public bool Success { get; set; }
     public string Code { get; set; }
@@ -30,7 +30,7 @@ public class Broadcast: AuditableEntity
     {
         foreach (var key in base.UpdateableKeys())
             yield return key;
-        
+
         yield return nameof(Success);
         yield return nameof(Code);
         yield return nameof(Message);

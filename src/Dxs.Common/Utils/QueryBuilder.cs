@@ -1,10 +1,10 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Specialized;
 using System.Web;
 
 namespace Dxs.Common.Utils;
 
-public class QueryBuilder: IEnumerable
+public class QueryBuilder : IEnumerable
 {
     private readonly NameValueCollection _values;
 
@@ -12,7 +12,7 @@ public class QueryBuilder: IEnumerable
 
     public QueryBuilder(string key, string value) => _values = new NameValueCollection { { key, value } };
 
-    public QueryBuilder(NameValueCollection values): this() => Add(values);
+    public QueryBuilder(NameValueCollection values) : this() => Add(values);
 
     public QueryBuilder Add(string name, string value)
     {

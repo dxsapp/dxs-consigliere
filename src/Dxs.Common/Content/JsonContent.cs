@@ -1,16 +1,17 @@
-﻿using System.Text;
+using System.Text;
+
 using Newtonsoft.Json;
 
 namespace Dxs.Common.Content;
 
-public class JsonContent: StringContent
+public class JsonContent : StringContent
 {
     public JsonContent(
         string value,
         bool noCharSet = false
-    ): base(value, Encoding.UTF8, "application/json")
+    ) : base(value, Encoding.UTF8, "application/json")
     {
-        if (noCharSet && Headers.ContentType is {} contentType)
+        if (noCharSet && Headers.ContentType is { } contentType)
         {
             contentType.CharSet = null;
         }
@@ -20,5 +21,5 @@ public class JsonContent: StringContent
         object value,
         JsonSerializerSettings settings = null,
         bool noCharSet = false
-    ): this(JsonConvert.SerializeObject(value, settings), noCharSet) {}
+    ) : this(JsonConvert.SerializeObject(value, settings), noCharSet) { }
 }

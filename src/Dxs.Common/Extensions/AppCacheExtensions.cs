@@ -1,5 +1,7 @@
-﻿using Dxs.Common.Interfaces;
+using Dxs.Common.Interfaces;
+
 using Microsoft.Extensions.Caching.Memory;
+
 using Nito.AsyncEx.Synchronous;
 
 namespace Dxs.Common.Extensions;

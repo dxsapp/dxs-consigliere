@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Impl;
@@ -11,7 +12,6 @@ using Dxs.Bsv.Tokens.Stas;
 using Dxs.Bsv.Zmq;
 using Dxs.Bsv.Zmq.Configs;
 using Dxs.Common.Cache;
-using Dxs.Consigliere.Setup;
 using Dxs.Consigliere.BackgroundTasks;
 using Dxs.Consigliere.BackgroundTasks.Blocks;
 using Dxs.Consigliere.Configs;
@@ -20,12 +20,17 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Consigliere.Setup;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.WoC;
+
 using MediatR;
+
 using Microsoft.OpenApi.Models;
+
 using Raven.Migrations;
+
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Consigliere;

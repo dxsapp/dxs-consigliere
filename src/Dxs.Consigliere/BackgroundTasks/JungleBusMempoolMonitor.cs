@@ -10,6 +10,7 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
+
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -21,7 +22,7 @@ public class JungleBusMempoolMonitor(
     INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<JungleBusMempoolMonitor> logger
-): PeriodicTask(appConfig.Value.BackgroundTasks, logger)
+) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     private readonly AppConfig _appConfig = appConfig.Value;
     private readonly ILogger _logger = logger;

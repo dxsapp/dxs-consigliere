@@ -20,7 +20,7 @@ public class NodeBlockchainDataProvider(
         using var _ = logger.BeginScope("NodeBlockchainDataProvider.ProcessBlock: {Height}", context.Height);
 
         var blockStream = await rpcClient.GetBlockAsStream(context.Id);
-        
+
         using var blockReader = BlockReader.Parse(blockStream, networkProvider.Network);
 
         logger.LogDebug("Start parse block");

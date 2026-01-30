@@ -1,4 +1,4 @@
-﻿namespace Dxs.Common.Time;
+namespace Dxs.Common.Time;
 
 public enum TimeUnit
 {

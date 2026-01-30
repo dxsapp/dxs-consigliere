@@ -1,6 +1,6 @@
 namespace Dxs.Consigliere.Data.Models.History;
 
-public class TransactionRef(string transactionId): Entity
+public class TransactionRef(string transactionId) : Entity
 {
     public string TransactionId { get; set; } = transactionId;
     public string Note { get; set; }

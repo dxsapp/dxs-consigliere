@@ -1,5 +1,7 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
+
 using Dxs.Consigliere.WebSockets;
+
 using Microsoft.AspNetCore.Http.Connections;
 
 namespace Dxs.Consigliere.Setup;

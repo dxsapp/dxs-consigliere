@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Protocol;
 using Dxs.Bsv.Script;
@@ -166,67 +167,67 @@ public class BaseInputBuilder
         switch (OutPoint.ScriptType)
         {
             case ScriptType.P2PKH:
-            {
-                var size = BufferWriter.GetChunkSize(derWithSighash) + BufferWriter.GetChunkSize(_signer.PublicKey);
-                var buffer = new BufferWriter(size);
-
-                buffer.WriteChunk(derWithSighash);
-                buffer.WriteChunk(_signer.PublicKey);
-
-                UnlockingScript = buffer.Bytes;
-                break;
-            }
-            case ScriptType.P2STAS:
-            {
-                PrepareMergeInfo();
-
-                var script = new ScriptBuilder(ScriptType.P2STAS, null);
-                var hasNote = false;
-
-                foreach (var output in _txBuilder.Outputs)
                 {
-                    if (output.Type == ScriptType.NullData)
+                    var size = BufferWriter.GetChunkSize(derWithSighash) + BufferWriter.GetChunkSize(_signer.PublicKey);
+                    var buffer = new BufferWriter(size);
+
+                    buffer.WriteChunk(derWithSighash);
+                    buffer.WriteChunk(_signer.PublicKey);
+
+                    UnlockingScript = buffer.Bytes;
+                    break;
+                }
+            case ScriptType.P2STAS:
+                {
+                    PrepareMergeInfo();
+
+                    var script = new ScriptBuilder(ScriptType.P2STAS, null);
+                    var hasNote = false;
+
+                    foreach (var output in _txBuilder.Outputs)
                     {
-                        script.AddData(output.LockingScript[2..]);
-                        hasNote = true;
+                        if (output.Type == ScriptType.NullData)
+                        {
+                            script.AddData(output.LockingScript[2..]);
+                            hasNote = true;
+                        }
+                        else
+                        {
+                            script
+                                .AddNumber(output.Value)
+                                .AddData(output.Address.Hash160);
+                        }
+                    }
+
+                    if (!hasNote)
+                        script.AddOpCode(OpCode.OP_0);
+
+                    var fundingInput = _txBuilder.Inputs[^1];
+
+                    script
+                        .AddNumber(fundingInput.OutPoint.Vout)
+                        .AddData(fundingInput.OutPoint.TransactionId.FromHexString().Reverse());
+
+                    if (Merge)
+                    {
+                        script
+                            .AddNumber(_mergeVout)
+                            .AddData(_mergeSegments)
+                            .AddNumber((ulong)_mergeSegments.Length);
                     }
                     else
                     {
                         script
-                            .AddNumber(output.Value)
-                            .AddData(output.Address.Hash160);
+                            .AddOpCode(OpCode.OP_0);
                     }
+
+                    script.AddData(preimage.Bytes);
+                    script.AddData(derWithSighash.ToArray());
+                    script.AddData(_signer.PublicKey);
+
+                    UnlockingScript = script.Bytes;
+                    break;
                 }
-
-                if (!hasNote)
-                    script.AddOpCode(OpCode.OP_0);
-
-                var fundingInput = _txBuilder.Inputs[^1];
-
-                script
-                    .AddNumber(fundingInput.OutPoint.Vout)
-                    .AddData(fundingInput.OutPoint.TransactionId.FromHexString().Reverse());
-
-                if (Merge)
-                {
-                    script
-                        .AddNumber(_mergeVout)
-                        .AddData(_mergeSegments)
-                        .AddNumber((ulong)_mergeSegments.Length);
-                }
-                else
-                {
-                    script
-                        .AddOpCode(OpCode.OP_0);
-                }
-
-                script.AddData(preimage.Bytes);
-                script.AddData(derWithSighash.ToArray());
-                script.AddData(_signer.PublicKey);
-
-                UnlockingScript = script.Bytes;
-                break;
-            }
             default:
                 throw new ArgumentOutOfRangeException();
         }

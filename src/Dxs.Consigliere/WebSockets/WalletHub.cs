@@ -5,9 +5,12 @@ using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
+
 using MediatR;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.WebSockets;
@@ -64,7 +67,7 @@ public class WalletHub(
         }
 
         using var session = store.GetNoCacheNoTrackingSession();
-        
+
         var transactions = await session.LoadAsync<TransactionHexData>(checkedIds.Select(TransactionHexData.GetId));
         var result = transactions
             .ToDictionary(

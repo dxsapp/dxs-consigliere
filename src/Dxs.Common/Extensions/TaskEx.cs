@@ -4,7 +4,7 @@ namespace Dxs.Common.Extensions
 {
     public static class TaskEx
     {
-        private static readonly Action EmptyAction = () => {};
+        private static readonly Action EmptyAction = () => { };
 
         public static Task Then(this Task task, Action<Task> onSuccess = null, Action<Task> onFailure = null) =>
             task.ContinueWith(t =>
@@ -54,10 +54,10 @@ namespace Dxs.Common.Extensions
             await Task.WhenAll(task1, task2, task3);
             return (task1.Result, task2.Result, task3.Result);
         }
-        
+
         public static async Task<(T1, T2, T3, T4, T5, T6, T7)> WhenAll<T1, T2, T3, T4, T5, T6, T7>(
             Task<T1> task1,
-            Task<T2> task2, 
+            Task<T2> task2,
             Task<T3> task3,
             Task<T4> task4,
             Task<T5> task5,
@@ -68,10 +68,10 @@ namespace Dxs.Common.Extensions
             await Task.WhenAll(task1, task2, task3, task4, task5, task6, task7);
             return (task1.Result, task2.Result, task3.Result, task4.Result, task5.Result, task6.Result, task7.Result);
         }
-        
+
         public static async Task<(T1, T2, T3, T4, T5, T6, T7, T8, T9)> WhenAll<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
             Task<T1> task1,
-            Task<T2> task2, 
+            Task<T2> task2,
             Task<T3> task3,
             Task<T4> task4,
             Task<T5> task5,
@@ -87,7 +87,7 @@ namespace Dxs.Common.Extensions
 
         public static async Task<(T1, T2, T3, T4, T5, T6, T7, T8, T9, T10)> WhenAll<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(
             Task<T1> task1,
-            Task<T2> task2, 
+            Task<T2> task2,
             Task<T3> task3,
             Task<T4> task4,
             Task<T5> task5,

@@ -1,8 +1,10 @@
-﻿#nullable enable
+#nullable enable
 using System.ComponentModel.DataAnnotations;
+
 using Dxs.Common.Content;
 using Dxs.Common.Exceptions;
 using Dxs.Common.Utils;
+
 using Newtonsoft.Json;
 
 namespace Dxs.Common.Extensions;
@@ -93,16 +95,16 @@ public static class HttpClientExtensions
                 .ToDictionary(p => p.Key, p => $"{p.Value}");
 
         var message = new HttpRequestMessage(method, url)
-            {
-                // remove CharSet as some servers don't understand it
-                Content = value == null
+        {
+            // remove CharSet as some servers don't understand it
+            Content = value == null
                     ? null
                     : value is string json
                         ? new JsonContent(json, noCharSet: true).AddHeaders(headersMap)
                         : new JsonContent(value, noCharSet: true).AddHeaders(headersMap)
 
 
-            }
+        }
             .AddHeaders(headersMap);
 
         return client.SendOrThrowAsync(message, token);

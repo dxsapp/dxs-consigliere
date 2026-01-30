@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 
@@ -7,7 +7,7 @@ namespace Dxs.Common.Extensions;
 public static class EnumerableExtensions
 {
     public static string ToString(this IEnumerable<string> source, string separator) => string.Join(separator, source);
-        
+
     public static IEnumerable<T> Order<T>(this IEnumerable<T> source) =>
         source.OrderBy(_ => _);
 

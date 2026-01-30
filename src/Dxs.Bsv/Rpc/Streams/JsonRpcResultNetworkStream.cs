@@ -123,7 +123,7 @@ public class JsonRpcResultNetworkStream(Stream stream) : Stream
                         _payloadBuffer[_payloadBufferWriteCursor] = BinaryHelpers.HexToByte(_hexCharBuffer[0], _hexCharBuffer[1]);
 
                         _payloadBufferWriteCursor++;
-                        
+
                         if (_payloadBufferWriteCursor == _payloadBuffer.Length)
                             _payloadBufferWriteCursor = 0;
 
@@ -151,7 +151,7 @@ public class JsonRpcResultNetworkStream(Stream stream) : Stream
         {
             throw new Exception("Too low count");
         }
-            
+
         var readBytes = 0;
 
         if (_availableBytes > 0)
@@ -166,7 +166,7 @@ public class JsonRpcResultNetworkStream(Stream stream) : Stream
 
         if (needMore > 0)
         {
-            while (_availableBytes < needMore && ReadStream()) {}
+            while (_availableBytes < needMore && ReadStream()) { }
 
             var moreBytes = Math.Min(needMore, _availableBytes);
 

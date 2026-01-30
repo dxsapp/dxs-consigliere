@@ -1,4 +1,5 @@
 using Dxs.Infrastructure.Common;
+
 using Newtonsoft.Json;
 
 namespace Dxs.Infrastructure.WoC.Dto

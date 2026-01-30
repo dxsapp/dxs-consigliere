@@ -1,12 +1,13 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Runtime.CompilerServices;
+
 using TrustMargin.Common.Extensions;
 
 namespace Dxs.Common.Extensions;
 
 public static class AsyncEnumerableEx
 {
-    public class Batch<T>: IList<T>
+    public class Batch<T> : IList<T>
     {
         private readonly IList<T> _list;
 

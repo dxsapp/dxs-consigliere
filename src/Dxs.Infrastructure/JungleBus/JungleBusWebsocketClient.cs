@@ -6,11 +6,15 @@ using System.Reactive.Subjects;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Timers;
+
 using Dxs.Common.Extensions;
 using Dxs.Infrastructure.JungleBus.Dto;
 using Dxs.Infrastructure.Websocket;
+
 using Microsoft.Extensions.Logging;
+
 using TrustMargin.Common.Extensions;
+
 using Websocket.Client;
 
 namespace Dxs.Infrastructure.JungleBus;
@@ -18,7 +22,7 @@ namespace Dxs.Infrastructure.JungleBus;
 public class JungleBusWebsocketClient(
     HttpClient httpClient,
     ILogger<JungleBusWebsocketClient> logger
-): BaseWebsocketClient<string>(logger)
+) : BaseWebsocketClient<string>(logger)
 {
     private static readonly Regex IdOnlyRegex = new("""^{"id":\s*\d+}$""", RegexOptions.Compiled);
 
@@ -82,7 +86,7 @@ public class JungleBusWebsocketClient(
             .AddToCompositeDisposable(Subscriptions);
     }
 
-    protected override void StopInternal() {}
+    protected override void StopInternal() { }
 
     public override string Name => "JungleBus";
     protected override Uri Url => new("wss://junglebus.gorillapool.io/connection/websocket");
@@ -101,7 +105,7 @@ public class JungleBusWebsocketClient(
             {
                 var data = Deserialize<PushDto<PubTransactionDto>>(x);
 
-                if (data?.Push?.Channel is {} c)
+                if (data?.Push?.Channel is { } c)
                 {
                     if (c == channel)
                     {
@@ -135,7 +139,7 @@ public class JungleBusWebsocketClient(
             {
                 var data = Deserialize<PushDto<PubControlMessageDto>>(x);
 
-                if (data?.Push?.Channel is {} c)
+                if (data?.Push?.Channel is { } c)
                 {
                     if (c == channel)
                     {
@@ -169,7 +173,7 @@ public class JungleBusWebsocketClient(
             {
                 var data = Deserialize<PushDto<PubTransactionDto>>(x);
 
-                if (data?.Push?.Channel is {} c)
+                if (data?.Push?.Channel is { } c)
                 {
                     if (c == channel)
                     {
@@ -237,7 +241,7 @@ public class JungleBusWebsocketClient(
 
     private void Pong()
     {
-        SendAsString(new {});
+        SendAsString(new { });
     }
 
 

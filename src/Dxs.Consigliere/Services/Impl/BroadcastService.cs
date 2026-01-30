@@ -4,9 +4,12 @@ using Dxs.Bsv.Models;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
+
 using Microsoft.Extensions.Options;
+
 using Polly;
 using Polly.Retry;
+
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Services.Impl;
@@ -18,7 +21,7 @@ public class BroadcastService(
     INetworkProvider networkProvider,
     IOptions<AppConfig> appConfig,
     ILogger<BroadcastService> logger
-): IBroadcastService
+) : IBroadcastService
 {
     private readonly AppConfig _appConfig = appConfig.Value;
 
@@ -64,7 +67,7 @@ public class BroadcastService(
             async () =>
             {
                 var result = await BroadcastToNode(transaction);
-                
+
                 if (!result.success)
                 {
                     if (result.message.Contains("missing-inputs", StringComparison.InvariantCultureIgnoreCase)
@@ -77,17 +80,17 @@ public class BroadcastService(
                             Message = result.message,
                             Code = result.code
                         });
-                        
+
                         return (false, result.message, result.code);
                     }
-                    
+
                     throw new ApplicationException(result.message);
                 }
 
                 foreach (var input in transaction.Inputs)
                 {
                     var outPoint = new OutPoint(input.TxId, input.Address, null, 0, uint.MaxValue);
-                    
+
                     utxoCache.MarkUsed(outPoint, false);
                 }
 
@@ -101,7 +104,7 @@ public class BroadcastService(
     private async Task<(bool success, string message, string code)> BroadcastToNode(Transaction transaction)
     {
         var result = await bitcoindService.Broadcast(transaction.Raw.ToHexString());
-        
+
         if (!result.success)
         {
             logger.LogError("{@Broadcast}", new

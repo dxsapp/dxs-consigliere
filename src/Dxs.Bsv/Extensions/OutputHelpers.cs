@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Text;
+
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script.Build;
 using Dxs.Bsv.Script.Read;

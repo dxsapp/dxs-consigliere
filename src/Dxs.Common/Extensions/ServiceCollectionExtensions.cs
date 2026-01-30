@@ -1,4 +1,5 @@
 using Dxs.Common.Interfaces;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,7 +21,7 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration
     )
-        where TOptions: class, new()
+        where TOptions : class, new()
     {
         if (services is null)
         {
@@ -41,23 +42,23 @@ public static class ServiceCollectionExtensions
     }
 
     public static IServiceCollection AddSingletonHostedService<T, TImpl>(this IServiceCollection services)
-        where TImpl: class, T, IBackgroundTask, IHostedService
-        where T: class
+        where TImpl : class, T, IBackgroundTask, IHostedService
+        where T : class
         => services
             .AddSingletonHostedService<TImpl>()
             .AddSingleton<T>(p => p.GetRequiredService<TImpl>());
 
     public static IServiceCollection AddSingletonHostedService<T1, T2, TImpl>(this IServiceCollection services)
-        where TImpl: class, T1, T2, IBackgroundTask, IHostedService
-        where T1: class
-        where T2: class
+        where TImpl : class, T1, T2, IBackgroundTask, IHostedService
+        where T1 : class
+        where T2 : class
         => services
             .AddSingletonHostedService<TImpl>()
             .AddSingleton<T1>(p => p.GetRequiredService<TImpl>())
             .AddSingleton<T2>(p => p.GetRequiredService<TImpl>());
 
     public static IServiceCollection AddSingletonHostedService<T>(this IServiceCollection services)
-        where T: class, IBackgroundTask, IHostedService
+        where T : class, IBackgroundTask, IHostedService
         => services
             .AddSingleton<T>()
             .AddHostedService(p => p.GetRequiredService<T>());

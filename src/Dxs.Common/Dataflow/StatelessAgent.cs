@@ -2,7 +2,7 @@ using System.Threading.Tasks.Dataflow;
 
 namespace Dxs.Common.Dataflow;
 
-public sealed class StatelessAgent<TMessage>: IAgent<TMessage>
+public sealed class StatelessAgent<TMessage> : IAgent<TMessage>
 {
     private readonly ActionBlock<TMessage> _actionBlock;
 

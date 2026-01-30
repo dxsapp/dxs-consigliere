@@ -3,11 +3,12 @@ using Dxs.Bsv.Block;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
+
 using Microsoft.Extensions.Logging;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class BitcoindService(IRpcClient rpcClient, INetworkProvider networkProvider, ILogger<BitcoindService> logger): IBitcoindService
+public class BitcoindService(IRpcClient rpcClient, INetworkProvider networkProvider, ILogger<BitcoindService> logger) : IBitcoindService
 {
     public string Name => "Rpc";
 
@@ -19,7 +20,7 @@ public class BitcoindService(IRpcClient rpcClient, INetworkProvider networkProvi
         {
             var result = await rpcClient.SendRawTransaction(hex);
 
-            if (result.Error is {} error)
+            if (result.Error is { } error)
                 return (success: false, error.Message, error.Code.ToString());
 
             logger.LogDebug("Broadcasted: {TxId}", result.RequestId);

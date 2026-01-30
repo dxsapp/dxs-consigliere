@@ -9,7 +9,7 @@ public class SyncRequest
     public string SubscriptionId { get; init; }
 
     public DateTime? StartAt { get; set; }
-    
+
     public bool Finished { get; set; }
 
     public HashSet<int> FailedBlocks { get; set; } = [];

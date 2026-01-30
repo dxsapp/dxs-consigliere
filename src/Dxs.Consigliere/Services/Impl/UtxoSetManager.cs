@@ -7,12 +7,13 @@ using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider networkProvider):
+public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider networkProvider) :
     IUtxoManager,
     IUtxoSetProvider
 {
@@ -88,7 +89,7 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
         var address = request.Address.EnsureValidBsvAddress();
         var tokenId = request.TokenId?.EnsureValidTokenId(networkProvider.Network);
 
-        var utxoSet = request.Satoshis is {} satoshis and > 0
+        var utxoSet = request.Satoshis is { } satoshis and > 0
             ? await GetUtxoSet(address, tokenId, satoshis)
             : await GetUtxoSet(address, tokenId);
 

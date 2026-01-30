@@ -12,7 +12,7 @@ public abstract class Entity
     public abstract IEnumerable<KeyValuePair<string, object>> ToEntries();
 }
 
-public abstract class AuditableEntity: Entity
+public abstract class AuditableEntity : Entity
 {
     public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
     public long? UpdatedAt { get; set; }
@@ -29,7 +29,7 @@ public abstract class AuditableEntity: Entity
     {
         yield return nameof(UpdatedAt);
     }
-    
+
     public override IEnumerable<KeyValuePair<string, object>> ToEntries()
     {
         yield return new KeyValuePair<string, object>(nameof(UpdatedAt), UpdatedAt);

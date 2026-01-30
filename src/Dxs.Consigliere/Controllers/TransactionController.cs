@@ -1,11 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+
 using Dxs.Bsv;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
+
 using Microsoft.AspNetCore.Mvc;
+
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
 
@@ -40,7 +43,7 @@ public class TransactionController : BaseController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(Dictionary<string, string>))]
     public async Task<IActionResult> GetTransactions(
-        [Required] [FromQuery] List<string> ids,
+        [Required][FromQuery] List<string> ids,
         [FromServices] IDocumentStore store
     )
     {
@@ -79,8 +82,8 @@ public class TransactionController : BaseController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(GetTransactionsByBlockResponse))]
     public async Task<IActionResult> GetTransactionsByBlock(
-        [Required] [FromQuery] int blockHeight,
-        [Required] [FromQuery] int skip,
+        [Required][FromQuery] int blockHeight,
+        [Required][FromQuery] int skip,
         [FromServices] IDocumentStore store,
         CancellationToken cancellationToken
     )

@@ -1,11 +1,12 @@
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Transactions;
+
 using Raven.Client.Documents.Indexes;
 
 namespace Dxs.Consigliere.Data.Indexes;
 
-public class FoundMissingRootsIndex: AbstractIndexCreationTask<MetaTransaction, FoundMissingTransaction>
+public class FoundMissingRootsIndex : AbstractIndexCreationTask<MetaTransaction, FoundMissingTransaction>
 {
     public FoundMissingRootsIndex()
     {

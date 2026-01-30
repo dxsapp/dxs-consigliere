@@ -1,7 +1,7 @@
 using System.Text.Json.Serialization;
 
 namespace Dxs.Bsv.Rpc.Models.Responses;
-    
+
 public class RpcGetBlockHeaderResponse : RpcResponseBase<RpcGetBlockHeader, CodeAndMessageErrorResponse>;
 
 public class RpcGetBlockHeader

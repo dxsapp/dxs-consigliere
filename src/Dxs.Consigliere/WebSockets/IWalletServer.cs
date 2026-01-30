@@ -2,6 +2,7 @@ using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
+
 using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.WebSockets;

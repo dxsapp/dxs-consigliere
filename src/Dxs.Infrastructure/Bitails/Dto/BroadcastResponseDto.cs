@@ -8,14 +8,14 @@ public class BroadcastResponseDto
     {
         [JsonProperty("code")]
         public int Code { get; set; }
-        
+
         [JsonProperty("message")]
         public string Message { get; set; }
     }
-    
+
     [JsonProperty("txid")]
     public string TxId { get; set; }
-    
+
     [JsonProperty("error")]
-    public BroadcastErrorDto Error { get; set; } 
+    public BroadcastErrorDto Error { get; set; }
 }
