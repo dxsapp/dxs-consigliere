@@ -1,0 +1,37 @@
+# CODEOWNERS template for dxs-consigliere
+# This file is intentionally not active as CODEOWNERS yet.
+# Replace logical operator placeholders with real GitHub users or teams,
+# then rename this file to CODEOWNERS.
+#
+# Keep specific rules above broader ones.
+
+*                                           @replace-with-operator-default
+/doc/repository-zones/                      @replace-with-operator-governance
+/doc/AGENTS.md                              @replace-with-operator-governance
+/.github/                                   @replace-with-operator-governance
+
+/src/Dxs.Common/                            @replace-with-operator-platform
+/src/Dxs.Bsv/BitcoinMonitor/                @replace-with-operator-runtime
+/src/Dxs.Bsv/Rpc/                           @replace-with-operator-runtime
+/src/Dxs.Bsv/Zmq/                           @replace-with-operator-runtime
+/src/Dxs.Bsv/Factories/                     @replace-with-operator-runtime
+/src/Dxs.Bsv/                               @replace-with-operator-protocol
+
+/src/Dxs.Infrastructure/                    @replace-with-operator-integration
+
+/src/Dxs.Consigliere/Data/                  @replace-with-operator-state
+/src/Dxs.Consigliere/BackgroundTasks/       @replace-with-operator-runtime
+/src/Dxs.Consigliere/Controllers/           @replace-with-operator-api
+/src/Dxs.Consigliere/Dto/                   @replace-with-operator-api
+/src/Dxs.Consigliere/WebSockets/            @replace-with-operator-api
+/src/Dxs.Consigliere/Notifications/         @replace-with-operator-api
+/src/Dxs.Consigliere/Program.cs             @replace-with-operator-platform
+/src/Dxs.Consigliere/Startup.cs             @replace-with-operator-platform
+/src/Dxs.Consigliere/Configs/               @replace-with-operator-platform
+/src/Dxs.Consigliere/Logging/               @replace-with-operator-platform
+/src/Dxs.Consigliere/Setup/                 @replace-with-operator-platform
+
+/tests/                                     @replace-with-operator-verification
+/Dockerfile                                 @replace-with-operator-platform
+/README.md                                  @replace-with-operator-platform
+/Dxs.Consigliere.sln                        @replace-with-operator-platform

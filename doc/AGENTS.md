@@ -52,6 +52,40 @@
 | `Dockerfile` | Docker build | SDK 9.0 build + publish, runtime ASP.NET 9.0 |
 | `README.md` | Описание | Обзор, запуск, пример конфигурации |
 
+3.1) Responsibility Zones
+- Основной каталог зон: `doc/repository-zones/zone-catalog.md`.
+- Матрица маршрутизации задач: `doc/repository-zones/ownership-matrix.md`.
+- Шаблон handoff между зонами: `doc/repository-zones/handoff-contract.md`.
+- Шаблон intake для operator parent task: `doc/repository-zones/operator-task-intake.md`.
+- Шаблон CODEOWNERS: `.github/CODEOWNERS.template`.
+- При работе по задачам сначала определяйте зону по path ownership, а не по названию фичи.
+- Если изменение затрагивает несколько зон, заводите parent task и child tasks по зонам; не смешивайте acceptance criteria разных зон в одном work item.
+
+3.2) Zone Routing Summary
+- `platform-common` -> `src/Dxs.Common/**`
+- `bsv-runtime-ingest` -> `src/Dxs.Bsv/{BitcoinMonitor,Rpc,Zmq,Factories}/**`
+- `bsv-protocol-core` -> остальная BSV protocol/parser/model область
+- `external-chain-adapters` -> `src/Dxs.Infrastructure/**`
+- `indexer-state-and-storage` -> `src/Dxs.Consigliere/Data/**` и stateful store/query services
+- `indexer-ingest-orchestration` -> `src/Dxs.Consigliere/BackgroundTasks/**` и blockchain data providers
+- `public-api-and-realtime` -> controllers/dto/websockets/notifications
+- `service-bootstrap-and-ops` -> startup/config/logging/setup/runtime packaging
+- `verification-and-conformance` -> `tests/**`
+- `repo-governance` -> `doc/**`, `.github/**`
+
+3.3) Owner Model
+- В этом репозитории accountable owner один: `operator`.
+- Специализации выражаются как логические lane labels:
+  - `operator/platform`
+  - `operator/runtime`
+  - `operator/protocol`
+  - `operator/integration`
+  - `operator/state`
+  - `operator/api`
+  - `operator/verification`
+  - `operator/governance`
+- Эти labels не означают разные команды; это preferred routing для субагентов и task decomposition внутри одного operator-driven workflow.
+
 4) Публичный API (если есть)
 Основной публичный интерфейс — HTTP API + SignalR. Экспортов вида `package.json` нет.
 
