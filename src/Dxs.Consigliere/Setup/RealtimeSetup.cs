@@ -12,6 +12,7 @@ public static class RealtimeSetup
 {
     public static IServiceCollection AddRealtimeZoneServices(this IServiceCollection services)
         => services
+            .AddSingleton<TransactionNotificationDispatcher>()
             .AddSingleton<ConnectionManager>()
             .AddSingleton<IConnectionManager>(sp => sp.GetRequiredService<ConnectionManager>())
             .AddSingleton<INotificationHandler<TransactionDeleted>>(sp => sp.GetRequiredService<ConnectionManager>())

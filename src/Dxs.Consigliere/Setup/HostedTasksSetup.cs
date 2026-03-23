@@ -12,6 +12,9 @@ public static class HostedTasksSetup
 {
     public static IServiceCollection AddHostedTaskZoneServices(this IServiceCollection services)
         => services
+            .AddSingleton<IJungleBusSyncRequestProcessor, JungleBusSyncRequestProcessor>()
+            .AddSingleton<IJungleBusMissingTransactionCollector, JungleBusMissingTransactionCollector>()
+            .AddSingleton<IJungleBusMissingTransactionFetcher, JungleBusMissingTransactionFetcher>()
             .AddSingletonHostedService<AppInitBackgroundTask>()
             .AddSingletonHostedService<BlockProcessBackgroundTask>()
             .AddSingletonHostedService<ActualChainTipVerifyBackgroundTask>()
