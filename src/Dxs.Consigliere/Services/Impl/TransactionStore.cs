@@ -27,6 +27,10 @@ public class TransactionStore(
     ILogger<TransactionStore> logger
 ) : IMetaTransactionStore
 {
+    // Preserve the query contract surface used by contract tests while the script
+    // implementation lives in the dedicated patch-script owner.
+    private static readonly string UpdateStasAttributesQuery = TransactionStorePatchScripts.UpdateStasAttributesQuery;
+
     public async Task<List<Address>> GetWatchingAddresses()
     {
         using var session = store.GetSession();
@@ -78,163 +82,6 @@ public class TransactionStore(
         return result;
     }
 
-    private static readonly string UpdateStasAttributesQuery = $@"
-var stasInputsCount = 0;
-var inputsCount = this.{nameof(MetaTransaction.Inputs)}.length;
-var outputsCount = this.{nameof(MetaTransaction.Outputs)}.length;
-var withNote = this.{nameof(MetaTransaction.Outputs)}[outputsCount - 1].{nameof(MetaTransaction.Output.Type)} === '{ScriptType.NullData:G}';
-var feeIdx = withNote 
-    ? outputsCount - 2 
-    : outputsCount - 1;
-var withFee = false;
-var mustKnowInputsCount = inputsCount;
-var allInputsKnown = true;
-var stasFrom;
-var firstInputHash160 = null;
-var firstInputTokenId = null;
-var inputTokens = new Set();
-var illegalRoots = new Set();
-var missingTxs = new Set();
-var redeemAddress = null;
-var outputTokens = new Set();
-
-for (var i = 0; i < outputsCount; i++) {{
-    var output = this.{nameof(MetaTransaction.Outputs)}[i];
-
-    if (output.{nameof(MetaTransaction.Output.Type)} === '{ScriptType.P2STAS:G}') {{
-        outputTokens.add(output.{nameof(MetaTransaction.Output.TokenId)});
-    }}
-
-    if (i === 0 && output.{nameof(MetaTransaction.Output.Type)} === '{ScriptType.P2PKH:G}') {{
-        redeemAddress = output.{nameof(MetaTransaction.Output.Address)};
-    }}
-}}
-
-outputTokens = [...outputTokens];
-
-for (var i = 0; i < inputsCount; i++) {{
-    var slimInput = this.{nameof(MetaTransaction.Inputs)}[i];
-    var inputTxId = slimInput.{nameof(MetaTransaction.Input.TxId)};
-    var inputTx = load(inputTxId);
-
-    if (!inputTx) {{
-        allInputsKnown = false;
-        missingTxs.add(inputTxId);
-        continue;
-    }}
-
-    allInputsKnown = allInputsKnown && true;
-
-    var vout = slimInput.{nameof(MetaTransaction.Input.Vout)};
-    var inputOutput = inputTx.{nameof(MetaTransaction.Outputs)}[vout];
-    var isInputStas = inputOutput.{nameof(MetaTransaction.Output.Type)} === '{ScriptType.P2STAS:G}';
-
-    if (i === 0) {{
-        firstInputHash160 = inputOutput.{nameof(MetaTransaction.Output.Hash160)};
-    }}
-    else if (i === inputsCount - 1) {{
-        withFee = inputOutput.{nameof(MetaTransaction.Output.Type)} === '{ScriptType.P2PKH:G}'
-    }}
-
-    if (isInputStas) {{
-        stasInputsCount++;
-
-        if (i === 0) {{
-            stasFrom = inputOutput.{nameof(MetaTransaction.Output.Address)};
-            firstInputTokenId = inputOutput.{nameof(MetaTransaction.Output.TokenId)};
-        }}
-
-        if (inputTx.{nameof(MetaTransaction.MissingTransactions)}.length > 0) {{
-            missingTxs.add(inputTxId);
-        }}
-
-        inputTokens.add(inputOutput.{nameof(MetaTransaction.Output.TokenId)});
-
-        if (inputTx.{nameof(MetaTransaction.IsIssue)} === true) {{
-            if (inputTx.{nameof(MetaTransaction.IsValidIssue)} !== true) {{
-                illegalRoots.add(inputTxId);
-            }}
-        }} else {{
-            for (var j = 0; j < inputTx.{nameof(MetaTransaction.IllegalRoots)}.length; j++) {{
-                var illegalRoot = inputTx.{nameof(MetaTransaction.IllegalRoots)}[j];
-                illegalRoots.add(illegalRoot);
-            }}
-        }}
-    }}
-}}
-
-var hasStasOutputs = outputTokens.length > 0;
-var isStas = hasStasOutputs || stasInputsCount > 0;
-var isIssue = isStas && hasStasOutputs && stasInputsCount === 0;
-var isValidIssue = isIssue && allInputsKnown && outputTokens.length === 1 && outputTokens[0] === firstInputHash160;
-var isRedeem = allInputsKnown
-    && stasInputsCount === 1 
-    && stasFrom === this.{nameof(MetaTransaction.Outputs)}[0].{nameof(MetaTransaction.Output.Address)}
-    && firstInputTokenId === this.{nameof(MetaTransaction.Outputs)}[0].{nameof(MetaTransaction.Output.Hash160)};
-
-this.{nameof(MetaTransaction.IsStas)} = isStas;
-this.{nameof(MetaTransaction.IsIssue)} = isIssue;
-this.{nameof(MetaTransaction.IsValidIssue)} = isValidIssue;
-this.{nameof(MetaTransaction.IsRedeem)} = isRedeem;
-this.{nameof(MetaTransaction.IsWithFee)} = isStas && withFee;
-this.{nameof(MetaTransaction.IsWithNote)} = isStas && withNote;
-this.{nameof(MetaTransaction.AllStasInputsKnown)} = isStas && allInputsKnown;
-this.{nameof(MetaTransaction.RedeemAddress)} = isRedeem ? redeemAddress : null;
-this.{nameof(MetaTransaction.StasFrom)} = isStas ? stasFrom : null;
-
-this.{nameof(MetaTransaction.TokenIds)} = [...new Set([...outputTokens, ...inputTokens])];
-this.{nameof(MetaTransaction.IllegalRoots)} = [...illegalRoots];
-this.{nameof(MetaTransaction.MissingTransactions)} = [...missingTxs];
-";
-
-    private static readonly string InsertMetaTransactionQuery = $@"
-this.{nameof(MetaTransaction.Block)} = ${nameof(MetaTransaction.Block)};
-this.{nameof(MetaTransaction.Height)} = ${nameof(MetaTransaction.Height)};
-this.{nameof(MetaTransaction.Index)} = ${nameof(MetaTransaction.Index)};
-this.{nameof(MetaTransaction.Timestamp)} = ${nameof(MetaTransaction.Timestamp)};
-
-this.{nameof(MetaTransaction.Inputs)} = ${nameof(MetaTransaction.Inputs)};
-this.{nameof(MetaTransaction.Outputs)} = ${nameof(MetaTransaction.Outputs)};
-this.{nameof(MetaTransaction.Addresses)} = ${nameof(MetaTransaction.Addresses)};
-
-this.{nameof(MetaTransaction.Note)} = ${nameof(MetaTransaction.Note)};
-
-this.{nameof(MetaTransaction.IsStas)} = false;
-this.{nameof(MetaTransaction.IsIssue)} = false;
-this.{nameof(MetaTransaction.IsValidIssue)} = false;
-this.{nameof(MetaTransaction.IsRedeem)} = false;
-this.{nameof(MetaTransaction.AllStasInputsKnown)} = false;
-this.{nameof(MetaTransaction.RedeemAddress)} = null;
-this.{nameof(MetaTransaction.StasFrom)} = null;
-
-this.{nameof(MetaTransaction.TokenIds)} = [];
-this.{nameof(MetaTransaction.IllegalRoots)} = [];
-this.{nameof(MetaTransaction.MissingTransactions)} = [];
-
-if (${nameof(MetaTransaction.IsStas)}) {{
-    {UpdateStasAttributesQuery}
-}}
-
-this['@metadata'] = {{ 
-    '@collection': 'MetaTransactions', 
-    'Raven-Clr-Type': '{typeof(MetaTransaction).FullName}, {typeof(MetaTransaction).Assembly.GetName().Name}' 
-}};
-";
-
-    private static readonly string UpdateMetaTransactionQuery = $@"
-this.{nameof(MetaTransaction.Block)} = ${nameof(MetaTransaction.Block)};
-this.{nameof(MetaTransaction.Index)} = ${nameof(MetaTransaction.Index)};
-this.{nameof(MetaTransaction.Height)} = ${nameof(MetaTransaction.Height)};
-
-if (!this.{nameof(MetaTransaction.Timestamp)}) {{
-    this.{nameof(MetaTransaction.Timestamp)} = ${nameof(MetaTransaction.Timestamp)};
-}}
-
-if (${nameof(MetaTransaction.IsStas)}) {{
-    {UpdateStasAttributesQuery}
-}}
-";
-
     public async Task<TransactionProcessStatus> SaveTransaction(
         Transaction transaction,
         long timestamp,
@@ -254,7 +101,10 @@ if (${nameof(MetaTransaction.IsStas)}) {{
             var metaInput = MetaOutput.FromInput(transaction, input, i, timestamp, height);
 
             inputs.Add(metaInput);
-            slimInputs.Add(new MetaTransaction.Input(metaInput));
+            slimInputs.Add(new MetaTransaction.Input(metaInput)
+            {
+                DstasSpendingType = input.DstasSpendingType
+            });
         }
 
         var outputs = new List<MetaOutput>();
@@ -272,7 +122,7 @@ if (${nameof(MetaTransaction.IsStas)}) {{
             if (metaOutput.Address != null)
                 addresses.Add(metaOutput.Address);
 
-            if (output.Type == ScriptType.P2STAS)
+            if (output.Type is ScriptType.P2STAS or ScriptType.DSTAS)
                 hasStasOutputs = true;
         }
 
@@ -299,13 +149,13 @@ if (${nameof(MetaTransaction.IsStas)}) {{
             null,
             new PatchRequest
             {
-                Script = UpdateMetaTransactionQuery,
+                Script = TransactionStorePatchScripts.UpdateMetaTransactionQuery,
                 Values = txValues
 
             },
             new PatchRequest
             {
-                Script = InsertMetaTransactionQuery,
+                Script = TransactionStorePatchScripts.InsertMetaTransactionQuery,
                 Values = txValues
             }
         );
@@ -355,74 +205,13 @@ if (${nameof(MetaTransaction.IsStas)}) {{
             },
             new PatchRequest
             {
-                Script = InsertTransactionHexData,
+                Script = TransactionStorePatchScripts.InsertTransactionHexData,
                 Values = values
             }
         );
 
         await store.Operations.SendAsync(patch);
     }
-
-    private static readonly string InsertTransactionHexData = $@"
-this.{nameof(TransactionHexData.TxId)} = ${nameof(TransactionHexData.TxId)};
-this.{nameof(TransactionHexData.Hex)} = ${nameof(TransactionHexData.Hex)};
-
-this['@metadata'] = {{ 
-    '@collection': 'TransactionHexDatas', 
-    'Raven-Clr-Type': '{typeof(TransactionHexData).FullName}, {typeof(TransactionHexData).Assembly.GetName().Name}' 
-}};
-";
-
-    public static readonly string InsertOutputQuery = $@"
-this.{nameof(MetaOutput.TxId)} = ${nameof(MetaOutput.TxId)};
-this.{nameof(MetaOutput.Vout)} = ${nameof(MetaOutput.Vout)};
-
-this.{nameof(MetaOutput.Type)} = ${nameof(MetaOutput.Type)};
-this.{nameof(MetaOutput.Satoshis)} = 0;
-this.{nameof(MetaOutput.Address)} = null;
-this.{nameof(MetaOutput.TokenId)} = null;
-this.{nameof(MetaOutput.Hash160)} = null;
-this.{nameof(MetaOutput.ScriptPubKey)} = null;
-this.{nameof(MetaOutput.Symbol)} = null;
-
-this.{nameof(MetaOutput.InputIdx)} = 0;
-this.{nameof(MetaOutput.SpendTxId)} = null;
-this.{nameof(MetaOutput.Spent)} = false;
-
-this['@metadata'] = {{ 
-    '@collection': 'MetaOutputs', 
-    'Raven-Clr-Type': '{typeof(MetaOutput).FullName}, {typeof(MetaOutput).Assembly.GetName().Name}' 
-}};
-";
-
-    private static readonly string UpdateMetaOutputQuery = $@"
-this.{nameof(MetaOutput.Type)} = ${nameof(MetaOutput.Type)};
-this.{nameof(MetaOutput.Satoshis)} = ${nameof(MetaOutput.Satoshis)};
-this.{nameof(MetaOutput.Address)} = ${nameof(MetaOutput.Address)};
-this.{nameof(MetaOutput.TokenId)} = ${nameof(MetaOutput.TokenId)};
-this.{nameof(MetaOutput.Hash160)} = ${nameof(MetaOutput.Hash160)};
-this.{nameof(MetaOutput.ScriptPubKey)} = ${nameof(MetaOutput.ScriptPubKey)};
-this.{nameof(MetaOutput.Symbol)} = ${nameof(MetaOutput.Symbol)};
-";
-
-
-    private static readonly string UpdateMetaInputQuery = $@"
-this.{nameof(MetaOutput.InputIdx)} = ${nameof(MetaOutput.InputIdx)};
-this.{nameof(MetaOutput.SpendTxId)} = ${nameof(MetaOutput.SpendTxId)};
-this.{nameof(MetaOutput.Spent)} = true;
-";
-
-    private static readonly string InsertMetaOutputQuery = $@"
-{InsertOutputQuery}
-
-{UpdateMetaOutputQuery}
-";
-
-    private static readonly string InsertMetaInputQuery = $@"
-{InsertOutputQuery}
-    
-{UpdateMetaInputQuery}
-";
 
     private async Task SaveOutputs(
         IEnumerable<MetaOutput> inputs,
@@ -444,6 +233,18 @@ this.{nameof(MetaOutput.Spent)} = true;
                 { nameof(MetaOutput.Hash160), output.Hash160 },
                 { nameof(MetaOutput.Symbol), output.Symbol },
                 { nameof(MetaOutput.ScriptPubKey), output.ScriptPubKey },
+                { nameof(MetaOutput.DstasFlags), output.DstasFlags },
+                { nameof(MetaOutput.DstasFreezeEnabled), output.DstasFreezeEnabled },
+                { nameof(MetaOutput.DstasConfiscationEnabled), output.DstasConfiscationEnabled },
+                { nameof(MetaOutput.DstasFrozen), output.DstasFrozen },
+                { nameof(MetaOutput.DstasFreezeAuthority), output.DstasFreezeAuthority },
+                { nameof(MetaOutput.DstasConfiscationAuthority), output.DstasConfiscationAuthority },
+                { nameof(MetaOutput.DstasServiceFields), output.DstasServiceFields },
+                { nameof(MetaOutput.DstasActionType), output.DstasActionType },
+                { nameof(MetaOutput.DstasActionData), output.DstasActionData },
+                { nameof(MetaOutput.DstasRequestedScriptHash), output.DstasRequestedScriptHash },
+                { nameof(MetaOutput.DstasOptionalData), output.DstasOptionalData },
+                { nameof(MetaOutput.DstasOptionalDataFingerprint), output.DstasOptionalDataFingerprint },
             };
 
             var patchOutput = new PatchOperation(
@@ -451,12 +252,12 @@ this.{nameof(MetaOutput.Spent)} = true;
                 null,
                 new PatchRequest
                 {
-                    Script = UpdateMetaOutputQuery,
+                    Script = TransactionStorePatchScripts.UpdateMetaOutputQuery,
                     Values = values
                 },
                 new PatchRequest
                 {
-                    Script = InsertMetaOutputQuery,
+                    Script = TransactionStorePatchScripts.InsertMetaOutputQuery,
                     Values = values
                 }
             );
@@ -481,12 +282,12 @@ this.{nameof(MetaOutput.Spent)} = true;
                 null,
                 new PatchRequest
                 {
-                    Script = UpdateMetaInputQuery,
+                    Script = TransactionStorePatchScripts.UpdateMetaInputQuery,
                     Values = values
                 },
                 new PatchRequest
                 {
-                    Script = InsertMetaInputQuery,
+                    Script = TransactionStorePatchScripts.InsertMetaInputQuery,
                     Values = values
                 }
             );
@@ -501,7 +302,7 @@ this.{nameof(MetaOutput.Spent)} = true;
         {
             var patchRequest = new PatchRequest
             {
-                Script = UpdateStasAttributesQuery
+                Script = TransactionStorePatchScripts.UpdateStasAttributesQuery
             };
             var patch = new PatchOperation(
                 txId,
@@ -516,14 +317,6 @@ this.{nameof(MetaOutput.Spent)} = true;
             logger.LogError(ex, "Update transaction attributes failed");
         }
     }
-
-    private const string FreeMetaOutputQuery = $@"
-if (this.{nameof(MetaOutput.SpendTxId)} == ${nameof(MetaOutput.SpendTxId)}) {{
-    this.{nameof(MetaOutput.InputIdx)} = 0;
-    this.{nameof(MetaOutput.SpendTxId)} = null;
-    this.{nameof(MetaOutput.Spent)} = false;
-}}
-";
 
     public async Task<Transaction> TryRemoveTransaction(string id)
     {
@@ -570,7 +363,7 @@ if (this.{nameof(MetaOutput.SpendTxId)} == ${nameof(MetaOutput.SpendTxId)}) {{
                         null,
                         new PatchRequest
                         {
-                            Script = FreeMetaOutputQuery,
+                            Script = TransactionStorePatchScripts.FreeMetaOutputQuery,
                             Values =
                             {
                                 { nameof(MetaOutput.SpendTxId), id },

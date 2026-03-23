@@ -162,6 +162,9 @@ public class TransactionController : BaseController
             metaTransaction.IllegalRoots.Count == 0,
             metaTransaction.IsIssue,
             metaTransaction.IsRedeem,
+            metaTransaction.DstasEventType,
+            metaTransaction.DstasSpendingType,
+            metaTransaction.DstasOptionalDataContinuity,
             metaTransaction.TokenIds.First(),
             [], // metaTransaction.Roots.ToArray(),
             metaTransaction.IllegalRoots.ToArray()

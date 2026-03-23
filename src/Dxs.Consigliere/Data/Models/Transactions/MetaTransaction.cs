@@ -15,6 +15,7 @@ public class MetaTransaction
         public string Id { get; set; }
         public string TxId { get; set; }
         public int Vout { get; set; }
+        public int? DstasSpendingType { get; set; }
     }
 
     public class Output
@@ -22,8 +23,8 @@ public class MetaTransaction
         public Output() { }
 
         public Output(MetaOutput output)
-            => (Id, Satoshis, Type, Address, TokenId, Hash160)
-                = (output.Id, output.Satoshis, output.Type, output.Address, output.TokenId, output.Hash160);
+            => (Id, Satoshis, Type, Address, TokenId, Hash160, DstasFlags, DstasFreezeEnabled, DstasConfiscationEnabled, DstasFrozen, DstasFreezeAuthority, DstasConfiscationAuthority, DstasServiceFields, DstasActionType, DstasActionData, DstasRequestedScriptHash, DstasOptionalData, DstasOptionalDataFingerprint)
+                = (output.Id, output.Satoshis, output.Type, output.Address, output.TokenId, output.Hash160, output.DstasFlags, output.DstasFreezeEnabled, output.DstasConfiscationEnabled, output.DstasFrozen, output.DstasFreezeAuthority, output.DstasConfiscationAuthority, output.DstasServiceFields, output.DstasActionType, output.DstasActionData, output.DstasRequestedScriptHash, output.DstasOptionalData, output.DstasOptionalDataFingerprint);
 
         public string Id { get; set; }
         public long Satoshis { get; set; }
@@ -31,6 +32,18 @@ public class MetaTransaction
         public string Address { get; set; }
         public string TokenId { get; set; }
         public string Hash160 { get; set; }
+        public string DstasFlags { get; set; }
+        public bool? DstasFreezeEnabled { get; set; }
+        public bool? DstasConfiscationEnabled { get; set; }
+        public bool? DstasFrozen { get; set; }
+        public string DstasFreezeAuthority { get; set; }
+        public string DstasConfiscationAuthority { get; set; }
+        public string[] DstasServiceFields { get; set; }
+        public string DstasActionType { get; set; }
+        public string DstasActionData { get; set; }
+        public string DstasRequestedScriptHash { get; set; }
+        public string[] DstasOptionalData { get; set; }
+        public string DstasOptionalDataFingerprint { get; set; }
     }
 
     public const int DefaultHeight = int.MaxValue;
@@ -62,4 +75,9 @@ public class MetaTransaction
     public string RedeemAddress { get; set; }
     public string StasFrom { get; set; }
     public string Note { get; set; }
+    public string DstasEventType { get; set; }
+    public int? DstasSpendingType { get; set; }
+    public bool? DstasInputFrozen { get; set; }
+    public bool? DstasOutputFrozen { get; set; }
+    public bool? DstasOptionalDataContinuity { get; set; }
 }

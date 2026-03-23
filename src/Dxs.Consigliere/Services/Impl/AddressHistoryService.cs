@@ -133,7 +133,7 @@ public class AddressHistoryService : IAddressHistoryService, IDisposable
         {
             if (!isKnownStasToken.HasValue || isKnownStasToken.Value)
             {
-                if (output.Type == ScriptType.P2STAS)
+                if (output.Type is ScriptType.P2STAS or ScriptType.DSTAS)
                 {
                 }
             }

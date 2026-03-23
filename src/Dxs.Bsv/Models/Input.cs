@@ -16,6 +16,7 @@ public class Input
     public bool Coinbase { get; init; }
 
     public Address Address { get; init; }
+    public int? DstasSpendingType { get; init; }
 
     public static Input Parse(BitcoinStreamReader bitcoinStreamReader, int txStartPosition, int length, string txId, uint vout, Network network)
     {
@@ -34,7 +35,8 @@ public class Input
             },
             Sequence = sequence,
             Coinbase = vout == uint.MaxValue,
-            Address = reader.Address
+            Address = reader.Address,
+            DstasSpendingType = reader.DstasSpendingType
         };
     }
 }

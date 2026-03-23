@@ -25,6 +25,7 @@ public static class ScriptSamples
         ByType = new Dictionary<ScriptType, IReadOnlyList<ScriptBuildToken>>
         {
             { ScriptType.P2PKH, P2PhkTokens },
+            { ScriptType.P2MPKH, P2MpkhTokens },
             { ScriptType.P2SH, P2ShTokens },
             { ScriptType.P2PK, P2PkTokens },
             { ScriptType.P2STAS, StasV3Tokens },
@@ -42,6 +43,59 @@ public static class ScriptSamples
         new(20, 20, true),
         new((byte)OpCode.OP_EQUALVERIFY),
         new((byte)OpCode.OP_CHECKSIG)
+    ];
+
+    public static readonly IReadOnlyList<ScriptBuildToken> P2MpkhTokens =
+    [
+        new((byte)OpCode.OP_DUP),
+        new((byte)OpCode.OP_HASH160),
+        new(20, 20, true),
+        new((byte)OpCode.OP_EQUALVERIFY),
+        new((byte)OpCode.OP_SIZE),
+        new(new byte[] { 0x21 }),
+        new((byte)OpCode.OP_EQUAL),
+        new((byte)OpCode.OP_IF),
+        new((byte)OpCode.OP_CHECKSIG),
+        new((byte)OpCode.OP_ELSE),
+        new((byte)OpCode.OP_1),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_1),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_IFDUP),
+        new((byte)OpCode.OP_IF),
+        new((byte)OpCode.OP_SWAP),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_ENDIF),
+        new((byte)OpCode.OP_1),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_IFDUP),
+        new((byte)OpCode.OP_IF),
+        new((byte)OpCode.OP_SWAP),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_ENDIF),
+        new((byte)OpCode.OP_1),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_IFDUP),
+        new((byte)OpCode.OP_IF),
+        new((byte)OpCode.OP_SWAP),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_ENDIF),
+        new((byte)OpCode.OP_1),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_IFDUP),
+        new((byte)OpCode.OP_IF),
+        new((byte)OpCode.OP_SWAP),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_ENDIF),
+        new((byte)OpCode.OP_1),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_IFDUP),
+        new((byte)OpCode.OP_IF),
+        new((byte)OpCode.OP_SWAP),
+        new((byte)OpCode.OP_SPLIT),
+        new((byte)OpCode.OP_ENDIF),
+        new((byte)OpCode.OP_CHECKMULTISIG),
+        new((byte)OpCode.OP_ENDIF),
     ];
 
     public static readonly IReadOnlyList<ScriptBuildToken> P2ShTokens =
@@ -84,4 +138,3 @@ public static class ScriptSamples
         new((byte)OpCode.OP_CHECKSIG)
     ];
 }
-

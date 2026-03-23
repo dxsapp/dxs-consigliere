@@ -10,5 +10,7 @@ public enum ScriptType
     P2MS,
     NullData,
     P2STAS,
-    Mnee1Sat
+    Mnee1Sat,
+    DSTAS,
+    P2MPKH
 }

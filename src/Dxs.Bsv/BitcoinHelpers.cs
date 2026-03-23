@@ -64,8 +64,8 @@ public static class BitcoinHelpers
 
         byte prefix = scriptType switch
         {
-            ScriptType.P2PKH or ScriptType.Mnee1Sat when network == Network.Mainnet => 0x0,
-            ScriptType.P2PKH or ScriptType.Mnee1Sat when network == Network.Testnet => 0x6f,
+            ScriptType.P2PKH or ScriptType.P2MPKH or ScriptType.Mnee1Sat or ScriptType.DSTAS when network == Network.Mainnet => 0x0,
+            ScriptType.P2PKH or ScriptType.P2MPKH or ScriptType.Mnee1Sat or ScriptType.DSTAS when network == Network.Testnet => 0x6f,
             ScriptType.P2SH when network == Network.Mainnet => 0x5,
             ScriptType.P2SH when network == Network.Testnet => 0xc4,
             _ => throw new ArgumentOutOfRangeException()

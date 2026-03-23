@@ -7,13 +7,14 @@ public static class ScriptReaderExtensions
 {
     public static string GetTokenId(this LockingScriptReader reader)
     {
-        if (reader.ScriptType != ScriptType.P2STAS)
-            return null;
-
-        if (reader.Data.Count == 0)
-            return null;
-
-        return reader.Data[0].ToHexString();
+        return reader.ScriptType switch
+        {
+            ScriptType.P2STAS => reader.Data is { Count: > 0 }
+                ? reader.Data[0].ToHexString()
+                : null,
+            ScriptType.DSTAS => reader.Dstas?.Redemption?.ToHexString(),
+            _ => null
+        };
     }
 
     public static bool IsSplittable(this LockingScriptReader reader)
@@ -21,7 +22,7 @@ public static class ScriptReaderExtensions
         if (reader.ScriptType != ScriptType.P2STAS)
             return true;
 
-        if (reader.Data.Count < 2 && reader.Data[1].Length != 1)
+        if (reader.Data is not { Count: > 1 } || reader.Data[1].Length != 1)
             return true;
 
         return reader.Data[1][0] == 0x0;
@@ -32,7 +33,7 @@ public static class ScriptReaderExtensions
         if (reader.ScriptType != ScriptType.P2STAS)
             return null;
 
-        if (reader.Data.Count < 2)
+        if (reader.Data is not { Count: > 1 })
             return null;
 
         return Encoding.UTF8.GetString(reader.Data[1]);
@@ -43,6 +44,6 @@ public static class ScriptReaderExtensions
         if (reader.ScriptType != ScriptType.P2STAS)
             return Array.Empty<byte>();
 
-        return reader.Data.Count > 2 ? reader.Data[2] : Array.Empty<byte>();
+        return reader.Data is { Count: > 2 } ? reader.Data[2] : Array.Empty<byte>();
     }
 }

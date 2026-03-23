@@ -31,7 +31,7 @@ public static class UtxoQueries
             : session.StasUtxoSet().ByToken(tokenId);
 
     public static IQueryable<MetaOutput> P2pkh(this IQueryable<MetaOutput> query)
-        => query.Where(x => x.Type == ScriptType.P2PKH);
+        => query.Where(x => x.Type == ScriptType.P2PKH || x.Type == ScriptType.P2MPKH);
 
     public static IQueryable<MetaOutput> Unspent(this IQueryable<MetaOutput> query)
         => query.Where(x => x.Spent != true);

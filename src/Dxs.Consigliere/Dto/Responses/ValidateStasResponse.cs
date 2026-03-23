@@ -6,6 +6,9 @@ public record ValidateStasResponse(
     bool IsLegal,
     bool IsIssue,
     bool IsRedeem,
+    string EventType,
+    int? SpendingType,
+    bool? OptionalDataContinuity,
     string TokenId,
     string[] Roots,
     string[] IllegalRoots

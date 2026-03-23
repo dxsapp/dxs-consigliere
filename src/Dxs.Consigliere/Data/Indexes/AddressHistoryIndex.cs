@@ -31,7 +31,11 @@ public class AddressHistoryIndex : AbstractIndexCreationTask<MetaTransaction, Ad
                     Side = -1,
                 })
             let outputs = tx.Outputs
-                .Where(x => x.Type == ScriptType.P2PKH || x.Type == ScriptType.P2STAS)
+                .Where(x =>
+                    x.Type == ScriptType.P2PKH ||
+                    x.Type == ScriptType.P2MPKH ||
+                    x.Type == ScriptType.P2STAS ||
+                    x.Type == ScriptType.DSTAS)
                 .Select(x => new AddressHistory
                 {
                     Address = x.Address,

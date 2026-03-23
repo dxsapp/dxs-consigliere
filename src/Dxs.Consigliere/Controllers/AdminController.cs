@@ -3,6 +3,7 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Consigliere.Data.Models;
+using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
@@ -11,6 +12,7 @@ using Dxs.Consigliere.Services;
 using Microsoft.AspNetCore.Mvc;
 
 using Raven.Client.Documents;
+using Raven.Client.Documents.Linq;
 
 namespace Dxs.Consigliere.Controllers;
 
@@ -110,5 +112,44 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         };
 
         return Ok(result);
+    }
+
+    [HttpPost("manage/stas/backfill")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> BackfillStasAttributes(
+        [FromServices] IDocumentStore documentStore,
+        [FromServices] IMetaTransactionStore transactionStore,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 1000
+    )
+    {
+        if (skip < 0)
+            return BadRequest("skip must be >= 0");
+
+        if (take is < 1 or > 5000)
+            return BadRequest("take must be in [1..5000]");
+
+        using var session = documentStore.GetNoCacheNoTrackingSession();
+        var ids = await session
+            .Query<MetaTransaction>()
+            .Where(x => x.IsStas)
+            .OrderBy(x => x.Id)
+            .Skip(skip)
+            .Take(take)
+            .Select(x => x.Id)
+            .ToListAsync();
+
+        foreach (var id in ids)
+        {
+            await transactionStore.UpdateStasAttributes(id);
+        }
+
+        return Ok(new
+        {
+            Skip = skip,
+            Take = take,
+            Processed = ids.Count,
+            HasMore = ids.Count == take
+        });
     }
 }

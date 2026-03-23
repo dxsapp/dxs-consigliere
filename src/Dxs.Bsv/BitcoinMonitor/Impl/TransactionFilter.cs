@@ -150,13 +150,14 @@ public class TransactionFilter : ITransactionFilter
                 }
             }
 
-            if (output.Type == ScriptType.P2STAS &&
+            if (output.Type is ScriptType.P2STAS or ScriptType.DSTAS &&
                 output.TokenId.IsNotNullOrEmpty() &&
                 _watchingTokens.ContainsKey(output.TokenId))
             {
                 save = true;
 
-                _addresses.Add(output.Address!.Value);
+                if (output.Address != null)
+                    _addresses.Add(output.Address.Value);
             }
         }
 

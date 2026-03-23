@@ -1,0 +1,28 @@
+name: ci-tests
+
+on:
+  push:
+    branches:
+      - main
+      - "codex-*"
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore ./Dxs.Consigliere.sln
+
+      - name: Test
+        run: dotnet test ./Dxs.Consigliere.sln -c Release --no-restore /m:1 -v minimal

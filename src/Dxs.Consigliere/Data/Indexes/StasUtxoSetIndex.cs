@@ -20,7 +20,7 @@ public class StasUtxoSetIndex : AbstractIndexCreationTask<MetaOutput>
     {
         Map = outputs =>
             from output in outputs
-            where output.Type == ScriptType.P2STAS
+            where (output.Type == ScriptType.P2STAS || output.Type == ScriptType.DSTAS)
                 && output.Spent != true
 
             let tx = LoadDocument<MetaTransaction>(output.TxId)
