@@ -1,3 +1,6 @@
+using Dxs.Consigliere.Services;
+using Dxs.Consigliere.Services.Impl;
+
 using System.Text.Json.Serialization;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -16,5 +19,6 @@ public static class PublicApiSetup
             .AddResponseCompression(x => { x.EnableForHttps = true; })
             .AddRequestDecompression()
             .AddEndpointsApiExplorer()
-            .AddSwaggerGen();
+            .AddSwaggerGen()
+            .AddTransient<ITransactionQueryService, TransactionQueryService>();
 }

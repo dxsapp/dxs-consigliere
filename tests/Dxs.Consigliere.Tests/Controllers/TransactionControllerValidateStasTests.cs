@@ -1,13 +1,10 @@
 using Dxs.Consigliere.Controllers;
-using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto.Responses;
+using Dxs.Consigliere.Services;
 
 using Microsoft.AspNetCore.Mvc;
 
 using Moq;
-
-using Raven.Client.Documents;
-using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Tests.Controllers;
 
@@ -16,10 +13,16 @@ public class TransactionControllerValidateStasTests
     [Fact]
     public async Task ReturnsBadRequestForMalformedId()
     {
-        var controller = new TransactionController();
-        var store = Mock.Of<IDocumentStore>();
+        var queryService = new Mock<ITransactionQueryService>();
+        queryService.Setup(x => x.ValidateStasTransactionAsync("abc", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TransactionQueryException(
+                TransactionQueryErrorKind.BadRequest,
+                "Malformed transaction id: \"abc\""
+            ));
 
-        var result = await controller.ValidateStasTransaction("abc", store);
+        var controller = new TransactionController();
+
+        var result = await controller.ValidateStasTransaction("abc", queryService.Object);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(400, objectResult.StatusCode);
@@ -28,10 +31,14 @@ public class TransactionControllerValidateStasTests
     [Fact]
     public async Task ReturnsNotFoundWhenTransactionMissing()
     {
-        var (controller, store) = BuildControllerWithSession(metaTransaction: null);
         var id = new string('a', 64);
+        var queryService = new Mock<ITransactionQueryService>();
+        queryService.Setup(x => x.ValidateStasTransactionAsync(id, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TransactionQueryException(TransactionQueryErrorKind.NotFound, "Not found"));
 
-        var result = await controller.ValidateStasTransaction(id, store.Object);
+        var controller = new TransactionController();
+
+        var result = await controller.ValidateStasTransaction(id, queryService.Object);
 
         Assert.IsType<NotFoundResult>(result);
     }
@@ -39,18 +46,17 @@ public class TransactionControllerValidateStasTests
     [Fact]
     public async Task ReturnsTeapotWhenTransactionIsNotStas()
     {
-        var tx = new MetaTransaction
-        {
-            Id = new string('b', 64),
-            IsIssue = false,
-            AllStasInputsKnown = true,
-            IsStas = false,
-            IllegalRoots = [],
-            TokenIds = [],
-        };
-        var (controller, store) = BuildControllerWithSession(tx);
+        var id = new string('b', 64);
+        var queryService = new Mock<ITransactionQueryService>();
+        queryService.Setup(x => x.ValidateStasTransactionAsync(id, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TransactionQueryException(
+                TransactionQueryErrorKind.NotStas,
+                "This is not a STAS transaction"
+            ));
 
-        var result = await controller.ValidateStasTransaction(tx.Id, store.Object);
+        var controller = new TransactionController();
+
+        var result = await controller.ValidateStasTransaction(id, queryService.Object);
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(418, objectResult.StatusCode);
@@ -59,45 +65,37 @@ public class TransactionControllerValidateStasTests
     [Fact]
     public async Task ReturnsValidateStasResponseWithDstasFields()
     {
-        var tx = new MetaTransaction
-        {
-            Id = new string('c', 64),
-            IsIssue = false,
-            AllStasInputsKnown = true,
-            IsStas = true,
-            IsRedeem = false,
-            DstasEventType = "freeze",
-            DstasSpendingType = 2,
-            DstasOptionalDataContinuity = true,
-            IllegalRoots = [],
-            TokenIds = ["token-id-1"],
-        };
-        var (controller, store) = BuildControllerWithSession(tx);
+        var response = new ValidateStasResponse(
+            false,
+            new string('c', 64),
+            true,
+            false,
+            false,
+            "freeze",
+            2,
+            true,
+            "token-id-1",
+            [],
+            []
+        );
 
-        var result = await controller.ValidateStasTransaction(tx.Id, store.Object);
+        var queryService = new Mock<ITransactionQueryService>();
+        queryService.Setup(x => x.ValidateStasTransactionAsync(response.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(response);
+
+        var controller = new TransactionController();
+
+        var result = await controller.ValidateStasTransaction(response.Id, queryService.Object);
 
         var ok = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ValidateStasResponse>(ok.Value);
+        var payload = Assert.IsType<ValidateStasResponse>(ok.Value);
 
-        Assert.False(response.AskLater);
-        Assert.Equal(tx.Id, response.Id);
-        Assert.True(response.IsLegal);
-        Assert.Equal("freeze", response.EventType);
-        Assert.Equal(2, response.SpendingType);
-        Assert.True(response.OptionalDataContinuity);
-        Assert.Equal("token-id-1", response.TokenId);
-    }
-
-    private static (TransactionController controller, Mock<IDocumentStore> store) BuildControllerWithSession(MetaTransaction? metaTransaction)
-    {
-        var session = new Mock<IAsyncDocumentSession>();
-        session.Setup(x => x.LoadAsync<MetaTransaction>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(metaTransaction);
-
-        var store = new Mock<IDocumentStore>();
-        store.Setup(x => x.OpenAsyncSession(It.IsAny<SessionOptions>()))
-            .Returns(session.Object);
-
-        return (new TransactionController(), store);
+        Assert.False(payload.AskLater);
+        Assert.Equal(response.Id, payload.Id);
+        Assert.True(payload.IsLegal);
+        Assert.Equal("freeze", payload.EventType);
+        Assert.Equal(2, payload.SpendingType);
+        Assert.True(payload.OptionalDataContinuity);
+        Assert.Equal("token-id-1", payload.TokenId);
     }
 }

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,19 +22,11 @@ public class TransactionFilter : ITransactionFilter
     private readonly IFilteredTransactionMessageBus _filteredTransactionMessageBus;
     private readonly ITransactionStore _transactionStore;
     private readonly ILogger _logger;
+    private readonly TransactionFilterWatchSet _watchSet = new();
+    private readonly TransactionFilterMetrics _metrics = new();
 
     private readonly CancellationTokenSource _cts = new();
     private readonly Timer _periodicLogger;
-
-    private int _transactionsCounter;
-    private int _foundInMempoolCounter;
-    private int _foundInBlockCounter;
-    private int _updatedOnBlockConnectedCounter;
-    private int _reFoundInMempoolCounter;
-    private int _notModified;
-    private readonly ConcurrentDictionary<string, Address> _watchingAddresses = new();
-    private readonly ConcurrentDictionary<string, TokenId> _watchingTokens = new();
-    private readonly ConcurrentDictionary<string, Address> _watchingTokensRedeemAddresses = new();
 
     private IAgent<TxMessage> _messageHandler;
     private IDisposable _busSub;
@@ -61,13 +52,10 @@ public class TransactionFilter : ITransactionFilter
 
 
     public void ManageUtxoSetForAddress(Address address)
-        => _watchingAddresses.TryAdd(address.Value, address);
+        => _watchSet.AddAddress(address);
 
     public void ManageUtxoSetForToken(TokenId tokenId)
-    {
-        _watchingTokens.TryAdd(tokenId.Value, tokenId);
-        _watchingTokensRedeemAddresses.TryAdd(tokenId.RedeemAddress.Value, tokenId.RedeemAddress);
-    }
+        => _watchSet.AddToken(tokenId);
 
     public int QueueLength() => _messageHandler.MessagesInQueue;
 
@@ -78,14 +66,8 @@ public class TransactionFilter : ITransactionFilter
 
     private async Task InitAsync()
     {
-        foreach (var address in await _transactionStore.GetWatchingAddresses())
-            _watchingAddresses.TryAdd(address.Value, address);
-
-        foreach (var tokenId in await _transactionStore.GetWatchingTokens())
-        {
-            _watchingTokens.TryAdd(tokenId.Value, tokenId);
-            _watchingTokensRedeemAddresses.TryAdd(tokenId.RedeemAddress.Value, tokenId.RedeemAddress);
-        }
+        _watchSet.SeedAddresses(await _transactionStore.GetWatchingAddresses());
+        _watchSet.SeedTokens(await _transactionStore.GetWatchingTokens());
 
         _messageHandler = Agent.Start<TxMessage>(Handle);
         _busSub = _txMessageBus.Subscribe(
@@ -97,8 +79,8 @@ public class TransactionFilter : ITransactionFilter
             "Transaction filter started with {@InitState}",
             new
             {
-                WatchingAddresses = _watchingAddresses.Count,
-                WatchingTokens = _watchingTokens.Count,
+                WatchingAddresses = _watchSet.WatchingAddressesCount,
+                WatchingTokens = _watchSet.WatchingTokensCount,
             }
         );
     }
@@ -124,64 +106,17 @@ public class TransactionFilter : ITransactionFilter
         }
     }
 
-    private readonly HashSet<string> _addresses = new();
-
     private async Task HandleAddTransaction(TxMessage message)
     {
         var transaction = message.Transaction;
-        var save = false;
-        var redeemAddress = (string)null;
+        var match = _watchSet.Match(transaction);
 
-        foreach (var output in transaction.Outputs)
-        {
-            if (output.Address?.Value is { } address)
-            {
-                if (_watchingAddresses.ContainsKey(address))
-                {
-                    save = true;
-                    _addresses.Add(address);
-                }
-
-                if (output.Idx == 0
-                    && _watchingTokensRedeemAddresses.ContainsKey(address)) //monitor manages the token, but does not manage redeem address
-                {
-                    save = true;
-                    redeemAddress = address;
-                }
-            }
-
-            if (output.Type is ScriptType.P2STAS or ScriptType.DSTAS &&
-                output.TokenId.IsNotNullOrEmpty() &&
-                _watchingTokens.ContainsKey(output.TokenId))
-            {
-                save = true;
-
-                if (output.Address != null)
-                    _addresses.Add(output.Address.Value);
-            }
-        }
-
-        foreach (var input in transaction.Inputs)
-        {
-            if (input.Address == null) continue;
-
-            if (!save)
-            {
-                if (_watchingAddresses.ContainsKey(input.Address.Value))
-                {
-                    save = true;
-                }
-            }
-
-            _addresses.Add(input.Address.Value);
-        }
-
-        if (save)
+        if (match.Save)
         {
             var status = await _transactionStore.SaveTransaction(
                 transaction,
                 message.Timestamp,
-                redeemAddress,
+                match.RedeemAddress,
                 message.BlockHash,
                 message.Height,
                 message.Idx
@@ -189,46 +124,23 @@ public class TransactionFilter : ITransactionFilter
 
             if (status == TransactionProcessStatus.Unexpected)
                 _logger.LogError("SaveTransaction {TransactionId} returned status Unexpected", transaction.Id);
-            else if (status == TransactionProcessStatus.FoundInMempool)
-                _foundInMempoolCounter++;
-            else if (status == TransactionProcessStatus.FoundInBlock)
-                _foundInBlockCounter++;
-            else if (status == TransactionProcessStatus.UpdatedOnBlockConnected)
-                _updatedOnBlockConnectedCounter++;
-            else if (status == TransactionProcessStatus.ReFoundInMempool)
-                _reFoundInMempoolCounter++;
-            else if (status == TransactionProcessStatus.NotModified)
-                _notModified++;
+            else
+                _metrics.Observe(status);
 
             _logger.LogDebug("{TransactionId} processed with status {Status:G}", transaction.Id, status);
 
-            var addresses = _addresses.Any()
-                ? new HashSet<string>(_addresses)
-                : null;
-            var txMessage = new FilteredTransactionMessage(transaction, addresses);
+            var txMessage = new FilteredTransactionMessage(transaction, match.Addresses);
 
             _filteredTransactionMessageBus.Post(txMessage);
         }
 
-        _addresses.Clear();
-
-        _transactionsCounter++;
+        _metrics.IncrementProcessed();
     }
 
     private Task HandleRemoveTransaction(TxMessage message) => _transactionStore.TryRemoveTransaction(message.TxId);
 
     private void LogCount(object state)
-    {
-        _logger.LogInformation("{@HandledTransactions}", new
-        {
-            All = Interlocked.Exchange(ref _transactionsCounter, 0),
-            FoundInMempool = Interlocked.Exchange(ref _foundInMempoolCounter, 0),
-            FoundInBlock = Interlocked.Exchange(ref _foundInBlockCounter, 0),
-            UpdatedOnBlockConnected = Interlocked.Exchange(ref _updatedOnBlockConnectedCounter, 0),
-            ReFoundInMempool = Interlocked.Exchange(ref _reFoundInMempoolCounter, 0),
-            NotModified = Interlocked.Exchange(ref _notModified, 0),
-        });
-    }
+        => _logger.LogInformation("{@HandledTransactions}", _metrics.SnapshotAndReset());
 
     #endregion
 
