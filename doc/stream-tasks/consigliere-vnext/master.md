@@ -10,8 +10,8 @@
 
 ## Active Wave
 
-- Active wave: `Wave C: Source And Routing Control Plane`
-- Critical-path slice: `S11`
+- Active wave: `Wave D: Mirror-Write Journal Ingest`
+- Critical-path slice: `S12`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -29,7 +29,8 @@
 | S08 | verification-and-conformance | operator/verification | done | S07 | benchmark project runs with journal append/replay cases | baseline journal perf numbers are captured |
 | S09 | external-chain-adapters | operator/integration | done | A1 | external adapter build + app build | providers report capability availability and basic health via adapter diagnostics |
 | S10 | indexer-ingest-orchestration | operator/runtime | done | S09 | targeted runtime tests + app build | runtime answers source-by-capability without producer rewrites |
-| S11 | public-api-and-realtime | operator/api | in_progress | S09,S10 | API tests + app build | ops API shows provider-first status with nested capability state |
+| S11 | public-api-and-realtime | operator/api | done | S09,S10 | API tests + app build | ops API shows provider-first status with nested capability state |
+| S12 | bsv-runtime-ingest | operator/runtime | pending | S07,S10,S11 | targeted ingest tests + app build | every current tx event written into legacy flow is also observable in the journal |
 
 ## Open Handoffs
 
@@ -57,6 +58,7 @@
 | 2026-03-26 | S08 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S08-journal-benchmarks-evidence.md` | measured baseline journal throughput with invariant formatting |
 | 2026-03-26 | S09 | validation | `build:Dxs.Infrastructure + build:Dxs.Consigliere` | provider descriptor and diagnostics surface compiles cleanly through app wiring |
 | 2026-03-26 | S10 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Services/Impl/SourceCapabilityRoutingTests.cs` | capability routing resolves legacy defaults, overrides, and verification source correctly |
+| 2026-03-26 | S11 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Controllers/OpsControllerTests.cs` | provider ops endpoint returns provider-first status with nested capability activity and rate-limit hints |
 
 ## Audit Gates
 
@@ -112,7 +114,8 @@
   - `S08`
   - `S09`
   - `S10`
+  - `S11`
 - Current risks:
-  - provider ops API surface is not implemented yet
+  - mirror-write ingestion is not implemented yet
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S11`
+- Next slice to open: `S12`
