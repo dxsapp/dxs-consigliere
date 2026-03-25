@@ -1,17 +1,21 @@
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Common.Extensions;
+using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Infrastructure.Common;
 
 using MediatR;
 
 using Raven.Client.Documents;
 using Raven.Client.Documents.Session;
+
+using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.BackgroundTasks.Blocks;
 
@@ -20,6 +24,9 @@ public class BlockProcessExecutor(
     IServiceProvider serviceProvider,
     IPublisher publisher,
     IDocumentStore documentStore,
+    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IOptions<AppConfig> appConfig,
+    IExternalChainProviderCatalog providerCatalog,
     ILogger<BlockProcessExecutor> logger
 )
 {
@@ -114,12 +121,30 @@ public class BlockProcessExecutor(
             out NodeBlockchainDataProvider nodeBlockchainDataProvider
         );
 
-        var dataProvider = context.ErrorsCount % 2 == 1 && jungleBusBlockchainDataProvider.Enabled
-            ? jungleBusBlockchainDataProvider
-            : (IBlockDataProvider)nodeBlockchainDataProvider;
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.BlockBackfill,
+            sourcesConfig.Value,
+            appConfig.Value,
+            providerCatalog
+        );
+        var selectedSource = SourceCapabilityRouting.SelectForAttempt(route, context.ErrorsCount);
+
+        var dataProvider = string.Equals(selectedSource, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase)
+            && jungleBusBlockchainDataProvider.Enabled
+            ? (IBlockDataProvider)jungleBusBlockchainDataProvider
+            : nodeBlockchainDataProvider;
 
         using var timesCts = new CancellationTokenSource(TimeSpan.FromMinutes(20));
         using var combined = CancellationTokenSource.CreateLinkedTokenSource(timesCts.Token, cancellationToken);
+
+        logger.LogDebug(
+            "Selected source `{Source}` for capability `{Capability}`; primary `{Primary}`, fallbacks {Fallbacks}, verification `{Verification}`",
+            selectedSource,
+            route.Capability,
+            route.PrimarySource,
+            route.FallbackSources,
+            route.VerificationSource
+        );
 
         await dataProvider.ProcessBlock(context, combined.Token);
 
