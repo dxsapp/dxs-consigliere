@@ -1,4 +1,5 @@
 using Dxs.Bsv;
+using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto.Responses;
@@ -10,7 +11,11 @@ using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class TransactionQueryService(IDocumentStore store) : ITransactionQueryService
+public class TransactionQueryService(
+    IDocumentStore store,
+    TxLifecycleProjectionReader txLifecycleProjectionReader,
+    TxLifecycleProjectionRebuilder txLifecycleProjectionRebuilder
+) : ITransactionQueryService
 {
     private const int MaxBatchCount = 1000;
     private const int MaxBlockPageSize = 500;
@@ -35,6 +40,38 @@ public class TransactionQueryService(IDocumentStore store) : ITransactionQuerySe
             TransactionQueryErrorKind.InternalError,
             "Missing transaction data"
         );
+    }
+
+    public async Task<TransactionStateResponse> GetTransactionStateAsync(
+        string id,
+        CancellationToken cancellationToken = default
+    )
+    {
+        ValidateTransactionId(id);
+
+        await txLifecycleProjectionRebuilder.RebuildAsync(cancellationToken: cancellationToken);
+
+        var projection = await txLifecycleProjectionReader.LoadAsync(id, cancellationToken);
+        if (projection == null)
+            throw new TransactionQueryException(TransactionQueryErrorKind.NotFound, "Not found");
+
+        return new TransactionStateResponse
+        {
+            TxId = projection.TxId,
+            Known = projection.Known,
+            LifecycleStatus = projection.LifecycleStatus,
+            Authoritative = projection.Authoritative,
+            RelevantToManagedScope = projection.RelevantToManagedScope,
+            RelevanceTypes = projection.RelevanceTypes,
+            SeenBySources = projection.SeenBySources,
+            SeenInMempool = projection.SeenInMempool,
+            BlockHash = projection.BlockHash,
+            BlockHeight = projection.BlockHeight,
+            FirstSeenAt = projection.FirstSeenAt,
+            LastObservedAt = projection.LastObservedAt,
+            ValidationStatus = projection.ValidationStatus,
+            PayloadAvailable = projection.PayloadAvailable
+        };
     }
 
     public async Task<Dictionary<string, string>> GetTransactionsAsync(

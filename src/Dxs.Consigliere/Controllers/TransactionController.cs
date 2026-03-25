@@ -30,6 +30,26 @@ public class TransactionController : BaseController
         }
     }
 
+    [HttpGet("state/{id}")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Produces(typeof(TransactionStateResponse))]
+    public async Task<IActionResult> GetTransactionState(
+        string id,
+        [FromServices] ITransactionQueryService transactionQueryService,
+        CancellationToken cancellationToken
+    )
+    {
+        try
+        {
+            return Ok(await transactionQueryService.GetTransactionStateAsync(id, cancellationToken));
+        }
+        catch (TransactionQueryException exception)
+        {
+            return MapTransactionQueryException(exception, includeNotFoundBody: true);
+        }
+    }
+
     [HttpGet("batch/get")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(Dictionary<string, string>))]

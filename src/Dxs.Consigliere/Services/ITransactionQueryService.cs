@@ -6,6 +6,11 @@ public interface ITransactionQueryService
 {
     Task<string> GetTransactionAsync(string id, CancellationToken cancellationToken = default);
 
+    Task<TransactionStateResponse> GetTransactionStateAsync(
+        string id,
+        CancellationToken cancellationToken = default
+    );
+
     Task<Dictionary<string, string>> GetTransactionsAsync(
         IReadOnlyList<string> ids,
         CancellationToken cancellationToken = default
