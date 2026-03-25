@@ -24,6 +24,10 @@ dotnet test ./Dxs.Consigliere.sln -c Release /m:1 -v minimal
     - optional data continuity checks.
   - `TransactionController.ValidateStasTransaction` response and DSTAS fields coverage.
 
+- `tests/Dxs.Consigliere.Benchmarks`
+  - minimal replay harness scaffold for baseline observation-stream samples.
+  - fixture-backed smoke coverage for replay loading and metrics aggregation.
+
 ## Remaining high-priority work
 
 - Full integration tests that execute RavenDB patch logic end-to-end for `UpdateStasAttributes`.

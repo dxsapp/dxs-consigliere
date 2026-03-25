@@ -1,0 +1,62 @@
+{
+  "name": "baseline-observation-stream",
+  "observations": [
+    {
+      "sequence": 1,
+      "eventType": "BlockConnected",
+      "source": "node",
+      "entityId": "0000000000000000000000000000000000000000000000000000000000000001",
+      "blockHash": "0000000000000000000000000000000000000000000000000000000000000001",
+      "blockHeight": 100,
+      "observedAtUtc": "2026-03-26T00:00:00Z"
+    },
+    {
+      "sequence": 2,
+      "eventType": "TxSeenBySource",
+      "source": "junglebus",
+      "entityId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "blockHash": null,
+      "blockHeight": null,
+      "observedAtUtc": "2026-03-26T00:00:01Z",
+      "payloadRef": "payload://tx/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "sequence": 3,
+      "eventType": "TxSeenInMempool",
+      "source": "bitails",
+      "entityId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "blockHash": null,
+      "blockHeight": null,
+      "observedAtUtc": "2026-03-26T00:00:02Z",
+      "payloadRef": "payload://tx/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "sequence": 4,
+      "eventType": "TxSeenInBlock",
+      "source": "node",
+      "entityId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "blockHash": "0000000000000000000000000000000000000000000000000000000000000001",
+      "blockHeight": 100,
+      "observedAtUtc": "2026-03-26T00:00:03Z",
+      "payloadRef": "payload://tx/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "sequence": 5,
+      "eventType": "TxDroppedBySource",
+      "source": "whatsonchain",
+      "entityId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "blockHash": null,
+      "blockHeight": null,
+      "observedAtUtc": "2026-03-26T00:00:04Z"
+    },
+    {
+      "sequence": 6,
+      "eventType": "BlockDisconnected",
+      "source": "node",
+      "entityId": "0000000000000000000000000000000000000000000000000000000000000001",
+      "blockHash": "0000000000000000000000000000000000000000000000000000000000000001",
+      "blockHeight": 100,
+      "observedAtUtc": "2026-03-26T00:00:05Z"
+    }
+  ]
+}
