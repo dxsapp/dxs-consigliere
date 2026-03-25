@@ -33,10 +33,11 @@ public sealed class TxLifecycleProjectionRebuilder(
                 return checkpoint;
 
             using var session = documentStore.GetSession();
+            var projectionCache = await LoadProjectionCacheAsync(session, records, cancellationToken);
 
             foreach (var record in records)
             {
-                await ApplyAsync(session, record, cancellationToken);
+                await ApplyAsync(session, projectionCache, record, cancellationToken);
                 checkpoint = checkpoint.AdvanceTo(record.Sequence, record.Fingerprint);
             }
 
@@ -49,52 +50,87 @@ public sealed class TxLifecycleProjectionRebuilder(
 
     private async Task ApplyAsync(
         IAsyncDocumentSession session,
+        Dictionary<string, TxLifecycleProjectionDocument> projectionCache,
         StoredObservationJournalRecord record,
         CancellationToken cancellationToken
     )
     {
         if (record.IsObservationType<TxObservation>())
         {
-            await ApplyTxObservationAsync(session, record, record.Deserialize<TxObservation>(), cancellationToken);
+            await ApplyTxObservationAsync(session, projectionCache, record, record.Deserialize<TxObservation>(), cancellationToken);
             return;
         }
 
         if (record.IsObservationType<BlockObservation>())
         {
-            await ApplyBlockObservationAsync(session, record, record.Deserialize<BlockObservation>(), cancellationToken);
+            await ApplyBlockObservationAsync(session, projectionCache, record, record.Deserialize<BlockObservation>(), cancellationToken);
         }
+    }
+
+    private static async Task<Dictionary<string, TxLifecycleProjectionDocument>> LoadProjectionCacheAsync(
+        IAsyncDocumentSession session,
+        IReadOnlyList<StoredObservationJournalRecord> records,
+        CancellationToken cancellationToken
+    )
+    {
+        var txIds = records
+            .Where(x => x.IsObservationType<TxObservation>())
+            .Select(x => x.Deserialize<TxObservation>().TxId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(TxLifecycleProjectionDocument.GetId)
+            .ToArray();
+
+        if (txIds.Length == 0)
+            return new Dictionary<string, TxLifecycleProjectionDocument>(StringComparer.OrdinalIgnoreCase);
+
+        var loaded = await session.LoadAsync<TxLifecycleProjectionDocument>(txIds, cancellationToken);
+
+        return loaded.Values
+            .Where(x => x is not null)
+            .ToDictionary(x => x.TxId, x => x, StringComparer.OrdinalIgnoreCase);
     }
 
     private static async Task ApplyTxObservationAsync(
         IAsyncDocumentSession session,
+        Dictionary<string, TxLifecycleProjectionDocument> projectionCache,
         StoredObservationJournalRecord record,
         TxObservation observation,
         CancellationToken cancellationToken
     )
     {
-        var document = await session.LoadAsync<TxLifecycleProjectionDocument>(
-            TxLifecycleProjectionDocument.GetId(observation.TxId),
-            cancellationToken
-        ) ?? new TxLifecycleProjectionDocument
+        if (!projectionCache.TryGetValue(observation.TxId, out var document))
         {
-            Id = TxLifecycleProjectionDocument.GetId(observation.TxId),
-            TxId = observation.TxId,
-            RelevantToManagedScope = false,
-            RelevanceTypes = []
-        };
+            document = new TxLifecycleProjectionDocument
+            {
+                Id = TxLifecycleProjectionDocument.GetId(observation.TxId),
+                TxId = observation.TxId,
+                RelevantToManagedScope = false,
+                RelevanceTypes = []
+            };
+
+            projectionCache[observation.TxId] = document;
+            await session.StoreAsync(document, document.Id, cancellationToken);
+        }
 
         var observedAt = observation.ObservedAt ?? record.AppendedAt;
 
         document.Known = true;
         document.SeenBySources = Merge(document.SeenBySources, observation.Source);
         document.PayloadAvailable |= record.PayloadReference is not null;
-        document.FirstSeenAt ??= observedAt;
-        document.LastObservedAt = observedAt;
+        document.FirstSeenAt = document.FirstSeenAt is null || observedAt < document.FirstSeenAt
+            ? observedAt
+            : document.FirstSeenAt;
+        document.LastObservedAt = document.LastObservedAt is null || observedAt > document.LastObservedAt
+            ? observedAt
+            : document.LastObservedAt;
         document.LastSequence = record.Sequence.Value;
 
         switch (observation.EventType)
         {
             case TxObservationEventType.SeenInMempool:
+                if (string.Equals(document.LifecycleStatus, TxLifecycleStatus.Confirmed, StringComparison.Ordinal))
+                    break;
+
                 document.LifecycleStatus = TxLifecycleStatus.SeenInMempool;
                 document.Authoritative = false;
                 document.SeenInMempool = true;
@@ -107,6 +143,9 @@ public sealed class TxLifecycleProjectionRebuilder(
                 document.BlockHeight = observation.BlockHeight;
                 break;
             case TxObservationEventType.DroppedBySource:
+                if (string.Equals(document.LifecycleStatus, TxLifecycleStatus.Confirmed, StringComparison.Ordinal))
+                    break;
+
                 document.LifecycleStatus = TxLifecycleStatus.Dropped;
                 document.Authoritative = false;
                 document.SeenInMempool = false;
@@ -114,12 +153,11 @@ public sealed class TxLifecycleProjectionRebuilder(
                 document.BlockHeight = null;
                 break;
         }
-
-        await session.StoreAsync(document, document.Id, cancellationToken);
     }
 
     private static async Task ApplyBlockObservationAsync(
         IAsyncDocumentSession session,
+        Dictionary<string, TxLifecycleProjectionDocument> projectionCache,
         StoredObservationJournalRecord record,
         BlockObservation observation,
         CancellationToken cancellationToken
@@ -128,9 +166,19 @@ public sealed class TxLifecycleProjectionRebuilder(
         if (!string.Equals(observation.EventType, BlockObservationEventType.Disconnected, StringComparison.Ordinal))
             return;
 
-        var affected = await session.Query<TxLifecycleProjectionDocument>()
-            .Where(x => x.BlockHash == observation.BlockHash)
-            .ToListAsync(token: cancellationToken);
+        var affected = projectionCache.Values
+            .Where(x => string.Equals(x.BlockHash, observation.BlockHash, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (affected.Count == 0)
+        {
+            affected = await session.Query<TxLifecycleProjectionDocument>()
+                .Where(x => x.BlockHash == observation.BlockHash)
+                .ToListAsync(token: cancellationToken);
+
+            foreach (var document in affected)
+                projectionCache[document.TxId] = document;
+        }
 
         foreach (var document in affected)
         {

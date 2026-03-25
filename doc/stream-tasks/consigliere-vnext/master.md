@@ -6,12 +6,12 @@
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
 - Current cutover mode: `legacy`
-- Current audit gate status: `A1 passed`
+- Current audit gate status: `A2 opened`
 
 ## Active Wave
 
 - Active wave: `Wave E: Transaction Lifecycle VNext`
-- Critical-path slice: `S16`
+- Critical-path slice: `A2`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -34,7 +34,7 @@
 | S13 | indexer-ingest-orchestration | operator/runtime | done | S12 | replay/integration checks + app build | block and reorg semantics can be reconstructed from journal facts |
 | S14 | indexer-state-and-storage | operator/state | done | S12,S13 | projection tests + app build | tx lifecycle projection can be rebuilt from journal sequence and read by tx id |
 | S15 | public-api-and-realtime | operator/api | done | S14 | API tests + app build | current tx hex clients still work and new tx lifecycle semantics are available |
-| S16 | verification-and-conformance | operator/verification | pending | S14,S15 | replay tests + perf evidence | lifecycle projection is deterministic under replay, duplicate/out-of-order handling is explicit, and first tx-state perf baseline is captured |
+| S16 | verification-and-conformance | operator/verification | done | S14,S15 | replay tests + perf evidence | lifecycle projection is deterministic under replay, duplicate/out-of-order handling is explicit, and first tx-state perf baseline is captured |
 
 ## Open Handoffs
 
@@ -67,13 +67,15 @@
 | 2026-03-26 | S13 | validation | `build:Dxs.Consigliere + tests:BlockObservationJournalMirrorBackgroundTaskTests|TxObservationJournalMirrorBackgroundTaskTests` | block bus events and orphaned-block detection now emit journal facts for connected and disconnected chain observations |
 | 2026-03-26 | S14 | validation | `build:Dxs.Consigliere + tests:RavenObservationJournalIntegrationTests|TxLifecycleProjectionRebuilderIntegrationTests` | mixed journal replay filters typed reads correctly and tx lifecycle projections rebuild deterministically from tx+block facts |
 | 2026-03-26 | S15 | validation | `build:Dxs.Consigliere + tests:TransactionControllerStateTests|TransactionQueryServiceLifecycleTests` | additive tx state endpoint is available while legacy raw-tx retrieval remains intact |
+| 2026-03-26 | S16 | validation | `tests:TxLifecycleProjectionRebuilderIntegrationTests|TransactionQueryServiceLifecycleTests|TxLifecycleBenchmarkSmokeTests|TxLifecycleBenchmarkEvidenceTests` | tx lifecycle replay stayed deterministic after page-level batching and benchmark evidence was captured without Raven session request exhaustion |
+| 2026-03-26 | S16 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S16-tx-lifecycle-benchmarks-evidence.md` | first tx lifecycle rebuild/query perf baseline recorded for audit gate A2 |
 
 ## Audit Gates
 
 | gate | trigger | status | evidence | remediation_required |
 |---|---|---|---|---|
 | A1 | S08 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A1.md` | yes |
-| A2 | S16 | not_opened | - | no |
+| A2 | S16 | opened | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S16-tx-lifecycle-benchmarks-evidence.md` | no |
 | A3 | S23 | not_opened | - | no |
 | A4 | S29 | not_opened | - | no |
 | A5 | S31 | not_opened | - | no |
@@ -127,7 +129,7 @@
   - `S13`
   - `S14`
   - `S15`
+  - `S16`
 - Current risks:
-  - tx lifecycle still lacks explicit duplicate/out-of-order conformance evidence
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S16`
+- Next slice to open: `A2`
