@@ -348,6 +348,31 @@ The `v1` transaction lifecycle must be able to represent:
 - confirmation
 - drop or loss of visibility
 
+## Decision: Transaction State Must Also Express Managed Relevance
+
+The `v1` transaction-state model includes:
+- lifecycle
+- visibility
+- managed-scope relevance
+
+## Decision: Minimal Transaction-State Fields in v1
+
+The minimum transaction-state fields are:
+- `txId`
+- `known`
+- `lifecycleStatus`
+- `authoritative`
+- `relevantToManagedScope`
+- `relevanceTypes[]`
+- `seenBySources[]?`
+- `seenInMempool?`
+- `blockHash?`
+- `blockHeight?`
+- `firstSeenAt?`
+- `lastObservedAt?`
+- `validationStatus?`
+- `payloadAvailable`
+
 ## Decision: Address State Core for v1
 
 The mandatory address state core consists of:

@@ -197,6 +197,98 @@ Rationale:
 - avoids expanding implementation scope too early
 - focuses on the payload type already known to be operationally important
 
+## Decision: Tracked Lifecycle Storage Uses Split Documents
+
+Tracked lifecycle and readiness storage uses a split model:
+
+- public-facing state document
+- internal progress/readiness document
+
+Rationale:
+- internal sync bookkeeping changes more frequently and more noisily
+- public state documents should not be churned by every internal readiness update
+- this keeps business-facing state cleaner while preserving detailed operational progress tracking
+
+## Decision: Readiness Storage Uses a Shared Base Plus Typed Payload
+
+The readiness/progress model uses:
+- one shared base structure for common readiness semantics
+- typed payload for address-specific or token-specific details
+
+Rationale:
+- avoids duplicating common lifecycle and readiness fields
+- still allows different tracked object types to carry different progress and sync metadata
+
+## Decision: Readiness Exists Both Internally and as a Public Snapshot
+
+The model keeps both:
+- internal readiness/progress truth
+- public-facing readiness snapshot on state documents
+
+Interpretation:
+- the internal readiness document is the operational source of truth
+- the public-facing snapshot is a derived cheap-read representation for API use
+
+This preserves fast public reads without making the public state document the canonical source of readiness mechanics.
+
+## Decision: Tracked Lifecycle Documents Use Deterministic IDs
+
+Tracked lifecycle documents use deterministic human-readable ids.
+
+Examples:
+- `tracked/address/{address}`
+- `tracked/token/{tokenId}`
+- `tracked/address/{address}/status`
+- `tracked/token/{tokenId}/status`
+
+Rationale:
+- easier routing
+- easier operations and debugging
+- avoids opaque identifiers for naturally keyed tracked objects
+
+## Decision: Registration Creates Both Public and Status Documents
+
+When a tracked entity is registered, the system creates both:
+- the public-facing tracked state document
+- the internal status/readiness document
+
+Rationale:
+- keeps the object visible in the public model immediately
+- provides deterministic readiness access from the start
+- simplifies orchestration and API consistency
+
+## Decision: Untrack Uses Soft Delete / Tombstone Semantics
+
+Removing a tracked entity uses soft-delete or tombstone semantics rather than immediate hard deletion.
+
+Rationale:
+- safer for operations and debugging
+- avoids losing lifecycle context too aggressively
+- fits tracked entities better as lifecycle-managed objects rather than simple CRUD rows
+
+## Decision: Registration Is Idempotent
+
+Tracked entity registration is idempotent.
+
+If the same address or token is registered again, the platform should treat that as a safe repeat operation rather than a conflict by default.
+
+## Decision: Bulk Registration Is Part of v1
+
+Bulk registration for addresses and tokens is part of the `v1` control plane.
+
+Expected behavior:
+- single-item registration and bulk registration coexist
+- bulk results should be per-item
+- bulk operations inherit idempotent registration semantics
+
+## Decision: Bulk Untrack Is Also Part of v1
+
+Bulk untrack/remove is also part of the `v1` control plane.
+
+Expected behavior:
+- bulk untrack results are per-item
+- they work with the same lifecycle-managed semantics as single-item untrack
+
 ## Phases
 
 ### Phase 1: Contract and Config Scaffolding

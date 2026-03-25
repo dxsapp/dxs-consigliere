@@ -180,9 +180,13 @@ Controls what the service tracks and how scope is maintained.
 
 Mandatory endpoints:
 - `POST /api/scope/addresses`
+- `POST /api/scope/addresses/bulk`
 - `DELETE /api/scope/addresses/{address}`
+- `POST /api/scope/addresses/untrack/bulk`
 - `POST /api/scope/tokens`
+- `POST /api/scope/tokens/bulk`
 - `DELETE /api/scope/tokens/{tokenId}`
+- `POST /api/scope/tokens/untrack/bulk`
 - `GET /api/scope/status`
 - `GET /api/scope/readiness`
 - `POST /api/scope/backfill`
@@ -216,6 +220,42 @@ Minimum expected progression concepts:
 - `dropped`
 
 This gives clients a usable operational model for submitted transactions without collapsing submission and final confirmation into one step.
+
+## Decision: `tx state` Includes Lifecycle, Visibility, and Managed Relevance
+
+The `v1` transaction-state object is not only a lifecycle object.
+
+It includes:
+- lifecycle
+- visibility
+- managed-scope relevance
+
+Rationale:
+- a business client needs to know not only where a transaction is in its lifecycle
+- but also whether `Consigliere` considers that transaction relevant to managed scope
+
+## Decision: Minimal `tx state` Shape in v1
+
+The minimal `tx state` object includes:
+
+- `txId`
+- `known`
+- `lifecycleStatus`
+- `authoritative`
+- `relevantToManagedScope`
+- `relevanceTypes[]`
+- `seenBySources[]?`
+- `seenInMempool?`
+- `blockHash?`
+- `blockHeight?`
+- `firstSeenAt?`
+- `lastObservedAt?`
+- `validationStatus?`
+- `payloadAvailable`
+
+Notes:
+- `relevanceTypes[]` is a list because a transaction may be relevant for multiple reasons at once
+- `validationStatus` is optional and applies only where validation semantics are meaningful
 
 #### Addresses
 - `GET /api/address/{address}/state`
