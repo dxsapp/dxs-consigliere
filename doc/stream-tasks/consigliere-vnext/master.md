@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave E: Transaction Lifecycle VNext`
-- Critical-path slice: `S15`
+- Critical-path slice: `S16`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -33,7 +33,8 @@
 | S12 | bsv-runtime-ingest | operator/runtime | done | S07,S10,S11 | targeted ingest tests + app build | every current tx event written into legacy flow is also observable in the journal |
 | S13 | indexer-ingest-orchestration | operator/runtime | done | S12 | replay/integration checks + app build | block and reorg semantics can be reconstructed from journal facts |
 | S14 | indexer-state-and-storage | operator/state | done | S12,S13 | projection tests + app build | tx lifecycle projection can be rebuilt from journal sequence and read by tx id |
-| S15 | public-api-and-realtime | operator/api | pending | S14 | API tests + app build | current tx hex clients still work and new tx lifecycle semantics are available |
+| S15 | public-api-and-realtime | operator/api | done | S14 | API tests + app build | current tx hex clients still work and new tx lifecycle semantics are available |
+| S16 | verification-and-conformance | operator/verification | pending | S14,S15 | replay tests + perf evidence | lifecycle projection is deterministic under replay, duplicate/out-of-order handling is explicit, and first tx-state perf baseline is captured |
 
 ## Open Handoffs
 
@@ -65,6 +66,7 @@
 | 2026-03-26 | S12 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/BackgroundTasks/TxObservationJournalMirrorBackgroundTaskTests.cs` | tx bus observations mirror into the journal with source identity, payload references, and drop filtering |
 | 2026-03-26 | S13 | validation | `build:Dxs.Consigliere + tests:BlockObservationJournalMirrorBackgroundTaskTests|TxObservationJournalMirrorBackgroundTaskTests` | block bus events and orphaned-block detection now emit journal facts for connected and disconnected chain observations |
 | 2026-03-26 | S14 | validation | `build:Dxs.Consigliere + tests:RavenObservationJournalIntegrationTests|TxLifecycleProjectionRebuilderIntegrationTests` | mixed journal replay filters typed reads correctly and tx lifecycle projections rebuild deterministically from tx+block facts |
+| 2026-03-26 | S15 | validation | `build:Dxs.Consigliere + tests:TransactionControllerStateTests|TransactionQueryServiceLifecycleTests` | additive tx state endpoint is available while legacy raw-tx retrieval remains intact |
 
 ## Audit Gates
 
@@ -124,7 +126,8 @@
   - `S12`
   - `S13`
   - `S14`
+  - `S15`
 - Current risks:
-  - public tx API still reads lifecycle only from legacy surfaces
+  - tx lifecycle still lacks explicit duplicate/out-of-order conformance evidence
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S15`
+- Next slice to open: `S16`
