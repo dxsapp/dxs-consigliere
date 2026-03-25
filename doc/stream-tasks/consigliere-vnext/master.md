@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave D: Mirror-Write Journal Ingest`
-- Critical-path slice: `S12`
+- Critical-path slice: `S13`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -30,7 +30,8 @@
 | S09 | external-chain-adapters | operator/integration | done | A1 | external adapter build + app build | providers report capability availability and basic health via adapter diagnostics |
 | S10 | indexer-ingest-orchestration | operator/runtime | done | S09 | targeted runtime tests + app build | runtime answers source-by-capability without producer rewrites |
 | S11 | public-api-and-realtime | operator/api | done | S09,S10 | API tests + app build | ops API shows provider-first status with nested capability state |
-| S12 | bsv-runtime-ingest | operator/runtime | pending | S07,S10,S11 | targeted ingest tests + app build | every current tx event written into legacy flow is also observable in the journal |
+| S12 | bsv-runtime-ingest | operator/runtime | done | S07,S10,S11 | targeted ingest tests + app build | every current tx event written into legacy flow is also observable in the journal |
+| S13 | indexer-ingest-orchestration | operator/runtime | pending | S12 | replay/integration checks + app build | block and reorg semantics can be reconstructed from journal facts |
 
 ## Open Handoffs
 
@@ -59,6 +60,7 @@
 | 2026-03-26 | S09 | validation | `build:Dxs.Infrastructure + build:Dxs.Consigliere` | provider descriptor and diagnostics surface compiles cleanly through app wiring |
 | 2026-03-26 | S10 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Services/Impl/SourceCapabilityRoutingTests.cs` | capability routing resolves legacy defaults, overrides, and verification source correctly |
 | 2026-03-26 | S11 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Controllers/OpsControllerTests.cs` | provider ops endpoint returns provider-first status with nested capability activity and rate-limit hints |
+| 2026-03-26 | S12 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/BackgroundTasks/TxObservationJournalMirrorBackgroundTaskTests.cs` | tx bus observations mirror into the journal with source identity, payload references, and drop filtering |
 
 ## Audit Gates
 
@@ -115,7 +117,8 @@
   - `S09`
   - `S10`
   - `S11`
+  - `S12`
 - Current risks:
-  - mirror-write ingestion is not implemented yet
+  - block-connected and reorg mirror semantics are not implemented yet
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S12`
+- Next slice to open: `S13`
