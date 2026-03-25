@@ -17,6 +17,7 @@ public static class HostedTasksSetup
             .AddSingleton<IJungleBusMissingTransactionFetcher, JungleBusMissingTransactionFetcher>()
             .AddSingletonHostedService<AppInitBackgroundTask>()
             .AddSingletonHostedService<BlockProcessBackgroundTask>()
+            .AddSingletonHostedService<BlockObservationJournalMirrorBackgroundTask>()
             .AddSingletonHostedService<ActualChainTipVerifyBackgroundTask>()
             .AddSingletonHostedService<StasAttributesMissingTransactions>()
             .AddSingletonHostedService<StasAttributesChangeObserverTask>()

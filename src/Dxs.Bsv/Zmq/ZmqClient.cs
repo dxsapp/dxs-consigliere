@@ -139,7 +139,7 @@ public class ZmqClient : IZmqClient
             try
             {
                 var blockHash = payload.ToHexString();
-                var blockMessage = new BlockMessage(blockHash);
+                var blockMessage = new BlockMessage(blockHash, TxObservationSource.Node);
 
                 _blockMessageBus.Post(blockMessage);
                 _logger.LogDebug("Block connected {Hash}", blockHash);

@@ -194,7 +194,7 @@ public class UnconfirmedTransactionsMonitor(
 
                 foreach (var hash in blocksToSync)
                 {
-                    blockMessageBus.Post(new BlockMessage(hash));
+                    blockMessageBus.Post(new BlockMessage(hash, TxObservationSource.Node));
                 }
             }
 

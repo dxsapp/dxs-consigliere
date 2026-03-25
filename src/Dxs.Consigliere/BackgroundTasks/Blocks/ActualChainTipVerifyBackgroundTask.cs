@@ -86,8 +86,8 @@ public class ActualChainTipVerifyBackgroundTask(
 
                 _logger.LogWarning("Found block mis height: {@Block}", block);
 
-                blockMessageBus.Post(new BlockMessage(block.Id));
-                blockMessageBus.Post(new BlockMessage(hash));
+                blockMessageBus.Post(new BlockMessage(block.Id, TxObservationSource.Node));
+                blockMessageBus.Post(new BlockMessage(hash, TxObservationSource.Node));
             }
         }
     }

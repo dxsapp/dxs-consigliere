@@ -99,7 +99,7 @@ public class AppInitBackgroundTask(
                 var blockHeight = height - _appConfig.BlockCountToScanOnStart + i;
                 var hash = await rpcClient.GetBlockHash(blockHeight).EnsureSuccess();
 
-                blockMessageBus.Post(new BlockMessage(hash));
+                blockMessageBus.Post(new BlockMessage(hash, TxObservationSource.Node));
             }
         }
 

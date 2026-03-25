@@ -28,5 +28,6 @@ public static class PersistenceSetup
             .AddSingleton(sp => sp.GetRequiredService<RavenDbDocumentStore>().DocumentStore)
             .AddSingleton<IRawTransactionPayloadStore, RavenRawTransactionPayloadStore>()
             .AddSingleton<IObservationJournalAppender<ObservationJournalEntry<TxObservation>>, RavenObservationJournal<TxObservation>>()
+            .AddSingleton<IObservationJournalAppender<ObservationJournalEntry<BlockObservation>>, RavenObservationJournal<BlockObservation>>()
             .AddScoped(sp => sp.GetRequiredService<RavenDbDocumentStore>().DocumentStore.GetSession());
 }

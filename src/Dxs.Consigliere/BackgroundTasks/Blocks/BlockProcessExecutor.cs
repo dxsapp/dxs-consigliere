@@ -1,7 +1,10 @@
 using Dxs.Bsv.BitcoinMonitor;
+using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Common.Extensions;
+using Dxs.Common.Journal;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
@@ -24,6 +27,7 @@ public class BlockProcessExecutor(
     IServiceProvider serviceProvider,
     IPublisher publisher,
     IDocumentStore documentStore,
+    IObservationJournalAppender<ObservationJournalEntry<BlockObservation>> blockObservationJournal,
     IOptions<ConsigliereSourcesConfig> sourcesConfig,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
@@ -167,6 +171,19 @@ public class BlockProcessExecutor(
         context.NextProcessAt = null;
         context.Orphaned = true;
         context.Messages.Add("Block wasn't found in blockchain");
+
+        var observation = new BlockObservation(
+            BlockObservationEventType.Disconnected,
+            TxObservationSource.Node,
+            context.Id,
+            DateTimeOffset.UtcNow,
+            "orphaned"
+        );
+        var request = new ObservationJournalAppendRequest<ObservationJournalEntry<BlockObservation>>(
+            new ObservationJournalEntry<BlockObservation>(observation),
+            new DedupeFingerprint($"{TxObservationSource.Node}|{BlockObservationEventType.Disconnected}|{context.Id}")
+        );
+        await blockObservationJournal.AppendAsync(request, cancellationToken);
 
         var transactions = await session.Query<MetaTransaction>()
             .Where(x => x.Block == context.Id)
