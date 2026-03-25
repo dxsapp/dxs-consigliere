@@ -163,64 +163,6 @@ Interpretation:
 
 Slices `S30` to `S32` must not proceed without documenting which mode is active and how rollback returns to the previous stable mode.
 
-## Performance Gates
-
-Every relevant slice should measure at least one of:
-- append latency
-- replay throughput
-- projection lag
-- queue depth under burst
-- allocations per transaction
-- Raven write count per logical transaction
-- payload storage growth
-- query latency for `tx`, `balances`, `UTXOs`, `history`, or validation views
-
-## Status Vocabulary
-
-- `not_opened`
-- `todo`
-- `in_progress`
-- `blocked`
-- `done`
-
-## Slice Ledger
-
-| Slice | Zone | Preferred lane | Status | Depends on | Goal | Validation |
-|---|---|---|---|---|---|---|
-| `S01` | `repo-governance` | `operator/governance` | `todo` | - | create durable vnext task package and execution ledger | docs review |
-| `S02` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `S01` | introduce `Consigliere:Sources` and `Consigliere:Storage` option models | config binding tests + startup check |
-| `S03` | `verification-and-conformance` | `operator/verification` | `todo` | `S01` | create benchmark and replay harness scaffolding | benchmark project runs |
-| `S04` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `S02` | wire new options into DI without changing runtime behavior | startup/build proof |
-| `S05` | `indexer-state-and-storage` | `operator/state` | `todo` | `S02` | add raw transaction payload-store abstraction with Raven implementation | storage tests |
-| `S06` | `platform-common` | `operator/platform` | `todo` | `S03` | add journal interfaces, append contracts, sequence/checkpoint primitives | unit tests |
-| `S07` | `indexer-state-and-storage` | `operator/state` | `todo` | `S05`,`S06` | add Raven-backed observation journal store | append + replay tests |
-| `S08` | `verification-and-conformance` | `operator/verification` | `todo` | `S07` | benchmark journal append, replay, and dedupe behavior | benchmark output |
-| `S09` | `external-chain-adapters` | `operator/integration` | `todo` | `S02` | define provider capability descriptors and health probes for existing adapters | adapter fixture tests |
-| `S10` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `S04`,`S09` | add capability routing policy skeleton with preferred mode, fallbacks, verification role | orchestration tests |
-| `S11` | `public-api-and-realtime` | `operator/api` | `todo` | `S10` | add provider ops DTOs and `/api/ops/providers` vnext shape | controller contract tests |
-| `S12` | `bsv-runtime-ingest` | `operator/runtime` | `todo` | `S07`,`S10` | mirror existing tx observations into the journal from runtime ingest | replay sample + no-regression check |
-| `S13` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `S12` | mirror block observations and source-visibility semantics into the journal | replay + reorg sample |
-| `S14` | `indexer-state-and-storage` | `operator/state` | `todo` | `S12`,`S13` | build tx-lifecycle projection store from journal | projection tests |
-| `S15` | `public-api-and-realtime` | `operator/api` | `todo` | `S14` | expose new `tx state` model while keeping current tx hex API compatible | API tests |
-| `S16` | `verification-and-conformance` | `operator/verification` | `todo` | `S14`,`S15` | benchmark tx-lifecycle projection and query latency | benchmark output |
-| `S17` | `indexer-state-and-storage` | `operator/state` | `todo` | `S02`,`S07` | add tracked address/token state docs and status docs | Raven integration tests |
-| `S18` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `S17`,`S13` | implement readiness transitions, gap closure, and `live` gating engine | replay + state transition proof |
-| `S19` | `public-api-and-realtime` | `operator/api` | `todo` | `S17`,`S18` | add readiness endpoints and enforce not-ready read refusal | controller tests |
-| `S20` | `indexer-state-and-storage` | `operator/state` | `todo` | `S07`,`S17` | add direct dependency facts and reverse dependents storage | storage tests |
-| `S21` | `bsv-protocol-core` | `operator/protocol` | `todo` | `S20` | extract explicit lineage and validation evaluator inputs out of current implicit store flow | protocol tests |
-| `S22` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `S20`,`S21` | implement dependency-driven revalidation worker from journal and dependency facts | replay + revalidation tests |
-| `S23` | `verification-and-conformance` | `operator/verification` | `todo` | `S22` | run token-lineage and revalidation burst/reorg benchmarks | benchmark output |
-| `S24` | `indexer-state-and-storage` | `operator/state` | `todo` | `S18`,`S22` | build address balances and UTXO projections off journal-driven state | query tests + perf sample |
-| `S25` | `indexer-state-and-storage` | `operator/state` | `todo` | `S18`,`S22` | build token state, token UTXO, and token history projections off journal-driven state | query tests + perf sample |
-| `S26` | `public-api-and-realtime` | `operator/api` | `todo` | `S24`,`S25` | expose vnext address/token/readiness APIs over new projections | controller tests |
-| `S27` | `public-api-and-realtime` | `operator/api` | `todo` | `S14`,`S18`,`S22` | align SignalR/realtime contracts with lifecycle and readiness semantics | websocket/manual proof |
-| `S28` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `S10`,`S11`,`S19`,`S26`,`S27` | expose full vnext config examples and operator-facing startup validation | startup/config proof |
-| `S29` | `verification-and-conformance` | `operator/verification` | `todo` | `S24`,`S25`,`S26`,`S27` | full replay, burst, soak, and reorg regression suite on vnext pipeline | test and benchmark suite |
-| `S30` | `indexer-state-and-storage` | `operator/state` | `todo` | `S24`,`S25`,`S29` | cut over hot-path state writes away from legacy `TransactionStore` fanout model | before/after state diff |
-| `S31` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `S30` | cut over ingest orchestration to journal-first pipeline | replay proof + rollback note |
-| `S32` | `public-api-and-realtime` | `operator/api` | `todo` | `S30`,`S31` | switch public reads and realtime streams to vnext projections by default | API and realtime proof |
-| `S33` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `S32` | final startup, config, deployment, and migration packaging for vnext | startup/build/deploy proof |
-
 ## Mandatory Audit Gates
 
 After a significant amount of slice work, execution must stop for an audit before the next wave continues.
