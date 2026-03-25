@@ -382,6 +382,55 @@ Token validation remains split across:
 - asset-level token state semantics
 - transaction-level validation endpoints
 
+## Decision: Validation Must Be Dependency-Reactive
+
+STAS/DSTAS validation in the platform model is dependency-reactive.
+
+Meaning:
+- validation results are not static once computed
+- if missing lineage later appears, or if relevant lineage changes, affected validation results must be recomputed automatically
+
+## Decision: Validation Dependency Model Stores Only Direct Edges
+
+The validation dependency model stores only direct dependency edges.
+
+Minimum expected fields:
+- `missingDependencies[]`
+- `dependsOnTxIds[]`
+
+These fields describe only direct parents or direct missing relatives relevant to the current transaction.
+
+Explicitly not stored by default:
+- full transitive dependency closure
+- fully expanded lineage graph for every transaction
+
+Rationale:
+- avoids graph blow-up
+- keeps dependency storage bounded
+- still allows revalidation to propagate incrementally through the chain of direct relationships
+
+## Decision: Reverse Dependents Must Be Materialized
+
+The platform should maintain a materialized direct reverse lookup:
+- `txId -> direct dependents[]`
+
+Rationale:
+- avoids expensive dependent-discovery queries on every lineage change
+- supports fast dependency-reactive revalidation
+- remains bounded because only direct edges are stored
+
+## Decision: Dependency Model Uses Split Placement
+
+The dependency model uses split placement:
+
+- canonical dependency facts live alongside the ingest/projection pipeline
+- query-facing validation state lives in Raven read models
+
+Rationale:
+- keeps operational dependency mechanics separate from public query storage
+- avoids overloading Raven with every internal revalidation concern
+- preserves Raven as the external state/read-model surface
+
 ## Decision: Token State Must Expose `protocolType`
 
 The public token state contract in `v1` includes `protocolType`.
