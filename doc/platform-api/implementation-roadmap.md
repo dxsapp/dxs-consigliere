@@ -197,6 +197,126 @@ Rationale:
 - avoids expanding implementation scope too early
 - focuses on the payload type already known to be operationally important
 
+## Decision: Source And Storage Config Stay Separate
+
+`payload store` configuration does not belong under `Consigliere:Sources`.
+
+Instead:
+- `Consigliere:Sources` is only for upstream supply configuration
+- internal artifact storage should live under a separate `Consigliere:Storage` section
+
+Rationale:
+- a payload store is not an upstream source
+- mixing internal artifact storage with routing policy would blur architectural boundaries
+- the same storage namespace can later host journal, dependency, and archival storage settings
+
+## Decision: `Consigliere:Storage` Uses a General Envelope
+
+`v1` should introduce `Consigliere:Storage` as a general storage envelope rather than a one-off `RawTransactionPayloads` top-level root.
+
+However, the initial populated child in that envelope is intentionally narrow:
+- `RawTransactionPayloads`
+
+Rationale:
+- keeps the config model extensible without fragmenting it too early
+- preserves a clean place for future `Journal`, `Dependencies`, or `Archive` storage settings
+- avoids pretending that raw-transaction payload storage is the only internal storage concern the platform will ever have
+
+## Decision: Minimal `RawTransactionPayloads` Config Shape
+
+The minimum configuration shape for `Consigliere:Storage:RawTransactionPayloads` in `v1` is:
+- `enabled`
+- `provider`
+- `location`
+- `compression?`
+- `retention?`
+
+Interpretation:
+- `enabled` turns the payload store on or off
+- `provider` selects the storage backend implementation
+- `location` contains backend-specific placement and connection details
+- `compression` is optional and exists for storage-cost control
+- `retention` is optional and exists for lifecycle-cost control
+
+Explicitly not part of the base `v1` shape:
+- `maxInlineBytes`
+- encryption-specific knobs
+- replication or multipart tuning
+
+## Decision: Allowed Payload Store Providers in v1
+
+The allowed `provider` values for `Consigliere:Storage:RawTransactionPayloads` are:
+- `raven`
+- `fileSystem`
+- `s3`
+
+Interpretation:
+- the configuration contract is intentionally broader than the first implementation target
+- initial implementation should assume `raven` first
+- `fileSystem` and `s3` remain planned payload-store backends rather than mandatory first-wave runtime work
+
+## Decision: `location` Is Provider-Specific and Non-Discriminated
+
+`location` does not carry its own extra `mode` or `type` discriminator.
+
+Interpretation:
+- `provider` is already the discriminator for the payload-store backend
+- `location` can therefore use a backend-specific shape without repeating the same type information
+
+Rationale:
+- avoids duplicated configuration intent
+- keeps the shape smaller
+- makes future provider-specific location blocks easier to read
+
+## Decision: Minimal `raven` Payload Location Shape
+
+For `provider = raven`, the minimum `location` shape in `v1` is:
+- `database?`
+- `collection`
+
+Interpretation:
+- `database` is optional and allows a future separate Raven database for payload documents
+- `collection` is required and names the document collection that holds raw transaction payloads
+
+Rationale:
+- enough for the first implementation target
+- avoids overloading the payload-store config with general Raven connection concerns
+- keeps collection naming explicit instead of hiding it in code
+
+## Decision: Minimal `fileSystem` Payload Location Shape
+
+For `provider = fileSystem`, the minimum `location` shape in `v1` is:
+- `rootPath`
+- `shardByTxId?`
+
+Interpretation:
+- `rootPath` is the required root directory for raw transaction payload files
+- `shardByTxId` is optional and allows directory sharding based on transaction id to avoid dumping all payload files into a single folder
+
+Rationale:
+- enough to make file-system storage operationally usable
+- avoids introducing file-layout tuning knobs too early
+- keeps the first local-storage contract explicit and simple
+
+## Decision: Minimal `s3` Payload Location Shape
+
+For `provider = s3`, the minimum `location` shape in `v1` is:
+- `bucket`
+- `prefix?`
+- `region?`
+- `endpoint?`
+
+Interpretation:
+- `bucket` is required
+- `prefix` is optional and allows isolating payload objects within a shared bucket
+- `region` is optional because some S3-compatible systems do not need it explicitly
+- `endpoint` is optional so the same shape can work for non-AWS S3-compatible object storage
+
+Rationale:
+- enough for a credible object-storage contract
+- avoids coupling the location shape to one specific vendor
+- keeps credentials and transport policy outside the payload location block
+
 ## Decision: Tracked Lifecycle Storage Uses Split Documents
 
 Tracked lifecycle and readiness storage uses a split model:

@@ -6,6 +6,7 @@ Documents:
 - `consigliere-public-api-contract-v1.md` — public API contract and product promise.
 - `managed-scope-model.md` — tracking model, lifecycle, completeness, and indexing guarantees.
 - `source-capability-matrix.md` — upstream source capabilities, routing roles, and provider constraints.
+- `source-config-examples.md` — canonical `appsettings`-style source configuration examples.
 - `implementation-roadmap.md` — phased implementation plan and mandatory write-path rework.
 
 Principles:
@@ -29,3 +30,11 @@ Source configuration in `v1` is split into:
 - `providers`
 - `routing`
 - `capabilities`
+
+Canonical documented configuration examples should use `appsettings`-style JSON.
+
+The top-level configuration path for the source model is `Consigliere:Sources`.
+
+Storage for internal artifacts such as payloads should live under a separate `Consigliere:Storage` section.
+
+`Consigliere:Storage` should be a general storage envelope, with `RawTransactionPayloads` as the first concrete child in `v1`.

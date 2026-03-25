@@ -71,6 +71,25 @@ Rationale:
 - avoids a flat config surface that becomes hard to reason about
 - scales better as more capabilities and providers are introduced
 
+## Decision: Canonical Config Examples Use `appsettings` JSON
+
+`v1` should document source configuration examples in `appsettings`-style JSON rather than YAML or TOML.
+
+Rationale:
+- the repository is .NET-first
+- runtime configuration will naturally map to `IOptions` / `appsettings.*.json`
+- the same shape can later be projected into environment variables without changing the conceptual config model
+
+## Decision: Top-Level Source Config Path
+
+The top-level configuration path for the source model is:
+- `Consigliere:Sources`
+
+Rationale:
+- short and specific
+- aligned with the product name
+- avoids introducing a broader config namespace before it is actually needed
+
 ## Decision: Minimal Routing Section Shape in v1
 
 The baseline `routing` section includes:
