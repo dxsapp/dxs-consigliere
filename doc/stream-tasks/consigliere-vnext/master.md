@@ -11,8 +11,8 @@
 ## Active Wave
 
 - Active wave: `Wave B: Payload And Journal Foundation`
-- Critical-path slice: `S07`
-- Parallel sidecar slices: `S08`
+- Critical-path slice: `S08`
+- Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
 ## Slice Table
@@ -25,8 +25,8 @@
 | S04 | service-bootstrap-and-ops | operator/platform | done | S02 | startup validation rejects malformed source/storage config | startup can reject invalid config without changing old behavior |
 | S05 | indexer-state-and-storage | operator/state | done | S02,S04 | targeted unit tests + compile validation | raw tx payloads store once and load independently of legacy hex store |
 | S06 | platform-common | operator/platform | done | S03 | compile validation + projection primitive tests | stable journal interfaces exist without Raven coupling |
-| S07 | indexer-state-and-storage | operator/state | in_progress | S05,S06 | append/replay integration tests + compile validation | observation events append and replay in sequence order with dedupe |
-| S08 | verification-and-conformance | operator/verification | todo | S07 | benchmark project runs with journal append/replay cases | baseline journal perf numbers are captured |
+| S07 | indexer-state-and-storage | operator/state | done | S05,S06 | append/replay integration tests + compile validation | observation events append and replay in sequence order with dedupe |
+| S08 | verification-and-conformance | operator/verification | in_progress | S07 | benchmark project runs with journal append/replay cases | baseline journal perf numbers are captured |
 
 ## Open Handoffs
 
@@ -49,6 +49,7 @@
 | 2026-03-26 | S04 | validation | `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Setup/CorePlatformSetup.cs` | options validation wired into DI and invalid config rejected deterministically |
 | 2026-03-26 | S05 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Data/RavenRawTransactionPayloadStoreIntegrationTests.cs` | raw payload Raven store stores once, reloads by tx id, and rejects conflicting writes |
 | 2026-03-26 | S06 | commit | `25e59da` | storage-agnostic journal primitives landed in `Dxs.Common` with clean Release build |
+| 2026-03-26 | S07 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Data/Journal/RavenObservationJournalIntegrationTests.cs` | Raven observation journal appends, dedupes, and replays in sequence order |
 
 ## Audit Gates
 
@@ -96,6 +97,7 @@
   - `S04`
   - `S05`
   - `S06`
+  - `S07`
 - Current risks:
-  - Raven-backed journal and journal perf baselines are not implemented yet
-- Next slice to open: `S07`
+  - journal performance baselines are not captured yet
+- Next slice to open: `S08`
