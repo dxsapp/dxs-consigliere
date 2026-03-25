@@ -2,6 +2,7 @@ using Dxs.Common.Journal;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Journal;
+using Dxs.Tests.Shared;
 
 using Raven.TestDriver;
 
@@ -12,7 +13,7 @@ public class RavenObservationJournalIntegrationTests : RavenTestDriver
     [Fact]
     public async Task AppendAsync_AllocatesMonotonicSequenceAndReplaysInOrder()
     {
-        if (!HasDotNet8Runtime())
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
         using var store = GetDocumentStore();
@@ -65,7 +66,7 @@ public class RavenObservationJournalIntegrationTests : RavenTestDriver
     [Fact]
     public async Task AppendAsync_DedupesByFingerprint()
     {
-        if (!HasDotNet8Runtime())
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
         using var store = GetDocumentStore();
@@ -86,32 +87,6 @@ public class RavenObservationJournalIntegrationTests : RavenTestDriver
         using var session = store.OpenSession();
         Assert.Equal(1, session.Query<ObservationJournalRecordDocument>().Count());
         Assert.Equal(1, session.Query<ObservationJournalFingerprintDocument>().Count());
-    }
-
-    private static bool HasDotNet8Runtime()
-    {
-        var dotnetPath = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH");
-        if (string.IsNullOrWhiteSpace(dotnetPath))
-            dotnetPath = "dotnet";
-
-        var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = dotnetPath,
-                Arguments = "--list-runtimes",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        process.Start();
-        var output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-
-        return output.Contains("Microsoft.NETCore.App 8.", StringComparison.Ordinal);
     }
 
     private sealed record TestObservation(string EventType, string TxId);

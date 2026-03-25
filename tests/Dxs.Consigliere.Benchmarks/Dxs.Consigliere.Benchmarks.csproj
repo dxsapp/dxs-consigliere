@@ -26,4 +26,8 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Shared\DotNetRuntimeFacts.cs" Link="Shared/DotNetRuntimeFacts.cs" />
+  </ItemGroup>
+
 </Project>

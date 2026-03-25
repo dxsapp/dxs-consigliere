@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Dxs.Consigliere.Benchmarks.Journal;
@@ -28,14 +29,14 @@ public class JournalBenchmarkEvidenceTests
             .AppendLine($"- scenario: {scenario.Name}")
             .AppendLine($"- append_observations: {append.Observations}")
             .AppendLine($"- append_elapsed_ms: {append.ElapsedMilliseconds}")
-            .AppendLine($"- append_throughput_per_sec: {append.ThroughputPerSecond:F2}")
+            .AppendLine($"- append_throughput_per_sec: {append.ThroughputPerSecond.ToString("F2", CultureInfo.InvariantCulture)}")
             .AppendLine($"- replay_observations: {replay.Observations}")
             .AppendLine($"- replay_elapsed_ms: {replay.ElapsedMilliseconds}")
-            .AppendLine($"- replay_throughput_per_sec: {replay.ThroughputPerSecond:F2}")
+            .AppendLine($"- replay_throughput_per_sec: {replay.ThroughputPerSecond.ToString("F2", CultureInfo.InvariantCulture)}")
             .AppendLine($"- duplicate_attempts: {duplicate.DuplicateAttempts}")
             .AppendLine($"- duplicates_detected: {duplicate.DuplicatesDetected}")
             .AppendLine($"- duplicate_elapsed_ms: {duplicate.ElapsedMilliseconds}")
-            .AppendLine($"- duplicate_throughput_per_sec: {duplicate.ThroughputPerSecond:F2}")
+            .AppendLine($"- duplicate_throughput_per_sec: {duplicate.ThroughputPerSecond.ToString("F2", CultureInfo.InvariantCulture)}")
             .AppendLine($"- last_sequence: {Math.Max(append.LastSequence, replay.LastSequence)}")
             .AppendLine();
 

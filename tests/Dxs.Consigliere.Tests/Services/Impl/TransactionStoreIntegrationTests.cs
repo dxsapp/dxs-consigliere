@@ -3,6 +3,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Tests.Shared;
 
 using MediatR;
 
@@ -20,7 +21,7 @@ public class TransactionStoreIntegrationTests : RavenTestDriver
     [Fact]
     public async Task UpdateStasAttributes_SetsFreezeEventAndContinuity()
     {
-        if (!HasDotNet8Runtime())
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
         using var store = GetDocumentStore();
@@ -98,7 +99,7 @@ public class TransactionStoreIntegrationTests : RavenTestDriver
     [Fact]
     public async Task UpdateStasAttributes_BlocksRedeemWhenInputIsFrozen()
     {
-        if (!HasDotNet8Runtime())
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
         using var store = GetDocumentStore();
@@ -186,28 +187,6 @@ public class TransactionStoreIntegrationTests : RavenTestDriver
         using var session = store.OpenAsyncSession();
         await session.StoreAsync(tx, id);
         await session.SaveChangesAsync();
-    }
-
-    private static bool HasDotNet8Runtime()
-    {
-        var process = new System.Diagnostics.Process
-        {
-            StartInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "dotnet",
-                Arguments = "--list-runtimes",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-
-        process.Start();
-        var output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-
-        return output.Contains("Microsoft.NETCore.App 8.", StringComparison.Ordinal);
     }
 
     private sealed class RawMetaTransaction

@@ -26,6 +26,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\Shared\DotNetRuntimeFacts.cs" Link="Shared/DotNetRuntimeFacts.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="fixtures\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
