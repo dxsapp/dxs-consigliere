@@ -4,6 +4,7 @@ using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Tracking;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
@@ -24,7 +25,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ManageAddress(
         [FromBody] WatchAddressRequest request,
-        [FromServices] IDocumentStore documentStore,
+        [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
         [FromServices] ITransactionFilter transactionFilter
     )
     {
@@ -33,18 +34,8 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
 
         try
         {
-            var watchingAddress = new WatchingAddress
-            {
-                Address = address.Value,
-                Name = request.Name,
-            };
-
-            if (await documentStore.AddEntity(watchingAddress))
-            {
-                transactionFilter.ManageUtxoSetForAddress(address);
-            }
-
-            // await EnqueueDownloadHistory(new AddressBaseRequest(address.Value), session);
+            await trackedEntityRegistrationStore.RegisterAddressAsync(address.Value, request.Name);
+            transactionFilter.ManageUtxoSetForAddress(address);
         }
         catch (Exception exception)
         {
@@ -59,7 +50,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ManageStasToken(
         [FromBody] WatchStasTokenRequest request,
-        [FromServices] IDocumentStore documentStore,
+        [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
         [FromServices] ITransactionFilter transactionFilter
     )
     {
@@ -68,16 +59,8 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
 
         try
         {
-            var watchingToken = new WatchingToken
-            {
-                TokenId = tokenId.Value,
-                Symbol = request.Symbol,
-            };
-
-            if (await documentStore.AddEntity(watchingToken))
-            {
-                transactionFilter.ManageUtxoSetForToken(tokenId);
-            }
+            await trackedEntityRegistrationStore.RegisterTokenAsync(tokenId.Value, request.Symbol);
+            transactionFilter.ManageUtxoSetForToken(tokenId);
         }
         catch (Exception exception)
         {

@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave F: Tracked Scope And Readiness`
-- Critical-path slice: `S17`
+- Critical-path slice: `S18`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -35,6 +35,7 @@
 | S14 | indexer-state-and-storage | operator/state | done | S12,S13 | projection tests + app build | tx lifecycle projection can be rebuilt from journal sequence and read by tx id |
 | S15 | public-api-and-realtime | operator/api | done | S14 | API tests + app build | current tx hex clients still work and new tx lifecycle semantics are available |
 | S16 | verification-and-conformance | operator/verification | done | S14,S15 | replay tests + perf evidence | lifecycle projection is deterministic under replay, duplicate/out-of-order handling is explicit, and first tx-state perf baseline is captured |
+| S17 | indexer-state-and-storage | operator/state | done | A2 | tracked entity registration tests + app build | registration creates deterministic public tracked docs and internal status docs without cutting off legacy watch seeding |
 
 ## Open Handoffs
 
@@ -70,6 +71,7 @@
 | 2026-03-26 | S16 | validation | `tests:TxLifecycleProjectionRebuilderIntegrationTests|TransactionQueryServiceLifecycleTests|TxLifecycleBenchmarkSmokeTests|TxLifecycleBenchmarkEvidenceTests` | tx lifecycle replay stayed deterministic after page-level batching and benchmark evidence was captured without Raven session request exhaustion |
 | 2026-03-26 | S16 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S16-tx-lifecycle-benchmarks-evidence.md` | first tx lifecycle rebuild/query perf baseline recorded for audit gate A2 |
 | 2026-03-26 | A2 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | tx lifecycle journal semantics, replay determinism, and out-of-order handling passed with watch-items documented |
+| 2026-03-26 | S17 | validation | `tests:TrackedEntityRegistrationStoreIntegrationTests + build:Dxs.Consigliere` | tracked address/token docs and status docs are created idempotently and wired into the existing admin registration flow |
 
 ## Audit Gates
 
@@ -131,6 +133,7 @@
   - `S14`
   - `S15`
   - `S16`
+  - `S17`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S17`
+- Next slice to open: `S18`
