@@ -8,6 +8,7 @@ Documents:
 - `source-capability-matrix.md` — upstream source capabilities, routing roles, and provider constraints.
 - `source-config-examples.md` — canonical `appsettings`-style source configuration examples.
 - `implementation-roadmap.md` — phased implementation plan and mandatory write-path rework.
+- `vnext-implementation-slices.md` — detailed zone-based vnext delivery plan with implementation slices.
 
 Principles:
 - `Consigliere` is not an explorer-first product.
