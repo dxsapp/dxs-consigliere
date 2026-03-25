@@ -212,11 +212,12 @@ Broadcast note:
 
 `v1` transaction state should expose a lifecycle model rich enough for broadcast-driven business flows.
 
-Minimum expected progression concepts:
+Exact `tx lifecycleStatus` enum in `v1`:
 - `broadcast_submitted`
 - `seen_by_source`
 - `seen_in_mempool`
 - `confirmed`
+- `reorged`
 - `dropped`
 
 This gives clients a usable operational model for submitted transactions without collapsing submission and final confirmation into one step.
@@ -521,6 +522,22 @@ Each entry inside `capabilities` uses the following minimum shape in `v1`:
 Where:
 - `enabled` means the capability is allowed by configuration for this provider
 - `active` means the routing layer currently uses this provider for that capability rather than only keeping it available as a standby path
+
+### Minimal `rateLimitState` Shape
+
+The minimum `rateLimitState` object in `v1` is:
+- `limited`
+- `remaining?`
+- `resetAt?`
+- `scope?`
+- `sourceHint?`
+
+Interpretation:
+- `limited` indicates whether the provider or capability is currently under an active rate-limit condition
+- `remaining` is optional because not all providers expose a trustworthy remaining-budget counter
+- `resetAt` is optional because not all providers disclose a clean reset boundary
+- `scope` may be `provider`, `capability`, or `unknown`
+- `sourceHint` is a short machine-friendly reason such as `http_429` or `quota_exhausted`
 
 ## Error Contract
 

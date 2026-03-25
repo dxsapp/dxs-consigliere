@@ -229,19 +229,44 @@ The minimum configuration shape for `Consigliere:Storage:RawTransactionPayloads`
 - `provider`
 - `location`
 - `compression?`
-- `retention?`
 
 Interpretation:
 - `enabled` turns the payload store on or off
 - `provider` selects the storage backend implementation
 - `location` contains backend-specific placement and connection details
 - `compression` is optional and exists for storage-cost control
-- `retention` is optional and exists for lifecycle-cost control
 
 Explicitly not part of the base `v1` shape:
+- `retention`
 - `maxInlineBytes`
 - encryption-specific knobs
 - replication or multipart tuning
+
+## Decision: Minimal `compression` Shape
+
+When present, `compression` uses the following minimum shape in `v1`:
+- `enabled`
+- `algorithm`
+
+Allowed `algorithm` values:
+- `gzip`
+- `zstd`
+
+Rationale:
+- gives meaningful storage-control choice without exposing low-level tuning knobs
+- remains portable across `raven`, `fileSystem`, and `s3` payload-store backends
+
+## Decision: Payload Retention Is Forever in v1
+
+`v1` does not introduce a configurable retention policy for raw transaction payloads.
+
+The default and only supported retention posture is:
+- keep raw transaction payloads indefinitely
+
+Rationale:
+- it keeps the first payload-store contract simpler
+- it matches operator expectations in BSV-heavy environments that prefer full payload preservation
+- it avoids introducing premature garbage-collection policy before the write/storage model is implemented end to end
 
 ## Decision: Allowed Payload Store Providers in v1
 

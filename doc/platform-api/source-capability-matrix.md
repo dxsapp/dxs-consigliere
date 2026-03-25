@@ -482,3 +482,10 @@ Each nested capability status uses the following minimum shape in `v1`:
 - `lastErrorCode?`
 - `rateLimitState?`
 - `active`
+
+The minimum `rateLimitState` shape in `v1` is:
+- `limited`
+- `remaining?`
+- `resetAt?`
+- `scope?`
+- `sourceHint?`
