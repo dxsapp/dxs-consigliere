@@ -6,12 +6,12 @@
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
 - Current cutover mode: `legacy`
-- Current audit gate status: `A2 opened`
+- Current audit gate status: `A2 passed`
 
 ## Active Wave
 
-- Active wave: `Wave E: Transaction Lifecycle VNext`
-- Critical-path slice: `A2`
+- Active wave: `Wave F: Tracked Scope And Readiness`
+- Critical-path slice: `S17`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -69,13 +69,14 @@
 | 2026-03-26 | S15 | validation | `build:Dxs.Consigliere + tests:TransactionControllerStateTests|TransactionQueryServiceLifecycleTests` | additive tx state endpoint is available while legacy raw-tx retrieval remains intact |
 | 2026-03-26 | S16 | validation | `tests:TxLifecycleProjectionRebuilderIntegrationTests|TransactionQueryServiceLifecycleTests|TxLifecycleBenchmarkSmokeTests|TxLifecycleBenchmarkEvidenceTests` | tx lifecycle replay stayed deterministic after page-level batching and benchmark evidence was captured without Raven session request exhaustion |
 | 2026-03-26 | S16 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S16-tx-lifecycle-benchmarks-evidence.md` | first tx lifecycle rebuild/query perf baseline recorded for audit gate A2 |
+| 2026-03-26 | A2 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | tx lifecycle journal semantics, replay determinism, and out-of-order handling passed with watch-items documented |
 
 ## Audit Gates
 
 | gate | trigger | status | evidence | remediation_required |
 |---|---|---|---|---|
 | A1 | S08 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A1.md` | yes |
-| A2 | S16 | opened | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S16-tx-lifecycle-benchmarks-evidence.md` | no |
+| A2 | S16 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | no |
 | A3 | S23 | not_opened | - | no |
 | A4 | S29 | not_opened | - | no |
 | A5 | S31 | not_opened | - | no |
@@ -132,4 +133,4 @@
   - `S16`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `A2`
+- Next slice to open: `S17`
