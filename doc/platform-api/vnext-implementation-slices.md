@@ -25,6 +25,144 @@ This is a `vnext` plan:
 - benchmark any slice that changes hot-path CPU, allocation rate, storage cost, or replay throughput
 - keep Raven as state and read-model storage, not as the long-term hot ingest mutation engine
 
+## Concurrency Cap
+
+To avoid integration debt and context sprawl, vnext execution uses the following concurrency cap:
+
+- at most `1` critical-path slice may be `in_progress`
+- at most `2` sidecar slices may run in parallel with the critical path
+- at most `3` delegated subagents may be open at the same time
+
+Interpretation:
+- the critical path stays local to the operator unless there is a strong reason to delegate it
+- sidecar slices should be benchmark, docs, fixture, or bounded adapter work that cannot block the next local step
+- if audit remediation is active, it consumes one of the sidecar or critical-path slots rather than being treated as free extra work
+
+## Performance Budget Table
+
+Until `S03` establishes measured baselines, slices must avoid obvious regressions by rule:
+- no additional provider call on the known-tx read path
+- no unbounded background queue introduction
+- no increase in legacy Raven write amplification on the hot path
+
+After `S03`, the following working budgets apply unless a later audit revises them explicitly:
+
+| Metric | Budget | Applies from | Notes |
+|---|---|---|---|
+| Journal append p95 | no worse than `+20%` from baseline | `S08+` | compare like-for-like replay fixture |
+| Journal replay throughput | no worse than `-15%` from baseline | `S08+` | lower is worse |
+| Tx lifecycle query p95 | no worse than `+20%` from baseline | `S16+` | measured on same fixture set |
+| Revalidation burst throughput | no worse than `-20%` from first accepted token-lineage baseline | `S23+` | lower is worse |
+| Raven writes per logical tx | must trend downward by `S30` compared to pre-vnext baseline | `S30` | this is a core migration objective |
+| Projection lag recovery after burst | must recover to steady-state within the replay/benchmark scenario target window | `S24+` | exact window recorded in benchmark evidence |
+
+Budgets are stop/go inputs for audit gates rather than decorative metrics.
+
+## Execution Evidence Path
+
+All durable rollout evidence should live under:
+- `doc/stream-tasks/consigliere-vnext/`
+
+Recommended structure:
+- `doc/stream-tasks/consigliere-vnext/master.md`
+- `doc/stream-tasks/consigliere-vnext/audits/`
+- `doc/stream-tasks/consigliere-vnext/benchmarks/`
+- `doc/stream-tasks/consigliere-vnext/remediation/`
+
+Every significant slice should record:
+- commit hashes
+- validation commands
+- benchmark output locations when relevant
+- handoff notes when a downstream slice is blocked on an upstream invariant
+
+## Slice Commit Policy
+
+Commit discipline for vnext:
+- one commit should cover one slice or one very narrow milestone inside a slice
+- do not batch unrelated zones into one commit
+- do not mix remediation work with fresh downstream slice work in one commit
+- benchmark-only or docs-only evidence commits are allowed when they close a slice cleanly
+
+When a slice needs multiple commits:
+- keep all commits inside the same ownership zone
+- record the partial milestone in the execution evidence path
+- do not open downstream dependent slices until the slice acceptance criteria are satisfied
+
+## Hard Stop Criteria
+
+Execution must stop and enter an audit/remediation phase immediately if any of the following appears:
+- replay nondeterminism
+- incorrect readiness or authoritative gating
+- revalidation correctness regression
+- uncontrolled queue growth
+- benchmark regression beyond budget
+- API compatibility drift outside the recorded matrix
+- AI-first boundary drift causing mixed-responsibility implementation
+- rollback path loss during cutover waves
+
+### Autonomous Remediation Rule
+
+Hard stop does not automatically mean user escalation.
+
+If the issue can be fixed without new product decisions, destructive operations, missing credentials, or architectural contradiction, the operator must:
+- create a remediation slice
+- write a concrete fix plan
+- execute the fix locally or with one bounded agent
+- validate the fix
+- record the outcome in the evidence path
+
+Only then may execution continue.
+
+Escalate to the user only when the remediation requires:
+- a new business decision
+- an API compatibility exception
+- a destructive migration choice
+- missing external access or credentials
+- a change to already approved architectural constraints
+
+## API Compatibility Matrix
+
+The rollout must maintain a compatibility matrix in the execution evidence path.
+
+Suggested columns:
+- `surface`
+- `current contract`
+- `vnext handling`
+- `compatibility goal`
+- `change approval required`
+- `notes`
+
+Seed entries for the matrix:
+
+| Surface | Current contract | VNext handling | Compatibility goal | Change approval required | Notes |
+|---|---|---|---|---|---|
+| `GET /api/tx/get/{id}` | return raw tx hex for known tx | preserve route | preserve where cheap | yes, if response shape changes | current known-tx semantics already align |
+| `GET /api/tx/batch/get` | batch raw tx hex lookup | preserve route | preserve where cheap | yes | keep current batch ceiling unless justified |
+| `GET /api/tx/by-height/get` | assist-style block tx query | preserve or wrap | evolve only if perf/cost justifies | yes | not a core product promise |
+| `POST /api/tx/broadcast/{raw}` | broadcast route exists | preserve route, evolve semantics | preserve route, improve lifecycle semantics | yes, if route or body changes | submission, not synchronous final confirmation |
+| `GET /api/tx/stas/validate/{id}` | STAS validation route exists | preserve route | preserve and strengthen semantics | yes | align with authoritative B2G model |
+| SignalR tx/balance events | existing realtime callbacks | additive-first evolution | preserve where cheap | yes, if event shape breaks consumers | move toward documented lifecycle/readiness model |
+
+No slice is allowed to change a public surface without updating this matrix.
+
+## Cutover Mode Flags
+
+Cutover should be staged through explicit runtime modes rather than hidden behavioral switches.
+
+Minimum mode set:
+- `legacy`
+- `mirror_write`
+- `shadow_read`
+- `vnext_default`
+
+Interpretation:
+- `legacy`: current production path only
+- `mirror_write`: legacy path remains authoritative while observations are also written to journal
+- `shadow_read`: vnext projections are computed and compared, but not yet the public default
+- `vnext_default`: vnext projections and orchestration become the public default
+
+Slices `S30` to `S32` must not proceed without documenting which mode is active and how rollback returns to the previous stable mode.
+
 ## Performance Gates
 
 Every relevant slice should measure at least one of:
