@@ -1,4 +1,5 @@
 using Dxs.Infrastructure.Bitails;
+using Dxs.Infrastructure.Common;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.WoC;
 
@@ -12,8 +13,12 @@ public static class ExternalChainAdaptersSetup
         => services
             .AddTransient<IBitailsRestApiClient, BitailsRestApiClient>()
             .AddHttpClient<IBitailsRestApiClient, BitailsRestApiClient>().Services
+            .AddSingleton<IExternalChainProviderDiagnostics, BitailsProviderDiagnostics>()
             .AddSingleton<IWhatsOnChainRestApiClient, WhatsOnChainRestApiClient>()
             .AddHttpClient<IWhatsOnChainRestApiClient, WhatsOnChainRestApiClient>().Services
+            .AddSingleton<IExternalChainProviderDiagnostics, WhatsOnChainProviderDiagnostics>()
             .AddTransient<JungleBusWebsocketClient>()
-            .AddHttpClient<JungleBusWebsocketClient>().Services;
+            .AddHttpClient<JungleBusWebsocketClient>().Services
+            .AddSingleton<IExternalChainProviderDiagnostics, JungleBusProviderDiagnostics>()
+            .AddSingleton<IExternalChainProviderCatalog, ExternalChainProviderCatalog>();
 }
