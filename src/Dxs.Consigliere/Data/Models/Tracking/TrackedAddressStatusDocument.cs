@@ -1,6 +1,6 @@
 namespace Dxs.Consigliere.Data.Models.Tracking;
 
-public sealed class TrackedAddressStatusDocument : TrackedEntityDocumentBase
+public sealed class TrackedAddressStatusDocument : TrackedEntityStatusDocumentBase
 {
     public string Address { get; set; }
 
@@ -14,6 +14,9 @@ public sealed class TrackedAddressStatusDocument : TrackedEntityDocumentBase
         foreach (var key in TrackedKeys())
             yield return key;
 
+        foreach (var key in StatusKeys())
+            yield return key;
+
         yield return nameof(Address);
     }
 
@@ -24,6 +27,9 @@ public sealed class TrackedAddressStatusDocument : TrackedEntityDocumentBase
 
         foreach (var key in TrackedUpdateableKeys())
             yield return key;
+
+        foreach (var key in StatusUpdateableKeys())
+            yield return key;
     }
 
     public override IEnumerable<KeyValuePair<string, object>> ToEntries()
@@ -32,6 +38,9 @@ public sealed class TrackedAddressStatusDocument : TrackedEntityDocumentBase
             yield return entry;
 
         foreach (var entry in TrackedEntries())
+            yield return entry;
+
+        foreach (var entry in StatusEntries())
             yield return entry;
 
         yield return new KeyValuePair<string, object>(nameof(Address), Address);

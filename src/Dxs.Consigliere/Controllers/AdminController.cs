@@ -26,6 +26,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     public async Task<IActionResult> ManageAddress(
         [FromBody] WatchAddressRequest request,
         [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
         [FromServices] ITransactionFilter transactionFilter
     )
     {
@@ -35,6 +36,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         try
         {
             await trackedEntityRegistrationStore.RegisterAddressAsync(address.Value, request.Name);
+            await trackedEntityLifecycleOrchestrator.BeginTrackingAddressAsync(address.Value);
             transactionFilter.ManageUtxoSetForAddress(address);
         }
         catch (Exception exception)
@@ -51,6 +53,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     public async Task<IActionResult> ManageStasToken(
         [FromBody] WatchStasTokenRequest request,
         [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
         [FromServices] ITransactionFilter transactionFilter
     )
     {
@@ -60,6 +63,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         try
         {
             await trackedEntityRegistrationStore.RegisterTokenAsync(tokenId.Value, request.Symbol);
+            await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(tokenId.Value);
             transactionFilter.ManageUtxoSetForToken(tokenId);
         }
         catch (Exception exception)

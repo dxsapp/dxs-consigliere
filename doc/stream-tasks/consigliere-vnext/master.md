@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave F: Tracked Scope And Readiness`
-- Critical-path slice: `S18`
+- Critical-path slice: `S19`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -36,6 +36,7 @@
 | S15 | public-api-and-realtime | operator/api | done | S14 | API tests + app build | current tx hex clients still work and new tx lifecycle semantics are available |
 | S16 | verification-and-conformance | operator/verification | done | S14,S15 | replay tests + perf evidence | lifecycle projection is deterministic under replay, duplicate/out-of-order handling is explicit, and first tx-state perf baseline is captured |
 | S17 | indexer-state-and-storage | operator/state | done | A2 | tracked entity registration tests + app build | registration creates deterministic public tracked docs and internal status docs without cutting off legacy watch seeding |
+| S18 | indexer-ingest-orchestration | operator/runtime | done | S17 | lifecycle orchestrator tests + app build | tracked lifecycle stays conservative: registration enters backfilling, live requires backfill completion + realtime attach + gap closure, and degraded semantics remain explicit |
 
 ## Open Handoffs
 
@@ -72,6 +73,7 @@
 | 2026-03-26 | S16 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S16-tx-lifecycle-benchmarks-evidence.md` | first tx lifecycle rebuild/query perf baseline recorded for audit gate A2 |
 | 2026-03-26 | A2 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | tx lifecycle journal semantics, replay determinism, and out-of-order handling passed with watch-items documented |
 | 2026-03-26 | S17 | validation | `tests:TrackedEntityRegistrationStoreIntegrationTests + build:Dxs.Consigliere` | tracked address/token docs and status docs are created idempotently and wired into the existing admin registration flow |
+| 2026-03-26 | S18 | validation | `tests:TrackedEntityRegistrationStoreIntegrationTests|TrackedEntityLifecycleOrchestratorIntegrationTests + build:Dxs.Consigliere` | tracked lifecycle transitions are now explicit and conservative, with runtime wiring moving fresh registrations into backfilling instead of falsely advertising readiness |
 
 ## Audit Gates
 
@@ -134,6 +136,7 @@
   - `S15`
   - `S16`
   - `S17`
+  - `S18`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S18`
+- Next slice to open: `S19`

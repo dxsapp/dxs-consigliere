@@ -22,6 +22,7 @@ public static class IndexerStateSetup
             .AddSingleton<TxLifecycleProjectionReader>()
             .AddSingleton<TxLifecycleProjectionRebuilder>()
             .AddSingleton<ITrackedEntityRegistrationStore, TrackedEntityRegistrationStore>()
+            .AddSingleton<ITrackedEntityLifecycleOrchestrator, TrackedEntityLifecycleOrchestrator>()
             .AddCache()
             .AddTransactionFactories()
             .AddSingleton<IAddressHistoryService, AddressHistoryService>();
