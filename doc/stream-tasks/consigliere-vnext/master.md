@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave C: Source And Routing Control Plane`
-- Critical-path slice: `S10`
+- Critical-path slice: `S11`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -28,7 +28,8 @@
 | S07 | indexer-state-and-storage | operator/state | done | S05,S06 | append/replay integration tests + compile validation | observation events append and replay in sequence order with dedupe |
 | S08 | verification-and-conformance | operator/verification | done | S07 | benchmark project runs with journal append/replay cases | baseline journal perf numbers are captured |
 | S09 | external-chain-adapters | operator/integration | done | A1 | external adapter build + app build | providers report capability availability and basic health via adapter diagnostics |
-| S10 | indexer-ingest-orchestration | operator/runtime | in_progress | S09 | targeted runtime tests + app build | runtime answers source-by-capability without producer rewrites |
+| S10 | indexer-ingest-orchestration | operator/runtime | done | S09 | targeted runtime tests + app build | runtime answers source-by-capability without producer rewrites |
+| S11 | public-api-and-realtime | operator/api | in_progress | S09,S10 | API tests + app build | ops API shows provider-first status with nested capability state |
 
 ## Open Handoffs
 
@@ -55,6 +56,7 @@
 | 2026-03-26 | S08 | commit | `6dba6c2` | benchmark harness added append, replay, and duplicate-observation coverage for Raven journal |
 | 2026-03-26 | S08 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S08-journal-benchmarks-evidence.md` | measured baseline journal throughput with invariant formatting |
 | 2026-03-26 | S09 | validation | `build:Dxs.Infrastructure + build:Dxs.Consigliere` | provider descriptor and diagnostics surface compiles cleanly through app wiring |
+| 2026-03-26 | S10 | validation | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Services/Impl/SourceCapabilityRoutingTests.cs` | capability routing resolves legacy defaults, overrides, and verification source correctly |
 
 ## Audit Gates
 
@@ -108,7 +110,9 @@
   - `S06`
   - `S07`
   - `S08`
+  - `S09`
+  - `S10`
 - Current risks:
-  - provider capability routing is not implemented yet
+  - provider ops API surface is not implemented yet
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S10`
+- Next slice to open: `S11`
