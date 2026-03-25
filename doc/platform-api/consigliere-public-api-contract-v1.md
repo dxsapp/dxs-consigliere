@@ -34,6 +34,22 @@ Managed scope includes:
 - transactions affecting tracked addresses or tracked tokens
 - derived state needed to answer authoritative balance, UTXO, history, and token-state queries
 
+For `v1`, the only primary public managed units are:
+- `tracked_address`
+- `tracked_token`
+
+Transactions are queryable and participate in derived indexed scope, but are not primary public tracking units.
+
+Token identity rule for `v1`:
+- the only canonical token key is `tokenId`
+- all public token routes, storage references, and tracking registration use `tokenId`
+- semantic distinctions beyond `tokenId` belong to higher-level business logic, not to the base platform contract
+
+Expansion boundary for `v1`:
+- `tracked_address` state uses strict direct-touch scope only
+- `tracked_token` state includes full reverse token lineage through all parent generations until valid issuance
+- full `(D)STAS` lineage lookup is allowed only for validation and Back-to-Genesis correctness paths
+
 ## Common Response Envelope
 
 Every state endpoint should be able to return:
@@ -81,13 +97,81 @@ Minimum metadata contract:
 - strongest SLA
 - expected for wallet, terminal, and payment-critical flows
 
+`live` is reached only after:
+- required historical backfill is complete
+- realtime is attached
+- the gap between backfill and realtime is closed
+
 ### Managed catching-up
 - tracked but still backfilling or catching up
-- partial data allowed only when explicitly marked
+- not authoritative and not readable through state endpoints
+
+`catching_up` is intentionally kept as a separate visible lifecycle state rather than being merged into `backfilling`.
+
+## Decision: No State Reads Before `live`
+
+For tracked entities in `backfilling` or `catching_up`, `Consigliere` must not return state answers.
+
+Reason:
+- before `live`, balances, UTXOs, history, and token state can all still be false
+- even well-marked partial state is too easy for business clients to misuse
+
+Allowed before `live`:
+- scope status
+- lifecycle state
+- lag and readiness metadata
+
+Not allowed before `live`:
+- balance answers
+- UTXO answers
+- authoritative history answers
+- token state answers
+
+Progress note:
+- readiness progress is capability-dependent
+- `status` is mandatory
+- lag and progress details are returned only when they can be computed honestly from the active sync strategy and available upstream sources
+- no universal progress percentage is guaranteed in `v1`
 
 ### Assist
 - helper lookups outside authoritative tracked scope
 - no promise of full completeness
+
+## Decision: No General Untracked Reads in v1
+
+`Consigliere` does not provide general untracked state reads in `v1`.
+
+If an address, token, or state object is not tracked and not known inside authoritative managed scope, the service must not answer with inferred or provider-derived state as if it were reliable.
+
+Implications:
+- no general address-state reads for untracked addresses
+- no general token-state reads for untracked tokens
+- no convenience explorer-style fallback for unknown entities
+- state APIs are reserved for tracked or already-authoritative managed scope
+
+This rule exists to preserve:
+- product honesty
+- clear SLA boundaries
+- predictable cost
+- separation from explorer-style behavior
+
+## Decision: Known Transaction Lookup Is Allowed
+
+Transactions are the basic information unit of the blockchain, so `Consigliere` may return a transaction if it already knows it.
+
+This is the only allowed narrow exception to the no-untracked-state rule.
+
+Rules:
+- if the transaction is already known to `Consigliere`, it may be returned
+- `Consigliere` returns only the transaction data it already has
+- `Consigliere` does not fabricate, infer, or fetch missing metadata just to enrich an otherwise unknown transaction
+- if indexed state or metadata is unavailable, the response may contain only raw or minimally known transaction data
+- a transaction is considered "known" only if it already exists in `Consigliere` local persisted store
+- the fact that an upstream provider could return the transaction right now does not make it a known transaction for public API purposes
+
+Implication:
+- transaction lookup is allowed as a known-object assist method
+- transaction state enrichment remains scoped to managed authoritative data
 
 ## Core API Groups
 
@@ -100,6 +184,7 @@ Mandatory endpoints:
 - `POST /api/scope/tokens`
 - `DELETE /api/scope/tokens/{tokenId}`
 - `GET /api/scope/status`
+- `GET /api/scope/readiness`
 - `POST /api/scope/backfill`
 - `POST /api/scope/pause`
 - `POST /api/scope/resume`
@@ -115,12 +200,39 @@ Main product surface.
 
 `GET /api/tx/by-height/get` is classified as assist, not core promise.
 
+Broadcast note:
+- `POST /api/tx/broadcast/{raw}` is a submission operation
+- network visibility and eventual confirmation are established asynchronously through ingest/realtime observation rather than a single immediate provider response
+
+## Decision: Transaction State Includes Broadcast-Aware Lifecycle
+
+`v1` transaction state should expose a lifecycle model rich enough for broadcast-driven business flows.
+
+Minimum expected progression concepts:
+- `broadcast_submitted`
+- `seen_by_source`
+- `seen_in_mempool`
+- `confirmed`
+- `dropped`
+
+This gives clients a usable operational model for submitted transactions without collapsing submission and final confirmation into one step.
+
 #### Addresses
 - `GET /api/address/{address}/state`
 - `GET /api/address/{address}/balances`
 - `GET /api/address/{address}/utxos`
 - `GET /api/address/{address}/history`
 - `GET /api/address/{address}/activity`
+
+## Decision: Address State Core for v1
+
+The required core address state surface for `v1` is:
+- readiness/status
+- balances
+- UTXOs
+- history
+
+`activity` may exist, but it is not part of the minimal mandatory address state core.
 
 #### Tokens
 - `GET /api/token/{tokenId}/state`
@@ -130,6 +242,87 @@ Main product surface.
 - `GET /api/token/{tokenId}/holders`
 
 Global holders semantics across the whole network are out of scope for v1.
+
+## Decision: Token State Core for v1
+
+The required core token surface for `v1` is:
+- readiness/status
+- token state
+- balances
+- UTXOs
+- history
+- token transaction validation against Back-to-Genesis rules
+
+`holders` is a useful derivative view, but it is not part of the minimal mandatory token core.
+
+For `(D)STAS`, the existing `validate stas tx` capability is part of this token-core promise and should evolve into the platform's authoritative Back-to-Genesis validation path.
+
+## Decision: Token State and Transaction Validation Stay Separate
+
+`v1` keeps these as separate concerns:
+
+1. token state
+2. transaction validation
+
+Rationale:
+- asset-level token state and tx-level validation answer different questions
+- token state should describe the tracked token as an asset
+- transaction validation should describe whether a specific token transaction satisfies Back-to-Genesis and protocol rules
+
+Implication:
+- token state may expose asset-level validation status
+- `validate stas tx` style endpoints remain a distinct validation capability
+
+## Decision: Token Validation Semantics in v1
+
+`v1` token state should not expose a bare boolean `isValid`.
+
+Instead:
+- `issuanceKnown: bool`
+- `validationStatus: unknown | valid | invalid`
+
+Meaning:
+- `issuanceKnown` answers whether `Consigliere` has resolved the token lineage back to issuance
+- `validationStatus` answers the current validation result once enough lineage is known
+
+This keeps provenance knowledge separate from the validation verdict.
+
+## Decision: `protocolType` Is Public in v1
+
+Token state in `v1` must expose `protocolType` publicly.
+
+Rationale:
+- validation semantics already depend on protocol family
+- clients need to know whether they are dealing with `stas`, `dstas`, or future token families
+- this creates a clean extension point for future protocol versioning and new token models
+
+## Decision: `protocolVersion` Is Also Public in v1
+
+Token state in `v1` should also expose `protocolVersion`.
+
+This field may be optional or null when version semantics are unavailable, but it belongs in the public contract from the start.
+
+Rationale:
+- serious business integrations benefit from explicit version awareness
+- adding version as a first-class field later would be a less clean contract evolution
+
+## Decision: `issuer` Is Optional Token Metadata
+
+`issuer` may be exposed in token state, but it is not a hard-required core field.
+
+Interpretation:
+- for a valid token, issuer identity is typically knowable
+- but issuer is still treated as secondary metadata rather than the foundation of the token-state contract
+
+This keeps the token core focused while still allowing useful metadata for clients that care about issuer information.
+
+## Decision: `totalKnownSupply` Is Optional Token Metadata
+
+`totalKnownSupply` may be exposed in token state, but it is not a required token-core field in `v1`.
+
+It belongs to the same general informational class as `issuer`:
+- useful when available
+- not foundational to the base token-state contract
 
 ### 3. Realtime plane
 Realtime is a core promise, but only for managed scope.
@@ -142,14 +335,81 @@ Expected channels:
 - scope readiness and degradation events
 
 Minimum event types:
+- `scope_status_changed`
+- `scope_caught_up`
+- `scope_degraded`
 - `tx_seen`
 - `tx_confirmed`
 - `tx_reorged`
 - `tx_dropped`
 - `balance_changed`
 - `token_state_changed`
-- `scope_caught_up`
-- `scope_degraded`
+
+## Decision: `balance_changed` Is First-Class
+
+`balance_changed` is a first-class required realtime event in `v1`.
+
+It is not treated as an optional convenience derivative of transaction events.
+
+Rationale:
+- for wallet, payment, and terminal backends, balance movement is one of the most important realtime contracts
+- clients should not be forced to reconstruct balance semantics from raw transaction lifecycle events
+
+## Decision: `token_state_changed` Is First-Class
+
+`token_state_changed` is a first-class required realtime event in `v1`.
+
+It is not treated as an optional convenience event layered on top of transaction events.
+
+Rationale:
+- tokens are a primary managed unit in the platform model
+- token-centric clients should not need to reconstruct token state transitions from low-level tx flow alone
+
+## Decision: Realtime May Start Before `live`
+
+Realtime subscription is allowed before a tracked object reaches `live`.
+
+But:
+- the stream must be explicitly marked as non-authoritative until readiness is achieved
+- clients must not treat pre-`live` realtime as equivalent to final indexed state
+
+Rationale:
+- early events are useful as liveness signals
+- clients can observe that the system is active
+- readiness and state guarantees still remain separate from event flow
+
+## Decision: Minimal Realtime Event Envelope for v1
+
+The minimal realtime event envelope is:
+
+- `eventId`
+- `eventType`
+- `entityType`
+- `entityId`
+- `txId?`
+- `blockHeight?`
+- `timestamp`
+- `authoritative`
+- `lifecycleStatus`
+- `payload`
+
+Notes:
+- `txId` is optional
+- `blockHeight` is optional
+- `authoritative` tells the client whether the stream event is safe to interpret as authoritative at that moment
+
+## Decision: Allowed Realtime Entity Types in v1
+
+Allowed realtime `entityType` values:
+- `address`
+- `token`
+- `scope`
+- `transaction`
+
+Notes:
+- `address` and `token` remain the only primary public managed units
+- `scope` exists for readiness and system-level managed-scope signals
+- `transaction` exists for lifecycle events without turning transactions into primary public tracking units
 
 ### 4. Ops plane
 Operational endpoints are first-class because the service is an infra backend, not just a data API.
@@ -161,6 +421,15 @@ Mandatory endpoints:
 - `GET /api/ops/backfill/status`
 - `POST /api/admin/reindex`
 - `POST /api/admin/backfill`
+
+## Decision: Provider Status Is a Separate Ops Surface
+
+`v1` keeps provider status as its own ops surface rather than collapsing everything into one generic health endpoint.
+
+Rationale:
+- `Consigliere` is explicitly multisource
+- operators need visibility into source health, degradation, and routing posture
+- one coarse health signal is not enough for platform-grade troubleshooting
 
 ## Error Contract
 
@@ -198,3 +467,53 @@ Example:
 4. Realtime guarantees apply only to managed scope.
 5. Upstream provider choice must not leak into public contract semantics.
 6. Public API is optimized for business backends, not for full-chain exploration.
+
+## Decision: Degraded Readability Uses an Integrity Rule
+
+`v1` degraded handling is intentionally simple:
+
+- if degradation is integrity-safe, state endpoints may remain readable with degraded marking
+- if degradation is integrity-unsafe, state endpoints must close and return readiness/degradation status only
+
+This keeps the contract strict where truth is at risk and permissive where the system is merely operating below ideal quality.
+
+## Decision: No Extra Public Degraded Enum in v1
+
+The public API does not need a separate degraded subtype enum in `v1`.
+
+Clients should interpret degraded behavior from:
+- `lifecycleStatus`
+- `degraded`
+- `readable`
+- `authoritative`
+
+## Decision: Readiness Must Exist Both as Status and as Enforcement
+
+`v1` requires both:
+
+1. explicit readiness/status endpoints for tracked objects and scope orchestration
+2. enforcement on state endpoints, which must still reject reads when scope is not ready
+
+This means:
+- clients can poll readiness directly
+- state endpoints do not need to double as readiness discovery tools
+- business clients still get hard safety guarantees when they try to read too early
+
+## Decision: Minimal Readiness Object for v1
+
+The minimal readiness object for a tracked address or tracked token is:
+
+- `tracked`
+- `entityType`
+- `entityId`
+- `lifecycleStatus`
+- `readable`
+- `authoritative`
+- `degraded`
+- `lagBlocks?`
+- `progress?`
+
+Notes:
+- `lagBlocks` is optional
+- `progress` is optional
+- the object may be extended later without changing the baseline contract

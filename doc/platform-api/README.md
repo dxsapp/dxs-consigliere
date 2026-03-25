@@ -11,3 +11,20 @@ Principles:
 - `Consigliere` is not an explorer-first product.
 - Public API is built around authoritative indexed state and stable realtime for managed scope.
 - External providers are supply sources, not public API contracts.
+- Source configuration follows a preferred-mode model with capability-level overrides.
+
+Supported preferred modes in `v1`:
+- `node`
+- `junglebus`
+- `bitails`
+- `hybrid`
+
+`hybrid` means one primary source plus multiple fallbacks.
+
+Future source direction:
+- `network_connector` as a narrow direct-to-network source for realtime ingest and chain visibility
+
+Source configuration in `v1` is split into:
+- `providers`
+- `routing`
+- `capabilities`
