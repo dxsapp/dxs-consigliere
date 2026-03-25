@@ -27,6 +27,7 @@ dotnet test ./Dxs.Consigliere.sln -c Release /m:1 -v minimal
 - `tests/Dxs.Consigliere.Benchmarks`
   - minimal replay harness scaffold for baseline observation-stream samples.
   - fixture-backed smoke coverage for replay loading and metrics aggregation.
+  - Raven-backed observation journal benchmarks for append, replay, and duplicate-observation paths.
 
 ## Remaining high-priority work
 
