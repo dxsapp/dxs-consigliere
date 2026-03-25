@@ -471,6 +471,57 @@ Rationale:
 - operators need visibility into source health, degradation, and routing posture
 - one coarse health signal is not enough for platform-grade troubleshooting
 
+## Decision: Provider Ops Shape Is Per-Provider First
+
+`v1` models provider diagnostics as a per-provider status object with nested capability substatus.
+
+This means the primary ops surface is organized around providers such as `node`, `junglebus`, `bitails`, and `whatsonchain`, while each provider object can expose capability-level status for:
+- `broadcast`
+- `realtime_ingest`
+- `block_backfill`
+- `raw_tx_fetch`
+- `validation_fetch`
+
+Rationale:
+- operators reason about concrete providers first
+- capability health still matters and must remain visible
+- per-provider top-level status avoids an overly fragmented ops surface
+
+### Minimal Provider Status Shape
+
+The minimum `provider status` object in `v1` is:
+- `provider`
+- `enabled`
+- `configured`
+- `roles[]`
+- `healthy`
+- `degraded`
+- `lastSuccessAt?`
+- `lastErrorAt?`
+- `lastErrorCode?`
+- `rateLimitState?`
+- `capabilities`
+
+Notes:
+- `roles[]` is a list rather than a single value because one provider may serve multiple roles at once
+- `currentUsage` is intentionally omitted from the base contract because it is too vague; if needed later, `v2` should add a more precise field
+
+### Minimal Capability Status Shape
+
+Each entry inside `capabilities` uses the following minimum shape in `v1`:
+- `enabled`
+- `healthy`
+- `degraded`
+- `lastSuccessAt?`
+- `lastErrorAt?`
+- `lastErrorCode?`
+- `rateLimitState?`
+- `active`
+
+Where:
+- `enabled` means the capability is allowed by configuration for this provider
+- `active` means the routing layer currently uses this provider for that capability rather than only keeping it available as a standby path
+
 ## Error Contract
 
 Public errors must remain provider-agnostic.

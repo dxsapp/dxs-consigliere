@@ -432,3 +432,34 @@ This allows:
 - fallback visibility
 - degraded-mode investigation
 - source-level troubleshooting
+
+## Decision: Provider Diagnostics Are Provider-First
+
+The primary ops status model is per-provider rather than per-capability.
+
+Each provider status object may then expose nested capability-specific status for the routing-sensitive capabilities that matter operationally.
+
+This keeps the operator's view aligned to concrete upstream sources while preserving the ability to diagnose capability-specific failures inside each source.
+
+The minimum `provider status` object in `v1` is:
+- `provider`
+- `enabled`
+- `configured`
+- `roles[]`
+- `healthy`
+- `degraded`
+- `lastSuccessAt?`
+- `lastErrorAt?`
+- `lastErrorCode?`
+- `rateLimitState?`
+- `capabilities`
+
+Each nested capability status uses the following minimum shape in `v1`:
+- `enabled`
+- `healthy`
+- `degraded`
+- `lastSuccessAt?`
+- `lastErrorAt?`
+- `lastErrorCode?`
+- `rateLimitState?`
+- `active`
