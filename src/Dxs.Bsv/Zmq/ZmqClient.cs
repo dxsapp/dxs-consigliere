@@ -69,7 +69,7 @@ public class ZmqClient : IZmqClient
             {
                 var tx = Transaction.Parse(payload, Network.Mainnet);
 
-                _txMessageBus.Post(TxMessage.AddedToMempool(tx, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+                _txMessageBus.Post(TxMessage.AddedToMempool(tx, DateTimeOffset.UtcNow.ToUnixTimeSeconds(), TxObservationSource.Node));
             }
             catch (Exception ex)
             {
@@ -90,7 +90,7 @@ public class ZmqClient : IZmqClient
             try
             {
                 var message = JsonSerializer.Deserialize<RemovedFromMempoolBlockMessage>(payload);
-                var txMessage = TxMessage.RemovedFromMempool(message.TxId, Map(message.Reason));
+                var txMessage = TxMessage.RemovedFromMempool(message.TxId, TxObservationSource.Node, Map(message.Reason));
 
                 _txMessageBus.Post(txMessage);
             }
@@ -110,6 +110,7 @@ public class ZmqClient : IZmqClient
                 var message = JsonSerializer.Deserialize<DiscardedFromMempoolMessage>(payload);
                 var txMessage = TxMessage.RemovedFromMempool(
                     message.TxId,
+                    TxObservationSource.Node,
                     Map(message.Reason),
                     message.CollidedWith.TxId,
                     message.BlockHash

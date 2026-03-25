@@ -20,6 +20,7 @@ public static class HostedTasksSetup
             .AddSingletonHostedService<ActualChainTipVerifyBackgroundTask>()
             .AddSingletonHostedService<StasAttributesMissingTransactions>()
             .AddSingletonHostedService<StasAttributesChangeObserverTask>()
+            .AddSingletonHostedService<TxObservationJournalMirrorBackgroundTask>()
             .AddSingletonHostedService<JungleBusSyncMissingDataBackgroundTask>()
             .AddSingletonHostedService<UnconfirmedTransactionsMonitor>()
             .AddSingletonHostedService<JungleBusMempoolMonitor>();

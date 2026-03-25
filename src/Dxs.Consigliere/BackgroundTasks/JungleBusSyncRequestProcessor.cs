@@ -107,6 +107,7 @@ public class JungleBusSyncRequestProcessor(
                         txMessageBus.Post(TxMessage.FoundInBlock(
                             transaction,
                             x.BlockTime,
+                            TxObservationSource.JungleBus,
                             x.BlockHash,
                             x.BlockHeight,
                             x.BlockIndex

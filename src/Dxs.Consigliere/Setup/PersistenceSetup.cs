@@ -1,5 +1,8 @@
 using Dxs.Consigliere.Data;
+using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Extensions;
+using Dxs.Bsv.BitcoinMonitor.Models;
+using Dxs.Common.Journal;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,5 +26,7 @@ public static class PersistenceSetup
                 options.SimultaneousMigrationTimeout = TimeSpan.FromMinutes(30);
             })
             .AddSingleton(sp => sp.GetRequiredService<RavenDbDocumentStore>().DocumentStore)
+            .AddSingleton<IRawTransactionPayloadStore, RavenRawTransactionPayloadStore>()
+            .AddSingleton<IObservationJournalAppender<ObservationJournalEntry<TxObservation>>, RavenObservationJournal<TxObservation>>()
             .AddScoped(sp => sp.GetRequiredService<RavenDbDocumentStore>().DocumentStore.GetSession());
 }

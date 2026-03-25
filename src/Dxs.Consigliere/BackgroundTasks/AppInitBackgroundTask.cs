@@ -75,7 +75,11 @@ public class AppInitBackgroundTask(
                 if (cancellationToken.IsCancellationRequested)
                     return;
 
-                txMessageBus.Post(TxMessage.AddedToMempool(transaction, DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
+                txMessageBus.Post(TxMessage.AddedToMempool(
+                    transaction,
+                    DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    TxObservationSource.Node
+                ));
             }
 
             _logger.LogDebug("Scanned {Count} from mempool", txs.Count);

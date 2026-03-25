@@ -48,7 +48,11 @@ public class JungleBusMempoolMonitor(
 
             var transaction = Transaction.Parse(Convert.FromBase64String(x.TransactionBase64), networkProvider.Network);
 
-            messageBus.Post(TxMessage.AddedToMempool(transaction, DateTime.UtcNow.ToUnixSeconds()));
+            messageBus.Post(TxMessage.AddedToMempool(
+                transaction,
+                DateTime.UtcNow.ToUnixSeconds(),
+                TxObservationSource.JungleBus
+            ));
             _logger.LogDebug("Tx found in GorillaPool mempool: {Id}", x.Id);
         });
 

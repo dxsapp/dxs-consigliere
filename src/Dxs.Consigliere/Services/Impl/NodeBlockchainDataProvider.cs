@@ -37,6 +37,7 @@ public class NodeBlockchainDataProvider(
             var message = TxMessage.FoundInBlock(
                 transaction,
                 context.Timestamp,
+                TxObservationSource.Node,
                 context.Id,
                 context.Height,
                 count
