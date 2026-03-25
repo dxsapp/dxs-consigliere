@@ -50,7 +50,7 @@ public sealed class RavenObservationJournal<TObservation>(
             Id = ObservationJournalRecordDocument.GetId(nextSequence),
             Sequence = nextSequence.Value,
             Fingerprint = request.Fingerprint.Value,
-            ObservationType = typeof(TObservation).AssemblyQualifiedName ?? typeof(TObservation).FullName ?? typeof(TObservation).Name,
+            ObservationType = ObservationTypeIdentity.For<TObservation>(),
             ObservationJson = JsonSerializer.Serialize(request.Observation.Observation, SerializerOptions),
             PayloadDocumentId = payloadReference?.DocumentId,
             PayloadTxId = payloadReference?.TxId,
@@ -100,8 +100,10 @@ public sealed class RavenObservationJournal<TObservation>(
             throw new ArgumentOutOfRangeException(nameof(take), "Read size must be positive.");
 
         using var session = documentStore.GetSession();
+        var observationType = ObservationTypeIdentity.For<TObservation>();
         var query = session.Query<ObservationJournalRecordDocument>()
             .Where(x => x.Sequence > afterSequence.Value)
+            .Where(x => x.ObservationType == observationType)
             .OrderBy(x => x.Sequence)
             .Take(take);
 
@@ -116,23 +118,13 @@ public sealed class RavenObservationJournal<TObservation>(
             if (observation is null)
                 throw new InvalidOperationException($"Failed to deserialize journal observation `{document.Id}` as `{document.ObservationType}`.");
 
-            RawTransactionPayloadReference payloadReference = null;
-            if (!string.IsNullOrWhiteSpace(document.PayloadDocumentId))
-            {
-                payloadReference = new RawTransactionPayloadReference(
-                    document.PayloadDocumentId,
-                    document.PayloadTxId,
-                    document.PayloadCompressionAlgorithm ?? RawTransactionPayloadCompressionAlgorithm.None
-                );
-            }
-
             results.Add(
                 new StoredObservationJournalEntry<TObservation>(
                     new JournalSequence(document.Sequence),
                     new DedupeFingerprint(document.Fingerprint),
                     document.AppendedAt,
                     observation,
-                    payloadReference
+                    RavenObservationJournalReader.CreatePayloadReference(document)
                 )
             );
         }
