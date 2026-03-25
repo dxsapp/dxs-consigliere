@@ -83,6 +83,101 @@ Every relevant slice should measure at least one of:
 | `S32` | `public-api-and-realtime` | `operator/api` | `todo` | `S30`,`S31` | switch public reads and realtime streams to vnext projections by default | API and realtime proof |
 | `S33` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `S32` | final startup, config, deployment, and migration packaging for vnext | startup/build/deploy proof |
 
+## Mandatory Audit Gates
+
+After a significant amount of slice work, execution must stop for an audit before the next wave continues.
+
+Significant means:
+- one whole wave completed
+- or 5 completed implementation slices since the previous audit gate
+
+Every audit gate is blocking.
+
+The operator must:
+- review quality
+- review reuse vs duplication
+- review adherence to AI-first repository qualities
+- review performance evidence and new bottlenecks
+- produce a fix plan for all discovered issues
+- execute the required fix slices
+- record the audit outcome in the task package
+
+Only after the required fixes are integrated may work continue on downstream slices.
+
+### Audit Gate `A1`
+
+Trigger after:
+- `S08`
+
+Focus:
+- config and benchmark harness quality
+- journal abstraction cleanliness
+- payload-store abstraction reuse quality
+
+### Audit Gate `A2`
+
+Trigger after:
+- `S16`
+
+Focus:
+- journal semantics correctness
+- tx lifecycle state coherence
+- replay determinism
+- out-of-order and duplicate handling
+
+### Audit Gate `A3`
+
+Trigger after:
+- `S23`
+
+Focus:
+- token validation correctness
+- dependency graph discipline
+- revalidation storm behavior
+- protocol/state boundary cleanliness
+
+### Audit Gate `A4`
+
+Trigger after:
+- `S29`
+
+Focus:
+- business projection correctness
+- API compatibility drift
+- realtime contract quality
+- end-to-end performance envelope
+
+### Audit Gate `A5`
+
+Trigger after:
+- `S31`
+
+Focus:
+- cutover safety
+- rollback viability
+- legacy-path retirement risks
+- operator ergonomics for vnext startup and troubleshooting
+
+## Audit Outputs
+
+Each audit gate must produce:
+- an audit note
+- a fix plan
+- an explicit list of required remediation slices
+- validation evidence
+
+Recommended remediation naming:
+- `R01`, `R02`, `R03`, ...
+
+Remediation slices are first-class work.
+
+They may block future slices and must be completed before the next wave starts if they affect:
+- correctness
+- AI-first boundary quality
+- hot-path performance
+- API compatibility
+- cutover safety
+
 ## Wave A: Planning And Perf Foundations
 
 ### `S01` `repo-governance`
