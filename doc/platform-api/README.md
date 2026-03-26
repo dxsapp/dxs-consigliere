@@ -39,3 +39,8 @@ The top-level configuration path for the source model is `Consigliere:Sources`.
 Storage for internal artifacts such as payloads should live under a separate `Consigliere:Storage` section.
 
 `Consigliere:Storage` should be a general storage envelope, with `RawTransactionPayloads` as the first concrete child in `v1`.
+
+Operator-facing runtime templates now live in:
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/appsettings.vnext.node.example.json`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/appsettings.vnext.hybrid.example.json`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/appsettings.vnext.provider-only.example.json`

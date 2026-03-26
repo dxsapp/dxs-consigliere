@@ -35,6 +35,7 @@ public static class CorePlatformSetup
         services
             .AddSingleton<IValidateOptions<ConsigliereSourcesConfig>, ConsigliereSourcesConfigValidation>()
             .AddSingleton<IValidateOptions<ConsigliereStorageConfig>, ConsigliereStorageConfigValidation>()
+            .AddHostedService<VNextStartupDiagnosticsHostedService>()
             .AddSingleton<INetworkProvider, NetworkProvider>()
             .AddTransient<IBitcoindService, BitcoindService>()
             .AddTransient<IBroadcastProvider>(sp => sp.GetRequiredService<IBitcoindService>())

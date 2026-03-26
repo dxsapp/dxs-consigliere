@@ -10,8 +10,8 @@
 
 ## Active Wave
 
-- Active wave: `Wave H: Core Business Projections`
-- Critical-path slice: `S28`
+- Active wave: `Wave I: Packaging, Cutover, And Validation`
+- Critical-path slice: `S29`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -46,6 +46,7 @@
 | S25 | indexer-state-and-storage | operator/state | done | S24 | token projection integration tests + `build:Dxs.Consigliere` | token state, token history, and token-centric UTXO/stats reads now rebuild from journal-driven state instead of legacy implicit STAS index semantics |
 | S26 | public-api-and-realtime | operator/api | done | S24,S25 | controller projection tests + `build:Dxs.Consigliere` | additive address/token GET surfaces now read from vnext projections with strict readiness gating while legacy POST routes remain controlled compatibility wrappers |
 | S27 | public-api-and-realtime | operator/api | done | S26 | realtime notifier tests + `build:Dxs.Consigliere` | websocket/signalr streams now expose additive vnext realtime envelopes, token subscriptions, and lifecycle/readiness event alignment while legacy callbacks stay available |
+| S28 | service-bootstrap-and-ops | operator/platform | done | S27 | config binding/startup diagnostics tests + `build:Dxs.Consigliere(useapphost=false)` | vnext startup examples, strict source validation, and startup diagnostics are shipped for operators without requiring code inspection |
 
 ## Open Handoffs
 
@@ -93,6 +94,7 @@
 | 2026-03-26 | S25 | validation | `tests:TokenProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | token state and history now rebuild from journal facts while token-centric UTXO and token stats read from the new projection path instead of legacy STAS indexes |
 | 2026-03-26 | S26 | validation | `tests:AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive address/token GET endpoints now expose projection-backed state with `not_tracked` and `scope_not_ready` readiness semantics while legacy POST reads remain intact |
 | 2026-03-26 | S27 | validation | `tests:ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive realtime envelopes, token subscriptions, tx lifecycle events, and scope status transitions now flow through SignalR without breaking legacy websocket callbacks |
+| 2026-03-26 | S28 | validation | `tests:ConsigliereConfigBindingTests|VNextStartupDiagnosticsTests + build:Dxs.Consigliere(useapphost=false)` | shipped vnext config templates now bind against runtime options, disabled provider references are rejected at startup, and diagnostics print effective source/storage shape for operators |
 
 ## Audit Gates
 
@@ -173,10 +175,12 @@
   - `S25`
   - `S26`
   - `S27`
+  - `S28`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
   - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
   - additive `GET /api/address/{address}/history` still delegates to the existing history service; full projection-backed address history remains a follow-up concern for later cutover waves
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
-- Next slice to open: `S28`
+  - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
+- Next slice to open: `S29`

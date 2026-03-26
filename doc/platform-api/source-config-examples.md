@@ -2,6 +2,11 @@
 
 This document contains `appsettings`-style JSON examples for the `Consigliere:Sources` configuration model.
 
+Runtime-ready templates also live in:
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/appsettings.vnext.node.example.json`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/appsettings.vnext.hybrid.example.json`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/appsettings.vnext.provider-only.example.json`
+
 These examples are intentionally explicit.
 
 The repository is AI-first, so the examples prefer:

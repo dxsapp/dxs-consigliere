@@ -20,6 +20,8 @@ public class ConsigliereConfigBindingTests
             ["Consigliere:Sources:Routing:FallbackSources:0"] = "bitails",
             ["Consigliere:Sources:Routing:VerificationSource"] = "node",
             ["Consigliere:Sources:Providers:Node:Enabled"] = "true",
+            ["Consigliere:Sources:Providers:JungleBus:Enabled"] = "true",
+            ["Consigliere:Sources:Providers:Bitails:Enabled"] = "true",
             ["Consigliere:Sources:Providers:Node:EnabledCapabilities:0"] = "broadcast",
             ["Consigliere:Sources:Providers:Node:Connection:RpcUrl"] = "http://127.0.0.1:8332",
             ["Consigliere:Sources:Capabilities:Broadcast:Mode"] = "multi",
@@ -85,6 +87,56 @@ public class ConsigliereConfigBindingTests
             provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value);
 
         Assert.Contains("Unknown provider", exception.Failures.Single());
+    }
+
+    [Fact]
+    public void AddCorePlatformZoneServices_RejectsUnknownPreferredMode()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Network"] = "Mainnet",
+                ["Consigliere:Sources:Providers:Node:Enabled"] = "true",
+                ["Consigliere:Sources:Routing:PreferredMode"] = "mesh",
+                ["Consigliere:Sources:Routing:PrimarySource"] = "node"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCorePlatformZoneServices(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value);
+
+        Assert.Contains("Unknown preferred mode", exception.Failures.Single());
+    }
+
+    [Fact]
+    public void AddCorePlatformZoneServices_RejectsDisabledPrimarySource()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Network"] = "Mainnet",
+                ["Consigliere:Sources:Providers:Node:Enabled"] = "false",
+                ["Consigliere:Sources:Routing:PreferredMode"] = "node",
+                ["Consigliere:Sources:Routing:PrimarySource"] = "node"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCorePlatformZoneServices(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value);
+
+        Assert.Contains("is disabled", exception.Failures.Single());
     }
 
     [Fact]
