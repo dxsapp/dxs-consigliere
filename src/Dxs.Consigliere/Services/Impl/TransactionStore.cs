@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 
 using Raven.Client.Documents;
 using Raven.Client.Documents.Operations;
+using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
@@ -108,7 +109,7 @@ public class TransactionStore(
         }
 
         var outputs = new List<MetaOutput>();
-        var addresses = new HashSet<string>();
+        var addresses = new HashSet<string>(StringComparer.Ordinal);
         var slimOutputs = new List<MetaTransaction.Output>();
         var hasStasOutputs = false;
 
@@ -126,174 +127,221 @@ public class TransactionStore(
                 hasStasOutputs = true;
         }
 
-        await SaveTransactionData(transaction);
-        await SaveOutputs(inputs, outputs);
+        using var session = store.GetSession();
 
-        var txValues = new Dictionary<string, object>
-        {
-            { nameof(MetaTransaction.Id), transaction.Id },
-
-            { nameof(MetaTransaction.Block), blockHash },
-            { nameof(MetaTransaction.Height), height },
-            { nameof(MetaTransaction.Index), indexInBlock },
-            { nameof(MetaTransaction.Timestamp), timestamp },
-
-            { nameof(MetaTransaction.Addresses), addresses },
-            { nameof(MetaTransaction.Outputs), slimOutputs },
-            { nameof(MetaTransaction.Inputs), slimInputs },
-            { nameof(MetaTransaction.IsStas), firstOutToRedeem != null || hasStasOutputs },
-        };
-
-        var patch = new PatchOperation(
+        await SaveTransactionDataAsync(session, transaction);
+        await SaveOutputsAsync(session, inputs, outputs);
+        var metaTransactionStatus = await UpsertMetaTransactionAsync(
+            session,
             transaction.Id,
-            null,
-            new PatchRequest
-            {
-                Script = TransactionStorePatchScripts.UpdateMetaTransactionQuery,
-                Values = txValues
-
-            },
-            new PatchRequest
-            {
-                Script = TransactionStorePatchScripts.InsertMetaTransactionQuery,
-                Values = txValues
-            }
+            timestamp,
+            blockHash,
+            height,
+            indexInBlock,
+            slimInputs,
+            slimOutputs,
+            addresses
         );
 
-        var result = await store.Operations.SendAsync(patch);
+        await session.SaveChangesAsync();
 
-        if (result == PatchStatus.Created && height == MetaTransaction.DefaultHeight)
+        if (firstOutToRedeem != null || hasStasOutputs)
+            await UpdateStasAttributes(transaction.Id);
+
+        if (metaTransactionStatus == MetaTransactionWriteStatus.Created)
         {
-            return TransactionProcessStatus.FoundInMempool;
+            return height == MetaTransaction.DefaultHeight
+                ? TransactionProcessStatus.FoundInMempool
+                : TransactionProcessStatus.FoundInBlock;
         }
-        if (result == PatchStatus.Created && height != MetaTransaction.DefaultHeight)
-        {
-            return TransactionProcessStatus.FoundInBlock;
-        }
-        if (result == PatchStatus.Patched && height == MetaTransaction.DefaultHeight)
-        {
-            return TransactionProcessStatus.ReFoundInMempool;
-        }
-        if (result == PatchStatus.Patched && height != MetaTransaction.DefaultHeight)
-        {
-            return TransactionProcessStatus.UpdatedOnBlockConnected;
-        }
-        if (result == PatchStatus.NotModified)
-        {
+
+        if (metaTransactionStatus == MetaTransactionWriteStatus.NotModified)
             return TransactionProcessStatus.NotModified;
-        }
 
-        return TransactionProcessStatus.Unexpected;
+        return height == MetaTransaction.DefaultHeight
+            ? TransactionProcessStatus.ReFoundInMempool
+            : TransactionProcessStatus.UpdatedOnBlockConnected;
     }
 
-    private async Task SaveTransactionData(Transaction transaction)
-    {
-        var values = new Dictionary<string, object>
-        {
-            { nameof(TransactionHexData.TxId), transaction.Id },
-            { nameof(TransactionHexData.Hex), transaction.Hex },
-        };
-
-        var patch = new PatchOperation(
-            TransactionHexData.GetId(transaction.Id),
-            null,
-            new PatchRequest
-            {
-                Script = "{}",
-                Values = values
-
-            },
-            new PatchRequest
-            {
-                Script = TransactionStorePatchScripts.InsertTransactionHexData,
-                Values = values
-            }
-        );
-
-        await store.Operations.SendAsync(patch);
-    }
-
-    private async Task SaveOutputs(
-        IEnumerable<MetaOutput> inputs,
-        IEnumerable<MetaOutput> outputs
+    private static async Task SaveTransactionDataAsync(
+        IAsyncDocumentSession session,
+        Transaction transaction
     )
     {
+        var id = TransactionHexData.GetId(transaction.Id);
+        var existing = await session.LoadAsync<TransactionHexData>(id);
+
+        if (existing != null)
+        {
+            if (!string.Equals(existing.Hex, transaction.Hex, StringComparison.Ordinal))
+                existing.Hex = transaction.Hex;
+
+            return;
+        }
+
+        await session.StoreAsync(
+            new TransactionHexData
+            {
+                Id = id,
+                TxId = transaction.Id,
+                Hex = transaction.Hex
+            },
+            id
+        );
+    }
+
+    private static async Task SaveOutputsAsync(
+        IAsyncDocumentSession session,
+        IReadOnlyCollection<MetaOutput> inputs,
+        IReadOnlyCollection<MetaOutput> outputs
+    )
+    {
+        var ids = outputs
+            .Select(x => x.Id)
+            .Concat(inputs.Select(x => x.Id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var existing = ids.Length == 0
+            ? new Dictionary<string, MetaOutput>()
+            : await session.LoadAsync<MetaOutput>(ids);
+
         foreach (var output in outputs)
         {
-            var values = new Dictionary<string, object>
-            {
-                { nameof(MetaOutput.Id), output.Id },
-                { nameof(MetaOutput.TxId), output.TxId },
-                { nameof(MetaOutput.Vout), output.Vout },
-
-                { nameof(MetaOutput.Type), output.Type.ToString("G") },
-                { nameof(MetaOutput.Satoshis), output.Satoshis },
-                { nameof(MetaOutput.Address), output.Address },
-                { nameof(MetaOutput.TokenId), output.TokenId },
-                { nameof(MetaOutput.Hash160), output.Hash160 },
-                { nameof(MetaOutput.Symbol), output.Symbol },
-                { nameof(MetaOutput.ScriptPubKey), output.ScriptPubKey },
-                { nameof(MetaOutput.DstasFlags), output.DstasFlags },
-                { nameof(MetaOutput.DstasFreezeEnabled), output.DstasFreezeEnabled },
-                { nameof(MetaOutput.DstasConfiscationEnabled), output.DstasConfiscationEnabled },
-                { nameof(MetaOutput.DstasFrozen), output.DstasFrozen },
-                { nameof(MetaOutput.DstasFreezeAuthority), output.DstasFreezeAuthority },
-                { nameof(MetaOutput.DstasConfiscationAuthority), output.DstasConfiscationAuthority },
-                { nameof(MetaOutput.DstasServiceFields), output.DstasServiceFields },
-                { nameof(MetaOutput.DstasActionType), output.DstasActionType },
-                { nameof(MetaOutput.DstasActionData), output.DstasActionData },
-                { nameof(MetaOutput.DstasRequestedScriptHash), output.DstasRequestedScriptHash },
-                { nameof(MetaOutput.DstasOptionalData), output.DstasOptionalData },
-                { nameof(MetaOutput.DstasOptionalDataFingerprint), output.DstasOptionalDataFingerprint },
-            };
-
-            var patchOutput = new PatchOperation(
-                output.Id,
-                null,
-                new PatchRequest
+            var current = existing.TryGetValue(output.Id, out var loaded) && loaded is not null
+                ? loaded
+                : new MetaOutput
                 {
-                    Script = TransactionStorePatchScripts.UpdateMetaOutputQuery,
-                    Values = values
-                },
-                new PatchRequest
-                {
-                    Script = TransactionStorePatchScripts.InsertMetaOutputQuery,
-                    Values = values
-                }
-            );
+                    Id = output.Id,
+                    TxId = output.TxId,
+                    Vout = output.Vout
+                };
 
-            await store.Operations.SendAsync(patchOutput);
+            current.Vout = output.Vout;
+            current.Type = output.Type;
+            current.Satoshis = output.Satoshis;
+            current.Address = output.Address;
+            current.TokenId = output.TokenId;
+            current.Hash160 = output.Hash160;
+            current.Symbol = output.Symbol;
+            current.ScriptPubKey = output.ScriptPubKey;
+            current.DstasFlags = output.DstasFlags;
+            current.DstasFreezeEnabled = output.DstasFreezeEnabled;
+            current.DstasConfiscationEnabled = output.DstasConfiscationEnabled;
+            current.DstasFrozen = output.DstasFrozen;
+            current.DstasFreezeAuthority = output.DstasFreezeAuthority;
+            current.DstasConfiscationAuthority = output.DstasConfiscationAuthority;
+            current.DstasServiceFields = output.DstasServiceFields;
+            current.DstasActionType = output.DstasActionType;
+            current.DstasActionData = output.DstasActionData;
+            current.DstasRequestedScriptHash = output.DstasRequestedScriptHash;
+            current.DstasOptionalData = output.DstasOptionalData;
+            current.DstasOptionalDataFingerprint = output.DstasOptionalDataFingerprint;
+
+            if (loaded is null)
+                await session.StoreAsync(current, current.Id);
         }
 
         foreach (var input in inputs)
         {
-            var values = new Dictionary<string, object>
-            {
-                { nameof(MetaOutput.Id), input.Id },
-                { nameof(MetaOutput.TxId), input.TxId },
-                { nameof(MetaOutput.Vout), input.Vout },
-                { nameof(MetaOutput.Type), input.Type.ToString("G") },
-                { nameof(MetaOutput.InputIdx), input.InputIdx },
-                { nameof(MetaOutput.SpendTxId), input.SpendTxId },
-            };
-
-            var patchInput = new PatchOperation(
-                input.Id,
-                null,
-                new PatchRequest
+            var current = existing.TryGetValue(input.Id, out var loaded) && loaded is not null
+                ? loaded
+                : new MetaOutput
                 {
-                    Script = TransactionStorePatchScripts.UpdateMetaInputQuery,
-                    Values = values
-                },
-                new PatchRequest
-                {
-                    Script = TransactionStorePatchScripts.InsertMetaInputQuery,
-                    Values = values
-                }
-            );
+                    Id = input.Id,
+                    TxId = input.TxId,
+                    Vout = input.Vout,
+                    Type = input.Type
+                };
 
-            await store.Operations.SendAsync(patchInput);
+            current.Vout = input.Vout;
+            current.InputIdx = input.InputIdx;
+            current.SpendTxId = input.SpendTxId;
+            current.Spent = true;
+
+            if (loaded is null)
+                await session.StoreAsync(current, current.Id);
         }
+    }
+
+    private static async Task<MetaTransactionWriteStatus> UpsertMetaTransactionAsync(
+        IAsyncDocumentSession session,
+        string transactionId,
+        long timestamp,
+        string blockHash,
+        int height,
+        int? indexInBlock,
+        IReadOnlyList<MetaTransaction.Input> slimInputs,
+        IReadOnlyList<MetaTransaction.Output> slimOutputs,
+        IReadOnlyCollection<string> addresses
+    )
+    {
+        var existing = await session.LoadAsync<MetaTransaction>(transactionId);
+        if (existing != null)
+        {
+            var changed = false;
+
+            if (!string.Equals(existing.Block, blockHash, StringComparison.Ordinal))
+            {
+                existing.Block = blockHash;
+                changed = true;
+            }
+
+            if (existing.Height != height)
+            {
+                existing.Height = height;
+                changed = true;
+            }
+
+            var nextIndex = indexInBlock ?? 0;
+            if (existing.Index != nextIndex)
+            {
+                existing.Index = nextIndex;
+                changed = true;
+            }
+
+            if (existing.Timestamp == 0)
+            {
+                existing.Timestamp = timestamp;
+                changed = true;
+            }
+
+            return changed
+                ? MetaTransactionWriteStatus.Updated
+                : MetaTransactionWriteStatus.NotModified;
+        }
+
+        await session.StoreAsync(new MetaTransaction
+        {
+            Id = transactionId,
+            Block = blockHash,
+            Height = height,
+            Index = indexInBlock ?? 0,
+            Timestamp = timestamp,
+            Inputs = slimInputs.ToList(),
+            Outputs = slimOutputs.ToList(),
+            Addresses = addresses.ToList(),
+            TokenIds = [],
+            IllegalRoots = [],
+            MissingTransactions = [],
+            IsStas = false,
+            IsIssue = false,
+            IsValidIssue = false,
+            IsRedeem = false,
+            IsWithFee = false,
+            IsWithNote = false,
+            AllStasInputsKnown = false,
+            RedeemAddress = null,
+            StasFrom = null,
+            Note = null,
+            DstasEventType = null,
+            DstasSpendingType = null,
+            DstasInputFrozen = null,
+            DstasOutputFrozen = null,
+            DstasOptionalDataContinuity = null
+        }, transactionId);
+
+        return MetaTransactionWriteStatus.Created;
     }
 
     public async Task UpdateStasAttributes(string txId)
@@ -327,76 +375,71 @@ public class TransactionStore(
                 .Include<MetaTransaction>(x => x.Outputs.Select(y => y.Id))
                 .LoadAsync<MetaTransaction>(id);
 
-            if (metaTx != null)
+            if (metaTx == null)
+                return null;
+
+            var metaOutputs = new List<MetaOutput>();
+            var outputIds = (metaTx.Outputs ?? [])
+                .Select(x => x.Id)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (outputIds.Length > 0)
             {
-                var metaOutputs = new List<MetaOutput>();
-                foreach (var output in metaTx.Outputs)
+                var loadedOutputs = await session.LoadAsync<MetaOutput>(outputIds);
+                foreach (var pair in loadedOutputs)
                 {
-                    var metaOutput = await session.LoadAsync<MetaOutput>(output.Id);
+                    if (pair.Value == null)
+                        continue;
 
-                    if (metaOutput != null)
-                    {
-                        metaOutputs.Add(metaOutput);
-                        session.Delete(metaOutput);
-                    }
+                    metaOutputs.Add(pair.Value);
+                    session.Delete(pair.Value);
                 }
-
-                var rawData = await session.LoadAsync<TransactionHexData>(TransactionHexData.GetId(id));
-
-                if (rawData != null)
-                    session.Delete(rawData);
-
-                session.Delete(metaTx);
-
-                await session.SaveChangesAsync();
-
-                var spentOutputIds = await session
-                    .Outputs()
-                    .Where(x => x.SpendTxId == id)
-                    .Select(x => x.Id)
-                    .ToListAsync();
-
-                foreach (var outputId in spentOutputIds)
-                {
-                    await store.Operations.SendAsync(new PatchOperation(
-                        outputId,
-                        null,
-                        new PatchRequest
-                        {
-                            Script = TransactionStorePatchScripts.FreeMetaOutputQuery,
-                            Values =
-                            {
-                                { nameof(MetaOutput.SpendTxId), id },
-                            }
-                        }
-                    ));
-                }
-
-                await mediator.Publish(new TransactionDeleted(id));
-
-                var deletedTransaction = new DeletedTransaction
-                {
-                    Id = DeletedTransaction.GetId(id),
-                    DeletedAt = DateTime.UtcNow,
-                    MetaTransaction = metaTx,
-                    MetaOutputs = metaOutputs,
-                    RawData = rawData?.Hex
-                };
-                await session.StoreAsync(deletedTransaction);
-                await session.SaveChangesAsync();
-
-                var transaction = rawData != null
-                    ? Transaction.Parse(rawData.Hex, networkProvider.Network)
-                    : null;
-
-                logger.LogError("Transaction was removed: {@Transaction}",
-                    transaction != null
-                        ? transaction
-                        : metaTx
-                );
-
-                return transaction;
             }
+
+            var rawData = await session.LoadAsync<TransactionHexData>(TransactionHexData.GetId(id));
+            if (rawData != null)
+                session.Delete(rawData);
+
+            var spentOutputs = await session
+                .Outputs()
+                .Where(x => x.SpendTxId == id)
+                .ToListAsync();
+
+            foreach (var spentOutput in spentOutputs)
+            {
+                spentOutput.SpendTxId = null;
+                spentOutput.InputIdx = 0;
+                spentOutput.Spent = false;
+            }
+
+            var transaction = rawData != null
+                ? Transaction.Parse(rawData.Hex, networkProvider.Network)
+                : null;
+
+            var deletedTransaction = new DeletedTransaction
+            {
+                Id = DeletedTransaction.GetId(id),
+                DeletedAt = DateTime.UtcNow,
+                MetaTransaction = metaTx,
+                MetaOutputs = metaOutputs,
+                RawData = rawData?.Hex
+            };
+
+            session.Delete(metaTx);
+            await session.StoreAsync(deletedTransaction);
+            await session.SaveChangesAsync();
+
+            await mediator.Publish(new TransactionDeleted(id));
+
+            logger.LogError("Transaction was removed: {@Transaction}",
+                transaction != null
+                    ? transaction
+                    : metaTx
+            );
+
+            return transaction;
         }
         catch (Exception exception)
         {
@@ -404,5 +447,12 @@ public class TransactionStore(
         }
 
         return null;
+    }
+
+    private enum MetaTransactionWriteStatus
+    {
+        Created,
+        Updated,
+        NotModified
     }
 }

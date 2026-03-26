@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave I: Packaging, Cutover, And Validation`
-- Critical-path slice: `S30`
+- Critical-path slice: `S31`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -48,6 +48,7 @@
 | S27 | public-api-and-realtime | operator/api | done | S26 | realtime notifier tests + `build:Dxs.Consigliere` | websocket/signalr streams now expose additive vnext realtime envelopes, token subscriptions, and lifecycle/readiness event alignment while legacy callbacks stay available |
 | S28 | service-bootstrap-and-ops | operator/platform | done | S27 | config binding/startup diagnostics tests + `build:Dxs.Consigliere(useapphost=false)` | vnext startup examples, strict source validation, and startup diagnostics are shipped for operators without requiring code inspection |
 | S29 | verification-and-conformance | operator/verification | done | S26,S27,S28 | `vstest:VNextFullSystemValidationTests` + `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | vnext has measured correctness and throughput evidence for replay, reorg, and soak flows under the bounded full-system harness |
+| S30 | indexer-state-and-storage | operator/state | done | S26,S29 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TransactionStoreIntegrationTests` | legacy `TransactionStore` no longer relies on per-output/per-input patch fanout to persist compatibility state |
 
 ## Open Handoffs
 
@@ -100,6 +101,7 @@
 | 2026-03-26 | S29 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S29-full-system-benchmarks-evidence.md` | replay/query/soak throughput captured for the bounded vnext full-system harness |
 | 2026-03-26 | A4 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | full-system correctness/perf review passed with mandatory remediation for projection request amplification before S30 |
 | 2026-03-26 | R-A4-01 | validation | `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | address/token projection batching and deferred token recompute now allow the full-system benchmark harness to pass again at `TransferCount = 4` |
+| 2026-03-26 | S30 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:TransactionStoreIntegrationTests` | legacy transaction persistence now batches raw/meta/output mutations in one Raven session and preserves `NotModified`/delete compatibility semantics without per-doc patch fanout |
 
 ## Audit Gates
 
@@ -145,7 +147,6 @@
   - `6dba6c2`
 - Current benchmark paths: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/`
 - Current known bottlenecks:
-  - `TransactionStore` hot-path Raven fanout
   - Raven index fanout in address/token projections
   - token revalidation cascades
 - Current budget violations:
@@ -183,6 +184,7 @@
   - `S27`
   - `S28`
   - `S29`
+  - `S30`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
@@ -191,4 +193,4 @@
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
-- Next slice to open: `S30`
+- Next slice to open: `S31`
