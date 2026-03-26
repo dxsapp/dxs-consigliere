@@ -14,6 +14,7 @@ namespace Dxs.Consigliere.Controllers;
 public class OpsController(
     IOptions<ConsigliereSourcesConfig> sourcesConfig,
     IOptions<ConsigliereCacheConfig> cacheConfig,
+    IOptions<ConsigliereStorageConfig> storageConfig,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
     IProjectionReadCacheTelemetry projectionReadCacheTelemetry,
@@ -61,6 +62,11 @@ public class OpsController(
         var runtime = await runtimeStatusReader.GetSnapshotAsync(cancellationToken);
         return Ok(ProjectionCacheStatusResponseFactory.Build(snapshot, runtime, snapshot.Enabled && cacheConfig.Value.Enabled));
     }
+
+    [HttpGet("storage")]
+    [Produces(typeof(StorageStatusResponse))]
+    public IActionResult GetStorage()
+        => Ok(StorageStatusResponseFactory.Build(storageConfig.Value));
 
     private ProviderStatusResponse BuildProviderStatus(
         string provider,

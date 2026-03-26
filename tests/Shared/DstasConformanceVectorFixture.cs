@@ -28,15 +28,7 @@ public static class DstasConformanceVectorFixture
 
     public static IReadOnlyList<DstasConformanceVector> LoadAll()
     {
-        var fixturePath = RepoPathResolver.ResolveFromRepoRoot(
-            "tests",
-            "Dxs.Consigliere.Tests",
-            "fixtures",
-            "dstas-conformance-vectors.json");
-
-        if (!File.Exists(fixturePath))
-            throw new InvalidOperationException($"Missing DSTAS conformance fixture: {fixturePath}");
-
+        var fixturePath = DstasProtocolTruthOracle.ResolveValidatedPath("dstas_conformance_vectors");
         var json = File.ReadAllText(fixturePath);
         var vectors = JsonSerializer.Deserialize<List<DstasConformanceVector>>(json, JsonOptions)
             ?? throw new InvalidOperationException("Failed to deserialize DSTAS conformance vectors.");

@@ -28,6 +28,8 @@ public class TransactionStore(
     ILogger<TransactionStore> logger
 ) : IMetaTransactionStore
 {
+    private static readonly StasDerivedTransactionStateEvaluator DerivedStateEvaluator = new();
+
     // Preserve the query contract surface used by contract tests while the script
     // implementation lives in the dedicated patch-script owner.
     private static readonly string UpdateStasAttributesQuery = TransactionStorePatchScripts.UpdateStasAttributesQuery;
@@ -338,7 +340,10 @@ public class TransactionStore(
             DstasSpendingType = null,
             DstasInputFrozen = null,
             DstasOutputFrozen = null,
-            DstasOptionalDataContinuity = null
+            DstasOptionalDataContinuity = null,
+            StasProtocolType = null,
+            StasValidationStatus = null,
+            CanProjectTokenOutputs = null
         }, transactionId);
 
         return MetaTransactionWriteStatus.Created;
@@ -348,9 +353,27 @@ public class TransactionStore(
     {
         try
         {
+            using var session = store.GetNoCacheNoTrackingSession();
+            var transaction = await session.LoadAsync<MetaTransaction>(txId);
+            if (transaction is null)
+                return;
+
+            var parentIds = (transaction.Inputs ?? [])
+                .Select(x => x.TxId)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            var parents = parentIds.Length == 0
+                ? new Dictionary<string, MetaTransaction>(StringComparer.Ordinal)
+                : (await session.LoadAsync<MetaTransaction>(parentIds))
+                .Where(x => x.Value is not null)
+                .ToDictionary(x => x.Key, x => x.Value!, StringComparer.Ordinal);
+            var derivedState = DerivedStateEvaluator.Evaluate(transaction, parents);
+
             var patchRequest = new PatchRequest
             {
-                Script = TransactionStorePatchScripts.UpdateStasAttributesQuery
+                Script = TransactionStorePatchScripts.UpdateStasAttributesQuery,
+                Values = StasDerivedTransactionStateEvaluator.ToPatchValues(derivedState)
             };
             var patch = new PatchOperation(
                 txId,

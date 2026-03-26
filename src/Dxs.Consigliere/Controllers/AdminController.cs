@@ -3,6 +3,7 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Common.Cache;
+using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Tracking;
@@ -15,6 +16,7 @@ using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
@@ -36,6 +38,12 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         var runtime = await runtimeStatusReader.GetSnapshotAsync(cancellationToken);
         return Ok(ProjectionCacheStatusResponseFactory.Build(snapshot, runtime, snapshot.Enabled));
     }
+
+    [HttpGet("storage/status")]
+    [Produces(typeof(StorageStatusResponse))]
+    public IActionResult GetStorageStatus(
+        [FromServices] IOptions<ConsigliereStorageConfig> storageConfig)
+        => Ok(StorageStatusResponseFactory.Build(storageConfig.Value));
 
     [HttpPost("manage/address")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

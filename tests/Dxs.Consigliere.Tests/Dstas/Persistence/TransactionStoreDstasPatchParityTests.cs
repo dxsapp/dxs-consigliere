@@ -1,6 +1,5 @@
 using System.Reflection;
 
-using Dxs.Bsv.Tokens.Dstas.Models;
 using Dxs.Consigliere.Services.Impl;
 
 namespace Dxs.Consigliere.Tests.Dstas.Persistence;
@@ -10,41 +9,32 @@ public class TransactionStoreDstasPatchParityTests
     private static readonly string Query = GetUpdateStasAttributesQuery();
 
     [Fact]
-    public void Query_UsesCanonicalDstasActionAndEventConstants()
+    public void Query_AssignsPreparedDerivedFieldsFromArgs()
     {
-        Assert.Contains($"var dstasActionSwap = '{DstasActionTypes.Swap}';", Query, StringComparison.Ordinal);
-        Assert.Contains($"var dstasActionConfiscation = '{DstasActionTypes.Confiscation}';", Query, StringComparison.Ordinal);
-        Assert.Contains($"var dstasEventSwap = '{DstasEventTypes.Swap}';", Query, StringComparison.Ordinal);
-        Assert.Contains($"var dstasEventSwapCancel = '{DstasEventTypes.SwapCancel}';", Query, StringComparison.Ordinal);
-        Assert.Contains($"var dstasEventConfiscation = '{DstasEventTypes.Confiscation}';", Query, StringComparison.Ordinal);
-        Assert.Contains($"var dstasEventFreeze = '{DstasEventTypes.Freeze}';", Query, StringComparison.Ordinal);
-        Assert.Contains($"var dstasEventUnfreeze = '{DstasEventTypes.Unfreeze}';", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IsStas = args.IsStas;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IsIssue = args.IsIssue;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IsValidIssue = args.IsValidIssue;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IsRedeem = args.IsRedeem;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IsWithFee = args.IsWithFee;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IsWithNote = args.IsWithNote;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.AllStasInputsKnown = args.AllStasInputsKnown;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.DstasEventType = args.DstasEventType;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.StasProtocolType = args.StasProtocolType;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.StasValidationStatus = args.StasValidationStatus;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.CanProjectTokenOutputs = args.CanProjectTokenOutputs;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.TokenIds = args.TokenIds;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.IllegalRoots = args.IllegalRoots;", Query, StringComparison.Ordinal);
+        Assert.Contains("this.MissingTransactions = args.MissingTransactions;", Query, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Query_MapsCanonicalDstasSpendingTypes()
+    public void Query_DoesNotClassifyProtocolSemanticsInline()
     {
-        Assert.Contains($"dstasSpendingType === {DstasSpendingTypes.SwapCancel}", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = dstasEventSwapCancel", Query, StringComparison.Ordinal);
-
-        Assert.Contains($"dstasSpendingType === {DstasSpendingTypes.Confiscation}", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = dstasEventConfiscation", Query, StringComparison.Ordinal);
-
-        Assert.Contains($"dstasSpendingType === {DstasSpendingTypes.FreezeToggle}", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = dstasEventUnfreeze", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = dstasEventFreeze", Query, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Query_UsesCanonicalRegularSpendingRulesForRedeemAndSwap()
-    {
-        Assert.Contains(
-            $"var redeemUsesRegularSpending = dstasSpendingType === null || dstasSpendingType === {DstasSpendingTypes.Regular};",
-            Query,
-            StringComparison.Ordinal);
-        Assert.Contains("firstInputActionType === dstasActionSwap", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = dstasEventSwap", Query, StringComparison.Ordinal);
-        Assert.Contains("firstInputActionType === dstasActionConfiscation", Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("var stasInputsCount", Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("var dstasEventSwap", Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("load(inputTxId)", Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("redeemUsesRegularSpending", Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("optionalDataContinuity", Query, StringComparison.Ordinal);
     }
 
     private static string GetUpdateStasAttributesQuery()

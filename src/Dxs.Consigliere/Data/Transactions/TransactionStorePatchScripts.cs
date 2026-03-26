@@ -1,5 +1,3 @@
-using Dxs.Bsv.Script;
-using Dxs.Bsv.Tokens.Dstas.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 
 namespace Dxs.Consigliere.Data.Transactions;
@@ -7,219 +5,26 @@ namespace Dxs.Consigliere.Data.Transactions;
 internal static class TransactionStorePatchScripts
 {
     public static readonly string UpdateStasAttributesQuery = $@"
-var stasInputsCount = 0;
-var inputsCount = this.{nameof(MetaTransaction.Inputs)}.length;
-var outputsCount = this.{nameof(MetaTransaction.Outputs)}.length;
-var stasType1 = '{ScriptType.P2STAS:G}';
-var stasType2 = '{ScriptType.DSTAS:G}';
-var p2pkhType = '{ScriptType.P2PKH:G}';
-var p2mpkhType = '{ScriptType.P2MPKH:G}';
-var dstasActionSwap = '{DstasActionTypes.Swap}';
-var dstasActionConfiscation = '{DstasActionTypes.Confiscation}';
-var dstasEventSwap = '{DstasEventTypes.Swap}';
-var dstasEventSwapCancel = '{DstasEventTypes.SwapCancel}';
-var dstasEventConfiscation = '{DstasEventTypes.Confiscation}';
-var dstasEventFreeze = '{DstasEventTypes.Freeze}';
-var dstasEventUnfreeze = '{DstasEventTypes.Unfreeze}';
-
-var withNote = outputsCount > 0 &&
-    this.{nameof(MetaTransaction.Outputs)}[outputsCount - 1].{nameof(MetaTransaction.Output.Type)} === '{ScriptType.NullData:G}';
-var withFee = false;
-var allInputsKnown = true;
-var stasFrom = null;
-var firstInputHash160 = null;
-var firstInputTokenId = null;
-var inputTokens = new Set();
-var illegalRoots = new Set();
-var missingTxs = new Set();
-var redeemAddress = null;
-var outputTokens = new Set();
-var firstInputFrozen = null;
-var firstOutputFrozen = null;
-var firstInputActionType = null;
-var dstasSpendingType = null;
-var inputOptionalDataFingerprints = new Set();
-var outputOptionalDataFingerprints = new Set();
-var firstStasInputSeen = false;
-
-for (var i = 0; i < outputsCount; i++) {{
-    var output = this.{nameof(MetaTransaction.Outputs)}[i];
-    var outputType = output.{nameof(MetaTransaction.Output.Type)};
-    var outputIsStas = outputType === stasType1 || outputType === stasType2;
-
-    if (outputIsStas) {{
-        outputTokens.add(output.{nameof(MetaTransaction.Output.TokenId)});
-
-        if (firstOutputFrozen === null &&
-            output.{nameof(MetaTransaction.Output.DstasFrozen)} !== undefined &&
-            output.{nameof(MetaTransaction.Output.DstasFrozen)} !== null) {{
-            firstOutputFrozen = output.{nameof(MetaTransaction.Output.DstasFrozen)} === true;
-        }}
-
-        if (output.{nameof(MetaTransaction.Output.DstasOptionalDataFingerprint)}) {{
-            outputOptionalDataFingerprints.add(output.{nameof(MetaTransaction.Output.DstasOptionalDataFingerprint)});
-        }}
-    }}
-
-    if (i === 0 && (outputType === p2pkhType || outputType === p2mpkhType)) {{
-        redeemAddress = output.{nameof(MetaTransaction.Output.Address)};
-    }}
-}}
-
-outputTokens = [...outputTokens];
-
-for (var i = 0; i < inputsCount; i++) {{
-    var slimInput = this.{nameof(MetaTransaction.Inputs)}[i];
-    var inputTxId = slimInput.{nameof(MetaTransaction.Input.TxId)};
-    var inputTx = load(inputTxId);
-
-    if (!inputTx) {{
-        allInputsKnown = false;
-        missingTxs.add(inputTxId);
-        continue;
-    }}
-
-    var vout = slimInput.{nameof(MetaTransaction.Input.Vout)};
-    var inputOutput = inputTx.{nameof(MetaTransaction.Outputs)}[vout];
-    var inputType = inputOutput.{nameof(MetaTransaction.Output.Type)};
-    var isInputStas = inputType === stasType1 || inputType === stasType2;
-
-    if (i === 0) {{
-        firstInputHash160 = inputOutput.{nameof(MetaTransaction.Output.Hash160)};
-    }} else if (i === inputsCount - 1) {{
-        withFee = inputType === p2pkhType || inputType === p2mpkhType;
-    }}
-
-    if (isInputStas) {{
-        stasInputsCount++;
-
-        if (!firstStasInputSeen) {{
-            firstStasInputSeen = true;
-            stasFrom = inputOutput.{nameof(MetaTransaction.Output.Address)};
-            firstInputTokenId = inputOutput.{nameof(MetaTransaction.Output.TokenId)};
-
-            if (inputOutput.{nameof(MetaTransaction.Output.DstasFrozen)} !== undefined &&
-                inputOutput.{nameof(MetaTransaction.Output.DstasFrozen)} !== null) {{
-                firstInputFrozen = inputOutput.{nameof(MetaTransaction.Output.DstasFrozen)} === true;
-            }}
-
-            if (inputOutput.{nameof(MetaTransaction.Output.DstasActionType)} !== undefined &&
-                inputOutput.{nameof(MetaTransaction.Output.DstasActionType)} !== null) {{
-                firstInputActionType = inputOutput.{nameof(MetaTransaction.Output.DstasActionType)};
-            }}
-        }}
-
-        if (dstasSpendingType === null &&
-            slimInput.{nameof(MetaTransaction.Input.DstasSpendingType)} !== undefined &&
-            slimInput.{nameof(MetaTransaction.Input.DstasSpendingType)} !== null) {{
-            dstasSpendingType = slimInput.{nameof(MetaTransaction.Input.DstasSpendingType)};
-        }}
-
-        if (inputOutput.{nameof(MetaTransaction.Output.DstasOptionalDataFingerprint)}) {{
-            inputOptionalDataFingerprints.add(inputOutput.{nameof(MetaTransaction.Output.DstasOptionalDataFingerprint)});
-        }}
-
-        if (inputTx.{nameof(MetaTransaction.MissingTransactions)}.length > 0) {{
-            missingTxs.add(inputTxId);
-        }}
-
-        inputTokens.add(inputOutput.{nameof(MetaTransaction.Output.TokenId)});
-
-        if (inputTx.{nameof(MetaTransaction.IsIssue)} === true) {{
-            if (inputTx.{nameof(MetaTransaction.IsValidIssue)} !== true) {{
-                illegalRoots.add(inputTxId);
-            }}
-        }} else {{
-            for (var j = 0; j < inputTx.{nameof(MetaTransaction.IllegalRoots)}.length; j++) {{
-                var illegalRoot = inputTx.{nameof(MetaTransaction.IllegalRoots)}[j];
-                illegalRoots.add(illegalRoot);
-            }}
-        }}
-    }}
-}}
-
-var hasStasOutputs = outputTokens.length > 0;
-var isStas = hasStasOutputs || stasInputsCount > 0;
-var isIssue = isStas && hasStasOutputs && stasInputsCount === 0;
-var isValidIssue = isIssue &&
-    allInputsKnown &&
-    outputTokens.length === 1 &&
-    outputTokens[0] === firstInputHash160;
-
-var firstOutput = outputsCount > 0 ? this.{nameof(MetaTransaction.Outputs)}[0] : null;
-var firstOutputIsRedeemType = firstOutput &&
-    (firstOutput.{nameof(MetaTransaction.Output.Type)} === p2pkhType ||
-     firstOutput.{nameof(MetaTransaction.Output.Type)} === p2mpkhType);
-var redeemBlockedByState = firstInputFrozen === true || firstInputActionType === dstasActionConfiscation;
-var redeemUsesRegularSpending = dstasSpendingType === null || dstasSpendingType === 1;
-var redeemByIssuerOwner = stasFrom === redeemAddress;
-var isRedeem = allInputsKnown &&
-    stasInputsCount === 1 &&
-    firstOutputIsRedeemType &&
-    redeemUsesRegularSpending &&
-    redeemByIssuerOwner &&
-    !redeemBlockedByState &&
-    firstInputTokenId === firstOutput.{nameof(MetaTransaction.Output.Hash160)};
-
-var dstasEventType = null;
-if (isStas && dstasSpendingType !== null) {{
-    if (dstasSpendingType === 4) {{
-        dstasEventType = dstasEventSwapCancel;
-    }} else if (dstasSpendingType === 3) {{
-        dstasEventType = dstasEventConfiscation;
-    }} else if (dstasSpendingType === 2) {{
-        if (firstInputFrozen === true && firstOutputFrozen === false) {{
-            dstasEventType = dstasEventUnfreeze;
-        }} else if (firstOutputFrozen === true) {{
-            dstasEventType = dstasEventFreeze;
-        }} else {{
-            dstasEventType = dstasEventFreeze;
-        }}
-    }}
-}}
-
-if (dstasEventType === null &&
-    isStas &&
-    (dstasSpendingType === null || dstasSpendingType === 1) &&
-    firstInputActionType === dstasActionSwap) {{
-    dstasEventType = dstasEventSwap;
-}}
-
-var optionalDataContinuity = null;
-if (isStas) {{
-    optionalDataContinuity = true;
-    if (inputOptionalDataFingerprints.size > 0 && outputOptionalDataFingerprints.size === 0) {{
-        optionalDataContinuity = false;
-    }} else {{
-        var outputOptionalDataFingerprintsArr = [...outputOptionalDataFingerprints];
-        for (var i = 0; i < outputOptionalDataFingerprintsArr.length; i++) {{
-            var fingerprint = outputOptionalDataFingerprintsArr[i];
-            if (!inputOptionalDataFingerprints.has(fingerprint)) {{
-                optionalDataContinuity = false;
-                break;
-            }}
-        }}
-    }}
-}}
-
-this.{nameof(MetaTransaction.IsStas)} = isStas;
-this.{nameof(MetaTransaction.IsIssue)} = isIssue;
-this.{nameof(MetaTransaction.IsValidIssue)} = isValidIssue;
-this.{nameof(MetaTransaction.IsRedeem)} = isRedeem;
-this.{nameof(MetaTransaction.IsWithFee)} = isStas && withFee;
-this.{nameof(MetaTransaction.IsWithNote)} = isStas && withNote;
-this.{nameof(MetaTransaction.AllStasInputsKnown)} = isStas && allInputsKnown;
-this.{nameof(MetaTransaction.RedeemAddress)} = isRedeem ? redeemAddress : null;
-this.{nameof(MetaTransaction.StasFrom)} = isStas ? stasFrom : null;
-this.{nameof(MetaTransaction.DstasEventType)} = dstasEventType;
-this.{nameof(MetaTransaction.DstasSpendingType)} = dstasSpendingType;
-this.{nameof(MetaTransaction.DstasInputFrozen)} = firstInputFrozen;
-this.{nameof(MetaTransaction.DstasOutputFrozen)} = firstOutputFrozen;
-this.{nameof(MetaTransaction.DstasOptionalDataContinuity)} = optionalDataContinuity;
-
-this.{nameof(MetaTransaction.TokenIds)} = [...new Set([...outputTokens, ...inputTokens])];
-this.{nameof(MetaTransaction.IllegalRoots)} = [...illegalRoots];
-this.{nameof(MetaTransaction.MissingTransactions)} = [...missingTxs];
+this.{nameof(MetaTransaction.IsStas)} = args.{nameof(MetaTransaction.IsStas)};
+this.{nameof(MetaTransaction.IsIssue)} = args.{nameof(MetaTransaction.IsIssue)};
+this.{nameof(MetaTransaction.IsValidIssue)} = args.{nameof(MetaTransaction.IsValidIssue)};
+this.{nameof(MetaTransaction.IsRedeem)} = args.{nameof(MetaTransaction.IsRedeem)};
+this.{nameof(MetaTransaction.IsWithFee)} = args.{nameof(MetaTransaction.IsWithFee)};
+this.{nameof(MetaTransaction.IsWithNote)} = args.{nameof(MetaTransaction.IsWithNote)};
+this.{nameof(MetaTransaction.AllStasInputsKnown)} = args.{nameof(MetaTransaction.AllStasInputsKnown)};
+this.{nameof(MetaTransaction.RedeemAddress)} = args.{nameof(MetaTransaction.RedeemAddress)};
+this.{nameof(MetaTransaction.StasFrom)} = args.{nameof(MetaTransaction.StasFrom)};
+this.{nameof(MetaTransaction.DstasEventType)} = args.{nameof(MetaTransaction.DstasEventType)};
+this.{nameof(MetaTransaction.DstasSpendingType)} = args.{nameof(MetaTransaction.DstasSpendingType)};
+this.{nameof(MetaTransaction.DstasInputFrozen)} = args.{nameof(MetaTransaction.DstasInputFrozen)};
+this.{nameof(MetaTransaction.DstasOutputFrozen)} = args.{nameof(MetaTransaction.DstasOutputFrozen)};
+this.{nameof(MetaTransaction.DstasOptionalDataContinuity)} = args.{nameof(MetaTransaction.DstasOptionalDataContinuity)};
+this.{nameof(MetaTransaction.StasProtocolType)} = args.{nameof(MetaTransaction.StasProtocolType)};
+this.{nameof(MetaTransaction.StasValidationStatus)} = args.{nameof(MetaTransaction.StasValidationStatus)};
+this.{nameof(MetaTransaction.CanProjectTokenOutputs)} = args.{nameof(MetaTransaction.CanProjectTokenOutputs)};
+this.{nameof(MetaTransaction.TokenIds)} = args.{nameof(MetaTransaction.TokenIds)};
+this.{nameof(MetaTransaction.IllegalRoots)} = args.{nameof(MetaTransaction.IllegalRoots)};
+this.{nameof(MetaTransaction.MissingTransactions)} = args.{nameof(MetaTransaction.MissingTransactions)};
 ";
 
     public static readonly string InsertMetaTransactionQuery = $@"
@@ -246,14 +51,13 @@ this.{nameof(MetaTransaction.DstasSpendingType)} = null;
 this.{nameof(MetaTransaction.DstasInputFrozen)} = null;
 this.{nameof(MetaTransaction.DstasOutputFrozen)} = null;
 this.{nameof(MetaTransaction.DstasOptionalDataContinuity)} = null;
+this.{nameof(MetaTransaction.StasProtocolType)} = null;
+this.{nameof(MetaTransaction.StasValidationStatus)} = null;
+this.{nameof(MetaTransaction.CanProjectTokenOutputs)} = null;
 
 this.{nameof(MetaTransaction.TokenIds)} = [];
 this.{nameof(MetaTransaction.IllegalRoots)} = [];
 this.{nameof(MetaTransaction.MissingTransactions)} = [];
-
-if (${nameof(MetaTransaction.IsStas)}) {{
-    {UpdateStasAttributesQuery}
-}}
 
 this['@metadata'] = {{ 
     '@collection': 'MetaTransactions', 
@@ -268,10 +72,6 @@ this.{nameof(MetaTransaction.Height)} = ${nameof(MetaTransaction.Height)};
 
 if (!this.{nameof(MetaTransaction.Timestamp)}) {{
     this.{nameof(MetaTransaction.Timestamp)} = ${nameof(MetaTransaction.Timestamp)};
-}}
-
-if (${nameof(MetaTransaction.IsStas)}) {{
-    {UpdateStasAttributesQuery}
 }}
 ";
 
@@ -317,53 +117,5 @@ this['@metadata'] = {{
     '@collection': 'MetaOutputs', 
     'Raven-Clr-Type': '{typeof(MetaOutput).FullName}, {typeof(MetaOutput).Assembly.GetName().Name}' 
 }};
-";
-
-    public static readonly string UpdateMetaOutputQuery = $@"
-this.{nameof(MetaOutput.Type)} = ${nameof(MetaOutput.Type)};
-this.{nameof(MetaOutput.Satoshis)} = ${nameof(MetaOutput.Satoshis)};
-this.{nameof(MetaOutput.Address)} = ${nameof(MetaOutput.Address)};
-this.{nameof(MetaOutput.TokenId)} = ${nameof(MetaOutput.TokenId)};
-this.{nameof(MetaOutput.Hash160)} = ${nameof(MetaOutput.Hash160)};
-this.{nameof(MetaOutput.ScriptPubKey)} = ${nameof(MetaOutput.ScriptPubKey)};
-this.{nameof(MetaOutput.Symbol)} = ${nameof(MetaOutput.Symbol)};
-this.{nameof(MetaOutput.DstasFlags)} = ${nameof(MetaOutput.DstasFlags)};
-this.{nameof(MetaOutput.DstasFreezeEnabled)} = ${nameof(MetaOutput.DstasFreezeEnabled)};
-this.{nameof(MetaOutput.DstasConfiscationEnabled)} = ${nameof(MetaOutput.DstasConfiscationEnabled)};
-this.{nameof(MetaOutput.DstasFrozen)} = ${nameof(MetaOutput.DstasFrozen)};
-this.{nameof(MetaOutput.DstasFreezeAuthority)} = ${nameof(MetaOutput.DstasFreezeAuthority)};
-this.{nameof(MetaOutput.DstasConfiscationAuthority)} = ${nameof(MetaOutput.DstasConfiscationAuthority)};
-this.{nameof(MetaOutput.DstasServiceFields)} = ${nameof(MetaOutput.DstasServiceFields)};
-this.{nameof(MetaOutput.DstasActionType)} = ${nameof(MetaOutput.DstasActionType)};
-this.{nameof(MetaOutput.DstasActionData)} = ${nameof(MetaOutput.DstasActionData)};
-this.{nameof(MetaOutput.DstasRequestedScriptHash)} = ${nameof(MetaOutput.DstasRequestedScriptHash)};
-this.{nameof(MetaOutput.DstasOptionalData)} = ${nameof(MetaOutput.DstasOptionalData)};
-this.{nameof(MetaOutput.DstasOptionalDataFingerprint)} = ${nameof(MetaOutput.DstasOptionalDataFingerprint)};
-";
-
-    public static readonly string UpdateMetaInputQuery = $@"
-this.{nameof(MetaOutput.InputIdx)} = ${nameof(MetaOutput.InputIdx)};
-this.{nameof(MetaOutput.SpendTxId)} = ${nameof(MetaOutput.SpendTxId)};
-this.{nameof(MetaOutput.Spent)} = true;
-";
-
-    public static readonly string InsertMetaOutputQuery = $@"
-{InsertOutputQuery}
-
-{UpdateMetaOutputQuery}
-";
-
-    public static readonly string InsertMetaInputQuery = $@"
-{InsertOutputQuery}
-    
-{UpdateMetaInputQuery}
-";
-
-    public const string FreeMetaOutputQuery = $@"
-if (this.{nameof(MetaOutput.SpendTxId)} == ${nameof(MetaOutput.SpendTxId)}) {{
-    this.{nameof(MetaOutput.InputIdx)} = 0;
-    this.{nameof(MetaOutput.SpendTxId)} = null;
-    this.{nameof(MetaOutput.Spent)} = false;
-}}
 ";
 }

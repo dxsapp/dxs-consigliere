@@ -11,15 +11,7 @@ public static class DstasProtocolOwnerFixture
 
     public static IReadOnlyList<DstasProtocolChainFixture> LoadAll()
     {
-        var fixturePath = RepoPathResolver.ResolveFromRepoRoot(
-            "tests",
-            "Dxs.Consigliere.Tests",
-            "fixtures",
-            "dstas-protocol-owner-fixtures.json");
-
-        if (!File.Exists(fixturePath))
-            throw new InvalidOperationException($"Missing DSTAS protocol-owner fixture: {fixturePath}");
-
+        var fixturePath = DstasProtocolTruthOracle.ResolveValidatedPath("dstas_protocol_owner_fixtures");
         var json = File.ReadAllText(fixturePath);
         var payload = JsonSerializer.Deserialize<DstasProtocolOwnerFixturePayload>(json, JsonOptions)
             ?? throw new InvalidOperationException("Failed to deserialize DSTAS protocol-owner fixture.");

@@ -64,7 +64,7 @@ public sealed class TokenProjectionReader(
                 var supply = !string.IsNullOrWhiteSpace(redeemAddress)
                     ? rootedUtxos.Where(x => !string.Equals(x.Address, redeemAddress, StringComparison.OrdinalIgnoreCase)).Sum(x => x.Satoshis)
                     : rootedUtxos.Sum(x => x.Satoshis);
-                var anyInvalid = rooted.CanonicalTransactions.Any(x => x.IsIssue ? !x.IsValidIssue : (x.IllegalRoots?.Count ?? 0) > 0);
+                var anyInvalid = rooted.CanonicalTransactions.Any(x => string.Equals(StasProtocolProjectionSemantics.GetValidationStatus(x), TokenProjectionValidationStatus.Invalid, StringComparison.Ordinal));
 
                 return new TokenStateProjectionDocument
                 {

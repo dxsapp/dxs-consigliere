@@ -337,7 +337,7 @@ public sealed class TokenProjectionRebuilder(
             BalanceDeltaSatoshis = received - spent,
             IsIssue = transaction.IsIssue,
             IsRedeem = transaction.IsRedeem,
-            ValidationStatus = GetTransactionValidationStatus(transaction),
+            ValidationStatus = StasProtocolProjectionSemantics.GetValidationStatus(transaction),
             ProtocolType = StasProtocolProjectionSemantics.GetProtocolType(transaction),
             ConfirmedBlockHash = observation.EventType == TxObservationEventType.SeenInBlock ? observation.BlockHash : null,
             LastSequence = sequence
@@ -421,8 +421,8 @@ public sealed class TokenProjectionRebuilder(
             .OrderBy(x => x.Height)
             .ThenBy(x => x.Index)
             .FirstOrDefault();
-        var anyInvalid = transactions.Any(x => x.IsIssue ? !x.IsValidIssue : (x.IllegalRoots?.Count ?? 0) > 0);
-        var anyUnknown = transactions.Any(x => x.IsStas && !x.IsIssue && (!x.AllStasInputsKnown || (x.MissingTransactions?.Count ?? 0) > 0));
+        var anyInvalid = transactions.Any(x => string.Equals(StasProtocolProjectionSemantics.GetValidationStatus(x), TokenProjectionValidationStatus.Invalid, StringComparison.Ordinal));
+        var anyUnknown = transactions.Any(x => x.IsStas && string.Equals(StasProtocolProjectionSemantics.GetValidationStatus(x), TokenProjectionValidationStatus.Unknown, StringComparison.Ordinal));
         var utxos = await session.Query<AddressUtxoProjectionDocument>()
             .Where(x => x.TokenId == tokenId)
             .ToListAsync(token: cancellationToken);
@@ -505,19 +505,6 @@ public sealed class TokenProjectionRebuilder(
             metaTransactions,
             inputOutputs,
             new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-    }
-
-    private static string GetTransactionValidationStatus(MetaTransaction transaction)
-    {
-        if (transaction.IsIssue)
-            return transaction.IsValidIssue ? TokenProjectionValidationStatus.Valid : TokenProjectionValidationStatus.Invalid;
-
-        if ((transaction.IllegalRoots?.Count ?? 0) > 0)
-            return TokenProjectionValidationStatus.Invalid;
-
-        return transaction.AllStasInputsKnown && (transaction.MissingTransactions?.Count ?? 0) == 0
-            ? TokenProjectionValidationStatus.Valid
-            : TokenProjectionValidationStatus.Unknown;
     }
 
     private static void Touch(TokenProjectionAppliedTransactionDocument application, TxObservation observation, StoredObservationJournalRecord record)

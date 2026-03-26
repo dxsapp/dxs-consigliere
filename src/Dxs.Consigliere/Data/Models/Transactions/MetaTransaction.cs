@@ -80,4 +80,7 @@ public class MetaTransaction
     public bool? DstasInputFrozen { get; set; }
     public bool? DstasOutputFrozen { get; set; }
     public bool? DstasOptionalDataContinuity { get; set; }
+    public string StasProtocolType { get; set; }
+    public string StasValidationStatus { get; set; }
+    public bool? CanProjectTokenOutputs { get; set; }
 }

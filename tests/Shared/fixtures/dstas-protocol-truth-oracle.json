@@ -1,0 +1,34 @@
+{
+  "version": "1",
+  "exportedAt": "2026-03-27T00:00:00Z",
+  "contract": "deterministic_vendored_oracle",
+  "fixtures": [
+    {
+      "id": "dstas_conformance_vectors",
+      "kind": "conformance_vectors",
+      "path": "tests/Dxs.Consigliere.Tests/fixtures/dstas-conformance-vectors.json",
+      "sha256": "1eda21d54a955c21e1c2a3e1bae2da711fae60fd2aca25f3d01f6c40453360ea",
+      "origin": "vendored_sdk_fixture"
+    },
+    {
+      "id": "dstas_conformance_vectors_bsv_mirror",
+      "kind": "conformance_vectors_mirror",
+      "path": "tests/Dxs.Bsv.Tests/fixtures/dstas-conformance-vectors.json",
+      "sha256": "1eda21d54a955c21e1c2a3e1bae2da711fae60fd2aca25f3d01f6c40453360ea",
+      "origin": "vendored_sdk_fixture_mirror"
+    },
+    {
+      "id": "dstas_protocol_owner_fixtures",
+      "kind": "protocol_owner",
+      "path": "tests/Dxs.Consigliere.Tests/fixtures/dstas-protocol-owner-fixtures.json",
+      "sha256": "64b4ae35e802f8cc042146739415e9eb46acf234cf8c63dbe5a15ca680f403cd",
+      "origin": "vendored_sdk_fixture"
+    }
+  ],
+  "mirrors": [
+    {
+      "primaryFixtureId": "dstas_conformance_vectors",
+      "mirrorFixtureId": "dstas_conformance_vectors_bsv_mirror"
+    }
+  ]
+}

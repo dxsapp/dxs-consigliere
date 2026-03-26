@@ -8,6 +8,7 @@ using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 using Moq;
 
@@ -83,6 +84,40 @@ public class AdminControllerTests
         Assert.Single(payload.Items);
         Assert.False(payload.Items[0].Accepted);
         Assert.Equal("trusted_roots_required", payload.Items[0].MessageCode);
+    }
+
+    [Fact]
+    public void GetStorageStatus_ReturnsPayloadStorageContract()
+    {
+        var controller = new AdminController(new TestNetworkProvider());
+
+        var result = controller.GetStorageStatus(Options.Create(new Dxs.Consigliere.Configs.ConsigliereStorageConfig
+        {
+            RawTransactionPayloads =
+            {
+                Enabled = true,
+                Provider = "raven",
+                Location = new Dxs.Consigliere.Configs.RawTransactionPayloadLocationConfig
+                {
+                    Database = "consigliere-payloads",
+                    Collection = "RawTransactions"
+                },
+                Compression = new Dxs.Consigliere.Configs.PayloadCompressionConfig
+                {
+                    Enabled = true,
+                    Algorithm = "gzip"
+                }
+            }
+        }));
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<StorageStatusResponse>(ok.Value);
+        Assert.True(payload.RawTransactionPayloads.Enabled);
+        Assert.True(payload.RawTransactionPayloads.ProviderImplemented);
+        Assert.True(payload.RawTransactionPayloads.PersistenceActive);
+        Assert.Equal("forever", payload.RawTransactionPayloads.RetentionPolicy);
+        Assert.Equal("gzip", payload.RawTransactionPayloads.Compression);
+        Assert.Equal("RawTransactions", payload.RawTransactionPayloads.Location.Collection);
     }
 
     private sealed class FakeProjectionReadCacheTelemetry : IProjectionReadCacheTelemetry

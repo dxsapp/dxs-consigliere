@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\RepoPathResolver.cs" Link="Shared/RepoPathResolver.cs" />
+    <Compile Include="..\Shared\DstasProtocolTruthOracle.cs" Link="Shared/DstasProtocolTruthOracle.cs" />
     <Compile Include="..\Shared\DstasConformanceVectorFixture.cs" Link="Shared/DstasConformanceVectorFixture.cs" />
     <Compile Include="..\Shared\DstasProtocolOwnerFixture.cs" Link="Shared/DstasProtocolOwnerFixture.cs" />
   </ItemGroup>
@@ -30,6 +31,9 @@
 
   <ItemGroup>
     <None Update="fixtures\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Shared\fixtures\dstas-protocol-truth-oracle.json" Link="Shared/fixtures/dstas-protocol-truth-oracle.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

@@ -75,6 +75,7 @@ public class OpsControllerTests
                 Backend = "memory",
                 MaxEntries = 256
             }),
+            Options.Create(new ConsigliereStorageConfig()),
             Options.Create(new AppConfig
             {
                 JungleBus = new JungleBusConfig { Enabled = true }
@@ -129,6 +130,7 @@ public class OpsControllerTests
                 Backend = "memory",
                 MaxEntries = 512
             }),
+            Options.Create(new ConsigliereStorageConfig()),
             Options.Create(new AppConfig()),
             new FakeProviderCatalog([]),
             new FakeProjectionReadCacheTelemetry(),
@@ -150,6 +152,44 @@ public class OpsControllerTests
         Assert.Equal(12, payload.ProjectionLag.JournalTailSequence);
         Assert.Equal(2, payload.ProjectionLag.Address.Lag);
         Assert.Equal(5, payload.HistoryEnvelopeBackfill.PendingCount);
+    }
+
+    [Fact]
+    public void GetStorage_ReturnsConfiguredButInactiveUnsupportedPayloadProvider()
+    {
+        var controller = new OpsController(
+            Options.Create(new ConsigliereSourcesConfig()),
+            Options.Create(new ConsigliereCacheConfig()),
+            Options.Create(new ConsigliereStorageConfig
+            {
+                RawTransactionPayloads =
+                {
+                    Enabled = true,
+                    Provider = "filesystem",
+                    Location = new RawTransactionPayloadLocationConfig
+                    {
+                        RootPath = "/var/lib/consigliere/payloads",
+                        ShardByTxId = true
+                    }
+                }
+            }),
+            Options.Create(new AppConfig()),
+            new FakeProviderCatalog([]),
+            new FakeProjectionReadCacheTelemetry(),
+            new FakeProjectionCacheRuntimeStatusReader());
+
+        var result = controller.GetStorage();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<StorageStatusResponse>(ok.Value);
+        Assert.True(payload.RawTransactionPayloads.Enabled);
+        Assert.Equal("filesystem", payload.RawTransactionPayloads.Provider);
+        Assert.False(payload.RawTransactionPayloads.ProviderImplemented);
+        Assert.False(payload.RawTransactionPayloads.PersistenceActive);
+        Assert.Equal("forever", payload.RawTransactionPayloads.RetentionPolicy);
+        Assert.Equal("provider_not_implemented", Assert.Single(payload.RawTransactionPayloads.Notes));
+        Assert.Equal("/var/lib/consigliere/payloads", payload.RawTransactionPayloads.Location.RootPath);
+        Assert.True(payload.RawTransactionPayloads.Location.ShardByTxId);
     }
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)

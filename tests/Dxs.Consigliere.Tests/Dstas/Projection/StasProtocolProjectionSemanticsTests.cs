@@ -30,6 +30,40 @@ public class StasProtocolProjectionSemanticsTests
     }
 
     [Fact]
+    public void GetProtocolType_PrefersPreparedDerivedField()
+    {
+        var transaction = new MetaTransaction
+        {
+            StasProtocolType = TokenProjectionProtocolType.Stas,
+            Outputs =
+            [
+                new MetaTransaction.Output
+                {
+                    Type = ScriptType.DSTAS,
+                    TokenId = "token-1",
+                    Address = "1Holder"
+                }
+            ]
+        };
+
+        Assert.Equal(TokenProjectionProtocolType.Stas, StasProtocolProjectionSemantics.GetProtocolType(transaction));
+    }
+
+    [Fact]
+    public void GetValidationStatus_PrefersPreparedDerivedField()
+    {
+        var transaction = new MetaTransaction
+        {
+            IsIssue = false,
+            IllegalRoots = [],
+            AllStasInputsKnown = true,
+            StasValidationStatus = TokenProjectionValidationStatus.Unknown
+        };
+
+        Assert.Equal(TokenProjectionValidationStatus.Unknown, StasProtocolProjectionSemantics.GetValidationStatus(transaction));
+    }
+
+    [Fact]
     public void ShouldProjectOutput_AllowsDstasForValidIssueAndKnownInputs()
     {
         var output = new MetaOutput
@@ -40,6 +74,7 @@ public class StasProtocolProjectionSemanticsTests
 
         var validIssue = new MetaTransaction
         {
+            IsIssue = true,
             IsValidIssue = true,
             IllegalRoots = [],
             AllStasInputsKnown = false
@@ -54,5 +89,25 @@ public class StasProtocolProjectionSemanticsTests
 
         Assert.True(StasProtocolProjectionSemantics.ShouldProjectOutput(validIssue, output));
         Assert.True(StasProtocolProjectionSemantics.ShouldProjectOutput(knownInputs, output));
+    }
+
+    [Fact]
+    public void ShouldProjectOutput_UsesPreparedProjectionGateForTokenOutputs()
+    {
+        var output = new MetaOutput
+        {
+            Type = ScriptType.DSTAS,
+            Address = "1Holder"
+        };
+
+        var transaction = new MetaTransaction
+        {
+            CanProjectTokenOutputs = false,
+            IsValidIssue = true,
+            IllegalRoots = [],
+            AllStasInputsKnown = true
+        };
+
+        Assert.False(StasProtocolProjectionSemantics.ShouldProjectOutput(transaction, output));
     }
 }
