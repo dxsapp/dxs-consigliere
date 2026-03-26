@@ -4,6 +4,11 @@
 
 This document turns the tracked history sync model into bounded implementation slices.
 
+Note:
+- address history sync was implemented in the first history-sync wave
+- token full-history follow-up now continues in `/Users/imighty/Code/dxs-consigliere/doc/platform-api/token-rooted-history-implementation-slices.md`
+- do not treat generic token `historical_token_scan` as the target model anymore
+
 ## Slice Table
 
 | slice | zone | owner | depends_on | validation | done_when |

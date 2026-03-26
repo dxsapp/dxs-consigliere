@@ -212,6 +212,15 @@ Allowed `mode` values:
 
 `forward_only` is the recommended default.
 
+Tracked token registration and token full-history upgrade also require:
+- `tokenHistoryPolicy`
+  - `trustedRoots[]`
+
+Rules:
+- token `full_history` is invalid without `trustedRoots[]`
+- token `full_history` is rooted to the explicit trusted root set
+- unknown-root branches must not be auto-promoted into canonical token history
+
 ## Decision: State And History Readiness Are Separate
 
 `Consigliere` must model:

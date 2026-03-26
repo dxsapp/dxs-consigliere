@@ -6,6 +6,17 @@ This roadmap translates the platform decisions in this directory into an impleme
 
 It is intentionally ordered to avoid mixing public contract work, source-routing work, and storage changes in one uncontrolled stream.
 
+## Decision: Token History Support Uses a Rooted Security Model
+
+Future token historical support must be built around explicitly trusted roots.
+
+Meaning:
+- token `full_history` is not generic provider-driven token discovery
+- lineage and historical expansion must start from explicit trusted roots
+- unknown-root branches must not pollute canonical token state or history
+
+This makes token history a security-bounded managed-scope feature rather than an explorer-style token crawler.
+
 ## Guiding Storage Decision
 
 RavenDB remains the primary store for:

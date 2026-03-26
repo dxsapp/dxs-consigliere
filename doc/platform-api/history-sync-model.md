@@ -68,6 +68,20 @@ Historical sync uses explicit historical capabilities:
 - `historical_address_scan`
 - `historical_token_scan`
 
+## Decision: Token `full_history` Uses Trusted Roots
+
+Tracked token history is stricter than tracked address history.
+
+For tokens, `full_history` means:
+- full history inside the managed scope
+- only for branches that provably descend from explicitly trusted roots
+
+Security rules:
+- token `full_history` without trusted roots is not allowed
+- unknown roots must not be auto-expanded into canonical token history
+- `historical_token_scan` may expand only branches already attached to trusted roots
+- `full_history_live` for tokens is possible only after all trusted-root branches are complete and no blocking unknown-root frontier remains
+
 ## Decision: Historical Sync Uses the Same Observation Journal
 
 Historical sync must flow through the same observation journal used by live ingest.
@@ -160,6 +174,14 @@ Allowed `mode` values:
 - `forward_only`
 - `full_history`
 
+Tracked token registration and token history upgrade also use a nested token-specific policy object when `historyPolicy.mode = full_history`:
+- `tokenHistoryPolicy`
+  - `trustedRoots[]`
+
+Initial runtime rule:
+- `trustedRoots[]` is required for token `full_history`
+- unknown-root policy defaults to `reject_branch`
+
 ## Decision: `full_history` Is Also an Upgrade Operation
 
 `full_history` is supported in two ways:
@@ -182,6 +204,10 @@ On upgrade:
 The upgrade operation should be:
 - idempotent
 - available as single-item and bulk control-plane operations
+
+For tracked tokens:
+- `forward_only -> full_history` is allowed only when `trustedRoots[]` is supplied
+- the resulting `full_history` remains rooted to the explicit trusted root set
 
 ## Internal Backfill Execution Model
 
@@ -249,6 +275,9 @@ Minimum fields:
 - `oldestCoveredBlockHeight?`
 - `cursor?`
 - `discoveredTransactionCount`
+- `trustedRoots[]`
+- `completedTrustedRootCount`
+- `unknownRootFindingCount`
 - `lineageBoundaryReached`
 - `historyBoundaryReached`
 

@@ -40,6 +40,11 @@ A BSV address explicitly registered for indexing, realtime, and derived state ma
 ### Tracked token
 A token identifier explicitly registered for indexing, realtime, and derived state maintenance.
 
+For token `full_history`, tracked scope is rooted:
+- users must supply explicit trusted roots
+- reverse lineage and historical expansion are canonical only inside that trusted-root universe
+- unknown-root branches are not part of authoritative token history
+
 ## Decision: Token Identity
 
 For `v1`, the canonical identity of a tracked token is **only** `tokenId`.
@@ -168,6 +173,16 @@ This rule is expected to be:
 - near-constant cost in the common case after sync warm-up
 - expensive mainly during initial token sync
 - expensive during catastrophic or unusual reorg recovery
+
+## Decision: Token Historical Expansion Is Trusted-Root Bounded
+
+Reverse token lineage and token full-history expansion are not open-ended.
+
+When token `full_history` is requested:
+- the user provides explicit trusted roots
+- reverse lineage walk is allowed only from those roots
+- address-driven historical expansion is allowed only for branches already attached to those roots
+- unknown-root branches are findings, not canonical expansion frontiers
 
 ## Exception: STAS / DSTAS Validation Lineage
 

@@ -5,6 +5,7 @@
 - Main spec: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/history-sync-model.md`
 - Main slices: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/history-sync-implementation-slices.md`
 - Current status: closed
+- Follow-up token wave: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/token-rooted-history-implementation-slices.md`
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
