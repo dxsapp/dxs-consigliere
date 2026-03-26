@@ -1,6 +1,7 @@
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Common.Cache;
 using Dxs.Infrastructure.Common;
 
 using Microsoft.AspNetCore.Mvc;
@@ -11,8 +12,10 @@ namespace Dxs.Consigliere.Controllers;
 [Route("api/ops")]
 public class OpsController(
     IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IOptions<ConsigliereCacheConfig> cacheConfig,
     IOptions<AppConfig> appConfig,
-    IExternalChainProviderCatalog providerCatalog
+    IExternalChainProviderCatalog providerCatalog,
+    IProjectionReadCacheTelemetry projectionReadCacheTelemetry
 ) : BaseController
 {
     private static readonly string[] RoutedCapabilities =
@@ -46,6 +49,27 @@ public class OpsController(
             .ToArray();
 
         return Ok(result);
+    }
+
+    [HttpGet("cache")]
+    [Produces(typeof(ProjectionCacheStatusResponse))]
+    public IActionResult GetProjectionCache()
+    {
+        var snapshot = projectionReadCacheTelemetry.GetSnapshot();
+        return Ok(new ProjectionCacheStatusResponse
+        {
+            Enabled = snapshot.Enabled && cacheConfig.Value.Enabled,
+            Backend = snapshot.Backend,
+            Count = snapshot.Count,
+            MaxEntries = snapshot.MaxEntries,
+            Hits = snapshot.Hits,
+            Misses = snapshot.Misses,
+            FactoryCalls = snapshot.FactoryCalls,
+            InvalidatedKeys = snapshot.InvalidatedKeys,
+            InvalidatedTags = snapshot.InvalidatedTags,
+            Evictions = snapshot.Evictions,
+            HitRatio = snapshot.HitRatio
+        });
     }
 
     private ProviderStatusResponse BuildProviderStatus(

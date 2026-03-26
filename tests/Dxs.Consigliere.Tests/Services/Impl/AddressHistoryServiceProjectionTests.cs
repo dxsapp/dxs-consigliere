@@ -134,6 +134,75 @@ public class AddressHistoryServiceProjectionTests : RavenTestDriver
         Assert.Equal(IssueTxId, second.History[0].TxId);
     }
 
+    [Fact]
+    public async Task GetHistory_UsesApplicationEnvelopeWithoutLoadingTransactions()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+
+        using (var session = store.OpenAsyncSession())
+        {
+            await session.StoreAsync(
+                new AddressProjectionAppliedTransactionDocument
+                {
+                    Id = AddressProjectionAppliedTransactionDocument.GetId(IssueTxId),
+                    TxId = IssueTxId,
+                    AppliedState = AddressProjectionApplicationState.Confirmed,
+                    ConfirmedBlockHash = "block-1",
+                    Timestamp = 1_710_000_000,
+                    Height = 1,
+                    ValidStasTx = true,
+                    TxFeeSatoshis = 0,
+                    Note = "issue",
+                    FromAddresses = [],
+                    ToAddresses = [ReceiverAddress],
+                    Credits =
+                    [
+                        CreateSnapshot(IssueTxId, 1, IssuerAddress, TokenId, 50, ScriptType.P2STAS, "script-issue-1")
+                    ],
+                    Debits = []
+                },
+                AddressProjectionAppliedTransactionDocument.GetId(IssueTxId));
+
+            await session.StoreAsync(
+                new AddressProjectionAppliedTransactionDocument
+                {
+                    Id = AddressProjectionAppliedTransactionDocument.GetId(TransferTxId),
+                    TxId = TransferTxId,
+                    AppliedState = AddressProjectionApplicationState.Pending,
+                    Timestamp = 1_710_000_100,
+                    Height = 2,
+                    ValidStasTx = true,
+                    TxFeeSatoshis = 50,
+                    Note = "transfer",
+                    FromAddresses = [IssuerAddress],
+                    ToAddresses = [ReceiverAddress],
+                    Credits =
+                    [
+                        CreateSnapshot(TransferTxId, 1, ReceiverAddress, TokenId, 50, ScriptType.P2STAS, "script-transfer-1")
+                    ],
+                    Debits =
+                    [
+                        CreateSnapshot(IssueTxId, 1, IssuerAddress, TokenId, 50, ScriptType.P2STAS, "script-issue-1")
+                    ]
+                },
+                AddressProjectionAppliedTransactionDocument.GetId(TransferTxId));
+
+            await session.SaveChangesAsync();
+        }
+
+        var service = CreateService(store);
+        var response = await service.GetHistory(new GetAddressHistoryRequest(IssuerAddress, [TokenId], false, false, 0, 100));
+
+        Assert.Equal(2, response.TotalCount);
+        Assert.Equal(IssueTxId, response.History[0].TxId);
+        Assert.Equal(TransferTxId, response.History[1].TxId);
+        Assert.Equal(50, response.History[0].ReceivedSatoshis);
+        Assert.Equal(50, response.History[1].SpentSatoshis);
+    }
+
     private static ServiceProvider CreateCacheServices()
     {
         var services = new ServiceCollection();

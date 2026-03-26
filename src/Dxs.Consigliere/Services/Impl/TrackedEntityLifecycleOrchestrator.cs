@@ -1,3 +1,5 @@
+using Dxs.Common.Cache;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Extensions;
 
@@ -5,8 +7,17 @@ using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public sealed class TrackedEntityLifecycleOrchestrator(IDocumentStore documentStore) : ITrackedEntityLifecycleOrchestrator
+public sealed class TrackedEntityLifecycleOrchestrator(
+    IDocumentStore documentStore,
+    IProjectionCacheInvalidationSink cacheInvalidationSink,
+    IProjectionReadCacheKeyFactory cacheKeyFactory
+) : ITrackedEntityLifecycleOrchestrator
 {
+    public TrackedEntityLifecycleOrchestrator(IDocumentStore documentStore)
+        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+    {
+    }
+
     public Task BeginTrackingAddressAsync(string address, CancellationToken cancellationToken = default)
         => MutateAddressAsync(address, document =>
         {
@@ -104,6 +115,9 @@ public sealed class TrackedEntityLifecycleOrchestrator(IDocumentStore documentSt
         tracked.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
+        await cacheInvalidationSink.InvalidateTagsAsync(
+            cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]),
+            cancellationToken);
     }
 
     private async Task MutateTokenAsync(
@@ -125,6 +139,9 @@ public sealed class TrackedEntityLifecycleOrchestrator(IDocumentStore documentSt
         tracked.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
+        await cacheInvalidationSink.InvalidateTagsAsync(
+            cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]),
+            cancellationToken);
     }
 
     private static void Evaluate(TrackedEntityStatusDocumentBase document)

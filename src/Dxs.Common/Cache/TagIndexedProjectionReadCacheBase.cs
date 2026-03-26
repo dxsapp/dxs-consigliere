@@ -3,12 +3,18 @@ using System.Threading;
 
 namespace Dxs.Common.Cache;
 
-internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache, IProjectionCacheInvalidationSink, IDisposable
+internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache, IProjectionCacheInvalidationSink, IProjectionReadCacheTelemetry, IDisposable
 {
     private readonly ConcurrentDictionary<string, ProjectionCacheEntryMetadata> _entries = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _tagIndex = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _keyLocks = new(StringComparer.Ordinal);
     private long _nextVersion;
+    private long _hits;
+    private long _misses;
+    private long _factoryCalls;
+    private long _invalidatedKeys;
+    private long _invalidatedTags;
+    private long _evictions;
 
     public int Count => _entries.Count;
 
@@ -19,15 +25,24 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
         CancellationToken cancellationToken = default)
     {
         if (TryGetValue(key, out T existing))
+        {
+            Interlocked.Increment(ref _hits);
             return existing;
+        }
+
+        Interlocked.Increment(ref _misses);
 
         var gate = _keyLocks.GetOrAdd(key.Value, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(cancellationToken);
         try
         {
             if (TryGetValue(key, out existing))
+            {
+                Interlocked.Increment(ref _hits);
                 return existing;
+            }
 
+            Interlocked.Increment(ref _factoryCalls);
             var value = await valueFactory(cancellationToken);
             SetValue(key, value, options ?? ProjectionCacheEntryOptions.Default);
             return value;
@@ -41,7 +56,7 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
     public ValueTask InvalidateAsync(ProjectionCacheKey key, CancellationToken cancellationToken = default)
     {
         RemoveValue(key);
-        Cleanup(key.Value, null);
+        Cleanup(key.Value, null, countInvalidation: true);
         return ValueTask.CompletedTask;
     }
 
@@ -56,6 +71,8 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
             if (string.IsNullOrWhiteSpace(tag.Value))
                 continue;
 
+            Interlocked.Increment(ref _invalidatedTags);
+
             if (!_tagIndex.TryGetValue(tag.Value, out var tagKeys))
                 continue;
 
@@ -66,11 +83,24 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
         foreach (var key in keys)
         {
             RemoveValue(new ProjectionCacheKey(key));
-            Cleanup(key, null);
+            Cleanup(key, null, countInvalidation: true);
         }
 
         return ValueTask.CompletedTask;
     }
+
+    public ProjectionCacheStatsSnapshot GetSnapshot()
+        => new(
+            GetBackendName(),
+            true,
+            Count,
+            GetMaxEntries(),
+            Volatile.Read(ref _hits),
+            Volatile.Read(ref _misses),
+            Volatile.Read(ref _factoryCalls),
+            Volatile.Read(ref _invalidatedKeys),
+            Volatile.Read(ref _invalidatedTags),
+            Volatile.Read(ref _evictions));
 
     public void Dispose()
     {
@@ -94,7 +124,14 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
     }
 
     protected void OnBackendEvicted(string key, long version)
-        => Cleanup(key, version);
+    {
+        Interlocked.Increment(ref _evictions);
+        Cleanup(key, version, countInvalidation: false);
+    }
+
+    protected abstract string GetBackendName();
+
+    protected virtual int? GetMaxEntries() => null;
 
     private void SetValue<T>(ProjectionCacheKey key, T value, ProjectionCacheEntryOptions options)
     {
@@ -112,7 +149,7 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
         SetValueCore(key, new ProjectionCacheBox(value), options, version);
     }
 
-    private void Cleanup(string key, long? expectedVersion)
+    private void Cleanup(string key, long? expectedVersion, bool countInvalidation)
     {
         if (!_entries.TryGetValue(key, out var metadata))
             return;
@@ -122,6 +159,9 @@ internal abstract class TagIndexedProjectionReadCacheBase : IProjectionReadCache
 
         if (!_entries.TryRemove(new KeyValuePair<string, ProjectionCacheEntryMetadata>(key, metadata)))
             return;
+
+        if (countInvalidation)
+            Interlocked.Increment(ref _invalidatedKeys);
 
         foreach (var tag in metadata.Tags)
         {

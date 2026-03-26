@@ -1,6 +1,7 @@
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Controllers;
 using Dxs.Consigliere.Dto.Responses;
+using Dxs.Common.Cache;
 using Dxs.Infrastructure.Common;
 
 using Microsoft.AspNetCore.Mvc;
@@ -66,6 +67,12 @@ public class OpsControllerTests
                     }
                 }
             }),
+            Options.Create(new ConsigliereCacheConfig
+            {
+                Enabled = true,
+                Backend = "memory",
+                MaxEntries = 256
+            }),
             Options.Create(new AppConfig
             {
                 JungleBus = new JungleBusConfig { Enabled = true }
@@ -87,6 +94,8 @@ public class OpsControllerTests
                         new ExternalChainRateLimitHint(180, "woc-limit")
                     )
                 ])
+            ,
+            new FakeProjectionReadCacheTelemetry()
         );
 
         var action = await controller.GetProviders(CancellationToken.None);
@@ -106,6 +115,34 @@ public class OpsControllerTests
         Assert.Equal("bitails-limit", providers["bitails"].RateLimitState.SourceHint);
     }
 
+    [Fact]
+    public void GetProjectionCache_ReturnsProjectionCacheMetrics()
+    {
+        var controller = new OpsController(
+            Options.Create(new ConsigliereSourcesConfig()),
+            Options.Create(new ConsigliereCacheConfig
+            {
+                Enabled = true,
+                Backend = "memory",
+                MaxEntries = 512
+            }),
+            Options.Create(new AppConfig()),
+            new FakeProviderCatalog([]),
+            new FakeProjectionReadCacheTelemetry());
+
+        var result = controller.GetProjectionCache();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<ProjectionCacheStatusResponse>(ok.Value);
+        Assert.True(payload.Enabled);
+        Assert.Equal("memory", payload.Backend);
+        Assert.Equal(7, payload.Count);
+        Assert.Equal(10, payload.Hits);
+        Assert.Equal(5, payload.Misses);
+        Assert.Equal(2, payload.InvalidatedTags);
+        Assert.Equal(512, payload.MaxEntries);
+    }
+
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)
         : IExternalChainProviderCatalog
     {
@@ -119,5 +156,21 @@ public class OpsControllerTests
                     new ExternalChainProviderHealthSnapshot("whatsonchain", ExternalChainHealthState.Unknown)
                 ]
             );
+    }
+
+    private sealed class FakeProjectionReadCacheTelemetry : IProjectionReadCacheTelemetry
+    {
+        public ProjectionCacheStatsSnapshot GetSnapshot()
+            => new(
+                "memory",
+                true,
+                7,
+                512,
+                10,
+                5,
+                6,
+                4,
+                2,
+                1);
     }
 }

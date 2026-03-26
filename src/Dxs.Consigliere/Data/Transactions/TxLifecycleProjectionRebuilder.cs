@@ -1,6 +1,8 @@
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Journal;
+using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
 
@@ -11,10 +13,17 @@ namespace Dxs.Consigliere.Data.Transactions;
 
 public sealed class TxLifecycleProjectionRebuilder(
     IDocumentStore documentStore,
-    RavenObservationJournalReader journalReader
+    RavenObservationJournalReader journalReader,
+    IProjectionCacheInvalidationSink cacheInvalidationSink,
+    IProjectionReadCacheKeyFactory cacheKeyFactory
 )
 {
     private const int DefaultPageSize = 512;
+
+    public TxLifecycleProjectionRebuilder(IDocumentStore documentStore, RavenObservationJournalReader journalReader)
+        : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+    {
+    }
 
     public async Task<ProjectionCheckpoint> RebuildAsync(
         int take = DefaultPageSize,
@@ -34,15 +43,19 @@ public sealed class TxLifecycleProjectionRebuilder(
 
             using var session = documentStore.GetSession();
             var projectionCache = await LoadProjectionCacheAsync(session, records, cancellationToken);
+            var invalidationTags = new HashSet<ProjectionCacheTag>();
 
             foreach (var record in records)
             {
-                await ApplyAsync(session, projectionCache, record, cancellationToken);
+                await ApplyAsync(session, projectionCache, record, invalidationTags, cancellationToken);
                 checkpoint = checkpoint.AdvanceTo(record.Sequence, record.Fingerprint);
             }
 
             await StoreCheckpointAsync(session, checkpoint, cancellationToken);
             await session.SaveChangesAsync(cancellationToken);
+
+            if (invalidationTags.Count > 0)
+                await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
         }
 
         return checkpoint;
@@ -52,18 +65,19 @@ public sealed class TxLifecycleProjectionRebuilder(
         IAsyncDocumentSession session,
         Dictionary<string, TxLifecycleProjectionDocument> projectionCache,
         StoredObservationJournalRecord record,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
         if (record.IsObservationType<TxObservation>())
         {
-            await ApplyTxObservationAsync(session, projectionCache, record, record.Deserialize<TxObservation>(), cancellationToken);
+            await ApplyTxObservationAsync(session, projectionCache, record, record.Deserialize<TxObservation>(), invalidationTags, cancellationToken);
             return;
         }
 
         if (record.IsObservationType<BlockObservation>())
         {
-            await ApplyBlockObservationAsync(session, projectionCache, record, record.Deserialize<BlockObservation>(), cancellationToken);
+            await ApplyBlockObservationAsync(session, projectionCache, record, record.Deserialize<BlockObservation>(), invalidationTags, cancellationToken);
         }
     }
 
@@ -90,11 +104,12 @@ public sealed class TxLifecycleProjectionRebuilder(
             .ToDictionary(x => x.TxId, x => x, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static async Task ApplyTxObservationAsync(
+    private async Task ApplyTxObservationAsync(
         IAsyncDocumentSession session,
         Dictionary<string, TxLifecycleProjectionDocument> projectionCache,
         StoredObservationJournalRecord record,
         TxObservation observation,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -124,6 +139,8 @@ public sealed class TxLifecycleProjectionRebuilder(
             ? observedAt
             : document.LastObservedAt;
         document.LastSequence = record.Sequence.Value;
+        foreach (var tag in cacheKeyFactory.GetTxLifecycleInvalidationTags([observation.TxId]))
+            invalidationTags.Add(tag);
 
         switch (observation.EventType)
         {
@@ -155,11 +172,12 @@ public sealed class TxLifecycleProjectionRebuilder(
         }
     }
 
-    private static async Task ApplyBlockObservationAsync(
+    private async Task ApplyBlockObservationAsync(
         IAsyncDocumentSession session,
         Dictionary<string, TxLifecycleProjectionDocument> projectionCache,
         StoredObservationJournalRecord record,
         BlockObservation observation,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -189,6 +207,8 @@ public sealed class TxLifecycleProjectionRebuilder(
             document.BlockHeight = null;
             document.LastObservedAt = observation.ObservedAt ?? record.AppendedAt;
             document.LastSequence = record.Sequence.Value;
+            foreach (var tag in cacheKeyFactory.GetTxLifecycleInvalidationTags([document.TxId]))
+                invalidationTags.Add(tag);
         }
     }
 

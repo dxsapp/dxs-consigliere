@@ -75,46 +75,67 @@ public sealed class AddressHistoryProjectionReader(
                     };
                 }
 
-                var txIds = applications
-                    .Select(x => x.TxId)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                var transactions = await session.LoadAsync<MetaTransaction>(txIds, ct);
-                var transactionLookup = transactions.Values
-                    .Where(x => x is not null)
-                    .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
-
-                var inputIds = transactionLookup.Values
-                    .SelectMany(x => x.Inputs ?? [])
-                    .Select(x => x.Id)
-                    .Where(x => !string.IsNullOrWhiteSpace(x))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                var inputOutputs = inputIds.Length == 0
-                    ? new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase)
-                    : (await session.LoadAsync<MetaOutput>(inputIds, ct))
-                        .Values
-                        .Where(x => x is not null)
-                        .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
-
                 var rows = new List<AddressHistory>();
+                var fallbackApplications = new List<AddressProjectionAppliedTransactionDocument>();
+
                 foreach (var application in applications)
                 {
-                    if (!transactionLookup.TryGetValue(application.TxId, out var transaction))
-                        continue;
-
-                    if (!TryBuildRows(
+                    if (HasHistoryEnvelope(application))
+                    {
+                        BuildRowsFromApplication(
                             address.Value,
                             request.SkipZeroBalance,
                             tokenSelection,
                             application,
-                            transaction,
-                            inputOutputs,
-                            rows))
-                    {
+                            rows);
                         continue;
+                    }
+
+                    fallbackApplications.Add(application);
+                }
+
+                if (fallbackApplications.Count > 0)
+                {
+                    var txIds = fallbackApplications
+                        .Select(x => x.TxId)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+
+                    var transactions = await session.LoadAsync<MetaTransaction>(txIds, ct);
+                    var transactionLookup = transactions.Values
+                        .Where(x => x is not null)
+                        .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
+
+                    var inputIds = transactionLookup.Values
+                        .SelectMany(x => x.Inputs ?? [])
+                        .Select(x => x.Id)
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+
+                    var inputOutputs = inputIds.Length == 0
+                        ? new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase)
+                        : (await session.LoadAsync<MetaOutput>(inputIds, ct))
+                            .Values
+                            .Where(x => x is not null)
+                            .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var application in fallbackApplications)
+                    {
+                        if (!transactionLookup.TryGetValue(application.TxId, out var transaction))
+                            continue;
+
+                        if (!TryBuildRows(
+                                address.Value,
+                                request.SkipZeroBalance,
+                                tokenSelection,
+                                application,
+                                transaction,
+                                inputOutputs,
+                                rows))
+                        {
+                            continue;
+                        }
                     }
                 }
 
@@ -215,6 +236,65 @@ public sealed class AddressHistoryProjectionReader(
         return true;
     }
 
+    private static void BuildRowsFromApplication(
+        string address,
+        bool skipZeroBalance,
+        TokenSelection tokenSelection,
+        AddressProjectionAppliedTransactionDocument application,
+        List<AddressHistory> rows
+    )
+    {
+        var fromAddresses = application.FromAddresses?
+            .Where(x => !string.IsNullOrWhiteSpace(x) && !string.Equals(x, address, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+
+        var toAddresses = application.ToAddresses?
+            .Where(x => !string.IsNullOrWhiteSpace(x) && !string.Equals(x, address, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+
+        foreach (var tokenId in tokenSelection.CandidateTokenIds)
+        {
+            var spent = application.Debits
+                .Where(x => MatchesToken(x.TokenId, tokenId) && string.Equals(x.Address, address, StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Satoshis);
+
+            var received = application.Credits
+                .Where(x => MatchesToken(x.TokenId, tokenId) && string.Equals(x.Address, address, StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Satoshis);
+
+            if (spent == 0 && received == 0)
+                continue;
+
+            var history = new AddressHistory
+            {
+                Address = address,
+                TokenId = tokenId,
+                TxId = application.TxId,
+                ScriptType = GetScriptType(application, tokenId),
+                Timestamp = application.Timestamp ?? 0,
+                Height = application.Height ?? MetaTransaction.DefaultHeight,
+                ValidStasTx = application.ValidStasTx ?? false,
+                SpentSatoshis = spent,
+                ReceivedSatoshis = received,
+                BalanceSatoshis = received - spent,
+                TxFeeSatoshis = application.TxFeeSatoshis ?? 0,
+                Note = application.Note,
+                Side = 0,
+                FromAddresses = fromAddresses,
+                ToAddresses = toAddresses
+            };
+
+            if (skipZeroBalance && history.BalanceSatoshis == 0)
+                continue;
+
+            rows.Add(history);
+        }
+    }
+
     private TokenSelection NormalizeTokenSelection(string[]? tokenIds)
     {
         if (tokenIds is null)
@@ -259,6 +339,12 @@ public sealed class AddressHistoryProjectionReader(
 
     private static bool ShouldProjectOutput(MetaTransaction.Output output)
         => output.Type is ScriptType.P2PKH or ScriptType.P2MPKH or ScriptType.P2STAS or ScriptType.DSTAS;
+
+    private static bool HasHistoryEnvelope(AddressProjectionAppliedTransactionDocument application)
+        => application.Timestamp.HasValue
+            && application.Height.HasValue
+            && application.ValidStasTx.HasValue
+            && application.TxFeeSatoshis.HasValue;
 
     private readonly record struct TokenSelection(string?[] CandidateTokenIds)
     {

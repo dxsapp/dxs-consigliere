@@ -14,11 +14,13 @@ public class AddressHistoryBenchmarkSmokeTests
 
         var rebuild = await harness.MeasureRebuildAsync(scenario);
         var query = await harness.MeasureQueryAsync(scenario);
+        var legacyQuery = await harness.MeasureLegacyQueryFallbackAsync(scenario);
 
         Assert.Equal(48, rebuild.ProjectedTransactions);
         Assert.Equal(8, query.Queries);
         Assert.True(query.RowsReturned > 0);
         Assert.True(rebuild.ThroughputPerSecond > 0);
         Assert.True(query.ThroughputPerSecond > 0);
+        Assert.True(legacyQuery.ThroughputPerSecond > 0);
     }
 }

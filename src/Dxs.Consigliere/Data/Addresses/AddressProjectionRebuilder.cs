@@ -227,6 +227,7 @@ public sealed class AddressProjectionRebuilder(
             : null;
         application.Credits = credits;
         application.Debits = debits.ToArray();
+        HydrateHistoryEnvelope(application, metaTransaction, application.Debits, application.Credits);
         Touch(application, record, observation);
 
         await session.StoreAsync(application, application.Id, cancellationToken);
@@ -646,6 +647,34 @@ public sealed class AddressProjectionRebuilder(
     {
         application.LastObservedAt = observation.ObservedAt ?? record.AppendedAt;
         application.LastSequence = record.Sequence.Value;
+    }
+
+    private static void HydrateHistoryEnvelope(
+        AddressProjectionAppliedTransactionDocument application,
+        MetaTransaction transaction,
+        IReadOnlyCollection<AddressProjectionUtxoSnapshot> debits,
+        IReadOnlyCollection<AddressProjectionUtxoSnapshot> credits
+    )
+    {
+        application.Timestamp = transaction.Timestamp;
+        application.Height = transaction.Height;
+        application.ValidStasTx = transaction.IsIssue
+            ? transaction.IsValidIssue
+            : !transaction.IllegalRoots.Any();
+        application.Note = transaction.Note;
+        application.TxFeeSatoshis = debits.Sum(x => x.Satoshis) - credits.Sum(x => x.Satoshis);
+        application.FromAddresses = debits
+            .Select(x => x.Address)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToArray();
+        application.ToAddresses = credits
+            .Select(x => x.Address)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToArray();
     }
 
     private async Task<ProjectionCheckpoint> LoadCheckpointAsync(CancellationToken cancellationToken)

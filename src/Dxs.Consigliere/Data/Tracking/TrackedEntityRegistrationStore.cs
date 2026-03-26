@@ -1,3 +1,5 @@
+using Dxs.Common.Cache;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Extensions;
@@ -7,8 +9,17 @@ using Raven.Client.Documents.Linq;
 
 namespace Dxs.Consigliere.Data.Tracking;
 
-public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore) : ITrackedEntityRegistrationStore
+public sealed class TrackedEntityRegistrationStore(
+    IDocumentStore documentStore,
+    IProjectionCacheInvalidationSink cacheInvalidationSink,
+    IProjectionReadCacheKeyFactory cacheKeyFactory
+) : ITrackedEntityRegistrationStore
 {
+    public TrackedEntityRegistrationStore(IDocumentStore documentStore)
+        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+    {
+    }
+
     public async Task RegisterAddressAsync(
         string address,
         string name,
@@ -17,8 +28,9 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
     {
         using var session = documentStore.GetSession();
 
-        var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), cancellationToken)
-            ?? new TrackedAddressDocument
+        var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), cancellationToken);
+        var trackedIsNew = tracked is null;
+        tracked ??= new TrackedAddressDocument
             {
                 Id = TrackedAddressDocument.GetId(address),
                 EntityType = TrackedEntityType.Address,
@@ -26,8 +38,9 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
                 Address = address,
                 Name = name,
             };
-        var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), cancellationToken)
-            ?? new TrackedAddressStatusDocument
+        var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), cancellationToken);
+        var statusIsNew = status is null;
+        status ??= new TrackedAddressStatusDocument
             {
                 Id = TrackedAddressStatusDocument.GetId(address),
                 EntityType = TrackedEntityType.Address,
@@ -52,9 +65,16 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
             await session.StoreAsync(legacy, legacy.Id, cancellationToken);
         }
 
-        await StoreIfNewAsync(session, tracked, cancellationToken);
-        await StoreIfNewAsync(session, status, cancellationToken);
+        if (trackedIsNew)
+            await session.StoreAsync(tracked, tracked.Id, cancellationToken);
+
+        if (statusIsNew)
+            await session.StoreAsync(status, status.Id, cancellationToken);
+
         await session.SaveChangesAsync(cancellationToken);
+        await cacheInvalidationSink.InvalidateTagsAsync(
+            cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]),
+            cancellationToken);
     }
 
     public async Task RegisterTokenAsync(
@@ -65,8 +85,9 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
     {
         using var session = documentStore.GetSession();
 
-        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken)
-            ?? new TrackedTokenDocument
+        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken);
+        var trackedIsNew = tracked is null;
+        tracked ??= new TrackedTokenDocument
             {
                 Id = TrackedTokenDocument.GetId(tokenId),
                 EntityType = TrackedEntityType.Token,
@@ -74,8 +95,9 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
                 TokenId = tokenId,
                 Symbol = symbol,
             };
-        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken)
-            ?? new TrackedTokenStatusDocument
+        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken);
+        var statusIsNew = status is null;
+        status ??= new TrackedTokenStatusDocument
             {
                 Id = TrackedTokenStatusDocument.GetId(tokenId),
                 EntityType = TrackedEntityType.Token,
@@ -100,9 +122,16 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
             await session.StoreAsync(legacy, legacy.Id, cancellationToken);
         }
 
-        await StoreIfNewAsync(session, tracked, cancellationToken);
-        await StoreIfNewAsync(session, status, cancellationToken);
+        if (trackedIsNew)
+            await session.StoreAsync(tracked, tracked.Id, cancellationToken);
+
+        if (statusIsNew)
+            await session.StoreAsync(status, status.Id, cancellationToken);
+
         await session.SaveChangesAsync(cancellationToken);
+        await cacheInvalidationSink.InvalidateTagsAsync(
+            cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]),
+            cancellationToken);
     }
 
     private static void ApplyRegistration(TrackedAddressDocument document, string address, string currentName, string requestedName)
@@ -153,17 +182,5 @@ public sealed class TrackedEntityRegistrationStore(IDocumentStore documentStore)
         }
 
         document.SetUpdate();
-    }
-
-    private static async Task StoreIfNewAsync<TDocument>(
-        Raven.Client.Documents.Session.IAsyncDocumentSession session,
-        TDocument document,
-        CancellationToken cancellationToken
-    ) where TDocument : Entity
-    {
-        if (session.Advanced.IsLoaded(document.Id))
-            return;
-
-        await session.StoreAsync(document, document.Id, cancellationToken);
     }
 }

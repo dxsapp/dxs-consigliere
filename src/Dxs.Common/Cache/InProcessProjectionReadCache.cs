@@ -6,15 +6,17 @@ internal sealed class InProcessProjectionReadCache : TagIndexedProjectionReadCac
 {
     private readonly MemoryCache _cache;
     private readonly TimeSpan? _defaultSafetyTtl;
+    private readonly int _maxEntries;
 
     public InProcessProjectionReadCache(InProcessProjectionReadCacheOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         _defaultSafetyTtl = options.DefaultSafetyTtl;
+        _maxEntries = options.MaxEntries > 0 ? options.MaxEntries : 10_000;
         _cache = new MemoryCache(new MemoryCacheOptions
         {
-            SizeLimit = options.MaxEntries > 0 ? options.MaxEntries : 10_000
+            SizeLimit = _maxEntries
         });
     }
 
@@ -59,6 +61,10 @@ internal sealed class InProcessProjectionReadCache : TagIndexedProjectionReadCac
 
     protected override void DisposeCore()
         => _cache.Dispose();
+
+    protected override string GetBackendName() => "memory";
+
+    protected override int? GetMaxEntries() => _maxEntries;
 
     private sealed record EvictionState(InProcessProjectionReadCache Owner, long Version);
 }

@@ -14,7 +14,8 @@ public static class ProjectionCacheServiceCollectionExtensions
             services
                 .AddSingleton<NoopProjectionReadCache>()
                 .AddSingleton<IProjectionReadCache>(sp => sp.GetRequiredService<NoopProjectionReadCache>())
-                .AddSingleton<IProjectionCacheInvalidationSink>(sp => sp.GetRequiredService<NoopProjectionReadCache>());
+                .AddSingleton<IProjectionCacheInvalidationSink>(sp => sp.GetRequiredService<NoopProjectionReadCache>())
+                .AddSingleton<IProjectionReadCacheTelemetry>(sp => sp.GetRequiredService<NoopProjectionReadCache>());
 
             return services;
         }
@@ -26,7 +27,8 @@ public static class ProjectionCacheServiceCollectionExtensions
             .AddSingleton(inProcessOptions)
             .AddSingleton<InProcessProjectionReadCache>()
             .AddSingleton<IProjectionReadCache>(sp => sp.GetRequiredService<InProcessProjectionReadCache>())
-            .AddSingleton<IProjectionCacheInvalidationSink>(sp => sp.GetRequiredService<InProcessProjectionReadCache>());
+            .AddSingleton<IProjectionCacheInvalidationSink>(sp => sp.GetRequiredService<InProcessProjectionReadCache>())
+            .AddSingleton<IProjectionReadCacheTelemetry>(sp => sp.GetRequiredService<InProcessProjectionReadCache>());
 
         return services;
     }

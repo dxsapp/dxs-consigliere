@@ -7,6 +7,7 @@ using Dxs.Bsv.Script;
 using Dxs.Consigliere.Benchmarks.Shared;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Services;
@@ -45,12 +46,25 @@ public sealed class AddressHistoryBenchmarkHarness : ConfiguredRavenBenchmarkTes
     public async Task<AddressHistoryBenchmarkMetrics> MeasureQueryAsync(
         AddressHistoryBenchmarkScenario scenario,
         CancellationToken cancellationToken = default)
+        => await MeasureQueryCoreAsync(scenario, stripEnvelope: false, cancellationToken);
+
+    public async Task<AddressHistoryBenchmarkMetrics> MeasureLegacyQueryFallbackAsync(
+        AddressHistoryBenchmarkScenario scenario,
+        CancellationToken cancellationToken = default)
+        => await MeasureQueryCoreAsync(scenario, stripEnvelope: true, cancellationToken);
+
+    private async Task<AddressHistoryBenchmarkMetrics> MeasureQueryCoreAsync(
+        AddressHistoryBenchmarkScenario scenario,
+        bool stripEnvelope,
+        CancellationToken cancellationToken)
     {
         using var store = GetDocumentStore();
         await SeedScenarioAsync(store, scenario, cancellationToken);
 
         var rebuilder = new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store));
         await rebuilder.RebuildAsync(take: 8, cancellationToken: cancellationToken);
+        if (stripEnvelope)
+            await StripHistoryEnvelopeAsync(store, cancellationToken);
 
         using var service = new AddressHistoryService(
             store,
@@ -76,7 +90,7 @@ public sealed class AddressHistoryBenchmarkHarness : ConfiguredRavenBenchmarkTes
         sw.Stop();
 
         return new AddressHistoryBenchmarkMetrics(
-            $"{scenario.Name}:query",
+            $"{scenario.Name}:{(stripEnvelope ? "legacy-query" : "query")}",
             scenario.TransferCount * 2,
             scenario.QueryCount,
             totalRows,
@@ -147,6 +161,24 @@ public sealed class AddressHistoryBenchmarkHarness : ConfiguredRavenBenchmarkTes
         => elapsedMilliseconds <= 0
             ? operations
             : operations * 1000.0 / elapsedMilliseconds;
+
+    private static async Task StripHistoryEnvelopeAsync(IDocumentStore store, CancellationToken cancellationToken)
+    {
+        using var session = store.OpenAsyncSession();
+        var applications = await session.Query<AddressProjectionAppliedTransactionDocument>().ToListAsync(token: cancellationToken);
+        foreach (var application in applications)
+        {
+            application.Timestamp = null;
+            application.Height = null;
+            application.ValidStasTx = null;
+            application.TxFeeSatoshis = null;
+            application.Note = null;
+            application.FromAddresses = [];
+            application.ToAddresses = [];
+        }
+
+        await session.SaveChangesAsync(cancellationToken);
+    }
 
     private sealed class MainnetNetworkProvider : INetworkProvider
     {

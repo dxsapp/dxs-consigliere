@@ -1,3 +1,5 @@
+using Dxs.Common.Cache;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Dto.Responses.Readiness;
 using Dxs.Consigliere.Extensions;
@@ -6,31 +8,39 @@ using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public sealed class TrackedEntityReadinessService(IDocumentStore documentStore) : ITrackedEntityReadinessService
+public sealed class TrackedEntityReadinessService(
+    IDocumentStore documentStore,
+    IProjectionReadCache projectionReadCache,
+    IProjectionReadCacheKeyFactory cacheKeyFactory
+) : ITrackedEntityReadinessService
 {
+    public TrackedEntityReadinessService(IDocumentStore documentStore)
+        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+    {
+    }
+
     public async Task<TrackedEntityReadinessResponse> GetAddressReadinessAsync(
         string address,
         CancellationToken cancellationToken = default
     )
     {
-        using var session = documentStore.GetNoCacheNoTrackingSession();
-        var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), cancellationToken);
-        if (status is not null)
-            return Map(status);
-
-        var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), cancellationToken);
-        return tracked is not null
-            ? Map(tracked)
-            : new TrackedEntityReadinessResponse
+        var descriptor = cacheKeyFactory.CreateTrackedAddressReadiness(address);
+        return await projectionReadCache.GetOrCreateAsync(
+            descriptor.Key,
+            new ProjectionCacheEntryOptions { Tags = descriptor.Tags },
+            async ct =>
             {
-                Tracked = false,
-                EntityType = TrackedEntityType.Address,
-                EntityId = address,
-                LifecycleStatus = TrackedEntityLifecycleStatus.Registered,
-                Readable = false,
-                Authoritative = false,
-                Degraded = false,
-            };
+                using var session = documentStore.GetNoCacheNoTrackingSession();
+                var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), ct);
+                if (status is not null)
+                    return Map(status);
+
+                var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), ct);
+                return tracked is not null
+                    ? Map(tracked)
+                    : CreateUntrackedAddress(address);
+            },
+            cancellationToken);
     }
 
     public async Task<TrackedEntityReadinessResponse> GetTokenReadinessAsync(
@@ -38,24 +48,23 @@ public sealed class TrackedEntityReadinessService(IDocumentStore documentStore) 
         CancellationToken cancellationToken = default
     )
     {
-        using var session = documentStore.GetNoCacheNoTrackingSession();
-        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken);
-        if (status is not null)
-            return Map(status);
-
-        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken);
-        return tracked is not null
-            ? Map(tracked)
-            : new TrackedEntityReadinessResponse
+        var descriptor = cacheKeyFactory.CreateTrackedTokenReadiness(tokenId);
+        return await projectionReadCache.GetOrCreateAsync(
+            descriptor.Key,
+            new ProjectionCacheEntryOptions { Tags = descriptor.Tags },
+            async ct =>
             {
-                Tracked = false,
-                EntityType = TrackedEntityType.Token,
-                EntityId = tokenId,
-                LifecycleStatus = TrackedEntityLifecycleStatus.Registered,
-                Readable = false,
-                Authoritative = false,
-                Degraded = false,
-            };
+                using var session = documentStore.GetNoCacheNoTrackingSession();
+                var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), ct);
+                if (status is not null)
+                    return Map(status);
+
+                var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), ct);
+                return tracked is not null
+                    ? Map(tracked)
+                    : CreateUntrackedToken(tokenId);
+            },
+            cancellationToken);
     }
 
     public async Task<TrackedEntityReadinessGateResponse> GetBlockingReadinessAsync(
@@ -107,5 +116,29 @@ public sealed class TrackedEntityReadinessService(IDocumentStore documentStore) 
             Degraded = document.Degraded,
             LagBlocks = document.LagBlocks,
             Progress = document.Progress,
+        };
+
+    private static TrackedEntityReadinessResponse CreateUntrackedAddress(string address)
+        => new()
+        {
+            Tracked = false,
+            EntityType = TrackedEntityType.Address,
+            EntityId = address,
+            LifecycleStatus = TrackedEntityLifecycleStatus.Registered,
+            Readable = false,
+            Authoritative = false,
+            Degraded = false,
+        };
+
+    private static TrackedEntityReadinessResponse CreateUntrackedToken(string tokenId)
+        => new()
+        {
+            Tracked = false,
+            EntityType = TrackedEntityType.Token,
+            EntityId = tokenId,
+            LifecycleStatus = TrackedEntityLifecycleStatus.Registered,
+            Readable = false,
+            Authoritative = false,
+            Degraded = false,
         };
 }
