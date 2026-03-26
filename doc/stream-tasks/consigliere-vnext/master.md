@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave G: Explicit Token Validation Engine`
-- Critical-path slice: `S22`
+- Critical-path slice: `S23`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -40,6 +40,7 @@
 | S19 | public-api-and-realtime | operator/api | done | S17,S18 | readiness controller tests + app build | readiness endpoints exist and tracked pre-live address reads are denied with readiness payloads instead of state data |
 | S20 | indexer-state-and-storage | operator/state | done | S18 | dependency store integration tests + app build | direct token-validation dependency facts and reverse dependent lookup exist without relying on broad Raven fanout scans |
 | S21 | bsv-protocol-core | operator/protocol | done | S20 | STAS lineage evaluator tests + app build | token lineage and validation verdicts can be computed from explicit reusable inputs instead of only through implicit TransactionStore patch logic |
+| S22 | indexer-ingest-orchestration | operator/runtime | done | S20,S21 | dependency revalidation coordinator tests + app build | lineage change now drives targeted automatic revalidation via explicit dependency facts instead of FoundMissing index fanout being the primary coordinator |
 
 ## Open Handoffs
 
@@ -80,6 +81,7 @@
 | 2026-03-26 | S19 | validation | `tests:ReadinessControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | readiness endpoints and pre-live read denial are now active for tracked address reads without breaking existing controller surface |
 | 2026-03-26 | S20 | validation | `tests:TokenValidationDependencyStoreIntegrationTests + build:Dxs.Consigliere` | explicit direct-edge token validation dependencies and reverse dependents now persist separately from legacy implicit MissingTransactions coordination |
 | 2026-03-26 | S21 | validation | `tests:Dxs.Bsv.Tests/StasLineageEvaluatorTests + build:Dxs.Consigliere` | explicit STAS/DSTAS lineage evaluation contract now reproduces freeze/redeem/missing-dependency/issue verdicts without Raven patch-script coupling |
+| 2026-03-26 | S22 | validation | `tests:StasDependencyRevalidationCoordinatorIntegrationTests + build:Dxs.Consigliere` | runtime revalidation now cascades by explicit direct dependents and startup recovery seeds from unresolved MetaTransactions rather than FoundMissing reduce-output coordination |
 
 ## Audit Gates
 
@@ -87,7 +89,7 @@
 |---|---|---|---|---|
 | A1 | S08 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A1.md` | yes |
 | A2 | S16 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | no |
-| A3 | S23 | pending | - | no |
+| A3 | S23 | pending_open | - | no |
 | A4 | S29 | not_opened | - | no |
 | A5 | S31 | not_opened | - | no |
 
@@ -146,6 +148,7 @@
   - `S19`
   - `S20`
   - `S21`
+  - `S22`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S22`
+- Next slice to open: `S23`

@@ -1,7 +1,7 @@
 using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data;
-using Dxs.Consigliere.Data.Models;
+using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 
@@ -20,6 +20,7 @@ public class StasAttributesMissingTransactions(
 ) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     private readonly ILogger _logger = logger;
+    private readonly StasDependencyRevalidationCoordinator _coordinator = new(store, transactionStore, logger);
 
     protected override TimeSpan Period => TimeSpan.FromSeconds(30);
     protected override TimeSpan WaitTimeOnError => TimeSpan.FromSeconds(30);
@@ -34,18 +35,17 @@ public class StasAttributesMissingTransactions(
         using var session = store.GetNoCacheNoTrackingSession();
 
         var stasTransactions = await session
-            .Query<FoundMissingTransaction>()
-            .Select(x => x.TxId)
+            .Query<MetaTransaction>()
+            .Where(x => x.MissingTransactions.Count > 0)
+            .Select(x => x.Id)
             .ToListAsync(token: cancellationToken);
 
         if (!stasTransactions.Any())
             return;
 
-        _logger.LogWarning("Found {Count} transaction without stas roots", stasTransactions.Count);
+        _logger.LogWarning("Found {Count} transaction with unresolved STAS dependencies", stasTransactions.Count);
 
         foreach (var id in stasTransactions)
-        {
-            await transactionStore.UpdateStasAttributes(id);
-        }
+            await _coordinator.HandleTransactionChangedAsync(id, cancellationToken);
     }
 }

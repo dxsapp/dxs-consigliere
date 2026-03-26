@@ -3,8 +3,6 @@ using System.Threading.Tasks.Dataflow;
 
 using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.Configs;
-using Dxs.Consigliere.Data;
-using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Services;
 
 using Microsoft.Extensions.Logging;
@@ -25,6 +23,7 @@ public class StasAttributesChangeObserverTask(
     private static readonly TimeSpan LogPeriod = TimeSpan.FromMinutes(1);
 
     private readonly ILogger _logger = logger;
+    private readonly StasDependencyRevalidationCoordinator _coordinator = new(store, transactionStore, logger);
 
     private int _processedChanges;
 
@@ -35,7 +34,7 @@ public class StasAttributesChangeObserverTask(
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
-        var actionBlock = new ActionBlock<string>(
+        var actionBlock = new ActionBlock<(string Id, DocumentChangeTypes Type)>(
             HandleBatch,
             new()
             {
@@ -44,9 +43,9 @@ public class StasAttributesChangeObserverTask(
 
         using var sub = store
             .Changes()
-            .ForDocumentsInCollection("FoundMissingTransactions/References")
-            .Where(x => x.Type == DocumentChangeTypes.Put)
-            .Select(x => x.Id)
+            .ForDocumentsInCollection("MetaTransactions")
+            .Where(x => x.Type is DocumentChangeTypes.Put or DocumentChangeTypes.Delete)
+            .Select(x => (x.Id, x.Type))
             .Subscribe(x => actionBlock.Post(x));
 
         while (!cancellationToken.IsCancellationRequested)
@@ -63,17 +62,20 @@ public class StasAttributesChangeObserverTask(
         }
     }
 
-    private async Task HandleBatch(string id)
+    private async Task HandleBatch((string Id, DocumentChangeTypes Type) change)
     {
         _processedChanges += 1;
 
         try
         {
-            await transactionStore.UpdateStasAttributes(id[..64]);
+            if (change.Type == DocumentChangeTypes.Delete)
+                await _coordinator.HandleTransactionDeletedAsync(change.Id);
+            else
+                await _coordinator.HandleTransactionChangedAsync(change.Id);
         }
         catch (Exception exception)
         {
-            _logger.LogError(exception, "Unable to handle {Name}s", nameof(FoundMissingTransaction));
+            _logger.LogError(exception, "Unable to handle MetaTransaction change for {TxId}", change.Id);
         }
     }
 }
