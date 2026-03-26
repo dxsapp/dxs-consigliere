@@ -2,7 +2,9 @@ using Dxs.Bsv;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Script.Read;
-using System.Linq;
+using Dxs.Bsv.Tokens.Dstas.Parsing;
+
+using Dxs.Consigliere.Data.Transactions.Dstas;
 
 namespace Dxs.Consigliere.Data.Models.Transactions;
 
@@ -59,12 +61,8 @@ public class MetaOutput
             ? reader?.GetSymbol()
             : null;
         var scriptPubKey = outPoint.ScriptPubKey.ToHexString();
-        var dstas = reader?.Dstas;
-        var dstasServiceFields = dstas?.ServiceFields.Select(x => x.ToHexString()).ToArray();
-        var dstasOptionalData = dstas?.OptionalData.Select(x => x.ToHexString()).ToArray();
-        var dstasActionData = dstas?.ActionDataRaw is { Length: > 0 }
-            ? dstas.ActionDataRaw.ToHexString()
-            : null;
+        var dstas = DstasLockingScriptParser.Parse(reader);
+        var dstasMapping = DstasMetaOutputMapping.FromSemantics(dstas);
 
         return new()
         {
@@ -84,24 +82,18 @@ public class MetaOutput
             ScriptPubKey = scriptPubKey,
             Symbol = symbol,
 
-            DstasFlags = dstas?.Flags?.ToHexString(),
-            DstasFreezeEnabled = dstas?.FreezeEnabled,
-            DstasConfiscationEnabled = dstas?.ConfiscationEnabled,
-            DstasFrozen = dstas?.Frozen,
-            DstasFreezeAuthority = dstasServiceFields != null && dstas.FreezeEnabled && dstasServiceFields.Length > 0
-                ? dstasServiceFields[0]
-                : null,
-            DstasConfiscationAuthority = dstasServiceFields != null && dstas.ConfiscationEnabled
-                ? dstasServiceFields[dstas.FreezeEnabled ? 1 : 0]
-                : null,
-            DstasServiceFields = dstasServiceFields,
-            DstasActionType = dstas?.ActionType,
-            DstasActionData = dstasActionData,
-            DstasRequestedScriptHash = dstas?.RequestedScriptHash?.ToHexString(),
-            DstasOptionalData = dstasOptionalData,
-            DstasOptionalDataFingerprint = dstasOptionalData is { Length: > 0 }
-                ? string.Join("|", dstasOptionalData)
-                : null,
+            DstasFlags = dstasMapping.Flags,
+            DstasFreezeEnabled = dstasMapping.FreezeEnabled,
+            DstasConfiscationEnabled = dstasMapping.ConfiscationEnabled,
+            DstasFrozen = dstasMapping.Frozen,
+            DstasFreezeAuthority = dstasMapping.FreezeAuthority,
+            DstasConfiscationAuthority = dstasMapping.ConfiscationAuthority,
+            DstasServiceFields = dstasMapping.ServiceFields,
+            DstasActionType = dstasMapping.ActionType,
+            DstasActionData = dstasMapping.ActionData,
+            DstasRequestedScriptHash = dstasMapping.RequestedScriptHash,
+            DstasOptionalData = dstasMapping.OptionalData,
+            DstasOptionalDataFingerprint = dstasMapping.OptionalDataFingerprint,
 
             Spent = false
         };

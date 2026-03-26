@@ -1,4 +1,5 @@
 using Dxs.Bsv.Script;
+using Dxs.Bsv.Tokens.Dstas.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 
 namespace Dxs.Consigliere.Data.Transactions;
@@ -13,6 +14,13 @@ var stasType1 = '{ScriptType.P2STAS:G}';
 var stasType2 = '{ScriptType.DSTAS:G}';
 var p2pkhType = '{ScriptType.P2PKH:G}';
 var p2mpkhType = '{ScriptType.P2MPKH:G}';
+var dstasActionSwap = '{DstasActionTypes.Swap}';
+var dstasActionConfiscation = '{DstasActionTypes.Confiscation}';
+var dstasEventSwap = '{DstasEventTypes.Swap}';
+var dstasEventSwapCancel = '{DstasEventTypes.SwapCancel}';
+var dstasEventConfiscation = '{DstasEventTypes.Confiscation}';
+var dstasEventFreeze = '{DstasEventTypes.Freeze}';
+var dstasEventUnfreeze = '{DstasEventTypes.Unfreeze}';
 
 var withNote = outputsCount > 0 &&
     this.{nameof(MetaTransaction.Outputs)}[outputsCount - 1].{nameof(MetaTransaction.Output.Type)} === '{ScriptType.NullData:G}';
@@ -142,7 +150,7 @@ var firstOutput = outputsCount > 0 ? this.{nameof(MetaTransaction.Outputs)}[0] :
 var firstOutputIsRedeemType = firstOutput &&
     (firstOutput.{nameof(MetaTransaction.Output.Type)} === p2pkhType ||
      firstOutput.{nameof(MetaTransaction.Output.Type)} === p2mpkhType);
-var redeemBlockedByState = firstInputFrozen === true || firstInputActionType === 'confiscation';
+var redeemBlockedByState = firstInputFrozen === true || firstInputActionType === dstasActionConfiscation;
 var redeemUsesRegularSpending = dstasSpendingType === null || dstasSpendingType === 1;
 var redeemByIssuerOwner = stasFrom === redeemAddress;
 var isRedeem = allInputsKnown &&
@@ -156,16 +164,16 @@ var isRedeem = allInputsKnown &&
 var dstasEventType = null;
 if (isStas && dstasSpendingType !== null) {{
     if (dstasSpendingType === 4) {{
-        dstasEventType = 'swap_cancel';
+        dstasEventType = dstasEventSwapCancel;
     }} else if (dstasSpendingType === 3) {{
-        dstasEventType = 'confiscation';
+        dstasEventType = dstasEventConfiscation;
     }} else if (dstasSpendingType === 2) {{
         if (firstInputFrozen === true && firstOutputFrozen === false) {{
-            dstasEventType = 'unfreeze';
+            dstasEventType = dstasEventUnfreeze;
         }} else if (firstOutputFrozen === true) {{
-            dstasEventType = 'freeze';
+            dstasEventType = dstasEventFreeze;
         }} else {{
-            dstasEventType = 'freeze';
+            dstasEventType = dstasEventFreeze;
         }}
     }}
 }}
@@ -173,8 +181,8 @@ if (isStas && dstasSpendingType !== null) {{
 if (dstasEventType === null &&
     isStas &&
     (dstasSpendingType === null || dstasSpendingType === 1) &&
-    firstInputActionType === 'swap') {{
-    dstasEventType = 'swap';
+    firstInputActionType === dstasActionSwap) {{
+    dstasEventType = dstasEventSwap;
 }}
 
 var optionalDataContinuity = null;

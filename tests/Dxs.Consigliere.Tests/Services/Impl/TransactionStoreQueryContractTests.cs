@@ -36,17 +36,23 @@ public class TransactionStoreQueryContractTests
     [Fact]
     public void Query_MapsDstasEventTypesFromSpendingType()
     {
+        Assert.Contains("var dstasEventSwapCancel = 'swap_cancel';", Query, StringComparison.Ordinal);
+        Assert.Contains("var dstasEventConfiscation = 'confiscation';", Query, StringComparison.Ordinal);
+        Assert.Contains("var dstasEventUnfreeze = 'unfreeze';", Query, StringComparison.Ordinal);
+        Assert.Contains("var dstasEventFreeze = 'freeze';", Query, StringComparison.Ordinal);
+        Assert.Contains("var dstasEventSwap = 'swap';", Query, StringComparison.Ordinal);
+
         Assert.Contains("dstasSpendingType === 4", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = 'swap_cancel'", Query, StringComparison.Ordinal);
+        Assert.Contains("dstasEventType = dstasEventSwapCancel", Query, StringComparison.Ordinal);
 
         Assert.Contains("dstasSpendingType === 3", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = 'confiscation'", Query, StringComparison.Ordinal);
+        Assert.Contains("dstasEventType = dstasEventConfiscation", Query, StringComparison.Ordinal);
 
         Assert.Contains("dstasSpendingType === 2", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = 'unfreeze'", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = 'freeze'", Query, StringComparison.Ordinal);
-        Assert.Contains("firstInputActionType === 'swap'", Query, StringComparison.Ordinal);
-        Assert.Contains("dstasEventType = 'swap'", Query, StringComparison.Ordinal);
+        Assert.Contains("dstasEventType = dstasEventUnfreeze", Query, StringComparison.Ordinal);
+        Assert.Contains("dstasEventType = dstasEventFreeze", Query, StringComparison.Ordinal);
+        Assert.Contains("firstInputActionType === dstasActionSwap", Query, StringComparison.Ordinal);
+        Assert.Contains("dstasEventType = dstasEventSwap", Query, StringComparison.Ordinal);
     }
 
     [Fact]

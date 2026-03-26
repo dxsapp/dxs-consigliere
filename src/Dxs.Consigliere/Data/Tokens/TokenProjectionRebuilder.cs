@@ -8,6 +8,7 @@ using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Tokens;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Tokens.Dstas;
 using Dxs.Consigliere.Extensions;
 
 using Raven.Client.Documents;
@@ -337,7 +338,7 @@ public sealed class TokenProjectionRebuilder(
             IsIssue = transaction.IsIssue,
             IsRedeem = transaction.IsRedeem,
             ValidationStatus = GetTransactionValidationStatus(transaction),
-            ProtocolType = GetProtocolType(transaction),
+            ProtocolType = StasProtocolProjectionSemantics.GetProtocolType(transaction),
             ConfirmedBlockHash = observation.EventType == TxObservationEventType.SeenInBlock ? observation.BlockHash : null,
             LastSequence = sequence
         };
@@ -433,7 +434,7 @@ public sealed class TokenProjectionRebuilder(
             ? utxos.Where(x => !string.Equals(x.Address, redeemAddress, StringComparison.OrdinalIgnoreCase)).Sum(x => x.Satoshis)
             : utxos.Sum(x => x.Satoshis);
 
-        state.ProtocolType = transactions.Select(GetProtocolType).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+        state.ProtocolType = transactions.Select(StasProtocolProjectionSemantics.GetProtocolType).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
         state.ProtocolVersion = null;
         state.IssuanceKnown = issuance is not null;
         state.ValidationStatus = anyInvalid
@@ -504,18 +505,6 @@ public sealed class TokenProjectionRebuilder(
             metaTransactions,
             inputOutputs,
             new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-    }
-
-    private static string GetProtocolType(MetaTransaction transaction)
-    {
-        if ((transaction.Outputs ?? []).Any(x => x.Type == ScriptType.DSTAS) ||
-            transaction.DstasSpendingType is not null ||
-            !string.IsNullOrWhiteSpace(transaction.DstasEventType))
-            return TokenProjectionProtocolType.Dstas;
-
-        return transaction.IsStas || (transaction.Outputs ?? []).Any(x => x.Type == ScriptType.P2STAS)
-            ? TokenProjectionProtocolType.Stas
-            : null;
     }
 
     private static string GetTransactionValidationStatus(MetaTransaction transaction)

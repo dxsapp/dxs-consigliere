@@ -7,6 +7,7 @@ using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Tokens.Dstas;
 using Dxs.Consigliere.Extensions;
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
@@ -642,19 +643,7 @@ public sealed class AddressProjectionRebuilder(
     }
 
     private static bool ShouldProjectOutput(MetaTransaction transaction, MetaOutput output)
-    {
-        if (output is null || string.IsNullOrWhiteSpace(output.Address))
-            return false;
-
-        return output.Type switch
-        {
-            Dxs.Bsv.Script.ScriptType.P2PKH => true,
-            Dxs.Bsv.Script.ScriptType.P2MPKH => true,
-            Dxs.Bsv.Script.ScriptType.P2STAS => transaction.IsValidIssue || (transaction.AllStasInputsKnown && !transaction.IllegalRoots.Any()),
-            Dxs.Bsv.Script.ScriptType.DSTAS => transaction.IsValidIssue || (transaction.AllStasInputsKnown && !transaction.IllegalRoots.Any()),
-            _ => false
-        };
-    }
+        => StasProtocolProjectionSemantics.ShouldProjectOutput(transaction, output);
 
     private static void Touch(
         AddressProjectionAppliedTransactionDocument application,

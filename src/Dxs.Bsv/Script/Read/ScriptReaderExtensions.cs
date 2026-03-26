@@ -1,6 +1,8 @@
 using System;
 using System.Text;
 
+using Dxs.Bsv.Tokens.Dstas.Parsing;
+
 namespace Dxs.Bsv.Script.Read;
 
 public static class ScriptReaderExtensions
@@ -12,7 +14,7 @@ public static class ScriptReaderExtensions
             ScriptType.P2STAS => reader.Data is { Count: > 0 }
                 ? reader.Data[0].ToHexString()
                 : null,
-            ScriptType.DSTAS => reader.Dstas?.Redemption?.ToHexString(),
+            ScriptType.DSTAS => DstasLockingScriptParser.Parse(reader)?.Redemption?.ToHexString(),
             _ => null
         };
     }

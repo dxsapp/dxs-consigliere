@@ -4,6 +4,7 @@ using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Tokens;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Tokens.Dstas;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Extensions;
 
@@ -69,7 +70,7 @@ public sealed class TokenProjectionReader(
                 {
                     Id = TokenStateProjectionDocument.GetId(tokenId),
                     TokenId = tokenId,
-                    ProtocolType = rooted.CanonicalTransactions.Select(GetProtocolType).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
+                    ProtocolType = rooted.CanonicalTransactions.Select(StasProtocolProjectionSemantics.GetProtocolType).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x)),
                     ProtocolVersion = null,
                     IssuanceKnown = issuance is not null,
                     ValidationStatus = anyInvalid
@@ -227,15 +228,6 @@ public sealed class TokenProjectionReader(
             new HashSet<string>(evaluation.CanonicalTxIds, StringComparer.OrdinalIgnoreCase),
             transactions.Where(x => evaluation.CanonicalTxIds.Contains(x.Id, StringComparer.OrdinalIgnoreCase)).ToArray());
     }
-
-    private static string GetProtocolType(MetaTransaction transaction)
-        => transaction.DstasSpendingType is not null
-            || !string.IsNullOrWhiteSpace(transaction.DstasEventType)
-            || (transaction.Outputs ?? []).Any(x => x.Type == Dxs.Bsv.Script.ScriptType.DSTAS)
-            ? TokenProjectionProtocolType.Dstas
-            : transaction.IsStas
-                ? TokenProjectionProtocolType.Stas
-                : null;
 
     private static ProjectionCacheEntryOptions CreateOptions(ProjectionCacheDescriptor descriptor)
         => new()

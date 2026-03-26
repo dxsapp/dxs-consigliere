@@ -1,5 +1,6 @@
 using Dxs.Bsv.Protocol;
 using Dxs.Bsv.Script.Read;
+using Dxs.Bsv.Tokens.Dstas.Parsing;
 
 namespace Dxs.Bsv.Models;
 
@@ -36,7 +37,7 @@ public class Input
             Sequence = sequence,
             Coinbase = vout == uint.MaxValue,
             Address = reader.Address,
-            DstasSpendingType = reader.DstasSpendingType
+            DstasSpendingType = DstasUnlockingScriptParser.Parse(reader)?.SpendingType
         };
     }
 }
