@@ -18,11 +18,22 @@ public sealed class AddressProjectionRebuilder(
     IDocumentStore documentStore,
     RavenObservationJournalReader journalReader,
     IProjectionCacheInvalidationSink cacheInvalidationSink,
-    IProjectionReadCacheKeyFactory cacheKeyFactory
+    IProjectionReadCacheKeyFactory cacheKeyFactory,
+    IProjectionCacheInvalidationTelemetry invalidationTelemetry
 )
 {
     public AddressProjectionRebuilder(IDocumentStore documentStore, RavenObservationJournalReader journalReader)
-        : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+        : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory(), new ProjectionCacheInvalidationTelemetry())
+    {
+    }
+
+    public AddressProjectionRebuilder(
+        IDocumentStore documentStore,
+        RavenObservationJournalReader journalReader,
+        IProjectionCacheInvalidationSink cacheInvalidationSink,
+        IProjectionReadCacheKeyFactory cacheKeyFactory
+    )
+        : this(documentStore, journalReader, cacheInvalidationSink, cacheKeyFactory, new ProjectionCacheInvalidationTelemetry())
     {
     }
 
@@ -56,7 +67,10 @@ public sealed class AddressProjectionRebuilder(
                     await StoreCheckpointAsync(session, checkpoint, cancellationToken);
                     await session.SaveChangesAsync(cancellationToken);
                     if (invalidationTags.Count > 0)
+                    {
+                        invalidationTelemetry.Record(invalidationTags);
                         await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+                    }
                     return checkpoint;
                 }
 
@@ -66,7 +80,10 @@ public sealed class AddressProjectionRebuilder(
             await StoreCheckpointAsync(session, checkpoint, cancellationToken);
             await session.SaveChangesAsync(cancellationToken);
             if (invalidationTags.Count > 0)
+            {
+                invalidationTelemetry.Record(invalidationTags);
                 await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+            }
         }
 
         return checkpoint;
@@ -227,7 +244,7 @@ public sealed class AddressProjectionRebuilder(
             : null;
         application.Credits = credits;
         application.Debits = debits.ToArray();
-        HydrateHistoryEnvelope(application, metaTransaction, application.Debits, application.Credits);
+        AddressHistoryEnvelopeHelper.Hydrate(application, metaTransaction, application.Debits, application.Credits);
         Touch(application, record, observation);
 
         await session.StoreAsync(application, application.Id, cancellationToken);
@@ -647,34 +664,6 @@ public sealed class AddressProjectionRebuilder(
     {
         application.LastObservedAt = observation.ObservedAt ?? record.AppendedAt;
         application.LastSequence = record.Sequence.Value;
-    }
-
-    private static void HydrateHistoryEnvelope(
-        AddressProjectionAppliedTransactionDocument application,
-        MetaTransaction transaction,
-        IReadOnlyCollection<AddressProjectionUtxoSnapshot> debits,
-        IReadOnlyCollection<AddressProjectionUtxoSnapshot> credits
-    )
-    {
-        application.Timestamp = transaction.Timestamp;
-        application.Height = transaction.Height;
-        application.ValidStasTx = transaction.IsIssue
-            ? transaction.IsValidIssue
-            : !transaction.IllegalRoots.Any();
-        application.Note = transaction.Note;
-        application.TxFeeSatoshis = debits.Sum(x => x.Satoshis) - credits.Sum(x => x.Satoshis);
-        application.FromAddresses = debits
-            .Select(x => x.Address)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(16)
-            .ToArray();
-        application.ToAddresses = credits
-            .Select(x => x.Address)
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(16)
-            .ToArray();
     }
 
     private async Task<ProjectionCheckpoint> LoadCheckpointAsync(CancellationToken cancellationToken)

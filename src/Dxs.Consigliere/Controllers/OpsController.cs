@@ -1,4 +1,5 @@
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Common.Cache;
@@ -15,7 +16,8 @@ public class OpsController(
     IOptions<ConsigliereCacheConfig> cacheConfig,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
-    IProjectionReadCacheTelemetry projectionReadCacheTelemetry
+    IProjectionReadCacheTelemetry projectionReadCacheTelemetry,
+    IProjectionCacheRuntimeStatusReader runtimeStatusReader
 ) : BaseController
 {
     private static readonly string[] RoutedCapabilities =
@@ -53,23 +55,11 @@ public class OpsController(
 
     [HttpGet("cache")]
     [Produces(typeof(ProjectionCacheStatusResponse))]
-    public IActionResult GetProjectionCache()
+    public async Task<IActionResult> GetProjectionCache(CancellationToken cancellationToken = default)
     {
         var snapshot = projectionReadCacheTelemetry.GetSnapshot();
-        return Ok(new ProjectionCacheStatusResponse
-        {
-            Enabled = snapshot.Enabled && cacheConfig.Value.Enabled,
-            Backend = snapshot.Backend,
-            Count = snapshot.Count,
-            MaxEntries = snapshot.MaxEntries,
-            Hits = snapshot.Hits,
-            Misses = snapshot.Misses,
-            FactoryCalls = snapshot.FactoryCalls,
-            InvalidatedKeys = snapshot.InvalidatedKeys,
-            InvalidatedTags = snapshot.InvalidatedTags,
-            Evictions = snapshot.Evictions,
-            HitRatio = snapshot.HitRatio
-        });
+        var runtime = await runtimeStatusReader.GetSnapshotAsync(cancellationToken);
+        return Ok(ProjectionCacheStatusResponseFactory.Build(snapshot, runtime, snapshot.Enabled && cacheConfig.Value.Enabled));
     }
 
     private ProviderStatusResponse BuildProviderStatus(
@@ -208,4 +198,5 @@ public class OpsController(
                 (!string.IsNullOrWhiteSpace(whatsonchain.Connection.BaseUrl) || !string.IsNullOrWhiteSpace(whatsonchain.Connection.ApiKey)),
             _ => false
         };
+
 }

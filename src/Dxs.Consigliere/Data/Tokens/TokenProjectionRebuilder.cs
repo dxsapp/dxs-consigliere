@@ -21,7 +21,8 @@ public sealed class TokenProjectionRebuilder(
     RavenObservationJournalReader journalReader,
     AddressProjectionRebuilder addressProjectionRebuilder,
     IProjectionCacheInvalidationSink cacheInvalidationSink,
-    IProjectionReadCacheKeyFactory cacheKeyFactory
+    IProjectionReadCacheKeyFactory cacheKeyFactory,
+    IProjectionCacheInvalidationTelemetry invalidationTelemetry
 )
 {
     public TokenProjectionRebuilder(
@@ -29,7 +30,18 @@ public sealed class TokenProjectionRebuilder(
         RavenObservationJournalReader journalReader,
         AddressProjectionRebuilder addressProjectionRebuilder
     )
-        : this(documentStore, journalReader, addressProjectionRebuilder, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+        : this(documentStore, journalReader, addressProjectionRebuilder, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory(), new ProjectionCacheInvalidationTelemetry())
+    {
+    }
+
+    public TokenProjectionRebuilder(
+        IDocumentStore documentStore,
+        RavenObservationJournalReader journalReader,
+        AddressProjectionRebuilder addressProjectionRebuilder,
+        IProjectionCacheInvalidationSink cacheInvalidationSink,
+        IProjectionReadCacheKeyFactory cacheKeyFactory
+    )
+        : this(documentStore, journalReader, addressProjectionRebuilder, cacheInvalidationSink, cacheKeyFactory, new ProjectionCacheInvalidationTelemetry())
     {
     }
 
@@ -62,7 +74,10 @@ public sealed class TokenProjectionRebuilder(
                     await StoreCheckpointAsync(session, checkpoint, cancellationToken);
                     await session.SaveChangesAsync(cancellationToken);
                     if (invalidationTags.Count > 0)
+                    {
+                        invalidationTelemetry.Record(invalidationTags);
                         await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+                    }
                     return checkpoint;
                 }
 
@@ -73,7 +88,10 @@ public sealed class TokenProjectionRebuilder(
             await StoreCheckpointAsync(session, checkpoint, cancellationToken);
             await session.SaveChangesAsync(cancellationToken);
             if (invalidationTags.Count > 0)
+            {
+                invalidationTelemetry.Record(invalidationTags);
                 await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+            }
         }
 
         return checkpoint;

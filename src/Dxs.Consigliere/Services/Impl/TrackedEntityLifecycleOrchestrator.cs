@@ -10,11 +10,21 @@ namespace Dxs.Consigliere.Services.Impl;
 public sealed class TrackedEntityLifecycleOrchestrator(
     IDocumentStore documentStore,
     IProjectionCacheInvalidationSink cacheInvalidationSink,
-    IProjectionReadCacheKeyFactory cacheKeyFactory
+    IProjectionReadCacheKeyFactory cacheKeyFactory,
+    IProjectionCacheInvalidationTelemetry invalidationTelemetry
 ) : ITrackedEntityLifecycleOrchestrator
 {
     public TrackedEntityLifecycleOrchestrator(IDocumentStore documentStore)
-        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory(), new ProjectionCacheInvalidationTelemetry())
+    {
+    }
+
+    public TrackedEntityLifecycleOrchestrator(
+        IDocumentStore documentStore,
+        IProjectionCacheInvalidationSink cacheInvalidationSink,
+        IProjectionReadCacheKeyFactory cacheKeyFactory
+    )
+        : this(documentStore, cacheInvalidationSink, cacheKeyFactory, new ProjectionCacheInvalidationTelemetry())
     {
     }
 
@@ -115,9 +125,9 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
-        await cacheInvalidationSink.InvalidateTagsAsync(
-            cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]),
-            cancellationToken);
+        var invalidationTags = cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
     }
 
     private async Task MutateTokenAsync(
@@ -139,9 +149,9 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
-        await cacheInvalidationSink.InvalidateTagsAsync(
-            cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]),
-            cancellationToken);
+        var invalidationTags = cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
     }
 
     private static void Evaluate(TrackedEntityStatusDocumentBase document)

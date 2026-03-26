@@ -53,6 +53,52 @@ public sealed class AddressHistoryBenchmarkHarness : ConfiguredRavenBenchmarkTes
         CancellationToken cancellationToken = default)
         => await MeasureQueryCoreAsync(scenario, stripEnvelope: true, cancellationToken);
 
+    public async Task<AddressHistoryBenchmarkMetrics> MeasureQueryAfterBackfillAsync(
+        AddressHistoryBenchmarkScenario scenario,
+        CancellationToken cancellationToken = default)
+    {
+        using var store = GetDocumentStore();
+        await SeedScenarioAsync(store, scenario, cancellationToken);
+
+        var rebuilder = new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store));
+        await rebuilder.RebuildAsync(take: 8, cancellationToken: cancellationToken);
+        await StripHistoryEnvelopeAsync(store, cancellationToken);
+
+        var backfill = new AddressHistoryEnvelopeBackfillService(store);
+        await backfill.BackfillBatchAsync(Math.Max(512, scenario.TransferCount * 4), cancellationToken);
+
+        using var service = new AddressHistoryService(
+            store,
+            new FilteredTransactionMessageBus(),
+            new NoopConnectionManager(),
+            new MainnetNetworkProvider(),
+            NullLogger<AddressHistoryService>.Instance);
+        var request = new GetAddressHistoryRequest(
+            VNextBenchmarkFixtureFactory.TargetAddress(),
+            ["bsv", VNextBenchmarkFixtureFactory.TokenId(0)],
+            Desc: true,
+            SkipZeroBalance: false,
+            Skip: scenario.Skip,
+            Take: scenario.Take);
+
+        var totalRows = 0;
+        var sw = Stopwatch.StartNew();
+        for (var i = 0; i < scenario.QueryCount; i++)
+        {
+            var response = await service.GetHistory(request);
+            totalRows += response.History.Length;
+        }
+        sw.Stop();
+
+        return new AddressHistoryBenchmarkMetrics(
+            $"{scenario.Name}:query-after-backfill",
+            scenario.TransferCount * 2,
+            scenario.QueryCount,
+            totalRows,
+            sw.ElapsedMilliseconds,
+            ToThroughputPerSecond(scenario.QueryCount, sw.ElapsedMilliseconds));
+    }
+
     private async Task<AddressHistoryBenchmarkMetrics> MeasureQueryCoreAsync(
         AddressHistoryBenchmarkScenario scenario,
         bool stripEnvelope,

@@ -12,11 +12,21 @@ namespace Dxs.Consigliere.Data.Tracking;
 public sealed class TrackedEntityRegistrationStore(
     IDocumentStore documentStore,
     IProjectionCacheInvalidationSink cacheInvalidationSink,
-    IProjectionReadCacheKeyFactory cacheKeyFactory
+    IProjectionReadCacheKeyFactory cacheKeyFactory,
+    IProjectionCacheInvalidationTelemetry invalidationTelemetry
 ) : ITrackedEntityRegistrationStore
 {
     public TrackedEntityRegistrationStore(IDocumentStore documentStore)
-        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+        : this(documentStore, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory(), new ProjectionCacheInvalidationTelemetry())
+    {
+    }
+
+    public TrackedEntityRegistrationStore(
+        IDocumentStore documentStore,
+        IProjectionCacheInvalidationSink cacheInvalidationSink,
+        IProjectionReadCacheKeyFactory cacheKeyFactory
+    )
+        : this(documentStore, cacheInvalidationSink, cacheKeyFactory, new ProjectionCacheInvalidationTelemetry())
     {
     }
 
@@ -72,9 +82,9 @@ public sealed class TrackedEntityRegistrationStore(
             await session.StoreAsync(status, status.Id, cancellationToken);
 
         await session.SaveChangesAsync(cancellationToken);
-        await cacheInvalidationSink.InvalidateTagsAsync(
-            cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]),
-            cancellationToken);
+        var invalidationTags = cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
     }
 
     public async Task RegisterTokenAsync(
@@ -129,9 +139,9 @@ public sealed class TrackedEntityRegistrationStore(
             await session.StoreAsync(status, status.Id, cancellationToken);
 
         await session.SaveChangesAsync(cancellationToken);
-        await cacheInvalidationSink.InvalidateTagsAsync(
-            cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]),
-            cancellationToken);
+        var invalidationTags = cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
     }
 
     private static void ApplyRegistration(TrackedAddressDocument document, string address, string currentName, string requestedName)

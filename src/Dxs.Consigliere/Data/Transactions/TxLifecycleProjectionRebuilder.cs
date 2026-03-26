@@ -15,13 +15,24 @@ public sealed class TxLifecycleProjectionRebuilder(
     IDocumentStore documentStore,
     RavenObservationJournalReader journalReader,
     IProjectionCacheInvalidationSink cacheInvalidationSink,
-    IProjectionReadCacheKeyFactory cacheKeyFactory
+    IProjectionReadCacheKeyFactory cacheKeyFactory,
+    IProjectionCacheInvalidationTelemetry invalidationTelemetry
 )
 {
     private const int DefaultPageSize = 512;
 
     public TxLifecycleProjectionRebuilder(IDocumentStore documentStore, RavenObservationJournalReader journalReader)
-        : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+        : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory(), new ProjectionCacheInvalidationTelemetry())
+    {
+    }
+
+    public TxLifecycleProjectionRebuilder(
+        IDocumentStore documentStore,
+        RavenObservationJournalReader journalReader,
+        IProjectionCacheInvalidationSink cacheInvalidationSink,
+        IProjectionReadCacheKeyFactory cacheKeyFactory
+    )
+        : this(documentStore, journalReader, cacheInvalidationSink, cacheKeyFactory, new ProjectionCacheInvalidationTelemetry())
     {
     }
 
@@ -55,7 +66,10 @@ public sealed class TxLifecycleProjectionRebuilder(
             await session.SaveChangesAsync(cancellationToken);
 
             if (invalidationTags.Count > 0)
+            {
+                invalidationTelemetry.Record(invalidationTags);
                 await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+            }
         }
 
         return checkpoint;

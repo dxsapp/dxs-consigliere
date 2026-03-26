@@ -1,5 +1,7 @@
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Controllers;
+using Dxs.Consigliere.Data.Addresses;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Common.Cache;
 using Dxs.Infrastructure.Common;
@@ -95,7 +97,8 @@ public class OpsControllerTests
                     )
                 ])
             ,
-            new FakeProjectionReadCacheTelemetry()
+            new FakeProjectionReadCacheTelemetry(),
+            new FakeProjectionCacheRuntimeStatusReader()
         );
 
         var action = await controller.GetProviders(CancellationToken.None);
@@ -116,7 +119,7 @@ public class OpsControllerTests
     }
 
     [Fact]
-    public void GetProjectionCache_ReturnsProjectionCacheMetrics()
+    public async Task GetProjectionCache_ReturnsProjectionCacheMetrics()
     {
         var controller = new OpsController(
             Options.Create(new ConsigliereSourcesConfig()),
@@ -128,9 +131,10 @@ public class OpsControllerTests
             }),
             Options.Create(new AppConfig()),
             new FakeProviderCatalog([]),
-            new FakeProjectionReadCacheTelemetry());
+            new FakeProjectionReadCacheTelemetry(),
+            new FakeProjectionCacheRuntimeStatusReader());
 
-        var result = controller.GetProjectionCache();
+        var result = await controller.GetProjectionCache();
 
         var ok = Assert.IsType<OkObjectResult>(result);
         var payload = Assert.IsType<ProjectionCacheStatusResponse>(ok.Value);
@@ -141,6 +145,11 @@ public class OpsControllerTests
         Assert.Equal(5, payload.Misses);
         Assert.Equal(2, payload.InvalidatedTags);
         Assert.Equal(512, payload.MaxEntries);
+        Assert.Equal(3, payload.Invalidation.Calls);
+        Assert.Equal("address", payload.Invalidation.Domains[0].Domain);
+        Assert.Equal(12, payload.ProjectionLag.JournalTailSequence);
+        Assert.Equal(2, payload.ProjectionLag.Address.Lag);
+        Assert.Equal(5, payload.HistoryEnvelopeBackfill.PendingCount);
     }
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)
@@ -172,5 +181,33 @@ public class OpsControllerTests
                 4,
                 2,
                 1);
+    }
+
+    private sealed class FakeProjectionCacheRuntimeStatusReader : IProjectionCacheRuntimeStatusReader
+    {
+        public Task<ProjectionCacheRuntimeStatusSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(
+                new ProjectionCacheRuntimeStatusSnapshot(
+                    new ProjectionLagSnapshot(
+                        12,
+                        new ProjectionLagItemSnapshot("address", 10, 2),
+                        new ProjectionLagItemSnapshot("token", 11, 1),
+                        new ProjectionLagItemSnapshot("tx_lifecycle", 12, 0)),
+                    new ProjectionCacheInvalidationTelemetrySnapshot(
+                        3,
+                        7,
+                        DateTimeOffset.Parse("2026-03-26T18:00:00+00:00"),
+                        [
+                            new ProjectionCacheInvalidationDomainSnapshot("address", 2, 5, DateTimeOffset.Parse("2026-03-26T18:00:00+00:00")),
+                            new ProjectionCacheInvalidationDomainSnapshot("token", 1, 2, DateTimeOffset.Parse("2026-03-26T18:00:05+00:00"))
+                        ]),
+                    new AddressHistoryEnvelopeBackfillTelemetrySnapshot(
+                        16,
+                        14,
+                        2,
+                        5,
+                        123,
+                        DateTimeOffset.Parse("2026-03-26T18:01:00+00:00"),
+                        DateTimeOffset.Parse("2026-03-26T18:01:05+00:00"))));
     }
 }

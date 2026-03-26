@@ -112,7 +112,7 @@ public sealed class AddressHistoryProjectionReader(
             if (batch.Count == 0)
                 break;
 
-            if (batch.Any(x => !HasHistoryEnvelope(x)))
+            if (batch.Any(x => !AddressHistoryEnvelopeHelper.HasHistoryEnvelope(x)))
                 return null;
 
             foreach (var application in batch)
@@ -413,12 +413,6 @@ public sealed class AddressHistoryProjectionReader(
 
     private static bool ShouldProjectOutput(MetaTransaction.Output output)
         => output.Type is ScriptType.P2PKH or ScriptType.P2MPKH or ScriptType.P2STAS or ScriptType.DSTAS;
-
-    private static bool HasHistoryEnvelope(AddressProjectionAppliedTransactionDocument application)
-        => application.Timestamp.HasValue
-            && application.Height.HasValue
-            && application.ValidStasTx.HasValue
-            && application.TxFeeSatoshis.HasValue;
 
     private static IQueryable<AddressProjectionAppliedTransactionDocument> BuildApplicationQuery(
         Raven.Client.Documents.Session.IAsyncDocumentSession session,
