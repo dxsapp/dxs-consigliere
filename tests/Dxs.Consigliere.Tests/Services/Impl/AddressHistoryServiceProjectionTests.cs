@@ -226,6 +226,7 @@ public class AddressHistoryServiceProjectionTests : RavenTestDriver
                         Height = i + 1,
                         ValidStasTx = true,
                         TxFeeSatoshis = i,
+                        Note = $"note-{i}",
                         Credits =
                         [
                             CreateSnapshot(txId, 0, IssuerAddress, TokenId, 10 + i, ScriptType.P2STAS, $"script-{i}")

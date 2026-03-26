@@ -229,7 +229,9 @@ public sealed class TokenProjectionReader(
     }
 
     private static string GetProtocolType(MetaTransaction transaction)
-        => transaction.DstasSpendingType is not null || !string.IsNullOrWhiteSpace(transaction.DstasEventType)
+        => transaction.DstasSpendingType is not null
+            || !string.IsNullOrWhiteSpace(transaction.DstasEventType)
+            || (transaction.Outputs ?? []).Any(x => x.Type == Dxs.Bsv.Script.ScriptType.DSTAS)
             ? TokenProjectionProtocolType.Dstas
             : transaction.IsStas
                 ? TokenProjectionProtocolType.Stas

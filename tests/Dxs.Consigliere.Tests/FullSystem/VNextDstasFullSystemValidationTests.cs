@@ -31,6 +31,10 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
     private const string ConfiscationTxId = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
     private const string SwapTxId = "f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0";
     private const string SwapCancelTxId = "abababababababababababababababababababababababababababababababab";
+    private const string UnknownIssueTxId = "1212121212121212121212121212121212121212121212121212121212121212";
+    private const string UnknownTransferTxId = "3434343434343434343434343434343434343434343434343434343434343434";
+    private const string UnknownFreezeTxId = "5656565656565656565656565656565656565656565656565656565656565656";
+    private const string UnknownHolderAddress = "1dice8EMZmqKvrGE4Qc9bUFf9PX3xaYDp";
     private const string StableBlockHash = "1111111111111111111111111111111111111111111111111111111111111111";
     private const string StableTransferBlockHash = "2222222222222222222222222222222222222222222222222222222222222222";
     private const string UnstableBlockHash = "3333333333333333333333333333333333333333333333333333333333333333";
@@ -215,6 +219,115 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         Assert.Equal(4, swapCancelValidation.SpendingType);
     }
 
+    [Fact]
+    public async Task RootedDstasHistory_TrustedLifecycleRemainsCanonicalAcrossStateHistoryAndUtxos()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTrackedScopeAsync(store, [IssuerAddress, HolderAddress], [TokenId], rootedTokenTrustedRoots: [IssueTxId]);
+        await SeedTransactionAsync(store, CreateDstasIssue());
+        await SeedTransactionAsync(store, CreateDstasTransfer());
+        await SeedTransactionAsync(store, CreateDstasFreeze());
+        await SeedTransactionAsync(store, CreateDstasUnfreeze());
+
+        var txRebuilder = new TxLifecycleProjectionRebuilder(store, new RavenObservationJournalReader(store));
+        var addressRebuilder = new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store));
+        var tokenRebuilder = new TokenProjectionRebuilder(store, new RavenObservationJournalReader(store), addressRebuilder);
+        var tokenReader = new TokenProjectionReader(store);
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInBlock, IssueTxId, 1, StableBlockHash, 100));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInBlock, TransferTxId, 2, StableTransferBlockHash, 101));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInMempool, FreezeTxId, 3));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInMempool, UnfreezeTxId, 4));
+
+        var state = await tokenReader.LoadStateAsync(TokenId);
+        var history = await tokenReader.LoadHistoryAsync(TokenId);
+        var balances = await tokenReader.LoadBalancesAsync(TokenId);
+        var utxos = await tokenReader.LoadUtxosAsync(TokenId);
+
+        Assert.NotNull(state);
+        Assert.Equal(TokenProjectionProtocolType.Dstas, state!.ProtocolType);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, state.ValidationStatus);
+        Assert.Equal(50, state.TotalKnownSupply);
+        Assert.Equal(IssuerAddress, state.Issuer);
+        Assert.Equal(4, history.Count);
+        Assert.Equal([UnfreezeTxId, FreezeTxId, TransferTxId, IssueTxId], history.Select(x => x.TxId).ToArray());
+        Assert.Single(balances);
+        Assert.Equal(HolderAddress, balances[0].Address);
+        Assert.Equal(50, balances[0].Satoshis);
+        Assert.Single(utxos);
+        Assert.Equal(UnfreezeTxId, utxos[0].TxId);
+        Assert.Equal(HolderAddress, utxos[0].Address);
+    }
+
+    [Fact]
+    public async Task RootedDstasHistory_UnknownRootLifecycleIsExcludedButMarksValidationUnknown()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTrackedScopeAsync(
+            store,
+            [IssuerAddress, HolderAddress, UnknownHolderAddress],
+            [TokenId],
+            rootedTokenTrustedRoots: [IssueTxId]);
+        await SeedTransactionAsync(store, CreateDstasIssue());
+        await SeedTransactionAsync(store, CreateDstasTransfer());
+        await SeedTransactionAsync(store, CreateDstasFreeze());
+        await SeedTransactionAsync(store, CreateDstasUnfreeze());
+        await SeedTransactionAsync(store, CreateUnknownRootDstasIssue());
+        await SeedTransactionAsync(store, CreateUnknownRootDstasTransfer());
+        await SeedTransactionAsync(store, CreateUnknownRootDstasFreeze());
+
+        var txRebuilder = new TxLifecycleProjectionRebuilder(store, new RavenObservationJournalReader(store));
+        var addressRebuilder = new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store));
+        var tokenRebuilder = new TokenProjectionRebuilder(store, new RavenObservationJournalReader(store), addressRebuilder);
+        var tokenReader = new TokenProjectionReader(store);
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInBlock, IssueTxId, 1, StableBlockHash, 100));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInBlock, TransferTxId, 2, StableTransferBlockHash, 101));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInMempool, FreezeTxId, 3));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInMempool, UnfreezeTxId, 4));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInBlock, UnknownIssueTxId, 5, "4444444444444444444444444444444444444444444444444444444444444444", 103));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInMempool, UnknownTransferTxId, 6));
+        await AppendAndRebuildAsync(txJournal, txRebuilder, addressRebuilder, tokenRebuilder,
+            CreateTxObservation(TxObservationEventType.SeenInMempool, UnknownFreezeTxId, 7));
+
+        var state = await tokenReader.LoadStateAsync(TokenId);
+        var history = await tokenReader.LoadHistoryAsync(TokenId);
+        var balances = await tokenReader.LoadBalancesAsync(TokenId);
+        var utxos = await tokenReader.LoadUtxosAsync(TokenId);
+
+        Assert.NotNull(state);
+        Assert.Equal(TokenProjectionProtocolType.Dstas, state!.ProtocolType);
+        Assert.Equal(TokenProjectionValidationStatus.Unknown, state.ValidationStatus);
+        Assert.Equal(50, state.TotalKnownSupply);
+        Assert.Equal(IssuerAddress, state.Issuer);
+        Assert.Equal([UnfreezeTxId, FreezeTxId, TransferTxId, IssueTxId], history.Select(x => x.TxId).ToArray());
+        Assert.DoesNotContain(history, x => x.TxId is UnknownIssueTxId or UnknownTransferTxId or UnknownFreezeTxId);
+        Assert.Single(balances);
+        Assert.Equal(HolderAddress, balances[0].Address);
+        Assert.Equal(50, balances[0].Satoshis);
+        Assert.Single(utxos);
+        Assert.Equal(UnfreezeTxId, utxos[0].TxId);
+        Assert.DoesNotContain(utxos, x => x.TxId is UnknownIssueTxId or UnknownTransferTxId or UnknownFreezeTxId);
+    }
+
     private static TransactionQueryService BuildQueryService(IDocumentStore store)
         => new(
             store,
@@ -307,7 +420,46 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
             dstasOptionalDataContinuity: true,
             timestamp: DateTimeOffset.FromUnixTimeSeconds(1_710_000_600));
 
-    private static async Task SeedTrackedScopeAsync(IDocumentStore store, string[] trackedAddresses, string[] trackedTokenIds)
+    private static MetaTransaction CreateUnknownRootDstasIssue()
+        => CreateTransaction(
+            UnknownIssueTxId,
+            outputs: [CreateOutput(UnknownIssueTxId, 0, UnknownHolderAddress, TokenId, 70, ScriptType.DSTAS, "empty", false)],
+            isIssue: true,
+            isValidIssue: true,
+            redeemAddress: IssuerAddress,
+            timestamp: DateTimeOffset.FromUnixTimeSeconds(1_710_000_700));
+
+    private static MetaTransaction CreateUnknownRootDstasTransfer()
+        => CreateTransaction(
+            UnknownTransferTxId,
+            inputs: [CreateInput(UnknownIssueTxId, 0)],
+            outputs: [CreateOutput(UnknownTransferTxId, 0, UnknownHolderAddress, TokenId, 70, ScriptType.DSTAS, "swap", false)],
+            allStasInputsKnown: true,
+            illegalRoots: [],
+            dstasEventType: "swap",
+            dstasSpendingType: 1,
+            dstasOptionalDataContinuity: true,
+            timestamp: DateTimeOffset.FromUnixTimeSeconds(1_710_000_800));
+
+    private static MetaTransaction CreateUnknownRootDstasFreeze()
+        => CreateTransaction(
+            UnknownFreezeTxId,
+            inputs: [CreateInput(UnknownTransferTxId, 0)],
+            outputs: [CreateOutput(UnknownFreezeTxId, 0, UnknownHolderAddress, TokenId, 70, ScriptType.DSTAS, "freeze", true)],
+            allStasInputsKnown: true,
+            illegalRoots: [],
+            dstasEventType: "freeze",
+            dstasSpendingType: 2,
+            dstasInputFrozen: false,
+            dstasOutputFrozen: true,
+            dstasOptionalDataContinuity: true,
+            timestamp: DateTimeOffset.FromUnixTimeSeconds(1_710_000_900));
+
+    private static async Task SeedTrackedScopeAsync(
+        IDocumentStore store,
+        string[] trackedAddresses,
+        string[] trackedTokenIds,
+        string[]? rootedTokenTrustedRoots = null)
     {
         using var session = store.OpenAsyncSession();
         foreach (var address in trackedAddresses)
@@ -341,6 +493,7 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
 
         foreach (var tokenId in trackedTokenIds)
         {
+            var isRooted = rootedTokenTrustedRoots is { Length: > 0 };
             await session.StoreAsync(new TrackedTokenDocument
             {
                 Id = TrackedTokenDocument.GetId(tokenId),
@@ -352,7 +505,23 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
                 LifecycleStatus = TrackedEntityLifecycleStatus.Live,
                 Readable = true,
                 Authoritative = true,
-                Degraded = false
+                Degraded = false,
+                HistoryMode = isRooted ? TrackedEntityHistoryMode.FullHistory : TrackedEntityHistoryMode.ForwardOnly,
+                HistoryReadiness = isRooted ? TrackedEntityHistoryReadiness.FullHistoryLive : TrackedEntityHistoryReadiness.ForwardLive,
+                HistoryCoverage = new TrackedHistoryCoverage
+                {
+                    Mode = isRooted ? TrackedEntityHistoryMode.FullHistory : TrackedEntityHistoryMode.ForwardOnly,
+                    FullCoverage = isRooted,
+                    AuthoritativeFromBlockHeight = 100,
+                    AuthoritativeFromObservedAt = DateTimeOffset.Parse("2026-03-26T18:10:00Z").ToUnixTimeMilliseconds()
+                },
+                HistorySecurity = new TrackedTokenHistorySecurityState
+                {
+                    TrustedRoots = rootedTokenTrustedRoots ?? [],
+                    CompletedTrustedRootCount = rootedTokenTrustedRoots?.Length ?? 0,
+                    RootedHistorySecure = isRooted,
+                    BlockingUnknownRoot = false
+                }
             });
             await session.StoreAsync(new TrackedTokenStatusDocument
             {
@@ -364,7 +533,23 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
                 LifecycleStatus = TrackedEntityLifecycleStatus.Live,
                 Readable = true,
                 Authoritative = true,
-                Degraded = false
+                Degraded = false,
+                HistoryMode = isRooted ? TrackedEntityHistoryMode.FullHistory : TrackedEntityHistoryMode.ForwardOnly,
+                HistoryReadiness = isRooted ? TrackedEntityHistoryReadiness.FullHistoryLive : TrackedEntityHistoryReadiness.ForwardLive,
+                HistoryCoverage = new TrackedHistoryCoverage
+                {
+                    Mode = isRooted ? TrackedEntityHistoryMode.FullHistory : TrackedEntityHistoryMode.ForwardOnly,
+                    FullCoverage = isRooted,
+                    AuthoritativeFromBlockHeight = 100,
+                    AuthoritativeFromObservedAt = DateTimeOffset.Parse("2026-03-26T18:10:00Z").ToUnixTimeMilliseconds()
+                },
+                HistorySecurity = new TrackedTokenHistorySecurityState
+                {
+                    TrustedRoots = rootedTokenTrustedRoots ?? [],
+                    CompletedTrustedRootCount = rootedTokenTrustedRoots?.Length ?? 0,
+                    RootedHistorySecure = isRooted,
+                    BlockingUnknownRoot = false
+                }
             });
         }
 
