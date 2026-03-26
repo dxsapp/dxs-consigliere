@@ -27,6 +27,8 @@ public static class VNextStartupDiagnostics
             $"VNext primary source: {sources.Routing.PrimarySource ?? "(unset)"}",
             $"VNext fallback sources: {FormatList(sources.Routing.FallbackSources)}",
             $"VNext verification source: {sources.Routing.VerificationSource ?? "(unset)"}",
+            $"VNext historical address source: {sources.Capabilities.HistoricalAddressScan.Source ?? "(unset)"}",
+            $"VNext historical token source: {sources.Capabilities.HistoricalTokenScan.Source ?? "(unset)"}",
             $"VNext enabled providers: {FormatList(enabledProviders)}",
             $"VNext raw payload storage: {payloadStore}",
             $"VNext projection cache: {cacheStore}"

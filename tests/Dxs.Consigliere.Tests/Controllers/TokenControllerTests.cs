@@ -74,7 +74,10 @@ public class TokenControllerTests : RavenTestDriver
 
         var result = await controller.GetHistory(
             TokenId,
+            0,
             100,
+            true,
+            false,
             new TestNetworkProvider(),
             new TrackedEntityReadinessService(store),
             new TokenProjectionReader(store),

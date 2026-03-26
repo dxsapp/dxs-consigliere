@@ -22,6 +22,7 @@ public static class HostedTasksSetup
             .AddSingletonHostedService<BlockObservationJournalMirrorBackgroundTask>()
             .AddSingletonHostedService<ActualChainTipVerifyBackgroundTask>()
             .AddSingletonHostedService<AddressHistoryEnvelopeBackfillBackgroundTask>()
+            .AddSingletonHostedService<TrackedHistoryBackfillBackgroundTask>()
             .AddSingletonHostedService<StasAttributesMissingTransactions>()
             .AddSingletonHostedService<StasAttributesChangeObserverTask>()
             .AddSingletonHostedService<TxObservationJournalMirrorBackgroundTask>()

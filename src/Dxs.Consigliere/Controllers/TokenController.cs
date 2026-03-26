@@ -98,7 +98,10 @@ public class TokenController : BaseController
     [Produces(typeof(TokenHistoryResponse))]
     public async Task<IActionResult> GetHistory(
         string tokenId,
+        [FromQuery] int skip,
         [FromQuery] int take,
+        [FromQuery] bool desc,
+        [FromQuery] bool acceptPartialHistory,
         [FromServices] INetworkProvider networkProvider,
         [FromServices] ITrackedEntityReadinessService readinessService,
         [FromServices] TokenProjectionReader tokenProjectionReader,
@@ -107,7 +110,7 @@ public class TokenController : BaseController
     )
     {
         var normalizedTokenId = tokenId.EnsureValidTokenId(networkProvider.Network).Value;
-        var gate = await GetVNextScopeGateAsync(normalizedTokenId, readinessService, cancellationToken);
+        var gate = await readinessService.GetBlockingHistoryReadinessAsync([], [normalizedTokenId], acceptPartialHistory, cancellationToken);
         if (gate is not null)
             return Conflict(gate);
 
@@ -115,15 +118,19 @@ public class TokenController : BaseController
 
         var history = await tokenProjectionReader.LoadHistoryAsync(
             normalizedTokenId,
+            skip,
             take <= 0 ? 100 : Math.Min(take, 1000),
+            desc,
             cancellationToken
         );
+        var readiness = await readinessService.GetTokenReadinessAsync(normalizedTokenId, cancellationToken);
 
         return Ok(new TokenHistoryResponse
         {
             TokenId = normalizedTokenId,
             History = history.Select(TokenHistoryItemResponse.From).ToArray(),
-            TotalCount = history.Count
+            TotalCount = await tokenProjectionReader.CountHistoryAsync(normalizedTokenId, cancellationToken),
+            HistoryStatus = readiness.History
         });
     }
 

@@ -13,6 +13,7 @@ public static class TxObservationSource
 {
     public const string Node = "node";
     public const string JungleBus = "junglebus";
+    public const string Bitails = "bitails";
 }
 
 public sealed record TxObservation(

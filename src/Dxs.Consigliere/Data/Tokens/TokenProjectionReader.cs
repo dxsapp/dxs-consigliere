@@ -78,22 +78,44 @@ public sealed class TokenProjectionReader(
         string tokenId,
         int take = 100,
         CancellationToken cancellationToken = default
+    ) => await LoadHistoryAsync(tokenId, 0, take, true, cancellationToken);
+
+    public async Task<List<TokenHistoryProjectionDocument>> LoadHistoryAsync(
+        string tokenId,
+        int skip,
+        int take,
+        bool desc,
+        CancellationToken cancellationToken = default
     )
     {
-        var descriptor = cacheKeyFactory.CreateTokenHistory(tokenId, take);
+        var descriptor = cacheKeyFactory.CreateTokenHistory(tokenId, take, skip, desc);
         return await projectionReadCache.GetOrCreateAsync(
             descriptor.Key,
             CreateOptions(descriptor),
             async ct =>
             {
                 using var session = documentStore.GetNoCacheNoTrackingSession();
-                return await session.Query<TokenHistoryProjectionDocument>()
-                    .Where(x => x.TokenId == tokenId)
-                    .OrderByDescending(x => x.Timestamp)
+                var query = session.Query<TokenHistoryProjectionDocument>()
+                    .Where(x => x.TokenId == tokenId);
+
+                query = desc
+                    ? query.OrderByDescending(x => x.Timestamp)
+                    : query.OrderBy(x => x.Timestamp);
+
+                return await query
+                    .Skip(Math.Max(0, skip))
                     .Take(take)
                     .ToListAsync(token: ct);
             },
             cancellationToken);
+    }
+
+    public async Task<int> CountHistoryAsync(string tokenId, CancellationToken cancellationToken = default)
+    {
+        using var session = documentStore.GetNoCacheNoTrackingSession();
+        return await session.Query<TokenHistoryProjectionDocument>()
+            .Where(x => x.TokenId == tokenId)
+            .CountAsync(token: cancellationToken);
     }
 
     private static ProjectionCacheEntryOptions CreateOptions(ProjectionCacheDescriptor descriptor)

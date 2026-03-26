@@ -40,6 +40,12 @@ public class SourceCapabilitiesConfig
 
     [ConfigurationKeyName("validation_fetch")]
     public RoutedCapabilityOverrideConfig ValidationFetch { get; set; } = new();
+
+    [ConfigurationKeyName("historical_address_scan")]
+    public RoutedCapabilityOverrideConfig HistoricalAddressScan { get; set; } = new();
+
+    [ConfigurationKeyName("historical_token_scan")]
+    public RoutedCapabilityOverrideConfig HistoricalTokenScan { get; set; } = new();
 }
 
 public class BroadcastCapabilityOverrideConfig : RoutedCapabilityOverrideConfig

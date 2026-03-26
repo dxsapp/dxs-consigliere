@@ -11,4 +11,10 @@ public interface ITrackedEntityReadinessService
         IEnumerable<string> tokenIds,
         CancellationToken cancellationToken = default
     );
+    Task<TrackedEntityReadinessGateResponse> GetBlockingHistoryReadinessAsync(
+        IEnumerable<string> addresses,
+        IEnumerable<string> tokenIds,
+        bool acceptPartialHistory,
+        CancellationToken cancellationToken = default
+    );
 }

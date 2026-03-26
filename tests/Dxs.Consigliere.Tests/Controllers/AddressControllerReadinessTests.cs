@@ -1,3 +1,4 @@
+using Dxs.Bsv;
 using Dxs.Consigliere.Controllers;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses.Readiness;
@@ -48,8 +49,10 @@ public class AddressControllerReadinessTests
     public async Task HistoryReturnsPayloadWhenReadinessAllows()
     {
         var readiness = new Mock<ITrackedEntityReadinessService>();
-        readiness.Setup(x => x.GetBlockingReadinessAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()))
+        readiness.Setup(x => x.GetBlockingHistoryReadinessAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((TrackedEntityReadinessGateResponse)null!);
+        readiness.Setup(x => x.GetAddressReadinessAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TrackedEntityReadinessResponse());
 
         var history = new Mock<IAddressHistoryService>();
         history.Setup(x => x.GetHistory(It.IsAny<GetAddressHistoryRequest>()))
@@ -61,9 +64,15 @@ public class AddressControllerReadinessTests
             new GetAddressHistoryRequest("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", [], false, false, 0, 10),
             readiness.Object,
             history.Object,
+            new TestNetworkProvider(),
             CancellationToken.None
         );
 
         Assert.IsType<OkObjectResult>(result);
+    }
+
+    private sealed class TestNetworkProvider : INetworkProvider
+    {
+        public Dxs.Bsv.Network Network => Dxs.Bsv.Network.Mainnet;
     }
 }

@@ -1,5 +1,6 @@
 using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Cache;
+using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Data.Tracking;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Tests.Shared;
@@ -50,6 +51,7 @@ public class TrackedEntityReadinessCacheTests : RavenTestDriver
         Assert.Equal("live", live.LifecycleStatus);
         Assert.True(live.Readable);
         Assert.True(live.Authoritative);
+        Assert.Equal(TrackedEntityHistoryReadiness.ForwardLive, live.History.HistoryReadiness);
     }
 
     private static ServiceProvider CreateCacheServices()

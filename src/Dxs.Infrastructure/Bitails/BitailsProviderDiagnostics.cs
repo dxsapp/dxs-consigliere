@@ -13,7 +13,8 @@ public sealed class BitailsProviderDiagnostics : IExternalChainProviderDiagnosti
         [
             ExternalChainCapability.Broadcast,
             ExternalChainCapability.RawTxFetch,
-            ExternalChainCapability.ValidationFetch
+            ExternalChainCapability.ValidationFetch,
+            ExternalChainCapability.HistoricalAddressScan
         ],
         new ExternalChainRateLimitHint(
             RequestsPerMinute: 600,

@@ -113,6 +113,7 @@ public class AddressController : BaseController
         [FromQuery] string[] tokenIds,
         [FromQuery] bool desc,
         [FromQuery] bool skipZeroBalance,
+        [FromQuery] bool acceptPartialHistory,
         [FromQuery] int skip,
         [FromQuery] int take,
         [FromServices] INetworkProvider networkProvider,
@@ -121,21 +122,27 @@ public class AddressController : BaseController
         CancellationToken cancellationToken
     )
     {
-        var gate = await GetVNextScopeGateAsync(address, tokenIds ?? [], networkProvider, readinessService, cancellationToken);
+        var normalizedAddress = address.EnsureValidBsvAddress().Value;
+        var normalizedTokenIds = NormalizeTokenIds(tokenIds ?? [], networkProvider);
+        var gate = await readinessService.GetBlockingHistoryReadinessAsync(
+            [normalizedAddress],
+            normalizedTokenIds,
+            acceptPartialHistory,
+            cancellationToken);
         if (gate is not null)
             return Conflict(gate);
 
-        var normalizedAddress = address.EnsureValidBsvAddress().Value;
-        var normalizedTokenIds = NormalizeTokenIds(tokenIds ?? [], networkProvider);
-
-        return Ok(await addressHistoryService.GetHistory(new GetAddressHistoryRequest(
+        var response = await addressHistoryService.GetHistory(new GetAddressHistoryRequest(
             normalizedAddress,
             normalizedTokenIds,
             desc,
             skipZeroBalance,
             skip,
-            take <= 0 ? 100 : take
-        )));
+            take <= 0 ? 100 : take,
+            acceptPartialHistory
+        ));
+        response.HistoryStatus = (await readinessService.GetAddressReadinessAsync(normalizedAddress, cancellationToken)).History;
+        return Ok(response);
     }
 
     [HttpPost("balance")]
@@ -212,14 +219,27 @@ public class AddressController : BaseController
         [FromBody] GetAddressHistoryRequest request,
         [FromServices] ITrackedEntityReadinessService readinessService,
         [FromServices] IAddressHistoryService addressHistoryService,
+        [FromServices] INetworkProvider networkProvider,
         CancellationToken cancellationToken
     )
     {
-        var gate = await readinessService.GetBlockingReadinessAsync([request.Address], request.TokenIds ?? [], cancellationToken);
+        var normalizedAddress = request.Address.EnsureValidBsvAddress().Value;
+        var normalizedTokenIds = NormalizeTokenIds(request.TokenIds ?? [], networkProvider);
+        var gate = await readinessService.GetBlockingHistoryReadinessAsync(
+            [normalizedAddress],
+            normalizedTokenIds,
+            request.AcceptPartialHistory,
+            cancellationToken);
         if (gate is not null)
             return Conflict(gate);
 
-        return Ok(await addressHistoryService.GetHistory(request));
+        var response = await addressHistoryService.GetHistory(request with
+        {
+            Address = normalizedAddress,
+            TokenIds = normalizedTokenIds
+        });
+        response.HistoryStatus = (await readinessService.GetAddressReadinessAsync(normalizedAddress, cancellationToken)).History;
+        return Ok(response);
     }
 
     private static async Task<TrackedEntityReadinessGateResponse> GetVNextScopeGateAsync(

@@ -5,10 +5,12 @@ using Dxs.Bsv.Rpc.Services;
 using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models;
+using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Tracking;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
+using Dxs.Consigliere.Dto.Responses.History;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 
@@ -42,6 +44,8 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         [FromBody] WatchAddressRequest request,
         [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
+        [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
+        [FromServices] ITrackedEntityReadinessService readinessService,
         [FromServices] ITransactionFilter transactionFilter
     )
     {
@@ -50,8 +54,15 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
 
         try
         {
-            await trackedEntityRegistrationStore.RegisterAddressAsync(address.Value, request.Name);
+            var historyMode = NormalizeHistoryMode(request.HistoryPolicy?.Mode);
+            await trackedEntityRegistrationStore.RegisterAddressAsync(address.Value, request.Name, historyMode);
             await trackedEntityLifecycleOrchestrator.BeginTrackingAddressAsync(address.Value);
+            if (string.Equals(historyMode, HistoryPolicyMode.FullHistory, StringComparison.Ordinal))
+            {
+                await trackedEntityRegistrationStore.RequestAddressFullHistoryAsync(address.Value);
+                await trackedHistoryBackfillScheduler.QueueAddressFullHistoryAsync(address.Value);
+            }
+
             transactionFilter.ManageUtxoSetForAddress(address);
         }
         catch (Exception exception)
@@ -59,7 +70,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
             return InternalError(exception.Message);
         }
 
-        return Ok();
+        return Ok(await readinessService.GetAddressReadinessAsync(address.Value));
     }
 
     [HttpPost("manage/stas-token")]
@@ -69,6 +80,8 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         [FromBody] WatchStasTokenRequest request,
         [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
+        [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
+        [FromServices] ITrackedEntityReadinessService readinessService,
         [FromServices] ITransactionFilter transactionFilter
     )
     {
@@ -77,8 +90,15 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
 
         try
         {
-            await trackedEntityRegistrationStore.RegisterTokenAsync(tokenId.Value, request.Symbol);
+            var historyMode = NormalizeHistoryMode(request.HistoryPolicy?.Mode);
+            await trackedEntityRegistrationStore.RegisterTokenAsync(tokenId.Value, request.Symbol, historyMode);
             await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(tokenId.Value);
+            if (string.Equals(historyMode, HistoryPolicyMode.FullHistory, StringComparison.Ordinal))
+            {
+                await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(tokenId.Value);
+                await trackedHistoryBackfillScheduler.QueueTokenFullHistoryAsync(tokenId.Value);
+            }
+
             transactionFilter.ManageUtxoSetForToken(tokenId);
         }
         catch (Exception exception)
@@ -86,7 +106,141 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
             return InternalError(exception.Message);
         }
 
-        return Ok();
+        return Ok(await readinessService.GetTokenReadinessAsync(tokenId.Value));
+    }
+
+    [HttpPost("manage/address/{address}/history/full")]
+    [Produces(typeof(TrackedHistoryStatusResponse))]
+    public async Task<IActionResult> UpgradeAddressHistory(
+        string address,
+        [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
+        [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
+        [FromServices] ITrackedEntityReadinessService readinessService,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (!Address.TryParse(address, out var parsed))
+            return BadRequest($"Unable to parse Address: \"{address}\"");
+
+        if (!await trackedEntityRegistrationStore.RequestAddressFullHistoryAsync(parsed.Value, cancellationToken))
+            return Conflict(new { code = "not_tracked", entityId = parsed.Value });
+
+        await trackedEntityLifecycleOrchestrator.BeginTrackingAddressAsync(parsed.Value, cancellationToken);
+        await trackedHistoryBackfillScheduler.QueueAddressFullHistoryAsync(parsed.Value, cancellationToken);
+        var readiness = await readinessService.GetAddressReadinessAsync(parsed.Value, cancellationToken);
+        return Ok(readiness.History);
+    }
+
+    [HttpPost("manage/stas-token/{tokenId}/history/full")]
+    [Produces(typeof(TrackedHistoryStatusResponse))]
+    public async Task<IActionResult> UpgradeTokenHistory(
+        string tokenId,
+        [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
+        [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
+        [FromServices] ITrackedEntityReadinessService readinessService,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (!TokenId.TryParse(tokenId, networkProvider.Network, out var parsed))
+            return BadRequest($"Unable to parse TokenId: \"{tokenId}\"");
+
+        if (!await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(parsed.Value, cancellationToken))
+            return Conflict(new { code = "not_tracked", entityId = parsed.Value });
+
+        await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
+        await trackedHistoryBackfillScheduler.QueueTokenFullHistoryAsync(parsed.Value, cancellationToken);
+        var readiness = await readinessService.GetTokenReadinessAsync(parsed.Value, cancellationToken);
+        return Ok(readiness.History);
+    }
+
+    [HttpPost("manage/address/history/full")]
+    [Produces(typeof(BulkHistoryUpgradeResponse))]
+    public async Task<IActionResult> UpgradeAddressesHistory(
+        [FromBody] BulkAddressHistoryUpgradeRequest request,
+        [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
+        [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
+        [FromServices] ITrackedEntityReadinessService readinessService,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var items = new List<HistoryUpgradeItemResponse>();
+        foreach (var raw in request.Addresses.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal))
+        {
+            if (!Address.TryParse(raw, out var parsed))
+            {
+                items.Add(new HistoryUpgradeItemResponse { EntityId = raw, Accepted = false, MessageCode = "invalid_address" });
+                continue;
+            }
+
+            var accepted = await trackedEntityRegistrationStore.RequestAddressFullHistoryAsync(parsed.Value, cancellationToken);
+            if (accepted)
+            {
+                await trackedEntityLifecycleOrchestrator.BeginTrackingAddressAsync(parsed.Value, cancellationToken);
+                await trackedHistoryBackfillScheduler.QueueAddressFullHistoryAsync(parsed.Value, cancellationToken);
+            }
+
+            var readiness = await readinessService.GetAddressReadinessAsync(parsed.Value, cancellationToken);
+            items.Add(new HistoryUpgradeItemResponse
+            {
+                EntityId = parsed.Value,
+                Accepted = accepted,
+                MessageCode = accepted
+                    ? (string.Equals(readiness.History?.HistoryReadiness, TrackedEntityHistoryReadiness.FullHistoryLive, StringComparison.Ordinal)
+                        ? "already_full_history_live"
+                        : "started")
+                    : "not_tracked",
+                History = readiness.History
+            });
+        }
+
+        return Ok(new BulkHistoryUpgradeResponse { Items = items.ToArray() });
+    }
+
+    [HttpPost("manage/stas-token/history/full")]
+    [Produces(typeof(BulkHistoryUpgradeResponse))]
+    public async Task<IActionResult> UpgradeTokensHistory(
+        [FromBody] BulkTokenHistoryUpgradeRequest request,
+        [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
+        [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
+        [FromServices] ITrackedEntityReadinessService readinessService,
+        CancellationToken cancellationToken = default
+    )
+    {
+        var items = new List<HistoryUpgradeItemResponse>();
+        foreach (var raw in request.TokenIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal))
+        {
+            if (!TokenId.TryParse(raw, networkProvider.Network, out var parsed))
+            {
+                items.Add(new HistoryUpgradeItemResponse { EntityId = raw, Accepted = false, MessageCode = "invalid_token_id" });
+                continue;
+            }
+
+            var accepted = await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(parsed.Value, cancellationToken);
+            if (accepted)
+            {
+                await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
+                await trackedHistoryBackfillScheduler.QueueTokenFullHistoryAsync(parsed.Value, cancellationToken);
+            }
+
+            var readiness = await readinessService.GetTokenReadinessAsync(parsed.Value, cancellationToken);
+            items.Add(new HistoryUpgradeItemResponse
+            {
+                EntityId = parsed.Value,
+                Accepted = accepted,
+                MessageCode = accepted
+                    ? (string.Equals(readiness.History?.HistoryReadiness, TrackedEntityHistoryReadiness.FullHistoryLive, StringComparison.Ordinal)
+                        ? "already_full_history_live"
+                        : "started")
+                    : "not_tracked",
+                History = readiness.History
+            });
+        }
+
+        return Ok(new BulkHistoryUpgradeResponse { Items = items.ToArray() });
     }
 
     [HttpGet("blockchain/sync-status")]
@@ -154,4 +308,9 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
             HasMore = ids.Count == take
         });
     }
+
+    private static string NormalizeHistoryMode(string mode)
+        => string.Equals(mode, HistoryPolicyMode.FullHistory, StringComparison.OrdinalIgnoreCase)
+            ? HistoryPolicyMode.FullHistory
+            : HistoryPolicyMode.ForwardOnly;
 }

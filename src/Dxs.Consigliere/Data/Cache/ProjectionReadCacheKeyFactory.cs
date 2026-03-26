@@ -14,7 +14,7 @@ public interface IProjectionReadCacheKeyFactory
     ProjectionCacheDescriptor CreateTokenState(string normalizedTokenId);
     ProjectionCacheDescriptor CreateTokenUtxos(string normalizedTokenId);
     ProjectionCacheDescriptor CreateTokenBalances(string normalizedTokenId);
-    ProjectionCacheDescriptor CreateTokenHistory(string normalizedTokenId, int take);
+    ProjectionCacheDescriptor CreateTokenHistory(string normalizedTokenId, int take, int skip = 0, bool desc = true);
     ProjectionCacheDescriptor CreateTxLifecycle(string normalizedTxId);
     ProjectionCacheDescriptor CreateTrackedAddressReadiness(string normalizedAddress);
     ProjectionCacheDescriptor CreateTrackedTokenReadiness(string normalizedTokenId);
@@ -73,9 +73,9 @@ public sealed class ProjectionReadCacheKeyFactory : IProjectionReadCacheKeyFacto
             new ProjectionCacheKey($"token-balances|token={normalizedTokenId}"),
             [TokenBalanceTag(normalizedTokenId)]);
 
-    public ProjectionCacheDescriptor CreateTokenHistory(string normalizedTokenId, int take)
+    public ProjectionCacheDescriptor CreateTokenHistory(string normalizedTokenId, int take, int skip = 0, bool desc = true)
         => new(
-            new ProjectionCacheKey($"token-history|token={normalizedTokenId}|take={take}"),
+            new ProjectionCacheKey($"token-history|token={normalizedTokenId}|skip={skip}|take={take}|desc={desc}"),
             [TokenHistoryTag(normalizedTokenId)]);
 
     public ProjectionCacheDescriptor CreateTxLifecycle(string normalizedTxId)

@@ -7,6 +7,7 @@ public record GetAddressHistoryRequest(
     string[] TokenIds,
     bool Desc,
     bool SkipZeroBalance,
-    [Required] int Skip,
-    [Required] int Take
+    [Required] int Skip = 0,
+    [Required] int Take = 100,
+    bool AcceptPartialHistory = false
 ) : PageRequest(Skip, Take, Desc);

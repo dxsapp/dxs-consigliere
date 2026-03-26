@@ -1,3 +1,4 @@
+using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -11,5 +12,8 @@ public static class IndexerOrchestrationSetup
     )
         => services
             .AddTransient<JungleBusBlockchainDataProvider>()
-            .AddTransient<NodeBlockchainDataProvider>();
+            .AddTransient<NodeBlockchainDataProvider>()
+            .AddSingleton<ITrackedHistoryBackfillScheduler, TrackedHistoryBackfillScheduler>()
+            .AddTransient<HistoricalAddressBackfillRunner>()
+            .AddTransient<HistoricalTokenBackfillRunner>();
 }

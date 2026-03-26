@@ -109,6 +109,8 @@ public static class SourceCapabilityRouting
             ExternalChainCapability.BlockBackfill => capabilities.BlockBackfill,
             ExternalChainCapability.RawTxFetch => capabilities.RawTxFetch,
             ExternalChainCapability.ValidationFetch => capabilities.ValidationFetch,
+            ExternalChainCapability.HistoricalAddressScan => capabilities.HistoricalAddressScan,
+            ExternalChainCapability.HistoricalTokenScan => capabilities.HistoricalTokenScan,
             _ => null
         };
 
@@ -191,6 +193,8 @@ public static class SourceCapabilityRouting
             ExternalChainCapability.Broadcast => NodeProvider,
             ExternalChainCapability.ValidationFetch => NodeProvider,
             ExternalChainCapability.RawTxFetch => ExternalChainProviderName.WhatsOnChain,
+            ExternalChainCapability.HistoricalAddressScan => ExternalChainProviderName.Bitails,
+            ExternalChainCapability.HistoricalTokenScan => NodeProvider,
             _ => NodeProvider
         };
 
@@ -201,6 +205,7 @@ public static class SourceCapabilityRouting
             ExternalChainCapability.Broadcast => [ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain],
             ExternalChainCapability.RawTxFetch => [ExternalChainProviderName.Bitails],
             ExternalChainCapability.ValidationFetch => [ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain],
+            ExternalChainCapability.HistoricalAddressScan => [ExternalChainProviderName.WhatsOnChain],
             _ => []
         };
 

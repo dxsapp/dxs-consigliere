@@ -75,6 +75,16 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
         ValidateCapabilitySources(options.Capabilities.ValidationFetch.FallbackSources, "capabilities.validation_fetch.fallbackSources", errors);
         ValidateEnabledProviderReferences(options.Capabilities.ValidationFetch.FallbackSources, "capabilities.validation_fetch.fallbackSources", providerStates, errors);
 
+        ValidateCapabilityReference(options.Capabilities.HistoricalAddressScan.Source, "capabilities.historical_address_scan.source", errors);
+        ValidateEnabledProviderReference(options.Capabilities.HistoricalAddressScan.Source, "capabilities.historical_address_scan.source", providerStates, errors);
+        ValidateCapabilitySources(options.Capabilities.HistoricalAddressScan.FallbackSources, "capabilities.historical_address_scan.fallbackSources", errors);
+        ValidateEnabledProviderReferences(options.Capabilities.HistoricalAddressScan.FallbackSources, "capabilities.historical_address_scan.fallbackSources", providerStates, errors);
+
+        ValidateCapabilityReference(options.Capabilities.HistoricalTokenScan.Source, "capabilities.historical_token_scan.source", errors);
+        ValidateEnabledProviderReference(options.Capabilities.HistoricalTokenScan.Source, "capabilities.historical_token_scan.source", providerStates, errors);
+        ValidateCapabilitySources(options.Capabilities.HistoricalTokenScan.FallbackSources, "capabilities.historical_token_scan.fallbackSources", errors);
+        ValidateEnabledProviderReferences(options.Capabilities.HistoricalTokenScan.FallbackSources, "capabilities.historical_token_scan.fallbackSources", providerStates, errors);
+
         if (!string.IsNullOrWhiteSpace(options.Capabilities.Broadcast.Mode)
             && !string.Equals(options.Capabilities.Broadcast.Mode, "single", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(options.Capabilities.Broadcast.Mode, "multi", StringComparison.OrdinalIgnoreCase))

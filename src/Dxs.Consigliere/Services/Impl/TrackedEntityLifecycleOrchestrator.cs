@@ -1,9 +1,12 @@
 using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Cache;
+using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Extensions;
 
 using Raven.Client.Documents;
+using Raven.Client.Documents.Linq;
+using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
@@ -28,20 +31,158 @@ public sealed class TrackedEntityLifecycleOrchestrator(
     {
     }
 
-    public Task BeginTrackingAddressAsync(string address, CancellationToken cancellationToken = default)
+    public async Task BeginTrackingAddressAsync(string address, CancellationToken cancellationToken = default)
+    {
+        using var session = documentStore.GetSession();
+        var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), cancellationToken)
+            ?? throw new InvalidOperationException($"Tracked address `{address}` not found");
+        var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), cancellationToken)
+            ?? throw new InvalidOperationException($"Tracked address status `{address}` not found");
+
+        ApplyBoundaryInitialization(status, await GetAnchorBlockHeightAsync(session, cancellationToken));
+        SyncSnapshot(tracked, status);
+        status.SetUpdate();
+        tracked.SetUpdate();
+
+        await session.SaveChangesAsync(cancellationToken);
+        await InvalidateTrackedAddressAsync(address, cancellationToken);
+    }
+
+    public async Task BeginTrackingTokenAsync(string tokenId, CancellationToken cancellationToken = default)
+    {
+        using var session = documentStore.GetSession();
+        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken)
+            ?? throw new InvalidOperationException($"Tracked token `{tokenId}` not found");
+        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken)
+            ?? throw new InvalidOperationException($"Tracked token status `{tokenId}` not found");
+
+        ApplyBoundaryInitialization(status, await GetAnchorBlockHeightAsync(session, cancellationToken));
+        SyncSnapshot(tracked, status);
+        status.SetUpdate();
+        tracked.SetUpdate();
+
+        await session.SaveChangesAsync(cancellationToken);
+        await InvalidateTrackedTokenAsync(tokenId, cancellationToken);
+    }
+
+    public Task MarkAddressHistoryBackfillQueuedAsync(string address, CancellationToken cancellationToken = default)
         => MutateAddressAsync(address, document =>
         {
-            document.BackfillStartedAt ??= Now();
-            document.RealtimeAttachedAt ??= Now();
-            document.FailureReason = null;
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Queued;
+            document.HistoryBackfillRequestedAt ??= Now();
+            document.HistoryBackfillErrorCode = null;
+            ApplyFullHistoryReadiness(document);
         }, cancellationToken);
 
-    public Task BeginTrackingTokenAsync(string tokenId, CancellationToken cancellationToken = default)
+    public Task MarkTokenHistoryBackfillQueuedAsync(string tokenId, CancellationToken cancellationToken = default)
         => MutateTokenAsync(tokenId, document =>
         {
-            document.BackfillStartedAt ??= Now();
-            document.RealtimeAttachedAt ??= Now();
-            document.FailureReason = null;
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Queued;
+            document.HistoryBackfillRequestedAt ??= Now();
+            document.HistoryBackfillErrorCode = null;
+            ApplyFullHistoryReadiness(document);
+        }, cancellationToken);
+
+    public Task MarkAddressHistoryBackfillRunningAsync(string address, CancellationToken cancellationToken = default)
+        => MutateAddressAsync(address, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Running;
+            document.HistoryBackfillRequestedAt ??= Now();
+            document.HistoryBackfillStartedAt ??= Now();
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillErrorCode = null;
+            ApplyFullHistoryReadiness(document);
+        }, cancellationToken);
+
+    public Task MarkTokenHistoryBackfillRunningAsync(string tokenId, CancellationToken cancellationToken = default)
+        => MutateTokenAsync(tokenId, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Running;
+            document.HistoryBackfillRequestedAt ??= Now();
+            document.HistoryBackfillStartedAt ??= Now();
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillErrorCode = null;
+            ApplyFullHistoryReadiness(document);
+        }, cancellationToken);
+
+    public Task UpdateAddressHistoryBackfillProgressAsync(
+        string address,
+        int itemsScanned,
+        int itemsApplied,
+        int? oldestCoveredBlockHeight,
+        CancellationToken cancellationToken = default
+    )
+        => MutateAddressAsync(address, document => UpdateHistoryBackfillProgress(document, itemsScanned, itemsApplied, oldestCoveredBlockHeight), cancellationToken);
+
+    public Task UpdateTokenHistoryBackfillProgressAsync(
+        string tokenId,
+        int itemsScanned,
+        int itemsApplied,
+        int? oldestCoveredBlockHeight,
+        CancellationToken cancellationToken = default
+    )
+        => MutateTokenAsync(tokenId, document => UpdateHistoryBackfillProgress(document, itemsScanned, itemsApplied, oldestCoveredBlockHeight), cancellationToken);
+
+    public Task MarkAddressHistoryBackfillWaitingRetryAsync(string address, string errorCode, CancellationToken cancellationToken = default)
+        => MutateAddressAsync(address, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.WaitingRetry;
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillErrorCode = errorCode;
+            ApplyFullHistoryReadiness(document);
+        }, cancellationToken);
+
+    public Task MarkTokenHistoryBackfillWaitingRetryAsync(string tokenId, string errorCode, CancellationToken cancellationToken = default)
+        => MutateTokenAsync(tokenId, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.WaitingRetry;
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillErrorCode = errorCode;
+            ApplyFullHistoryReadiness(document);
+        }, cancellationToken);
+
+    public Task MarkAddressHistoryBackfillCompletedAsync(string address, CancellationToken cancellationToken = default)
+        => MutateAddressAsync(address, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Completed;
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillCompletedAt = Now();
+            document.HistoryBackfillErrorCode = null;
+            document.HistoryReadiness = TrackedEntityHistoryReadiness.FullHistoryLive;
+            document.HistoryCoverage ??= new TrackedHistoryCoverage();
+            document.HistoryCoverage.Mode = TrackedEntityHistoryMode.FullHistory;
+            document.HistoryCoverage.FullCoverage = true;
+        }, cancellationToken);
+
+    public Task MarkTokenHistoryBackfillCompletedAsync(string tokenId, CancellationToken cancellationToken = default)
+        => MutateTokenAsync(tokenId, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Completed;
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillCompletedAt = Now();
+            document.HistoryBackfillErrorCode = null;
+            document.HistoryReadiness = TrackedEntityHistoryReadiness.FullHistoryLive;
+            document.HistoryCoverage ??= new TrackedHistoryCoverage();
+            document.HistoryCoverage.Mode = TrackedEntityHistoryMode.FullHistory;
+            document.HistoryCoverage.FullCoverage = true;
+        }, cancellationToken);
+
+    public Task MarkAddressHistoryBackfillFailedAsync(string address, string errorCode, CancellationToken cancellationToken = default)
+        => MutateAddressAsync(address, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Failed;
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillErrorCode = errorCode;
+            document.HistoryReadiness = TrackedEntityHistoryReadiness.Degraded;
+        }, cancellationToken);
+
+    public Task MarkTokenHistoryBackfillFailedAsync(string tokenId, string errorCode, CancellationToken cancellationToken = default)
+        => MutateTokenAsync(tokenId, document =>
+        {
+            document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Failed;
+            document.HistoryBackfillLastProgressAt = Now();
+            document.HistoryBackfillErrorCode = errorCode;
+            document.HistoryReadiness = TrackedEntityHistoryReadiness.Degraded;
         }, cancellationToken);
 
     public Task MarkAddressBackfillCompletedAsync(string address, CancellationToken cancellationToken = default)
@@ -96,6 +237,12 @@ public sealed class TrackedEntityLifecycleOrchestrator(
             document.DegradedAt = null;
             document.IntegritySafe = null;
             document.FailureReason = null;
+            if (string.Equals(document.HistoryReadiness, TrackedEntityHistoryReadiness.Degraded, StringComparison.Ordinal))
+            {
+                document.HistoryReadiness = string.Equals(document.HistoryMode, TrackedEntityHistoryMode.FullHistory, StringComparison.Ordinal)
+                    ? TrackedEntityHistoryReadiness.BackfillingFullHistory
+                    : TrackedEntityHistoryReadiness.ForwardLive;
+            }
         }, cancellationToken);
 
     public Task RecoverTokenAsync(string tokenId, CancellationToken cancellationToken = default)
@@ -104,6 +251,12 @@ public sealed class TrackedEntityLifecycleOrchestrator(
             document.DegradedAt = null;
             document.IntegritySafe = null;
             document.FailureReason = null;
+            if (string.Equals(document.HistoryReadiness, TrackedEntityHistoryReadiness.Degraded, StringComparison.Ordinal))
+            {
+                document.HistoryReadiness = string.Equals(document.HistoryMode, TrackedEntityHistoryMode.FullHistory, StringComparison.Ordinal)
+                    ? TrackedEntityHistoryReadiness.BackfillingFullHistory
+                    : TrackedEntityHistoryReadiness.ForwardLive;
+            }
         }, cancellationToken);
 
     private async Task MutateAddressAsync(
@@ -125,9 +278,7 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
-        var invalidationTags = cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]);
-        invalidationTelemetry.Record(invalidationTags);
-        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+        await InvalidateTrackedAddressAsync(address, cancellationToken);
     }
 
     private async Task MutateTokenAsync(
@@ -149,18 +300,66 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
-        var invalidationTags = cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]);
-        invalidationTelemetry.Record(invalidationTags);
-        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+        await InvalidateTrackedTokenAsync(tokenId, cancellationToken);
+    }
+
+    private static void ApplyBoundaryInitialization(TrackedEntityStatusDocumentBase document, int? anchorBlockHeight)
+    {
+        var now = Now();
+        document.BackfillStartedAt ??= now;
+        document.BackfillCompletedAt ??= now;
+        document.RealtimeAttachedAt ??= now;
+        document.GapClosedAt ??= now;
+        document.HistoryAnchorBlockHeight ??= anchorBlockHeight;
+        document.HistoryAnchorObservedAt ??= now;
+        document.HistoryCoverage ??= new TrackedHistoryCoverage();
+        document.HistoryCoverage.Mode = document.HistoryMode;
+        document.HistoryCoverage.AuthoritativeFromBlockHeight ??= anchorBlockHeight;
+        document.HistoryCoverage.AuthoritativeFromObservedAt ??= now;
+        document.HistoryCoverage.FullCoverage = string.Equals(document.HistoryMode, TrackedEntityHistoryMode.FullHistory, StringComparison.Ordinal)
+            && string.Equals(document.HistoryReadiness, TrackedEntityHistoryReadiness.FullHistoryLive, StringComparison.Ordinal);
+        document.HistoryReadiness = string.Equals(document.HistoryMode, TrackedEntityHistoryMode.FullHistory, StringComparison.Ordinal)
+            ? TrackedEntityHistoryReadiness.BackfillingFullHistory
+            : TrackedEntityHistoryReadiness.ForwardLive;
+        document.FailureReason = null;
+        Evaluate(document);
+    }
+
+    private static void UpdateHistoryBackfillProgress(
+        TrackedEntityStatusDocumentBase document,
+        int itemsScanned,
+        int itemsApplied,
+        int? oldestCoveredBlockHeight
+    )
+    {
+        document.HistoryBackfillStatus = HistoryBackfillExecutionStatus.Running;
+        document.HistoryBackfillStartedAt ??= Now();
+        document.HistoryBackfillLastProgressAt = Now();
+        document.HistoryBackfillItemsScanned = itemsScanned;
+        document.HistoryBackfillItemsApplied = itemsApplied;
+        document.HistoryBackfillErrorCode = null;
+        document.HistoryCoverage ??= new TrackedHistoryCoverage();
+        document.HistoryCoverage.Mode = TrackedEntityHistoryMode.FullHistory;
+        if (oldestCoveredBlockHeight.HasValue)
+            document.HistoryCoverage.AuthoritativeFromBlockHeight = oldestCoveredBlockHeight.Value;
+        document.HistoryCoverage.AuthoritativeFromObservedAt ??= document.HistoryAnchorObservedAt ?? Now();
+        ApplyFullHistoryReadiness(document);
+    }
+
+    private static void ApplyFullHistoryReadiness(TrackedEntityStatusDocumentBase document)
+    {
+        document.HistoryMode = TrackedEntityHistoryMode.FullHistory;
+        document.HistoryCoverage ??= new TrackedHistoryCoverage();
+        document.HistoryCoverage.Mode = TrackedEntityHistoryMode.FullHistory;
+        if (!string.Equals(document.HistoryReadiness, TrackedEntityHistoryReadiness.FullHistoryLive, StringComparison.Ordinal))
+            document.HistoryReadiness = TrackedEntityHistoryReadiness.BackfillingFullHistory;
     }
 
     private static void Evaluate(TrackedEntityStatusDocumentBase document)
     {
         if (document.DegradedAt is not null)
         {
-            var ready = document.BackfillCompletedAt is not null
-                && document.RealtimeAttachedAt is not null
-                && document.GapClosedAt is not null;
+            var ready = document.RealtimeAttachedAt is not null && document.GapClosedAt is not null;
             var integritySafe = document.IntegritySafe == true;
 
             document.LifecycleStatus = TrackedEntityLifecycleStatus.Degraded;
@@ -172,21 +371,11 @@ public sealed class TrackedEntityLifecycleOrchestrator(
 
         document.Degraded = false;
 
-        if (document.BackfillCompletedAt is not null
-            && document.RealtimeAttachedAt is not null
-            && document.GapClosedAt is not null)
+        if (document.RealtimeAttachedAt is not null && document.GapClosedAt is not null)
         {
             document.LifecycleStatus = TrackedEntityLifecycleStatus.Live;
             document.Readable = true;
             document.Authoritative = true;
-            return;
-        }
-
-        if (document.BackfillCompletedAt is not null)
-        {
-            document.LifecycleStatus = TrackedEntityLifecycleStatus.CatchingUp;
-            document.Readable = false;
-            document.Authoritative = false;
             return;
         }
 
@@ -212,6 +401,17 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.Degraded = status.Degraded;
         tracked.LagBlocks = status.LagBlocks;
         tracked.Progress = status.Progress;
+        tracked.HistoryMode = status.HistoryMode;
+        tracked.HistoryReadiness = status.HistoryReadiness;
+        tracked.HistoryCoverage = status.HistoryCoverage?.Clone();
+        tracked.HistoryBackfillStatus = status.HistoryBackfillStatus;
+        tracked.HistoryBackfillRequestedAt = status.HistoryBackfillRequestedAt;
+        tracked.HistoryBackfillStartedAt = status.HistoryBackfillStartedAt;
+        tracked.HistoryBackfillLastProgressAt = status.HistoryBackfillLastProgressAt;
+        tracked.HistoryBackfillCompletedAt = status.HistoryBackfillCompletedAt;
+        tracked.HistoryBackfillItemsScanned = status.HistoryBackfillItemsScanned;
+        tracked.HistoryBackfillItemsApplied = status.HistoryBackfillItemsApplied;
+        tracked.HistoryBackfillErrorCode = status.HistoryBackfillErrorCode;
         tracked.IsTombstoned = status.IsTombstoned;
         tracked.TombstonedAt = status.TombstonedAt;
     }
@@ -225,8 +425,40 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.Degraded = status.Degraded;
         tracked.LagBlocks = status.LagBlocks;
         tracked.Progress = status.Progress;
+        tracked.HistoryMode = status.HistoryMode;
+        tracked.HistoryReadiness = status.HistoryReadiness;
+        tracked.HistoryCoverage = status.HistoryCoverage?.Clone();
+        tracked.HistoryBackfillStatus = status.HistoryBackfillStatus;
+        tracked.HistoryBackfillRequestedAt = status.HistoryBackfillRequestedAt;
+        tracked.HistoryBackfillStartedAt = status.HistoryBackfillStartedAt;
+        tracked.HistoryBackfillLastProgressAt = status.HistoryBackfillLastProgressAt;
+        tracked.HistoryBackfillCompletedAt = status.HistoryBackfillCompletedAt;
+        tracked.HistoryBackfillItemsScanned = status.HistoryBackfillItemsScanned;
+        tracked.HistoryBackfillItemsApplied = status.HistoryBackfillItemsApplied;
+        tracked.HistoryBackfillErrorCode = status.HistoryBackfillErrorCode;
         tracked.IsTombstoned = status.IsTombstoned;
         tracked.TombstonedAt = status.TombstonedAt;
+    }
+
+    private async Task<int?> GetAnchorBlockHeightAsync(IAsyncDocumentSession session, CancellationToken cancellationToken)
+        => await session.Query<BlockProcessContext>()
+            .Where(x => x.Height != 0)
+            .OrderByDescending(x => x.Height)
+            .Select(x => (int?)x.Height)
+            .FirstOrDefaultAsync(cancellationToken);
+
+    private async Task InvalidateTrackedAddressAsync(string address, CancellationToken cancellationToken)
+    {
+        var invalidationTags = cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+    }
+
+    private async Task InvalidateTrackedTokenAsync(string tokenId, CancellationToken cancellationToken)
+    {
+        var invalidationTags = cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
     }
 
     private static long Now() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
