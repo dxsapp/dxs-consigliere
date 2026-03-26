@@ -11,12 +11,23 @@ public interface IWalletServer
 {
     #region Address
 
-    Task<List<BalanceDto>> GetBalance(BalanceRequest request, IUtxoManager utxoManager);
+    Task<List<BalanceDto>> GetBalance(
+        BalanceRequest request,
+        ITrackedEntityReadinessService readinessService,
+        IUtxoManager utxoManager
+    );
 
-    Task<AddressHistoryResponse> GetHistory(GetAddressHistoryRequest request,
-        IAddressHistoryService addressHistoryService);
+    Task<AddressHistoryResponse> GetHistory(
+        GetAddressHistoryRequest request,
+        ITrackedEntityReadinessService readinessService,
+        IAddressHistoryService addressHistoryService
+    );
 
-    Task<GetUtxoSetResponse> GetUtxoSet(GetUtxoSetRequest request, IUtxoManager utxoManager);
+    Task<GetUtxoSetResponse> GetUtxoSet(
+        GetUtxoSetRequest request,
+        ITrackedEntityReadinessService readinessService,
+        IUtxoManager utxoManager
+    );
 
     #endregion
 

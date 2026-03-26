@@ -341,7 +341,7 @@ public sealed class VNextFullSystemBenchmarkHarness : RavenTestDriver
 
     private static string IssueTxId(int index) => (index * 2).ToString("x64");
     private static string TransferTxId(int index) => (index * 2 + 1).ToString("x64");
-    private static string TokenId(int index) => (index + 4096).ToString("x64");
+    private static string TokenId(int index) => (index + 4096).ToString("x40");
     private static string BlockHash(int index) => (index + 8192).ToString("x64");
     private static string IssuerAddress(int index) => $"issuer-{index:x4}";
     private static string ReceiverAddress(int index) => $"receiver-{index:x4}";

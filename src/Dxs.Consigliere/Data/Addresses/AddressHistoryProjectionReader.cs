@@ -1,0 +1,238 @@
+using Dxs.Bsv.Script;
+using Dxs.Consigliere.Data.Models.Addresses;
+using Dxs.Consigliere.Data.Models.History;
+using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Dto;
+using Dxs.Consigliere.Dto.Requests;
+using Dxs.Consigliere.Dto.Responses;
+using Dxs.Consigliere.Extensions;
+using Dxs.Consigliere.Services;
+
+using Raven.Client.Documents;
+using Raven.Client.Documents.Linq;
+
+namespace Dxs.Consigliere.Data.Addresses;
+
+internal sealed class AddressHistoryProjectionReader(
+    IDocumentStore documentStore,
+    INetworkProvider networkProvider
+)
+{
+    private const int MaxTake = 100;
+
+    public async Task<AddressHistoryResponse> GetHistory(
+        GetAddressHistoryRequest request,
+        CancellationToken cancellationToken = default
+    )
+    {
+        if (request.Take > MaxTake)
+            throw new Exception($"Requested page is too big, max per request: {MaxTake} < {request.Take}");
+
+        var address = request.Address.EnsureValidBsvAddress();
+        var tokenSelection = NormalizeTokenSelection(request.TokenIds);
+
+        using var session = documentStore.GetNoCacheNoTrackingSession();
+
+        var applications = await session.Query<AddressProjectionAppliedTransactionDocument>()
+            .Where(x =>
+                x.Credits.Any(y => y.Address == address.Value)
+                || x.Debits.Any(y => y.Address == address.Value))
+            .ToListAsync(token: cancellationToken);
+
+        if (applications.Count == 0 || tokenSelection.IsEmpty)
+        {
+            return new AddressHistoryResponse
+            {
+                History = [],
+                TotalCount = 0
+            };
+        }
+
+        var txIds = applications
+            .Select(x => x.TxId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var transactions = await session.LoadAsync<MetaTransaction>(txIds, cancellationToken);
+        var transactionLookup = transactions.Values
+            .Where(x => x is not null)
+            .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
+
+        var inputIds = transactionLookup.Values
+            .SelectMany(x => x.Inputs ?? [])
+            .Select(x => x.Id)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var inputOutputs = inputIds.Length == 0
+            ? new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase)
+            : (await session.LoadAsync<MetaOutput>(inputIds, cancellationToken))
+                .Values
+                .Where(x => x is not null)
+                .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
+
+        var rows = new List<AddressHistory>();
+        foreach (var application in applications)
+        {
+            if (!transactionLookup.TryGetValue(application.TxId, out var transaction))
+                continue;
+
+            if (!TryBuildRows(
+                    address.Value,
+                    request.SkipZeroBalance,
+                    tokenSelection,
+                    application,
+                    transaction,
+                    inputOutputs,
+                    rows))
+            {
+                continue;
+            }
+        }
+
+        var ordered = request.Desc
+            ? rows.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.TxId, StringComparer.OrdinalIgnoreCase)
+            : rows.OrderBy(x => x.Timestamp).ThenBy(x => x.TxId, StringComparer.OrdinalIgnoreCase);
+
+        var paged = ordered
+            .Skip(request.Skip)
+            .Take(request.Take <= 0 ? MaxTake : request.Take)
+            .ToArray();
+
+        return new AddressHistoryResponse
+        {
+            History = paged.Select(AddressHistoryDto.From).ToArray(),
+            TotalCount = rows.Count
+        };
+    }
+
+    private bool TryBuildRows(
+        string address,
+        bool skipZeroBalance,
+        TokenSelection tokenSelection,
+        AddressProjectionAppliedTransactionDocument application,
+        MetaTransaction transaction,
+        IReadOnlyDictionary<string, MetaOutput> inputOutputs,
+        List<AddressHistory> rows
+    )
+    {
+        if (transaction.Inputs?.Count > 0 && inputOutputs.Count < transaction.Inputs.Count)
+            return false;
+
+        var totalSpentSatoshis = transaction.Inputs?
+            .Select(x => inputOutputs.TryGetValue(x.Id, out var output) ? output.Satoshis : 0)
+            .Sum() ?? 0;
+        var totalReceivedSatoshis = (transaction.Outputs ?? [])
+            .Where(ShouldProjectOutput)
+            .Sum(x => x.Satoshis);
+        var totalFeeSatoshis = totalSpentSatoshis - totalReceivedSatoshis;
+
+        var fromAddresses = transaction.Inputs?
+            .Select(x => inputOutputs.TryGetValue(x.Id, out var output) ? output.Address : null)
+            .Where(x => !string.IsNullOrWhiteSpace(x) && !string.Equals(x, address, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+
+        var toAddresses = (transaction.Outputs ?? [])
+            .Where(ShouldProjectOutput)
+            .Select(x => x.Address)
+            .Where(x => !string.IsNullOrWhiteSpace(x) && !string.Equals(x, address, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(16)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tokenId in tokenSelection.CandidateTokenIds)
+        {
+            var spent = application.Debits
+                .Where(x => MatchesToken(x.TokenId, tokenId) && string.Equals(x.Address, address, StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Satoshis);
+
+            var received = application.Credits
+                .Where(x => MatchesToken(x.TokenId, tokenId) && string.Equals(x.Address, address, StringComparison.OrdinalIgnoreCase))
+                .Sum(x => x.Satoshis);
+
+            if (spent == 0 && received == 0)
+                continue;
+
+            var history = new AddressHistory
+            {
+                Address = address,
+                TokenId = tokenId,
+                TxId = transaction.Id,
+                ScriptType = GetScriptType(application, tokenId),
+                Timestamp = transaction.Timestamp,
+                Height = transaction.Height,
+                ValidStasTx = transaction.IsIssue
+                    ? transaction.IsValidIssue
+                    : !transaction.IllegalRoots.Any(),
+                SpentSatoshis = spent,
+                ReceivedSatoshis = received,
+                BalanceSatoshis = received - spent,
+                TxFeeSatoshis = totalFeeSatoshis,
+                Note = transaction.Note,
+                Side = 0,
+                FromAddresses = fromAddresses,
+                ToAddresses = toAddresses
+            };
+
+            if (skipZeroBalance && history.BalanceSatoshis == 0)
+                continue;
+
+            rows.Add(history);
+        }
+
+        return true;
+    }
+
+    private TokenSelection NormalizeTokenSelection(string[]? tokenIds)
+    {
+        if (tokenIds is null)
+            return new TokenSelection([null]);
+
+        var tokenSelection = new HashSet<string?>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tokenId in tokenIds)
+        {
+            if (string.IsNullOrWhiteSpace(tokenId))
+                continue;
+
+            if (tokenId.Equals("bsv", StringComparison.InvariantCultureIgnoreCase))
+            {
+                tokenSelection.Add(null);
+                continue;
+            }
+
+            tokenSelection.Add(tokenId.EnsureValidTokenId(networkProvider.Network).Value);
+        }
+
+        return new TokenSelection(tokenSelection.ToArray());
+    }
+
+    private static ScriptType GetScriptType(AddressProjectionAppliedTransactionDocument application, string? tokenId)
+    {
+        var debit = application.Debits.FirstOrDefault(x => MatchesToken(x.TokenId, tokenId));
+        if (debit is not null)
+            return debit.ScriptType;
+
+        var credit = application.Credits.FirstOrDefault(x => MatchesToken(x.TokenId, tokenId));
+        if (credit is not null)
+            return credit.ScriptType;
+
+        return ScriptType.P2PKH;
+    }
+
+    private static bool MatchesToken(string? actualTokenId, string? requestedTokenId)
+        => string.IsNullOrWhiteSpace(requestedTokenId)
+            ? string.IsNullOrWhiteSpace(actualTokenId)
+            : string.Equals(actualTokenId, requestedTokenId, StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldProjectOutput(MetaTransaction.Output output)
+        => output.Type is ScriptType.P2PKH or ScriptType.P2MPKH or ScriptType.P2STAS or ScriptType.DSTAS;
+
+    private readonly record struct TokenSelection(string?[] CandidateTokenIds)
+    {
+        public bool IsEmpty => CandidateTokenIds.Length == 0;
+    }
+}

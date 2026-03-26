@@ -5,7 +5,7 @@ using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Script.Read;
 using Dxs.Common.Extensions;
-using Dxs.Consigliere.Data.Indexes;
+using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Models.History;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
@@ -15,8 +15,6 @@ using Dxs.Consigliere.Extensions;
 using Microsoft.Extensions.Logging;
 
 using Raven.Client.Documents;
-using Raven.Client.Documents.Linq;
-using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
@@ -26,6 +24,7 @@ public class AddressHistoryService : IAddressHistoryService, IDisposable
     private readonly IConnectionManager _connectionManager;
     private readonly INetworkProvider _networkProvider;
     private readonly ILogger _logger;
+    private readonly AddressHistoryProjectionReader _projectionReader;
 
     private readonly IDisposable _subscription;
 
@@ -41,86 +40,17 @@ public class AddressHistoryService : IAddressHistoryService, IDisposable
         _connectionManager = connectionManager;
         _networkProvider = networkProvider;
         _logger = logger;
+        _projectionReader = new AddressHistoryProjectionReader(documentStore, networkProvider);
 
         _subscription = filteredTransactionMessageBus.SubscribeAsync(OnTransactionFound, OnTransactionFoundError);
     }
 
     public async Task<AddressHistoryResponse> GetHistory(GetAddressHistoryRequest request)
-    {
-        using var session = _documentStore.GetNoCacheNoTrackingSession();
-
-        return await GetHistory(session, request);
-    }
+        => await _projectionReader.GetHistory(request);
 
     public void Dispose()
     {
         _subscription?.Dispose();
-    }
-
-    #region pvt.
-
-    private async Task<AddressHistoryResponse> GetHistory(IAsyncDocumentSession session, GetAddressHistoryRequest request)
-    {
-        if (request.Take > 100)
-            throw new Exception($"Requested page is too big, max per request: {100} < {request.Take}");
-
-        var address = request.Address.EnsureValidBsvAddress();
-
-        List<TokenId> tokenIds = null;
-        var bsvTokenRequested = false;
-
-        if (request.TokenIds != null)
-        {
-            tokenIds = [];
-            foreach (var tokenIdStr in request.TokenIds)
-            {
-                if (tokenIdStr.Equals("bsv", StringComparison.InvariantCultureIgnoreCase))
-                {
-                    bsvTokenRequested = true;
-                    continue;
-                }
-
-                tokenIds.Add(tokenIdStr.EnsureValidTokenId(_networkProvider.Network));
-            }
-        }
-
-        var result = new AddressHistoryResponse();
-        var query = session
-            .Query<AddressHistory, AddressHistoryIndex>()
-            .Statistics(out var statistics);
-
-        query = query.Where(x => x.Address == address.Value);
-
-        if (tokenIds == null)
-        {
-            query = query.Where(x => x.TokenId == null);
-        }
-        else
-        {
-            var tokenValues = tokenIds
-                .Select(x => x.Value)
-                .ToList();
-            query = bsvTokenRequested
-                ? query.Where(x => x.TokenId.In(tokenValues) || x.TokenId == null)
-                : query.Where(x => x.TokenId.In(tokenValues));
-        }
-
-        if (request.SkipZeroBalance)
-            query = query.Where(x => x.BalanceSatoshis != 0);
-
-        query = request.Desc
-            ? query.OrderByDescending(x => x.Timestamp)
-            : query.OrderBy(x => x.Timestamp);
-
-        var data = await query
-            .Skip(request.Skip)
-            .Take(request.Take)
-            .ToListAsync();
-
-        result.History = data.Select(AddressHistoryDto.From).ToArray();
-        result.TotalCount = (int)statistics.TotalResults;
-
-        return result;
     }
 
     private async Task OnTransactionFound(FilteredTransactionMessage message)
@@ -177,7 +107,4 @@ public class AddressHistoryService : IAddressHistoryService, IDisposable
     {
         return null;
     }
-
-    #endregion
-
 }

@@ -13,12 +13,24 @@ using Dxs.Consigliere.Services.Impl;
 using Dxs.Tests.Shared;
 
 using Raven.Client.Documents;
+using Raven.Embedded;
 using Raven.TestDriver;
 
 namespace Dxs.Consigliere.Tests.Notifications;
 
 public class ManagedScopeRealtimeNotifierTests : RavenTestDriver
 {
+    static ManagedScopeRealtimeNotifierTests()
+    {
+        ConfigureServer(new TestServerOptions
+        {
+            Licensing = new ServerOptions.LicensingOptions
+            {
+                ThrowOnInvalidOrMissingLicense = false
+            }
+        });
+    }
+
     private const string Address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
     private const string TokenId = "1111111111111111111111111111111111111111";
     private const string TxId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

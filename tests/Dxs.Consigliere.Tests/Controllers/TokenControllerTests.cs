@@ -14,6 +14,7 @@ using Dxs.Tests.Shared;
 
 using Microsoft.AspNetCore.Mvc;
 
+using Raven.Embedded;
 using Raven.Client.Documents;
 using Raven.TestDriver;
 
@@ -21,6 +22,17 @@ namespace Dxs.Consigliere.Tests.Controllers;
 
 public class TokenControllerTests : RavenTestDriver
 {
+    static TokenControllerTests()
+    {
+        ConfigureServer(new TestServerOptions
+        {
+            Licensing = new ServerOptions.LicensingOptions
+            {
+                ThrowOnInvalidOrMissingLicense = false
+            }
+        });
+    }
+
     private const string TokenId = "1111111111111111111111111111111111111111";
 
     [Fact]

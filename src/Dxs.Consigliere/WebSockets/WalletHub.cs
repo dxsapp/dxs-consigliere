@@ -3,6 +3,7 @@ using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
+using Dxs.Consigliere.Dto.Responses.Readiness;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 
@@ -53,16 +54,38 @@ public class WalletHub(
 
     #region Address
 
-    public Task<List<BalanceDto>> GetBalance(BalanceRequest request, [FromServices] IUtxoManager utxoManager)
-        => utxoManager.GetBalance(request);
+    public async Task<List<BalanceDto>> GetBalance(
+        BalanceRequest request,
+        [FromServices] ITrackedEntityReadinessService readinessService,
+        [FromServices] IUtxoManager utxoManager
+    )
+    {
+        await EnsureReadableAsync(request.Addresses ?? [], request.TokenIds ?? [], readinessService);
+        return await utxoManager.GetBalance(request);
+    }
 
-    public Task<AddressHistoryResponse> GetHistory(
+    public async Task<AddressHistoryResponse> GetHistory(
         GetAddressHistoryRequest request,
+        [FromServices] ITrackedEntityReadinessService readinessService,
         [FromServices] IAddressHistoryService addressHistoryService
-    ) => addressHistoryService.GetHistory(request);
+    )
+    {
+        await EnsureReadableAsync([request.Address], request.TokenIds ?? [], readinessService);
+        return await addressHistoryService.GetHistory(request);
+    }
 
-    public Task<GetUtxoSetResponse> GetUtxoSet(GetUtxoSetRequest request, [FromServices] IUtxoManager utxoManager)
-        => utxoManager.GetUtxoSet(request);
+    public async Task<GetUtxoSetResponse> GetUtxoSet(
+        GetUtxoSetRequest request,
+        [FromServices] ITrackedEntityReadinessService readinessService,
+        [FromServices] IUtxoManager utxoManager
+    )
+    {
+        var addresses = string.IsNullOrWhiteSpace(request.Address) ? [] : new[] { request.Address };
+        var tokenIds = string.IsNullOrWhiteSpace(request.TokenId) ? [] : new[] { request.TokenId };
+
+        await EnsureReadableAsync(addresses, tokenIds, readinessService);
+        return await utxoManager.GetUtxoSet(request);
+    }
 
     #endregion
 
@@ -111,4 +134,24 @@ public class WalletHub(
 
     #endregion
 
+    private static async Task EnsureReadableAsync(
+        IEnumerable<string> addresses,
+        IEnumerable<string> tokenIds,
+        ITrackedEntityReadinessService readinessService
+    )
+    {
+        var gate = await readinessService.GetBlockingReadinessAsync(addresses, tokenIds);
+        if (gate is null)
+            return;
+
+        throw new InvalidOperationException(BuildReadinessMessage(gate));
+    }
+
+    private static string BuildReadinessMessage(TrackedEntityReadinessGateResponse gate)
+        => gate.Code switch
+        {
+            "not_tracked" => "tracked scope is required before reading this stream",
+            "scope_not_ready" => "tracked scope is not live yet",
+            _ => "tracked scope is not readable"
+        };
 }

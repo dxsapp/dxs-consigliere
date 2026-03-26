@@ -1,21 +1,25 @@
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Interfaces;
+using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.WebSockets;
 
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Services.Impl;
 
 public sealed class TransactionNotificationDispatcher(
     IHubContext<WalletHub, IWalletHub> appContext,
     IAppCache<ConnectionManager> cache,
+    IOptions<AppConfig> appConfig,
     ILogger<TransactionNotificationDispatcher> logger
 )
 {
     private static readonly TimeSpan TxNotificationDelay = TimeSpan.FromSeconds(5);
     private const string DeletedTransactionsStreamGroupName = "deleted-transactions";
+    private readonly bool _legacyPushEnabled = !VNextCutoverMode.IsJournalFirst(appConfig.Value.VNextRuntime.CutoverMode);
 
     public Task SubscribeToTransactionStream(string connectionId, string address)
         => appContext.Groups.AddToGroupAsync(connectionId, address.EnsureValidBsvAddress().Value);
@@ -30,13 +34,18 @@ public sealed class TransactionNotificationDispatcher(
         => appContext.Groups.RemoveFromGroupAsync(connectionId, DeletedTransactionsStreamGroupName);
 
     public Task OnAddressBalanceChanged(string address)
-        => Throttle(address, () => appContext.Clients.Group(address).OnBalanceChanged(null));
+        => !_legacyPushEnabled
+            ? Task.CompletedTask
+            : Throttle(address, () => appContext.Clients.Group(address).OnBalanceChanged(null));
 
     public Task OnTransactionDeleted(string transactionId)
         => appContext.Clients.Group(DeletedTransactionsStreamGroupName).OnTransactionDeleted(transactionId);
 
     public async Task OnTransactionFound(FilteredTransactionMessage message)
     {
+        if (!_legacyPushEnabled)
+            return;
+
         try
         {
             await Throttle(

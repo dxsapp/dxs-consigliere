@@ -21,7 +21,7 @@ public class VNextFullSystemValidationTests : RavenTestDriver
 {
     private const string IssuerAddress = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
     private const string ReceiverAddress = "1KFHE7w8BhaENAswwryaoccDb6qcT6DbYY";
-    private const string TokenId = "1111111111111111111111111111111111111111111111111111111111111111";
+    private const string TokenId = "1111111111111111111111111111111111111111";
     private const string IssueTxId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     private const string TransferTxId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     private const string BlockHash = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";

@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave I: Packaging, Cutover, And Validation`
-- Critical-path slice: `S32`
+- Critical-path slice: `S33`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -50,6 +50,7 @@
 | S29 | verification-and-conformance | operator/verification | done | S26,S27,S28 | `vstest:VNextFullSystemValidationTests` + `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | vnext has measured correctness and throughput evidence for replay, reorg, and soak flows under the bounded full-system harness |
 | S30 | indexer-state-and-storage | operator/state | done | S26,S29 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TransactionStoreIntegrationTests` | legacy `TransactionStore` no longer relies on per-output/per-input patch fanout to persist compatibility state |
 | S31 | indexer-ingest-orchestration | operator/runtime | done | S30 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TxObservationJournalMirrorBackgroundTaskTests|BlockObservationJournalMirrorBackgroundTaskTests|TransactionFilterJournalFirstTests` | tx/block observations enter the journal inline in journal-first modes while legacy and mirror modes preserve rollback-safe fallback semantics |
+| S32 | public-api-and-realtime | operator/api | done | S31 | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:WalletHubCutoverTests|TransactionNotificationDispatcherTests|ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests|AddressHistoryServiceProjectionTests + vstest:VNextFullSystemValidationTests + vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | public reads and realtime now default to projection-backed vnext semantics, with journal-first modes suppressing legacy push callbacks while preserving compatibility lanes |
 
 ## Open Handoffs
 
@@ -105,6 +106,7 @@
 | 2026-03-26 | S30 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:TransactionStoreIntegrationTests` | legacy transaction persistence now batches raw/meta/output mutations in one Raven session and preserves `NotModified`/delete compatibility semantics without per-doc patch fanout |
 | 2026-03-26 | S31 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:TxObservationJournalMirrorBackgroundTaskTests|BlockObservationJournalMirrorBackgroundTaskTests|TransactionFilterJournalFirstTests` | journal-first ingest cutover now writes tx/block observations inline in journal-first modes while keeping rollback-safe legacy mirror fallbacks |
 | 2026-03-26 | A5 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A5.md` | cutover safety, rollback viability, and operator ergonomics passed with watch-only follow-ups and no blocking remediation |
+| 2026-03-26 | S32 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:WalletHubCutoverTests|TransactionNotificationDispatcherTests|ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests|AddressHistoryServiceProjectionTests + build:Dxs.Consigliere.Benchmarks(useapphost=false) + vstest:VNextFullSystemValidationTests|VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | address history now reads from projection-backed state, websocket reads enforce readiness, and journal-first modes default clients to vnext realtime envelopes without losing compatibility-only delete callbacks |
 
 ## Audit Gates
 
@@ -134,14 +136,14 @@
 | `GET /api/address/{address}/state` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `GET /api/address/{address}/balances` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `GET /api/address/{address}/utxos` | additive vnext route | projection-backed | additive-first | no | done in S26 |
-| `GET /api/address/{address}/history` | additive vnext route | compatibility wrapper over current history service | additive-first | yes, if wrapper is retired | done in S26 |
+| `GET /api/address/{address}/history` | additive vnext route | projection-backed | additive-first | yes, if route shape changes | done in S32 |
 | `GET /api/token/{tokenId}/state` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `GET /api/token/{tokenId}/balances` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `GET /api/token/{tokenId}/utxos` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `GET /api/token/{tokenId}/history` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `POST /api/tx/broadcast/{raw}` | broadcast route exists | preserve route, evolve semantics | preserve route, improve lifecycle semantics | yes, if route or body changes | seeded |
 | `GET /api/tx/stas/validate/{id}` | STAS validation route exists | preserve route | preserve and strengthen semantics | yes | seeded |
-| SignalR tx/balance events | existing realtime callbacks | additive-first evolution plus `OnRealtimeEvent` envelope and token subscriptions | preserve where cheap | yes, if event shape breaks consumers | done in S27 |
+| SignalR tx/balance events | existing realtime callbacks | journal-first modes default to `OnRealtimeEvent` lifecycle/readiness envelopes while compatibility delete callbacks remain available | preserve where cheap | yes, if event shape breaks consumers | done in S32 |
 
 ## Performance Notes
 
@@ -189,12 +191,14 @@
   - `S29`
   - `S30`
   - `S31`
+  - `S32`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
   - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
-  - additive `GET /api/address/{address}/history` still delegates to the existing history service; full projection-backed address history remains a follow-up concern for later cutover waves
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
-- Next slice to open: `S32`
+  - projection-backed address history currently materializes address-scoped applied transactions and shapes rows in-memory; this is bounded for managed selective scope, but it should be revisited if history pages or tracked scope become materially larger
+  - journal-first modes suppress legacy `OnTransactionFound` and `OnBalanceChanged` push callbacks by default, but `OnTransactionDeleted` remains a compatibility-only stream until the final packaging wave decides whether to retire it
+- Next slice to open: `S33`
