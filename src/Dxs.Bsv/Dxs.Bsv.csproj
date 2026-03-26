@@ -5,6 +5,7 @@
         <Nullable>disable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <RootNamespace>Dxs.Bsv</RootNamespace>
+        <DefineConstants>$(DefineConstants);HAS_SPAN</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>

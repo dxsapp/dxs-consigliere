@@ -4,7 +4,7 @@
 
 - Parent task: add a native BSV-profiled interpreter to reproduce current STAS/DSTAS script-valid truth locally
 - Branch: `codex/consigliere-vnext`
-- Current status: `planned`
+- Current status: `blocked`
 - Slice plan: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-wave/slices.md`
 - Launch prompt: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-wave/launch-prompt.md`
 - Architectural context:
@@ -42,14 +42,14 @@ Target outcome:
 
 | slice | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|
-| `I01-task-package` | `operator/governance` | `todo` | - | docs review | durable interpreter package is opened and routed correctly |
-| `I02-execution-contracts` | `operator/protocol` | `todo` | `I01-task-package` | build + contract tests | evaluation contracts exist for policy, results, and prevout resolution |
-| `I03-vm-core` | `operator/protocol` | `todo` | `I02-execution-contracts` | unit tests | stack machine core exists with deterministic failure model |
-| `I04-opcode-surface` | `operator/protocol` | `todo` | `I03-vm-core` | opcode tests | repo-needed push, control, stack, and comparison/script opcodes execute correctly |
-| `I05-signature-engine` | `operator/protocol` | `todo` | `I03-vm-core`,`I04-opcode-surface` | crypto/signature tests | sighash, `CHECKSIG`, and `CHECKMULTISIG` work for repo-needed BSV profile |
-| `I06-input-evaluation` | `operator/protocol` | `todo` | `I05-signature-engine` | input-pair tests | unlocking + locking evaluation works against resolved prevouts |
-| `I07-transaction-api` | `operator/protocol` | `todo` | `I06-input-evaluation` | tx-level tests | stable transaction-level evaluation API returns deterministic results |
-| `I08-oracle-parity` | `operator/verification` | `todo` | `I07-transaction-api` | parity suites | native interpreter matches current deterministic oracle on vendored truth fixtures |
+| `I01-task-package` | `operator/governance` | `done` | - | docs review | durable interpreter package is opened and routed correctly |
+| `I02-execution-contracts` | `operator/protocol` | `done` | `I01-task-package` | build + contract tests | evaluation contracts exist for policy, results, and prevout resolution |
+| `I03-vm-core` | `operator/protocol` | `in_progress` | `I02-execution-contracts` | unit tests | stack machine core exists with deterministic failure model |
+| `I04-opcode-surface` | `operator/protocol` | `in_progress` | `I03-vm-core` | opcode tests | repo-needed push, control, stack, and comparison/script opcodes execute correctly |
+| `I05-signature-engine` | `operator/protocol` | `in_progress` | `I03-vm-core`,`I04-opcode-surface` | crypto/signature tests | sighash, `CHECKSIG`, and `CHECKMULTISIG` work for repo-needed BSV profile |
+| `I06-input-evaluation` | `operator/protocol` | `in_progress` | `I05-signature-engine` | input-pair tests | unlocking + locking evaluation works against resolved prevouts |
+| `I07-transaction-api` | `operator/protocol` | `in_progress` | `I06-input-evaluation` | tx-level tests | stable transaction-level evaluation API returns deterministic results |
+| `I08-oracle-parity` | `operator/verification` | `blocked` | `I07-transaction-api` | parity suites | native interpreter matches current deterministic oracle on vendored truth fixtures |
 | `I09-negative-paths` | `operator/verification` | `todo` | `I08-oracle-parity` | negative suites | invalid STAS/DSTAS flows fail locally with deterministic reasons |
 | `I10-lifecycle-adoption` | `operator/verification` | `todo` | `I08-oracle-parity`,`I09-negative-paths` | lifecycle packs | conformance, protocol-owner, multisig, and lifecycle packs pass through native interpreter |
 | `I11-public-api-and-docs` | `operator/protocol` | `todo` | `I10-lifecycle-adoption` | API/docs review | public evaluation API and usage docs are stable and discoverable |
@@ -77,9 +77,16 @@ Stop downstream slices and open remediation before continuing when any of the fo
 - `CHECKMULTISIG` and sighash correctness can hide subtle drift for a long time
 - parity packs can create false confidence if they skip known negative or edge cases
 - there is a temptation to blur execution truth and protocol business meaning in DSTAS-heavy paths
+- current STAS/DSTAS locking scripts depend on restored BSV opcodes that the imported evaluator still rejects or does not implement
 
 ## Evidence Log
 
 | date | slice | type | path_or_commit | note |
 |---|---|---|---|---|
 | 2026-03-27 | kickoff | task-package | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-wave/master.md` | durable native interpreter package opened |
+| 2026-03-27 | `I02-I07` | commit | `36af2b3` | task package committed before execution started |
+| 2026-03-27 | `I02-I07` | implementation | worktree | repo-owned interpreter groundwork added under `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/**` and solution still builds |
+| 2026-03-27 | `I08` | probe | local smoke | conformance-vector smoke still fails on restored BSV opcode surface, first visible as `DisabledOpCode` on STAS inputs |
+| 2026-03-27 | `I05` | remediation | worktree | `BsvSignatureHashComputer` no longer reverses `NBitcoin` prevout hashes a second time; this removed a concrete preimage mismatch on `transfer_regular_valid` |
+| 2026-03-27 | `I04-I05` | remediation | worktree | `OP_BIN2NUM` parity was loosened to mirror SDK-style normalize-and-continue behavior and multisig op-count was raised from legacy `201` to repo BSV script limits |
+| 2026-03-27 | `I08` | blocker | local smoke | positive vendored DSTAS vectors still diverge by reaching executed `OP_RETURN` branches after the preimage/numeric fixes, which indicates remaining conditional-execution parity drift rather than missing baseline opcodes |
