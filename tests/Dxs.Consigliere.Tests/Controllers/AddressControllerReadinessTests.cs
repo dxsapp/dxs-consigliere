@@ -40,7 +40,7 @@ public class AddressControllerReadinessTests
         var conflict = Assert.IsType<ObjectResult>(result);
         Assert.Equal(409, conflict.StatusCode);
         var payload = Assert.IsType<TrackedEntityReadinessGateResponse>(conflict.Value);
-        Assert.Equal("not_ready", payload.Code);
+        Assert.Equal("scope_not_ready", payload.Code);
         Assert.Single(payload.Entities);
     }
 

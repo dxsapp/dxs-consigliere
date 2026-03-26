@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave H: Core Business Projections`
-- Critical-path slice: `S26`
+- Critical-path slice: `S27`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -44,6 +44,7 @@
 | S23 | verification-and-conformance | operator/verification | done | S20,S21,S22 | cascade/reorg tests + token lineage benchmark evidence | explicit token lineage path has worst-case correctness and throughput evidence and is ready for A3 audit review |
 | S24 | indexer-state-and-storage | operator/state | done | S18,S22,S23 | address projection integration tests + `build:Dxs.Consigliere` | address balances and UTXOs now rebuild from journal-driven mutation facts and can be served without the legacy Raven hot mutation indexes |
 | S25 | indexer-state-and-storage | operator/state | done | S24 | token projection integration tests + `build:Dxs.Consigliere` | token state, token history, and token-centric UTXO/stats reads now rebuild from journal-driven state instead of legacy implicit STAS index semantics |
+| S26 | public-api-and-realtime | operator/api | done | S24,S25 | controller projection tests + `build:Dxs.Consigliere` | additive address/token GET surfaces now read from vnext projections with strict readiness gating while legacy POST routes remain controlled compatibility wrappers |
 
 ## Open Handoffs
 
@@ -89,6 +90,7 @@
 | 2026-03-26 | A3 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | token lineage correctness, dependency discipline, and storm performance passed without remediation |
 | 2026-03-26 | S24 | validation | `tests:AddressProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | journal-driven address balance and UTXO projection landed with stored debit/credit mutation facts, service read-path cutover, and revert coverage after legacy tx deletion |
 | 2026-03-26 | S25 | validation | `tests:TokenProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | token state and history now rebuild from journal facts while token-centric UTXO and token stats read from the new projection path instead of legacy STAS indexes |
+| 2026-03-26 | S26 | validation | `tests:AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive address/token GET endpoints now expose projection-backed state with `not_tracked` and `scope_not_ready` readiness semantics while legacy POST reads remain intact |
 
 ## Audit Gates
 
@@ -114,6 +116,14 @@
 | `GET /api/tx/get/{id}` | return raw tx hex for known tx | preserve route | preserve where cheap | yes, if response shape changes | seeded |
 | `GET /api/tx/batch/get` | batch raw tx hex lookup | preserve route | preserve where cheap | yes | seeded |
 | `GET /api/tx/by-height/get` | assist-style block tx query | preserve or wrap | evolve only if perf/cost justifies | yes | seeded |
+| `GET /api/address/{address}/state` | additive vnext route | projection-backed | additive-first | no | done in S26 |
+| `GET /api/address/{address}/balances` | additive vnext route | projection-backed | additive-first | no | done in S26 |
+| `GET /api/address/{address}/utxos` | additive vnext route | projection-backed | additive-first | no | done in S26 |
+| `GET /api/address/{address}/history` | additive vnext route | compatibility wrapper over current history service | additive-first | yes, if wrapper is retired | done in S26 |
+| `GET /api/token/{tokenId}/state` | additive vnext route | projection-backed | additive-first | no | done in S26 |
+| `GET /api/token/{tokenId}/balances` | additive vnext route | projection-backed | additive-first | no | done in S26 |
+| `GET /api/token/{tokenId}/utxos` | additive vnext route | projection-backed | additive-first | no | done in S26 |
+| `GET /api/token/{tokenId}/history` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `POST /api/tx/broadcast/{raw}` | broadcast route exists | preserve route, evolve semantics | preserve route, improve lifecycle semantics | yes, if route or body changes | seeded |
 | `GET /api/tx/stas/validate/{id}` | STAS validation route exists | preserve route | preserve and strengthen semantics | yes | seeded |
 | SignalR tx/balance events | existing realtime callbacks | additive-first evolution | preserve where cheap | yes, if event shape breaks consumers | seeded |
@@ -159,8 +169,10 @@
   - `S23`
   - `S24`
   - `S25`
+  - `S26`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
   - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
-- Next slice to open: `S26`
+  - additive `GET /api/address/{address}/history` still delegates to the existing history service; full projection-backed address history remains a follow-up concern for later cutover waves
+- Next slice to open: `S27`
