@@ -9,6 +9,7 @@ using Dxs.Consigliere.Data.Transactions;
 using Dxs.Tests.Shared;
 
 using Raven.Client.Documents;
+using Raven.Embedded;
 using Raven.TestDriver;
 
 namespace Dxs.Consigliere.Tests.Data.Addresses;
@@ -19,6 +20,17 @@ public class AddressProjectionRebuilderIntegrationTests : RavenTestDriver
     private const string Address1 = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
     private const string Address2 = "1BoatSLRHtKNngkdXEeobR76b53LETtpyT";
     private const string Address3 = "1KFHE7w8BhaENAswwryaoccDb6qcT6DbYY";
+
+    static AddressProjectionRebuilderIntegrationTests()
+    {
+        ConfigureServer(new TestServerOptions
+        {
+            Licensing = new ServerOptions.LicensingOptions
+            {
+                ThrowOnInvalidOrMissingLicense = false
+            }
+        });
+    }
 
     [Fact]
     public async Task RebuildAsync_ProjectsBalancesAndUtxosAcrossBsvAndTokenTransfers()
@@ -164,6 +176,96 @@ public class AddressProjectionRebuilderIntegrationTests : RavenTestDriver
         Assert.Equal(AddressProjectionApplicationState.None, application.AppliedState);
         Assert.Empty(application.Credits);
         Assert.Empty(application.Debits);
+    }
+
+    [Fact]
+    public async Task RebuildAsync_RevertsManyConfirmedTransactionsFromDisconnectedBlock()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        const int transferCount = 12;
+        const string unstableBlockHash = "block-unstable";
+
+        using var store = GetDocumentStore();
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+        var blockJournal = new RavenObservationJournal<BlockObservation>(store);
+        var rebuilder = new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store));
+        var reader = new AddressProjectionReader(store);
+
+        for (var i = 0; i < transferCount; i++)
+        {
+            var issuer = $"1Issuer{i:D2}111111111111111111111111111";
+            var receiver = $"1Recv{i:D2}11111111111111111111111111111";
+            var tokenId = (i + 1).ToString("x64");
+            var issueTxId = $"issue-{i:D2}";
+            var transferTxId = $"transfer-{i:D2}";
+            var stableBlockHash = $"block-stable-{i:D2}";
+
+            await SeedTransactionAsync(
+                store,
+                CreateTransaction(
+                    issueTxId,
+                    outputs:
+                    [
+                        CreateOutput(issueTxId, 0, issuer, null, 1000, ScriptType.P2PKH),
+                        CreateOutput(issueTxId, 1, issuer, tokenId, 50, ScriptType.P2STAS)
+                    ],
+                    isIssue: true,
+                    isValidIssue: true
+                )
+            );
+
+            await SeedTransactionAsync(
+                store,
+                CreateTransaction(
+                    transferTxId,
+                    inputs:
+                    [
+                        CreateInput(issueTxId, 0),
+                        CreateInput(issueTxId, 1)
+                    ],
+                    outputs:
+                    [
+                        CreateOutput(transferTxId, 0, receiver, null, 900, ScriptType.P2PKH),
+                        CreateOutput(transferTxId, 1, receiver, tokenId, 50, ScriptType.P2STAS)
+                    ],
+                    allStasInputsKnown: true,
+                    illegalRoots: []
+                )
+            );
+
+            await txJournal.AppendAsync(CreateTxObservation(TxObservationEventType.SeenInBlock, issueTxId, i * 2L + 1, stableBlockHash, 1_000 + i));
+            await txJournal.AppendAsync(CreateTxObservation(TxObservationEventType.SeenInBlock, transferTxId, i * 2L + 2, unstableBlockHash, 2_000));
+        }
+
+        await rebuilder.RebuildAsync(take: 32);
+
+        var disconnectObservation = new BlockObservation(
+            BlockObservationEventType.Disconnected,
+            TxObservationSource.Node,
+            unstableBlockHash);
+
+        await blockJournal.AppendAsync(
+            new ObservationJournalAppendRequest<ObservationJournalEntry<BlockObservation>>(
+                new ObservationJournalEntry<BlockObservation>(disconnectObservation),
+                new DedupeFingerprint($"{TxObservationSource.Node}|{BlockObservationEventType.Disconnected}|{unstableBlockHash}")));
+
+        var checkpoint = await rebuilder.RebuildAsync(take: 32);
+
+        var issuerBalances = await reader.LoadBsvBalancesAsync(
+            Enumerable.Range(0, transferCount)
+                .Select(i => $"1Issuer{i:D2}111111111111111111111111111")
+                .ToArray());
+        var receiverBalances = await reader.LoadBsvBalancesAsync(
+            Enumerable.Range(0, transferCount)
+                .Select(i => $"1Recv{i:D2}11111111111111111111111111111")
+                .ToArray());
+
+        Assert.Equal(transferCount * 2L + 1, checkpoint.Sequence.Value);
+        Assert.Equal(transferCount, issuerBalances.Count);
+        Assert.All(issuerBalances, x => Assert.Equal(1000, x.Satoshis));
+        Assert.Empty(receiverBalances);
     }
 
     private static ObservationJournalAppendRequest<ObservationJournalEntry<TxObservation>> CreateTxObservation(

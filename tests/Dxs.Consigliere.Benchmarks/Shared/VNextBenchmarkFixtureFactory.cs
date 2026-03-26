@@ -231,12 +231,19 @@ internal static class VNextBenchmarkFixtureFactory
             new DedupeFingerprint($"{source}|{eventType}|{blockHash}"));
     }
 
-    public static Transaction CreateRuntimeTransaction(string txId, IEnumerable<string?> tokenIds)
+    public static Transaction CreateRuntimeTransaction(string txId, IEnumerable<string?> tokenIds, int rawByteLength = 8)
     {
+        if (rawByteLength <= 0)
+            throw new ArgumentOutOfRangeException(nameof(rawByteLength));
+
+        var raw = new byte[rawByteLength];
+        for (var i = 0; i < raw.Length; i++)
+            raw[i] = (byte)((i + txId.Length) % byte.MaxValue);
+
         var transaction = new Transaction(Network.Mainnet)
         {
             Id = txId,
-            Raw = txId[..16].PadRight(16, '0').Chunk(2).Select(x => Convert.ToByte(new string(x), 16)).ToArray()
+            Raw = raw
         };
 
         var index = 0UL;

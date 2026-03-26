@@ -18,7 +18,7 @@ public class RecoveryBenchmarkEvidenceTests
     public async Task WritesBenchmarkEvidenceSnapshot()
     {
         var harness = new RecoveryBenchmarkHarness();
-        var scenario = new RecoveryBenchmarkScenario("recovery-baseline", TransferCount: 3, PendingCount: 3);
+        var scenario = new RecoveryBenchmarkScenario("recovery-remediated", TransferCount: 12, PendingCount: 12);
 
         var reorg = await harness.MeasureReorgRecoveryAsync(scenario);
         var drop = await harness.MeasureDropRecoveryAsync(scenario);
