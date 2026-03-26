@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave H: Core Business Projections`
-- Critical-path slice: `S24`
+- Critical-path slice: `S25`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -42,6 +42,7 @@
 | S21 | bsv-protocol-core | operator/protocol | done | S20 | STAS lineage evaluator tests + app build | token lineage and validation verdicts can be computed from explicit reusable inputs instead of only through implicit TransactionStore patch logic |
 | S22 | indexer-ingest-orchestration | operator/runtime | done | S20,S21 | dependency revalidation coordinator tests + app build | lineage change now drives targeted automatic revalidation via explicit dependency facts instead of FoundMissing index fanout being the primary coordinator |
 | S23 | verification-and-conformance | operator/verification | done | S20,S21,S22 | cascade/reorg tests + token lineage benchmark evidence | explicit token lineage path has worst-case correctness and throughput evidence and is ready for A3 audit review |
+| S24 | indexer-state-and-storage | operator/state | done | S18,S22,S23 | address projection integration tests + `build:Dxs.Consigliere` | address balances and UTXOs now rebuild from journal-driven mutation facts and can be served without the legacy Raven hot mutation indexes |
 
 ## Open Handoffs
 
@@ -85,6 +86,7 @@
 | 2026-03-26 | S22 | validation | `tests:StasDependencyRevalidationCoordinatorIntegrationTests + build:Dxs.Consigliere` | runtime revalidation now cascades by explicit direct dependents and startup recovery seeds from unresolved MetaTransactions rather than FoundMissing reduce-output coordination |
 | 2026-03-26 | S23 | validation | `tests:StasDependencyRevalidationCascadeIntegrationTests + benchmarks:TokenLineageBenchmarkSmokeTests|TokenLineageBenchmarkEvidenceTests` | chain/delete cascade behavior is covered and the first token-lineage evaluator + revalidation burst baseline is recorded |
 | 2026-03-26 | A3 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | token lineage correctness, dependency discipline, and storm performance passed without remediation |
+| 2026-03-26 | S24 | validation | `tests:AddressProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | journal-driven address balance and UTXO projection landed with stored debit/credit mutation facts, service read-path cutover, and revert coverage after legacy tx deletion |
 
 ## Audit Gates
 
@@ -153,6 +155,8 @@
   - `S21`
   - `S22`
   - `S23`
+  - `S24`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S24`
+  - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
+- Next slice to open: `S25`

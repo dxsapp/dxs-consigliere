@@ -2,6 +2,7 @@ using Dxs.Bsv;
 using Dxs.Bsv.Factories;
 using Dxs.Bsv.Models;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Queries;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
@@ -13,7 +14,12 @@ using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
-public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider networkProvider) :
+public class UtxoSetManager(
+    IDocumentStore documentStore,
+    INetworkProvider networkProvider,
+    AddressProjectionReader addressProjectionReader,
+    AddressProjectionRebuilder addressProjectionRebuilder
+) :
     IUtxoManager,
     IUtxoSetProvider
 {
@@ -28,12 +34,12 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
             .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId(networkProvider.Network).Value)
             .ToList();
 
-        using var session = documentStore.GetNoCacheNoTrackingSession();
+        await addressProjectionRebuilder.RebuildAsync();
 
-        return await GetBalance(session, addresses, tokenIds);
+        return await GetBalance(addresses, tokenIds);
     }
 
-    public Task<List<BalanceDto>> GetBalance(IAsyncDocumentSession session, BalanceRequest request)
+    public async Task<List<BalanceDto>> GetBalance(IAsyncDocumentSession session, BalanceRequest request)
     {
         var addresses = request.Addresses
             .Select(addressStr => addressStr.EnsureValidBsvAddress().Value)
@@ -44,50 +50,17 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
             .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId(networkProvider.Network).Value)
             .ToList();
 
-        return GetBalance(session, addresses, tokenIds);
-    }
+        await addressProjectionRebuilder.RebuildAsync();
 
-    public async Task<List<BalanceDto>> GetStasBalances(
-        IAsyncDocumentSession session,
-        IList<string> addresses,
-        IList<string> tokenIds
-    )
-    {
-        var query = session
-            .StasUtxoSet()
-            .ByTokens(tokenIds)
-            .ByAddresses(addresses)
-            .Select(x => new BalanceDto
-            {
-                Address = x.Address,
-                TokenId = x.TokenId,
-                Satoshis = x.Satoshis
-            });
-
-        // way ineffective implementation
-        var byAddressAndToken = new Dictionary<string, Dictionary<string, BalanceDto>>();
-
-        await foreach (var (utxo, _) in session.Enumerate(query))
-        {
-            if (!byAddressAndToken.TryGetValue(utxo.Address, out var values))
-            {
-                values = new Dictionary<string, BalanceDto>();
-                byAddressAndToken[utxo.Address] = values;
-            }
-
-            if (!values.TryAdd(utxo.TokenId, utxo))
-                values[utxo.TokenId].Satoshis += utxo.Satoshis;
-        }
-
-        return byAddressAndToken
-            .SelectMany(x => x.Value.Values)
-            .ToList();
+        return await GetBalance(addresses, tokenIds);
     }
 
     public async Task<GetUtxoSetResponse> GetUtxoSet(GetUtxoSetRequest request)
     {
         var address = request.Address.EnsureValidBsvAddress();
         var tokenId = request.TokenId?.EnsureValidTokenId(networkProvider.Network);
+
+        await addressProjectionRebuilder.RebuildAsync();
 
         var utxoSet = request.Satoshis is { } satoshis and > 0
             ? await GetUtxoSet(address, tokenId, satoshis)
@@ -107,27 +80,11 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
             .Select(tokenIdStr => tokenIdStr.EnsureValidTokenId(networkProvider.Network).Value)
             .ToList();
 
-        using var session = documentStore.GetNoCacheNoTrackingSession();
+        await addressProjectionRebuilder.RebuildAsync();
 
-        var query = tokenIds?.Count > 0
-            ? session.StasUtxoSet().ByTokens(tokenIds)
-            : session.P2pkhUtxoSet();
-
-        var utxoSet = await query.ByAddresses(addresses)
-            .Take(1000)
-            .Select(x => new UtxoDto
-            {
-                Id = x.Id,
-                Address = x.Address,
-                TokenId = x.TokenId,
-                Satoshis = x.Satoshis,
-                TxId = x.TxId,
-                Vout = x.Vout,
-                ScriptType = x.Type,
-                ScriptPubKey = x.ScriptPubKey
-
-            })
-            .ToArrayAsync();
+        var utxoSet = tokenIds?.Count > 0
+            ? await addressProjectionReader.LoadTokenUtxosAsync(addresses, tokenIds, 1000)
+            : await addressProjectionReader.LoadP2pkhUtxosAsync(addresses, 1000);
 
         return new(utxoSet);
     }
@@ -161,12 +118,9 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
 
     async Task<IList<OutPoint>> IUtxoSetProvider.GetUtxoSet(Address address, TokenId tokenId)
     {
-        using var session = documentStore.GetNoCacheNoTrackingSession();
+        await addressProjectionRebuilder.RebuildAsync();
 
-        var outputs = await session
-            .UtxoSet(tokenId)
-            .ByAddress(address)
-            .ToListAsync();
+        var outputs = await addressProjectionReader.LoadUtxosAsync(address.Value, tokenId?.Value);
 
         return outputs.Select(x => new OutPoint(
                 x.TxId,
@@ -175,7 +129,7 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
                 (ulong)x.Satoshis,
                 (uint)x.Vout,
                 x.ScriptPubKey,
-                x.Type
+                x.ScriptType
             ))
             .ToList();
     }
@@ -183,19 +137,15 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
     #region .pvt
 
     private async Task<List<BalanceDto>> GetBalance(
-        IAsyncDocumentSession session,
         List<string> addresses,
         List<string> tokenIds
     )
     {
-        var balances = await session
-            .GetP2PkhBalances(addresses)
-            .ToListAsync();
+        var balances = await addressProjectionReader.LoadBsvBalancesAsync(addresses);
 
         if (tokenIds?.Count > 0)
         {
-            var stasBalances = await GetStasBalances(session, addresses, tokenIds);
-
+            var stasBalances = await addressProjectionReader.LoadTokenBalancesAsync(addresses, tokenIds);
             return balances.Concat(stasBalances).ToList();
         }
 
@@ -204,72 +154,45 @@ public class UtxoSetManager(IDocumentStore documentStore, INetworkProvider netwo
 
     private async Task<UtxoDto[]> GetUtxoSet(Address address, TokenId tokenId)
     {
-        using var session = documentStore.GetNoCacheNoTrackingSession();
-
-        var query = session.UtxoSet(tokenId).ByAddress(address);
-        List<UtxoDto> result = [];
-
-        await foreach (var (utxo, totalCount) in session.Enumerate(query))
-        {
-            result ??= new(totalCount);
-
-            result.Add(new UtxoDto(utxo));
-        }
-
-        return result.ToArray();
+        var outputs = await addressProjectionReader.LoadUtxosAsync(address.Value, tokenId?.Value);
+        return outputs.Select(x => x.ToDto()).ToArray();
     }
 
     private async Task<UtxoDto[]> GetUtxoSet(Address address, TokenId tokenId, long satoshis)
     {
-        using var session = documentStore.GetNoCacheNoTrackingSession();
+        var outputs = await addressProjectionReader.LoadUtxosAsync(address.Value, tokenId?.Value);
 
-        var query = session
-                .UtxoSet(tokenId)
-                .ByAddress(address)
-            ;
-
-        var utxo = await query
+        var utxo = outputs
             .Where(x => x.Satoshis >= satoshis)
             .OrderBy(x => x.Satoshis)
-            .Take(1)
-            .FirstOrDefaultAsync();
+            .FirstOrDefault();
 
         UtxoDto[] singleUtxoResult = [];
 
         if (utxo != null)
         {
-            singleUtxoResult = [new UtxoDto(utxo)];
+            singleUtxoResult = [utxo.ToDto()];
 
-            if (utxo.Satoshis == satoshis) // UTXO with exact amount
+            if (utxo.Satoshis == satoshis)
                 return singleUtxoResult;
         }
-
-        var reversedQuery = query
-            .Where(x => x.Satoshis < satoshis)
-            .OrderByDescending(x => x.Satoshis);
-
-        await using var stream = await session.Advanced.StreamAsync(reversedQuery);
 
         var accumulatedSatoshis = 0L;
         List<UtxoDto> utxoSet = null;
 
-        await foreach (var (output, totalCount) in session.Enumerate(query))
+        foreach (var output in outputs.Where(x => x.Satoshis < satoshis).OrderByDescending(x => x.Satoshis))
         {
-            utxoSet ??= new(totalCount);
-            utxoSet.Add(new UtxoDto(output));
+            utxoSet ??= [];
+            utxoSet.Add(output.ToDto());
 
             accumulatedSatoshis += output.Satoshis;
 
             if (accumulatedSatoshis >= satoshis)
-            {
-                // UTXOs which should be merged
                 return utxoSet.ToArray();
-            }
         }
 
         return singleUtxoResult;
     }
 
     #endregion
-
 }
