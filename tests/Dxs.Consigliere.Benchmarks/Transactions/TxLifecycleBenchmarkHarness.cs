@@ -2,28 +2,15 @@ using System.Diagnostics;
 
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Journal;
+using Dxs.Consigliere.Benchmarks.Shared;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Services.Impl;
 
-using Raven.Embedded;
-using Raven.TestDriver;
-
 namespace Dxs.Consigliere.Benchmarks.Transactions;
 
-public sealed class TxLifecycleBenchmarkHarness : RavenTestDriver
+public sealed class TxLifecycleBenchmarkHarness : ConfiguredRavenBenchmarkTestDriver
 {
-    static TxLifecycleBenchmarkHarness()
-    {
-        ConfigureServer(new TestServerOptions
-        {
-            Licensing = new ServerOptions.LicensingOptions
-            {
-                ThrowOnInvalidOrMissingLicense = false
-            }
-        });
-    }
-
     public async Task<TxLifecycleBenchmarkMetrics> MeasureRebuildAsync(
         TxLifecycleBenchmarkScenario scenario,
         CancellationToken cancellationToken = default

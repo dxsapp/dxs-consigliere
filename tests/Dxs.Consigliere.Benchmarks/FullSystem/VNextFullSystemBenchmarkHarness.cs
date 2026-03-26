@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Script;
 using Dxs.Common.Journal;
+using Dxs.Consigliere.Benchmarks.Shared;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Addresses;
@@ -13,24 +14,10 @@ using Dxs.Consigliere.Data.Tokens;
 using Dxs.Consigliere.Data.Transactions;
 
 using Raven.Client.Documents;
-using Raven.Embedded;
-using Raven.TestDriver;
-
 namespace Dxs.Consigliere.Benchmarks.FullSystem;
 
-public sealed class VNextFullSystemBenchmarkHarness : RavenTestDriver
+public sealed class VNextFullSystemBenchmarkHarness : ConfiguredRavenBenchmarkTestDriver
 {
-    static VNextFullSystemBenchmarkHarness()
-    {
-        ConfigureServer(new TestServerOptions
-        {
-            Licensing = new ServerOptions.LicensingOptions
-            {
-                ThrowOnInvalidOrMissingLicense = false
-            }
-        });
-    }
-
     public async Task<VNextFullSystemBenchmarkMetrics> MeasureReplayAsync(
         VNextFullSystemBenchmarkScenario scenario,
         CancellationToken cancellationToken = default)

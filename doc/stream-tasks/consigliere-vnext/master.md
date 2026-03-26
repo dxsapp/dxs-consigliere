@@ -10,7 +10,7 @@
 
 ## Active Wave
 
-- Active wave: `Wave I: Packaging, Cutover, And Validation (completed)`
+- Active wave: `Post-rollout benchmark expansion (completed)`
 - Critical-path slice: `complete`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
@@ -110,6 +110,11 @@
 | 2026-03-26 | S32 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:WalletHubCutoverTests|TransactionNotificationDispatcherTests|ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests|AddressHistoryServiceProjectionTests + build:Dxs.Consigliere.Benchmarks(useapphost=false) + vstest:VNextFullSystemValidationTests|VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | address history now reads from projection-backed state, websocket reads enforce readiness, and journal-first modes default clients to vnext realtime envelopes without losing compatibility-only delete callbacks |
 | 2026-03-26 | S33 | validation | `vstest:ConsigliereConfigBindingTests|VNextStartupDiagnosticsTests + build:Dxs.Consigliere.Tests(useapphost=false) + build:Dxs.Consigliere.Benchmarks(useapphost=false) + publish:Dxs.Consigliere(useapphost=false)` | cutover mode now appears in startup diagnostics/config examples, operator rollout notes are present, and the service publishes successfully with `UseAppHost=false` through the final packaging path |
 | 2026-03-26 | S33 | docs | `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-rollout-notes.md` | final operator-facing rollout/cutover notes added for packaging and deployment handoff |
+| 2026-03-26 | B1 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B1-ingest-benchmarks-evidence.md` | added ingest benchmark coverage for tx observation ingest, block observation ingest, and mixed burst append paths |
+| 2026-03-26 | B2 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B2-address-history-benchmarks-evidence.md` | added address history benchmark coverage for projection rebuild cost and query materialization cost |
+| 2026-03-26 | B3 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B3-recovery-reorg-benchmarks-evidence.md` | added bounded recovery benchmark coverage for reorg and dropped-tx revert paths across tx lifecycle and address state |
+| 2026-03-26 | B4 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B4-realtime-fanout-benchmarks-evidence.md` | added realtime fanout benchmark coverage for seen and confirmed event dispatch paths |
+| 2026-03-26 | B1-B4 | validation | `dotnet test tests/Dxs.Consigliere.Benchmarks/Dxs.Consigliere.Benchmarks.csproj -c Release -p:UseAppHost=false -v minimal` | full benchmark assembly passes after adding ingest, address history, recovery/reorg, and realtime fanout suites |
 
 ## Audit Gates
 
@@ -200,6 +205,7 @@
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
   - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
+  - `B3` recovery benchmark currently stays intentionally bounded because the address-state reorg revert path can still exhaust Raven session request ceilings on larger synthetic bursts; this is now a measured watch item rather than an unknown
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work

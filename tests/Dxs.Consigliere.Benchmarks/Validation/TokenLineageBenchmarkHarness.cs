@@ -7,30 +7,17 @@ using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Tokens.Validation;
 using Dxs.Consigliere.BackgroundTasks;
+using Dxs.Consigliere.Benchmarks.Shared;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Services;
 
 using Microsoft.Extensions.Logging.Abstractions;
 
-using Raven.Embedded;
-using Raven.TestDriver;
-
 namespace Dxs.Consigliere.Benchmarks.Validation;
 
-public sealed class TokenLineageBenchmarkHarness : RavenTestDriver
+public sealed class TokenLineageBenchmarkHarness : ConfiguredRavenBenchmarkTestDriver
 {
-    static TokenLineageBenchmarkHarness()
-    {
-        ConfigureServer(new TestServerOptions
-        {
-            Licensing = new ServerOptions.LicensingOptions
-            {
-                ThrowOnInvalidOrMissingLicense = false
-            }
-        });
-    }
-
     public Task<TokenLineageBenchmarkMetrics> MeasureEvaluationAsync(
         TokenLineageBenchmarkScenario scenario,
         CancellationToken cancellationToken = default

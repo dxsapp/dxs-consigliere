@@ -1,27 +1,14 @@
 using System.Diagnostics;
 
 using Dxs.Common.Journal;
+using Dxs.Consigliere.Benchmarks.Shared;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Journal;
 
-using Raven.Embedded;
-using Raven.TestDriver;
-
 namespace Dxs.Consigliere.Benchmarks.Journal;
 
-public sealed class JournalBenchmarkHarness : RavenTestDriver
+public sealed class JournalBenchmarkHarness : ConfiguredRavenBenchmarkTestDriver
 {
-    static JournalBenchmarkHarness()
-    {
-        ConfigureServer(new TestServerOptions
-        {
-            Licensing = new ServerOptions.LicensingOptions
-            {
-                ThrowOnInvalidOrMissingLicense = false
-            }
-        });
-    }
-
     public async Task<JournalBenchmarkMetrics> MeasureAppendAsync(
         JournalBenchmarkScenario scenario,
         CancellationToken cancellationToken = default
