@@ -29,6 +29,28 @@ public class WalletHub(
     public Task UnsubscribeToTransactionStream(SubscribeToTransactionStreamRequest request)
         => connectionManager.UnsubscribeToTransactionStream(Context.ConnectionId, request.Address);
 
+    public Task SubscribeToTokenStream(
+        SubscribeToTokenStreamRequest request,
+        [FromServices] INetworkProvider networkProvider
+    ) => connectionManager.SubscribeToTokenStream(
+        Context.ConnectionId,
+        request.TokenId.EnsureValidTokenId(networkProvider.Network).Value
+    );
+
+    public Task UnsubscribeToTokenStream(
+        SubscribeToTokenStreamRequest request,
+        [FromServices] INetworkProvider networkProvider
+    ) => connectionManager.UnsubscribeToTokenStream(
+        Context.ConnectionId,
+        request.TokenId.EnsureValidTokenId(networkProvider.Network).Value
+    );
+
+    public Task SubscribeToDeletedTransactionStream()
+        => connectionManager.SubscribeToDeletedTransactionStream(Context.ConnectionId);
+
+    public Task UnsubscribeToDeletedTransactionStream()
+        => connectionManager.UnsubscribeToDeletedTransactionStream(Context.ConnectionId);
+
     #region Address
 
     public Task<List<BalanceDto>> GetBalance(BalanceRequest request, [FromServices] IUtxoManager utxoManager)

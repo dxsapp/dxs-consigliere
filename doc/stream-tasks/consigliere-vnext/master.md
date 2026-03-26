@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave H: Core Business Projections`
-- Critical-path slice: `S27`
+- Critical-path slice: `S28`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -45,6 +45,7 @@
 | S24 | indexer-state-and-storage | operator/state | done | S18,S22,S23 | address projection integration tests + `build:Dxs.Consigliere` | address balances and UTXOs now rebuild from journal-driven mutation facts and can be served without the legacy Raven hot mutation indexes |
 | S25 | indexer-state-and-storage | operator/state | done | S24 | token projection integration tests + `build:Dxs.Consigliere` | token state, token history, and token-centric UTXO/stats reads now rebuild from journal-driven state instead of legacy implicit STAS index semantics |
 | S26 | public-api-and-realtime | operator/api | done | S24,S25 | controller projection tests + `build:Dxs.Consigliere` | additive address/token GET surfaces now read from vnext projections with strict readiness gating while legacy POST routes remain controlled compatibility wrappers |
+| S27 | public-api-and-realtime | operator/api | done | S26 | realtime notifier tests + `build:Dxs.Consigliere` | websocket/signalr streams now expose additive vnext realtime envelopes, token subscriptions, and lifecycle/readiness event alignment while legacy callbacks stay available |
 
 ## Open Handoffs
 
@@ -91,6 +92,7 @@
 | 2026-03-26 | S24 | validation | `tests:AddressProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | journal-driven address balance and UTXO projection landed with stored debit/credit mutation facts, service read-path cutover, and revert coverage after legacy tx deletion |
 | 2026-03-26 | S25 | validation | `tests:TokenProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | token state and history now rebuild from journal facts while token-centric UTXO and token stats read from the new projection path instead of legacy STAS indexes |
 | 2026-03-26 | S26 | validation | `tests:AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive address/token GET endpoints now expose projection-backed state with `not_tracked` and `scope_not_ready` readiness semantics while legacy POST reads remain intact |
+| 2026-03-26 | S27 | validation | `tests:ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive realtime envelopes, token subscriptions, tx lifecycle events, and scope status transitions now flow through SignalR without breaking legacy websocket callbacks |
 
 ## Audit Gates
 
@@ -126,7 +128,7 @@
 | `GET /api/token/{tokenId}/history` | additive vnext route | projection-backed | additive-first | no | done in S26 |
 | `POST /api/tx/broadcast/{raw}` | broadcast route exists | preserve route, evolve semantics | preserve route, improve lifecycle semantics | yes, if route or body changes | seeded |
 | `GET /api/tx/stas/validate/{id}` | STAS validation route exists | preserve route | preserve and strengthen semantics | yes | seeded |
-| SignalR tx/balance events | existing realtime callbacks | additive-first evolution | preserve where cheap | yes, if event shape breaks consumers | seeded |
+| SignalR tx/balance events | existing realtime callbacks | additive-first evolution plus `OnRealtimeEvent` envelope and token subscriptions | preserve where cheap | yes, if event shape breaks consumers | done in S27 |
 
 ## Performance Notes
 
@@ -170,9 +172,11 @@
   - `S24`
   - `S25`
   - `S26`
+  - `S27`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
   - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
   - additive `GET /api/address/{address}/history` still delegates to the existing history service; full projection-backed address history remains a follow-up concern for later cutover waves
-- Next slice to open: `S27`
+  - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
+- Next slice to open: `S28`
