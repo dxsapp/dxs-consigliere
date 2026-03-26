@@ -6,6 +6,7 @@ public class AppConfig
     public int BlockCountToScanOnStart { get; set; }
 
     public BackgroundTasksConfig BackgroundTasks { get; set; } = new();
+    public VNextRuntimeConfig VNextRuntime { get; set; } = new();
 
     public JungleBusConfig JungleBus { get; set; }
 }

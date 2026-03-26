@@ -4,9 +4,11 @@ using Dxs.Bsv.BitcoinMonitor.Impl;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Journal;
 using Dxs.Consigliere.BackgroundTasks.Blocks;
+using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Journal;
 
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Tests.BackgroundTasks.Blocks;
 
@@ -17,11 +19,7 @@ public class BlockObservationJournalMirrorBackgroundTaskTests
     {
         var blockMessageBus = new BlockMessageBus();
         var journal = new FakeObservationJournal(expectedCount: 1);
-        var task = new BlockObservationJournalMirrorBackgroundTask(
-            blockMessageBus,
-            journal,
-            NullLogger<BlockObservationJournalMirrorBackgroundTask>.Instance
-        );
+        var task = CreateTask(blockMessageBus, journal);
 
         await task.StartAsync(CancellationToken.None);
 
@@ -38,6 +36,43 @@ public class BlockObservationJournalMirrorBackgroundTaskTests
         await task.StopAsync(CancellationToken.None);
         task.Dispose();
     }
+
+    [Fact]
+    public async Task SkipsMirrorWritesWhenJournalFirstModeIsEnabled()
+    {
+        var blockMessageBus = new BlockMessageBus();
+        var journal = new FakeObservationJournal(expectedCount: 1);
+        var task = CreateTask(blockMessageBus, journal, VNextCutoverMode.ShadowRead);
+
+        await task.StartAsync(CancellationToken.None);
+
+        blockMessageBus.Post(new BlockMessage("block-hash", TxObservationSource.Node));
+
+        await Task.Delay(250);
+
+        Assert.Empty(journal.Requests);
+
+        await task.StopAsync(CancellationToken.None);
+        task.Dispose();
+    }
+
+    private static BlockObservationJournalMirrorBackgroundTask CreateTask(
+        BlockMessageBus blockMessageBus,
+        FakeObservationJournal journal,
+        string cutoverMode = VNextCutoverMode.Legacy
+    )
+        => new(
+            blockMessageBus,
+            new BlockObservationJournalWriter(journal),
+            Options.Create(new AppConfig
+            {
+                VNextRuntime = new VNextRuntimeConfig
+                {
+                    CutoverMode = cutoverMode
+                }
+            }),
+            NullLogger<BlockObservationJournalMirrorBackgroundTask>.Instance
+        );
 
     private sealed class FakeObservationJournal(int expectedCount)
         : IObservationJournalAppender<ObservationJournalEntry<BlockObservation>>

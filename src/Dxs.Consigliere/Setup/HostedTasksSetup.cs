@@ -15,6 +15,8 @@ public static class HostedTasksSetup
             .AddSingleton<IJungleBusSyncRequestProcessor, JungleBusSyncRequestProcessor>()
             .AddSingleton<IJungleBusMissingTransactionCollector, JungleBusMissingTransactionCollector>()
             .AddSingleton<IJungleBusMissingTransactionFetcher, JungleBusMissingTransactionFetcher>()
+            .AddSingleton<TxObservationJournalWriter>()
+            .AddSingleton<BlockObservationJournalWriter>()
             .AddSingletonHostedService<AppInitBackgroundTask>()
             .AddSingletonHostedService<BlockProcessBackgroundTask>()
             .AddSingletonHostedService<BlockObservationJournalMirrorBackgroundTask>()

@@ -28,6 +28,7 @@ public static class BsvRuntimeSetup
             .Configure<RpcConfig>(configuration.GetSection("BsvNodeApi"))
             .Configure<TransactionFilterConfig>(configuration.GetSection("TransactionFilter"))
             .AddSingleton<ITransactionStore>(sp => sp.GetRequiredService<IMetaTransactionStore>())
+            .AddSingleton<ITxObservationSink, JournalFirstTxObservationSink>()
             .AddSingleton<ITxMessageBus, TxMessageBus>()
             .AddSingleton<IBlockMessageBus, BlockMessageBus>()
             .AddSingleton<ITransactionFilter, TransactionFilter>()

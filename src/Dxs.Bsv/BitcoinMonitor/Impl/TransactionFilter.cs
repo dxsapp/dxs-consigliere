@@ -21,6 +21,7 @@ public class TransactionFilter : ITransactionFilter
     private readonly ITxMessageBus _txMessageBus;
     private readonly IFilteredTransactionMessageBus _filteredTransactionMessageBus;
     private readonly ITransactionStore _transactionStore;
+    private readonly ITxObservationSink _txObservationSink;
     private readonly ILogger _logger;
     private readonly TransactionFilterWatchSet _watchSet = new();
     private readonly TransactionFilterMetrics _metrics = new();
@@ -35,12 +36,14 @@ public class TransactionFilter : ITransactionFilter
         ITxMessageBus txMessageBus,
         IFilteredTransactionMessageBus filteredTransactionMessageBus,
         ITransactionStore transactionStore,
+        ITxObservationSink txObservationSink,
         ILogger<TransactionFilter> logger
     )
     {
         _txMessageBus = txMessageBus;
         _filteredTransactionMessageBus = filteredTransactionMessageBus;
         _transactionStore = transactionStore;
+        _txObservationSink = txObservationSink;
         _logger = logger;
 
         _periodicLogger = new Timer(LogCount, null, LogPeriod, LogPeriod);
@@ -89,6 +92,8 @@ public class TransactionFilter : ITransactionFilter
     {
         try
         {
+            await _txObservationSink.RecordAsync(message, _cts.Token);
+
             switch (message.MessageType)
             {
                 case TxMessage.Type.FoundInBlock:

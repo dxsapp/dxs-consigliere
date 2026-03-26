@@ -2,16 +2,17 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Dataflow;
 using Dxs.Common.Interfaces;
-using Dxs.Common.Journal;
-using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Configs;
 
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.BackgroundTasks.Blocks;
 
 public sealed class BlockObservationJournalMirrorBackgroundTask(
     IBlockMessageBus blockMessageBus,
-    IObservationJournalAppender<ObservationJournalEntry<BlockObservation>> observationJournal,
+    BlockObservationJournalWriter journalWriter,
+    IOptions<AppConfig> appConfig,
     ILogger<BlockObservationJournalMirrorBackgroundTask> logger
 ) : IHostedService, IBackgroundTask, IDisposable
 {
@@ -52,17 +53,10 @@ public sealed class BlockObservationJournalMirrorBackgroundTask(
     {
         try
         {
-            var observation = new BlockObservation(
-                BlockObservationEventType.Connected,
-                message.Source,
-                message.BlockHash
-            );
-            var request = new ObservationJournalAppendRequest<ObservationJournalEntry<BlockObservation>>(
-                new ObservationJournalEntry<BlockObservation>(observation),
-                new DedupeFingerprint($"{message.Source}|{BlockObservationEventType.Connected}|{message.BlockHash}")
-            );
+            if (VNextCutoverMode.IsJournalFirst(appConfig.Value.VNextRuntime.CutoverMode))
+                return;
 
-            await observationJournal.AppendAsync(request, _cts.Token);
+            await journalWriter.AppendConnectedAsync(message, _cts.Token);
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {

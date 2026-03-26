@@ -6,12 +6,12 @@
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
 - Current cutover mode: `legacy`
-- Current audit gate status: `A4 passed`
+- Current audit gate status: `A5 passed`
 
 ## Active Wave
 
 - Active wave: `Wave I: Packaging, Cutover, And Validation`
-- Critical-path slice: `S31`
+- Critical-path slice: `S32`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -49,6 +49,7 @@
 | S28 | service-bootstrap-and-ops | operator/platform | done | S27 | config binding/startup diagnostics tests + `build:Dxs.Consigliere(useapphost=false)` | vnext startup examples, strict source validation, and startup diagnostics are shipped for operators without requiring code inspection |
 | S29 | verification-and-conformance | operator/verification | done | S26,S27,S28 | `vstest:VNextFullSystemValidationTests` + `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | vnext has measured correctness and throughput evidence for replay, reorg, and soak flows under the bounded full-system harness |
 | S30 | indexer-state-and-storage | operator/state | done | S26,S29 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TransactionStoreIntegrationTests` | legacy `TransactionStore` no longer relies on per-output/per-input patch fanout to persist compatibility state |
+| S31 | indexer-ingest-orchestration | operator/runtime | done | S30 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TxObservationJournalMirrorBackgroundTaskTests|BlockObservationJournalMirrorBackgroundTaskTests|TransactionFilterJournalFirstTests` | tx/block observations enter the journal inline in journal-first modes while legacy and mirror modes preserve rollback-safe fallback semantics |
 
 ## Open Handoffs
 
@@ -102,6 +103,8 @@
 | 2026-03-26 | A4 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | full-system correctness/perf review passed with mandatory remediation for projection request amplification before S30 |
 | 2026-03-26 | R-A4-01 | validation | `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | address/token projection batching and deferred token recompute now allow the full-system benchmark harness to pass again at `TransferCount = 4` |
 | 2026-03-26 | S30 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:TransactionStoreIntegrationTests` | legacy transaction persistence now batches raw/meta/output mutations in one Raven session and preserves `NotModified`/delete compatibility semantics without per-doc patch fanout |
+| 2026-03-26 | S31 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:TxObservationJournalMirrorBackgroundTaskTests|BlockObservationJournalMirrorBackgroundTaskTests|TransactionFilterJournalFirstTests` | journal-first ingest cutover now writes tx/block observations inline in journal-first modes while keeping rollback-safe legacy mirror fallbacks |
+| 2026-03-26 | A5 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A5.md` | cutover safety, rollback viability, and operator ergonomics passed with watch-only follow-ups and no blocking remediation |
 
 ## Audit Gates
 
@@ -111,7 +114,7 @@
 | A2 | S16 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | no |
 | A3 | S23 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | no |
 | A4 | S29 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | no |
-| A5 | S31 | not_opened | - | no |
+| A5 | S31 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A5.md` | no |
 
 ## Remediation Slices
 
@@ -185,6 +188,7 @@
   - `S28`
   - `S29`
   - `S30`
+  - `S31`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
@@ -193,4 +197,4 @@
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
-- Next slice to open: `S31`
+- Next slice to open: `S32`

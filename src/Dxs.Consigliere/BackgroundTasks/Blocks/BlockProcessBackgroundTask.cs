@@ -1,4 +1,5 @@
 using Dxs.Bsv.BitcoinMonitor;
+using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.BackgroundTasks;
 using Dxs.Common.Dataflow;
 using Dxs.Common.Extensions;
@@ -25,6 +26,7 @@ public class BlockProcessBackgroundTask : PeriodicTask, IDisposable
     public BlockProcessBackgroundTask(
         IBlockMessageBus blockMessageBus,
         BlockProcessExecutor blockProcessExecutor,
+        BlockObservationJournalWriter blockObservationJournalWriter,
         IDocumentStore documentStore,
         IOptions<AppConfig> appConfig,
         ILogger<BlockProcessBackgroundTask> logger
@@ -36,7 +38,7 @@ public class BlockProcessBackgroundTask : PeriodicTask, IDisposable
 
         _blockHandlerAgent = Agent.Start<string>(blockHash => _blockProcessExecutor.ExecuteAsync(blockHash, _cancellationToken));
         _sub = blockMessageBus.SubscribeAsync(
-            async x => await TryScheduleBlockProcess(x.BlockHash),
+            async x => await TryScheduleBlockProcess(x, blockObservationJournalWriter, appConfig.Value, _cancellationToken),
             exception => _logger.LogError(exception, "Error during attempt to schedule block processing")
         );
     }
@@ -91,8 +93,17 @@ public class BlockProcessBackgroundTask : PeriodicTask, IDisposable
         }
     }
 
-    private async Task TryScheduleBlockProcess(string blockHash)
+    private async Task TryScheduleBlockProcess(
+        BlockMessage message,
+        BlockObservationJournalWriter blockObservationJournalWriter,
+        AppConfig appConfig,
+        CancellationToken cancellationToken
+    )
     {
+        if (VNextCutoverMode.IsJournalFirst(appConfig.VNextRuntime.CutoverMode))
+            await blockObservationJournalWriter.AppendConnectedAsync(message, cancellationToken);
+
+        var blockHash = message.BlockHash;
         using var session = _documentStore.GetSession();
 
         var ctx = await session.LoadAsync<BlockProcessContext>(blockHash);
