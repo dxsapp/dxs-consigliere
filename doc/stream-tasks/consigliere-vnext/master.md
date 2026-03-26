@@ -6,12 +6,12 @@
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
 - Current cutover mode: `legacy`
-- Current audit gate status: `A3 passed`
+- Current audit gate status: `A4 passed_with_remediation`
 
 ## Active Wave
 
 - Active wave: `Wave I: Packaging, Cutover, And Validation`
-- Critical-path slice: `S29`
+- Critical-path slice: `A4 / R-A4-01`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -47,6 +47,7 @@
 | S26 | public-api-and-realtime | operator/api | done | S24,S25 | controller projection tests + `build:Dxs.Consigliere` | additive address/token GET surfaces now read from vnext projections with strict readiness gating while legacy POST routes remain controlled compatibility wrappers |
 | S27 | public-api-and-realtime | operator/api | done | S26 | realtime notifier tests + `build:Dxs.Consigliere` | websocket/signalr streams now expose additive vnext realtime envelopes, token subscriptions, and lifecycle/readiness event alignment while legacy callbacks stay available |
 | S28 | service-bootstrap-and-ops | operator/platform | done | S27 | config binding/startup diagnostics tests + `build:Dxs.Consigliere(useapphost=false)` | vnext startup examples, strict source validation, and startup diagnostics are shipped for operators without requiring code inspection |
+| S29 | verification-and-conformance | operator/verification | done | S26,S27,S28 | `vstest:VNextFullSystemValidationTests` + `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | vnext has measured correctness and throughput evidence for replay, reorg, and soak flows under the bounded full-system harness |
 
 ## Open Handoffs
 
@@ -95,6 +96,9 @@
 | 2026-03-26 | S26 | validation | `tests:AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive address/token GET endpoints now expose projection-backed state with `not_tracked` and `scope_not_ready` readiness semantics while legacy POST reads remain intact |
 | 2026-03-26 | S27 | validation | `tests:ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests + build:Dxs.Consigliere` | additive realtime envelopes, token subscriptions, tx lifecycle events, and scope status transitions now flow through SignalR without breaking legacy websocket callbacks |
 | 2026-03-26 | S28 | validation | `tests:ConsigliereConfigBindingTests|VNextStartupDiagnosticsTests + build:Dxs.Consigliere(useapphost=false)` | shipped vnext config templates now bind against runtime options, disabled provider references are rejected at startup, and diagnostics print effective source/storage shape for operators |
+| 2026-03-26 | S29 | validation | `vstest:VNextFullSystemValidationTests|VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | full-system replay/reorg/soak validation passed and benchmark evidence was recorded after direct-load harness simplification and bounded scenario tuning |
+| 2026-03-26 | S29 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S29-full-system-benchmarks-evidence.md` | replay/query/soak throughput captured for the bounded vnext full-system harness |
+| 2026-03-26 | A4 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | full-system correctness/perf review passed with mandatory remediation for projection request amplification before S30 |
 
 ## Audit Gates
 
@@ -103,7 +107,7 @@
 | A1 | S08 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A1.md` | yes |
 | A2 | S16 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | no |
 | A3 | S23 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | no |
-| A4 | S29 | not_opened | - | no |
+| A4 | S29 | passed_with_remediation | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | yes |
 | A5 | S31 | not_opened | - | no |
 
 ## Remediation Slices
@@ -112,6 +116,7 @@
 |---|---|---|---|---|
 | R-A1-01 | A1 | done | operator/verification | Wave C |
 | R-A1-02 | A1 | done | operator/verification | Wave C |
+| R-A4-01 | A4 | open | operator/state | S30 |
 
 ## API Compatibility Notes
 
@@ -176,6 +181,7 @@
   - `S26`
   - `S27`
   - `S28`
+  - `S29`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
@@ -183,4 +189,6 @@
   - additive `GET /api/address/{address}/history` still delegates to the existing history service; full projection-backed address history remains a follow-up concern for later cutover waves
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
-- Next slice to open: `S29`
+  - full-system validation exposed that address/token projection rebuild still amplifies Raven session requests enough to trip the default request ceiling on small benchmark scenarios; `R-A4-01` must reduce this before `S30`
+  - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
+- Next slice to open: `R-A4-01`
