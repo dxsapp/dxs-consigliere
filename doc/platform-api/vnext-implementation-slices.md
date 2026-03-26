@@ -797,3 +797,89 @@ Vnext is done when:
 - provider routing and provider ops surfaces match the documented contracts
 - replay, burst, soak, and reorg suites pass with recorded evidence
 - the service can run in `node`, `hybrid`, and provider-only modes with documented config
+
+## Post-Rollout Appendix: Benchmark Expansion And Remediation
+
+These slices are post-rollout verification and economics work.
+
+They are intentionally outside the main cutover spine, but once opened they still follow the same ownership, evidence, and remediation rules.
+
+### `B1` `verification-and-conformance`
+
+- Goal:
+  - measure ingest observation cost after vnext cutover work
+- Owned paths:
+  - `tests/Dxs.Consigliere.Benchmarks/Ingest/**`
+  - benchmark evidence under `doc/stream-tasks/consigliere-vnext/benchmarks/`
+- Key outputs:
+  - tx observation ingest benchmark
+  - block observation ingest benchmark
+  - mixed burst ingest benchmark
+- Done when:
+  - ingest throughput and payload-write cost are captured in durable evidence
+
+### `B2` `verification-and-conformance`
+
+- Goal:
+  - measure address-history rebuild and query economics
+- Owned paths:
+  - `tests/Dxs.Consigliere.Benchmarks/AddressHistory/**`
+  - benchmark evidence under `doc/stream-tasks/consigliere-vnext/benchmarks/`
+- Key outputs:
+  - address history rebuild benchmark
+  - address history query materialization benchmark
+- Done when:
+  - address-history costs are recorded with a bounded managed-scope scenario
+
+### `B3` `verification-and-conformance`
+
+- Goal:
+  - measure recovery and reorg revert economics for tx lifecycle and address state
+- Owned paths:
+  - `tests/Dxs.Consigliere.Benchmarks/Recovery/**`
+  - benchmark evidence under `doc/stream-tasks/consigliere-vnext/benchmarks/`
+- Key outputs:
+  - reorg recovery benchmark
+  - dropped-tx recovery benchmark
+- Done when:
+  - recovery throughput is measured at a scenario size large enough to expose request amplification regressions
+
+### `R-B3-01` `indexer-state-and-storage`
+
+- Goal:
+  - remove address-state request amplification exposed by `B3`
+- Owned paths:
+  - `src/Dxs.Consigliere/Data/Addresses/**`
+  - `tests/Dxs.Consigliere.Tests/Data/Addresses/**`
+- Key outputs:
+  - batch preload of affected address projection UTXO and balance documents
+  - regression proof for larger confirmed-block apply and disconnect revert bursts
+- Done when:
+  - the address projection rebuilder no longer exhausts Raven session request ceilings on the accepted `B3` scenario
+
+### `B4` `verification-and-conformance`
+
+- Goal:
+  - measure realtime envelope fanout cost after public cutover
+- Owned paths:
+  - `tests/Dxs.Consigliere.Benchmarks/Realtime/**`
+  - benchmark evidence under `doc/stream-tasks/consigliere-vnext/benchmarks/`
+- Key outputs:
+  - seen-event fanout benchmark
+  - confirmed-event fanout benchmark
+- Done when:
+  - realtime dispatch cost is captured for bounded subscriber fanout scenarios
+
+### `B5` `verification-and-conformance`
+
+- Goal:
+  - measure storage growth and payload economics for journal and raw payload persistence
+- Owned paths:
+  - `tests/Dxs.Consigliere.Benchmarks/Storage/**`
+  - benchmark evidence under `doc/stream-tasks/consigliere-vnext/benchmarks/`
+- Key outputs:
+  - journal-only storage growth benchmark
+  - payload-backed storage growth benchmark
+  - explicit note about current Raven payload-storage economics
+- Done when:
+  - operators have durable evidence for document-count and byte-growth trends of journal-only vs payload-backed modes

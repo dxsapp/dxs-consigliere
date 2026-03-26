@@ -10,7 +10,7 @@
 
 ## Active Wave
 
-- Active wave: `Post-rollout benchmark expansion (completed)`
+- Active wave: `Post-rollout benchmark expansion and remediation (completed)`
 - Critical-path slice: `complete`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
@@ -115,6 +115,9 @@
 | 2026-03-26 | B3 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B3-recovery-reorg-benchmarks-evidence.md` | added bounded recovery benchmark coverage for reorg and dropped-tx revert paths across tx lifecycle and address state |
 | 2026-03-26 | B4 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B4-realtime-fanout-benchmarks-evidence.md` | added realtime fanout benchmark coverage for seen and confirmed event dispatch paths |
 | 2026-03-26 | B1-B4 | validation | `dotnet test tests/Dxs.Consigliere.Benchmarks/Dxs.Consigliere.Benchmarks.csproj -c Release -p:UseAppHost=false -v minimal` | full benchmark assembly passes after adding ingest, address history, recovery/reorg, and realtime fanout suites |
+| 2026-03-26 | R-B3-01 | remediation | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/remediation/R-B3-01.md` | address projection rebuilder now bulk-preloads output UTXO and balance docs, removing the request-ceiling regression exposed by larger `B3` scenarios |
+| 2026-03-26 | B5 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/B5-storage-growth-benchmarks-evidence.md` | added storage-growth evidence for journal-only versus payload-backed Raven persistence |
+| 2026-03-26 | B3,B5 | validation | `dotnet test tests/Dxs.Consigliere.Benchmarks/Dxs.Consigliere.Benchmarks.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~RecoveryBenchmark|FullyQualifiedName~StorageGrowthBenchmark" -v minimal` | recovery benchmark now passes at `12/12`, and storage-economics suite is green |
 
 ## Audit Gates
 
@@ -133,6 +136,7 @@
 | R-A1-01 | A1 | done | operator/verification | Wave C |
 | R-A1-02 | A1 | done | operator/verification | Wave C |
 | R-A4-01 | A4 | done | operator/state | S30 |
+| R-B3-01 | B3 | done | operator/state | B5 closeout |
 
 ## API Compatibility Notes
 
@@ -162,6 +166,7 @@
 - Current known bottlenecks:
   - Raven index fanout in address/token projections
   - token revalidation cascades
+  - raw payload storage growth on Raven when payload persistence is enabled
 - Current budget violations:
   - none recorded at A1 baseline
 
@@ -205,10 +210,10 @@
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
   - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
-  - `B3` recovery benchmark currently stays intentionally bounded because the address-state reorg revert path can still exhaust Raven session request ceilings on larger synthetic bursts; this is now a measured watch item rather than an unknown
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
   - projection-backed address history currently materializes address-scoped applied transactions and shapes rows in-memory; this is bounded for managed selective scope, but it should be revisited if history pages or tracked scope become materially larger
   - journal-first modes suppress legacy `OnTransactionFound` and `OnBalanceChanged` push callbacks by default, but `OnTransactionDeleted` remains a compatibility-only stream until the final packaging wave decides whether to retire it
+  - `B5` shows that the current Raven payload backend stores raw hex almost linearly with observation volume; that is acceptable for the initial backend, but object-storage backends remain the long-term cost control path
 - Next slice to open: `none`
