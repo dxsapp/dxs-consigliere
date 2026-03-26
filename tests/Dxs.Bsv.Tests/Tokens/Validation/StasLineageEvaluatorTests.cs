@@ -95,6 +95,90 @@ public class StasLineageEvaluatorTests
     }
 
     [Fact]
+    public void Evaluate_MapsSwapEventWhenRegularSpendConsumesSwapMarkedInput()
+    {
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-swap",
+            [
+                new StasLineageInput(
+                    "parent-swap",
+                    0,
+                    1,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: "1SwapOwner",
+                                TokenId: "token-3",
+                                Hash160: "issuer-3",
+                                DstasFrozen: false,
+                                DstasActionType: "swap",
+                                DstasOptionalDataFingerprint: "opt-swap"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.DSTAS,
+                    Address: "1Counterparty",
+                    TokenId: "token-3",
+                    Hash160: "counterparty-3",
+                    DstasFrozen: false,
+                    DstasActionType: "empty",
+                    DstasOptionalDataFingerprint: "opt-swap"
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.Equal(1, result.DstasSpendingType);
+        Assert.Equal("swap", result.DstasEventType);
+        Assert.True(result.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
+    public void Evaluate_RequiresCurrentOwnerToMatchIssuerForRedeem()
+    {
+        var tokenId = "issuer-token-hash";
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-redeem-non-issuer",
+            [
+                new StasLineageInput(
+                    "parent-non-issuer",
+                    0,
+                    1,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: "1DifferentCurrentOwner",
+                                TokenId: tokenId,
+                                Hash160: tokenId,
+                                DstasFrozen: false,
+                                DstasActionType: "empty"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.P2PKH,
+                    Address: "1IssuerRedeem",
+                    Hash160: tokenId
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.False(result.IsRedeem);
+        Assert.Equal(1, result.DstasSpendingType);
+        Assert.Null(result.DstasEventType);
+    }
+
+    [Fact]
     public void Evaluate_TracksMissingDependenciesAndIllegalRootsFromDirectParents()
     {
         var result = _sut.Evaluate(new StasLineageTransaction(

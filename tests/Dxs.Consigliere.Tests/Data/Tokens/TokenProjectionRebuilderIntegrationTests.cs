@@ -152,6 +152,86 @@ public class TokenProjectionRebuilderIntegrationTests : RavenTestDriver
         Assert.Empty(application.HistoryDocumentIds);
     }
 
+    [Fact]
+    public async Task RebuildAsync_ProjectsDstasRedeemHistoryAndZeroLiveSupply()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTransactionAsync(
+            store,
+            new MetaTransaction
+            {
+                Id = "tx-issue-dstas",
+                Inputs = [],
+                Outputs =
+                [
+                    new MetaTransaction.Output(CreateOutput("tx-issue-dstas", 0, HolderA, TokenId, 50, ScriptType.DSTAS))
+                ],
+                Addresses = [HolderA],
+                TokenIds = [TokenId],
+                IsStas = true,
+                IsIssue = true,
+                IsValidIssue = true,
+                RedeemAddress = RedeemAddress,
+                IllegalRoots = [],
+                MissingTransactions = []
+            }
+        );
+        await SeedTransactionAsync(
+            store,
+            new MetaTransaction
+            {
+                Id = "tx-redeem-dstas",
+                Inputs =
+                [
+                    CreateInput("tx-issue-dstas", 0)
+                ],
+                Outputs =
+                [
+                    new MetaTransaction.Output(CreateOutput("tx-redeem-dstas", 0, RedeemAddress, null!, 50, ScriptType.P2PKH))
+                ],
+                Addresses = [RedeemAddress],
+                TokenIds = [TokenId],
+                IsStas = true,
+                IsRedeem = true,
+                DstasSpendingType = 1,
+                AllStasInputsKnown = true,
+                RedeemAddress = RedeemAddress,
+                IllegalRoots = [],
+                MissingTransactions = []
+            }
+        );
+
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInBlock, "tx-issue-dstas", 1, "block-1", 100));
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInBlock, "tx-redeem-dstas", 2, "block-2", 101));
+
+        var rebuilder = new TokenProjectionRebuilder(
+            store,
+            new RavenObservationJournalReader(store),
+            new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store))
+        );
+        var reader = new TokenProjectionReader(store);
+
+        await rebuilder.RebuildAsync();
+
+        var state = await reader.LoadStateAsync(TokenId);
+        var history = await reader.LoadHistoryAsync(TokenId);
+
+        Assert.NotNull(state);
+        Assert.Equal(TokenProjectionProtocolType.Dstas, state!.ProtocolType);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, state.ValidationStatus);
+        Assert.Equal(RedeemAddress, state.Issuer);
+        Assert.Equal(RedeemAddress, state.RedeemAddress);
+        Assert.Equal(0, state.TotalKnownSupply);
+
+        Assert.Equal(2, history.Count);
+        Assert.Contains(history, x => x.TxId == "tx-issue-dstas" && x.ProtocolType == TokenProjectionProtocolType.Dstas);
+        Assert.Contains(history, x => x.TxId == "tx-redeem-dstas" && x.ProtocolType == TokenProjectionProtocolType.Dstas && x.BalanceDeltaSatoshis == -50);
+    }
+
     private static ObservationJournalAppendRequest<ObservationJournalEntry<TxObservation>> CreateObservation(
         string eventType,
         string txId,

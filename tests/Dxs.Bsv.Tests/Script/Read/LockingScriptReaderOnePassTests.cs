@@ -85,6 +85,35 @@ public class LockingScriptReaderOnePassTests
         Assert.Equal("beef", ToLowerHex(reader.Dstas.OptionalData[0]));
     }
 
+    [Fact]
+    public void KeepsMpkhOwnerBytesWithoutFabricatingDstasAddress()
+    {
+        var ownerPreimage = "03" + RepeatHex("11", 39);
+        var redemption = RepeatHex("22", 20);
+        var freezeAuthority = RepeatHex("33", 20);
+
+        var scriptHex = BuildDstasScript(
+            ownerHex: ownerPreimage,
+            secondFieldTokenHex: "00",
+            redemptionHex: redemption,
+            flagsTokenHex: BuildPush("01"),
+            serviceFieldHexes:
+            [
+                freezeAuthority
+            ],
+            optionalFieldHexes: []
+        );
+
+        var reader = LockingScriptReader.Read(scriptHex, Network.Mainnet);
+
+        Assert.Equal(ScriptType.DSTAS, reader.ScriptType);
+        Assert.NotNull(reader.Dstas);
+        Assert.Equal(ownerPreimage, ToLowerHex(reader.Dstas!.Owner));
+        Assert.Null(reader.Address);
+        Assert.True(reader.Dstas.FreezeEnabled);
+        Assert.Equal(freezeAuthority, ToLowerHex(reader.Dstas.ServiceFields[0]));
+    }
+
     private static string BuildDstasScript(
         string ownerHex,
         string secondFieldTokenHex,

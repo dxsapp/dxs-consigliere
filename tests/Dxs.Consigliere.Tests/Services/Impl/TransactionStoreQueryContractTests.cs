@@ -21,6 +21,8 @@ public class TransactionStoreQueryContractTests
         Assert.Contains("redeemBlockedByState", Query, StringComparison.Ordinal);
         Assert.Contains("firstInputFrozen === true || firstInputActionType === 'confiscation'", Query, StringComparison.Ordinal);
         Assert.Contains("!redeemBlockedByState", Query, StringComparison.Ordinal);
+        Assert.Contains("redeemByIssuerOwner", Query, StringComparison.Ordinal);
+        Assert.Contains("stasFrom === redeemAddress", Query, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -43,6 +45,8 @@ public class TransactionStoreQueryContractTests
         Assert.Contains("dstasSpendingType === 2", Query, StringComparison.Ordinal);
         Assert.Contains("dstasEventType = 'unfreeze'", Query, StringComparison.Ordinal);
         Assert.Contains("dstasEventType = 'freeze'", Query, StringComparison.Ordinal);
+        Assert.Contains("firstInputActionType === 'swap'", Query, StringComparison.Ordinal);
+        Assert.Contains("dstasEventType = 'swap'", Query, StringComparison.Ordinal);
     }
 
     [Fact]

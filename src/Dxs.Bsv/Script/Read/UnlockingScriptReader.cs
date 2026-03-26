@@ -71,17 +71,75 @@ public class UnlockingScriptReader(
         if (_tokens.Count < 3)
             return;
 
-        var pubKeyToken = _tokens[^1];
-        var sigToken = _tokens[^2];
-        var spendingTypeToken = _tokens[^3];
+        for (var preimageIdx = _tokens.Count - 2; preimageIdx >= 0; preimageIdx--)
+        {
+            var preimageToken = _tokens[preimageIdx];
+            if (!LooksLikeDstasPreimage(preimageToken))
+                continue;
 
-        // Heuristic: DSTAS-like unlocking scripts end with pubkey + signature + spending-type.
-        if (pubKeyToken.Bytes is not { Length: 33 } || sigToken.Bytes is not { Length: > 8 })
-            return;
+            var spendingTypeIdx = preimageIdx + 1;
+            if (spendingTypeIdx >= _tokens.Count)
+                continue;
 
-        if (TryParseScriptNumber(spendingTypeToken, out var spendingType))
+            var spendingTypeToken = _tokens[spendingTypeIdx];
+            if (!TryParseScriptNumber(spendingTypeToken, out var spendingType) || !IsRecognizedDstasSpendingType(spendingType))
+                continue;
+
+            if (!LooksLikeSimpleDstasTail(spendingTypeIdx) && !LooksLikeMultisigDstasTail(spendingTypeIdx))
+                continue;
+
             DstasSpendingType = spendingType;
+            return;
+        }
     }
+
+    private bool LooksLikeSimpleDstasTail(int spendingTypeIdx)
+    {
+        if (spendingTypeIdx + 2 >= _tokens.Count)
+            return false;
+
+        var sigToken = _tokens[spendingTypeIdx + 1];
+        var pubKeyToken = _tokens[spendingTypeIdx + 2];
+
+        return LooksLikeSignature(sigToken) && LooksLikeCompressedPublicKey(pubKeyToken);
+    }
+
+    private bool LooksLikeMultisigDstasTail(int spendingTypeIdx)
+    {
+        if (spendingTypeIdx + 3 >= _tokens.Count)
+            return false;
+
+        var dummyToken = _tokens[spendingTypeIdx + 1];
+        if (dummyToken.OpCodeNum != (byte)OpCode.OP_0 || dummyToken.Bytes.Length != 0)
+            return false;
+
+        var authorityPreimageToken = _tokens[^1];
+        if (!LooksLikeMpkhPreimage(authorityPreimageToken))
+            return false;
+
+        for (var i = spendingTypeIdx + 2; i < _tokens.Count - 1; i++)
+        {
+            if (!LooksLikeSignature(_tokens[i]))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool LooksLikeDstasPreimage(ScriptBuildToken token)
+        => token.Bytes is { Length: >= 120 };
+
+    private static bool LooksLikeSignature(ScriptBuildToken token)
+        => token.Bytes is { Length: > 8 };
+
+    private static bool LooksLikeCompressedPublicKey(ScriptBuildToken token)
+        => token.Bytes is { Length: 33 } && token.Bytes[0] is 2 or 3;
+
+    private static bool LooksLikeMpkhPreimage(ScriptBuildToken token)
+        => token.Bytes is { Length: >= 35 };
+
+    private static bool IsRecognizedDstasSpendingType(int spendingType)
+        => spendingType is >= 0 and <= 4;
 
     private static bool TryParseScriptNumber(ScriptBuildToken token, out int number)
     {

@@ -462,7 +462,9 @@ public sealed class TokenProjectionRebuilder(
 
     private static string GetProtocolType(MetaTransaction transaction)
     {
-        if ((transaction.Outputs ?? []).Any(x => x.Type == ScriptType.DSTAS) || !string.IsNullOrWhiteSpace(transaction.DstasEventType))
+        if ((transaction.Outputs ?? []).Any(x => x.Type == ScriptType.DSTAS) ||
+            transaction.DstasSpendingType is not null ||
+            !string.IsNullOrWhiteSpace(transaction.DstasEventType))
             return TokenProjectionProtocolType.Dstas;
 
         return transaction.IsStas || (transaction.Outputs ?? []).Any(x => x.Type == ScriptType.P2STAS)

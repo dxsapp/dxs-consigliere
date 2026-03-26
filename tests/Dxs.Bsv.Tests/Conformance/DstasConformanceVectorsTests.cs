@@ -3,6 +3,7 @@ using System.Text.Json;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Script.Read;
+using Dxs.Bsv.Tokens.Validation;
 
 namespace Dxs.Bsv.Tests.Conformance;
 
@@ -23,6 +24,40 @@ public class DstasConformanceVectorsTests
             ["redeem_frozen_rejected"] = 1,
             ["redeem_confiscation_spending_type_rejected"] = 3,
             ["swap_cancel_valid"] = 4,
+        };
+
+    private static readonly IReadOnlyDictionary<string, string?> ExpectedEventTypeById =
+        new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["transfer_regular_valid"] = null,
+            ["freeze_valid"] = "freeze",
+            ["frozen_owner_spend_rejected"] = null,
+            ["unfreeze_valid"] = "unfreeze",
+            ["confiscate_valid"] = "confiscation",
+            ["confiscate_without_authority_rejected"] = "confiscation",
+            ["confiscate_without_bit2_rejected"] = "confiscation",
+            ["redeem_by_issuer_valid"] = null,
+            ["redeem_by_non_issuer_rejected"] = null,
+            ["redeem_frozen_rejected"] = null,
+            ["redeem_confiscation_spending_type_rejected"] = "confiscation",
+            ["swap_cancel_valid"] = "swap_cancel",
+        };
+
+    private static readonly IReadOnlyDictionary<string, bool> ExpectedRedeemById =
+        new Dictionary<string, bool>(StringComparer.Ordinal)
+        {
+            ["transfer_regular_valid"] = false,
+            ["freeze_valid"] = false,
+            ["frozen_owner_spend_rejected"] = false,
+            ["unfreeze_valid"] = false,
+            ["confiscate_valid"] = false,
+            ["confiscate_without_authority_rejected"] = false,
+            ["confiscate_without_bit2_rejected"] = false,
+            ["redeem_by_issuer_valid"] = true,
+            ["redeem_by_non_issuer_rejected"] = false,
+            ["redeem_frozen_rejected"] = false,
+            ["redeem_confiscation_spending_type_rejected"] = false,
+            ["swap_cancel_valid"] = false,
         };
 
     [Fact]
@@ -61,6 +96,25 @@ public class DstasConformanceVectorsTests
         }
     }
 
+    [Fact]
+    public void ConformanceVectors_ProduceExpectedLineageClassification()
+    {
+        var vectors = LoadVectors();
+        var sut = new StasLineageEvaluator();
+
+        foreach (var vector in vectors)
+        {
+            var tx = Transaction.Parse(vector.TxHex, Network.Mainnet);
+            var lineage = BuildLineageTransaction(tx, vector);
+            var result = sut.Evaluate(lineage);
+
+            Assert.True(result.IsStas);
+            Assert.Equal(ExpectedSpendingTypeById[vector.Id], result.DstasSpendingType);
+            Assert.Equal(ExpectedEventTypeById[vector.Id], result.DstasEventType);
+            Assert.Equal(ExpectedRedeemById[vector.Id], result.IsRedeem);
+        }
+    }
+
     private static List<ConformanceVector> LoadVectors()
     {
         var fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "dstas-conformance-vectors.json");
@@ -74,6 +128,56 @@ public class DstasConformanceVectorsTests
 
         Assert.NotNull(vectors);
         return vectors!;
+    }
+
+    private static StasLineageTransaction BuildLineageTransaction(Transaction tx, ConformanceVector vector)
+    {
+        var prevoutsByInput = vector.Prevouts.ToDictionary(x => x.InputIndex);
+
+        var inputs = tx.Inputs.Select((input, idx) =>
+        {
+            var prevout = prevoutsByInput[idx];
+            var parentOutputs = Enumerable.Range(0, prevout.Vout + 1)
+                .Select(vout => vout == prevout.Vout
+                    ? ToLineageOutput(prevout.LockingScriptHex, prevout.Satoshis, Network.Mainnet)
+                    : new StasLineageOutput(ScriptType.Unknown))
+                .ToArray();
+
+            return new StasLineageInput(
+                input.TxId,
+                (int)input.Vout,
+                input.DstasSpendingType,
+                new StasLineageParentTransaction(parentOutputs)
+            );
+        }).ToArray();
+
+        var outputs = tx.Outputs.Select(output =>
+        {
+            var scriptBytes = output.GetScriptBytes(tx);
+            return ToLineageOutput(scriptBytes.ToHexString(), (long)output.Satoshis, tx.Network, output);
+        }).ToArray();
+
+        return new StasLineageTransaction(tx.Id, inputs, outputs);
+    }
+
+    private static StasLineageOutput ToLineageOutput(string lockingScriptHex, long satoshis, Network network, Output? parsedOutput = null)
+    {
+        var reader = LockingScriptReader.Read(lockingScriptHex, network);
+        var tokenId = parsedOutput?.TokenId ?? reader.GetTokenId();
+        var address = parsedOutput?.Address?.Value ?? reader.Address?.Value;
+        var hash160 = parsedOutput?.Address?.Hash160.ToHexString() ?? reader.Address?.Hash160.ToHexString();
+
+        return new StasLineageOutput(
+            reader.ScriptType,
+            address,
+            tokenId,
+            hash160,
+            reader.Dstas?.Frozen,
+            reader.Dstas?.ActionType,
+            reader.Dstas?.OptionalData is { Count: > 0 }
+                ? string.Join("|", reader.Dstas.OptionalData.Select(x => x.ToHexString()))
+                : null
+        );
     }
 
     private sealed class ConformanceVector

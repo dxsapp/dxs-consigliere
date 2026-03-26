@@ -144,10 +144,12 @@ var firstOutputIsRedeemType = firstOutput &&
      firstOutput.{nameof(MetaTransaction.Output.Type)} === p2mpkhType);
 var redeemBlockedByState = firstInputFrozen === true || firstInputActionType === 'confiscation';
 var redeemUsesRegularSpending = dstasSpendingType === null || dstasSpendingType === 1;
+var redeemByIssuerOwner = stasFrom === redeemAddress;
 var isRedeem = allInputsKnown &&
     stasInputsCount === 1 &&
     firstOutputIsRedeemType &&
     redeemUsesRegularSpending &&
+    redeemByIssuerOwner &&
     !redeemBlockedByState &&
     firstInputTokenId === firstOutput.{nameof(MetaTransaction.Output.Hash160)};
 
@@ -166,6 +168,13 @@ if (isStas && dstasSpendingType !== null) {{
             dstasEventType = 'freeze';
         }}
     }}
+}}
+
+if (dstasEventType === null &&
+    isStas &&
+    (dstasSpendingType === null || dstasSpendingType === 1) &&
+    firstInputActionType === 'swap') {{
+    dstasEventType = 'swap';
 }}
 
 var optionalDataContinuity = null;

@@ -132,11 +132,13 @@ public sealed class StasLineageEvaluator : IStasLineageEvaluator
         var firstOutputIsRedeemType = firstOutput is not null && IsRedeemTarget(firstOutput.Type);
         var redeemBlockedByState = firstInputFrozen == true || string.Equals(firstInputActionType, "confiscation", StringComparison.Ordinal);
         var redeemUsesRegularSpending = dstasSpendingType is null or 1;
+        var redeemByIssuerOwner = string.Equals(stasFrom, redeemAddress, StringComparison.Ordinal);
         var isRedeem =
             allInputsKnown &&
             stasInputsCount == 1 &&
             firstOutputIsRedeemType &&
             redeemUsesRegularSpending &&
+            redeemByIssuerOwner &&
             !redeemBlockedByState &&
             string.Equals(firstInputTokenId, firstOutput?.Hash160, StringComparison.Ordinal);
 
@@ -158,6 +160,14 @@ public sealed class StasLineageEvaluator : IStasLineageEvaluator
                 else
                     dstasEventType = "freeze";
             }
+        }
+
+        if (dstasEventType is null &&
+            isStas &&
+            dstasSpendingType is null or 1 &&
+            string.Equals(firstInputActionType, "swap", StringComparison.Ordinal))
+        {
+            dstasEventType = "swap";
         }
 
         bool? optionalDataContinuity = null;
