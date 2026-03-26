@@ -59,14 +59,7 @@ public sealed class AddressHistoryProjectionReader(
             async ct =>
             {
                 using var session = documentStore.GetNoCacheNoTrackingSession();
-
-                var applications = await session.Query<AddressProjectionAppliedTransactionDocument>()
-                    .Where(x =>
-                        x.Credits.Any(y => y.Address == address.Value)
-                        || x.Debits.Any(y => y.Address == address.Value))
-                    .ToListAsync(token: ct);
-
-                if (applications.Count == 0 || tokenSelection.IsEmpty)
+                if (tokenSelection.IsEmpty)
                 {
                     return new AddressHistoryResponse
                     {
@@ -75,86 +68,165 @@ public sealed class AddressHistoryProjectionReader(
                     };
                 }
 
-                var rows = new List<AddressHistory>();
-                var fallbackApplications = new List<AddressProjectionAppliedTransactionDocument>();
+                var optimized = await TryGetHistoryFromEnvelopeAsync(
+                    session,
+                    address.Value,
+                    request,
+                    tokenSelection,
+                    ct);
+                if (optimized is not null)
+                    return optimized;
 
-                foreach (var application in applications)
+                return await GetHistoryLegacyAsync(
+                    session,
+                    address.Value,
+                    request,
+                    tokenSelection,
+                    ct);
+            },
+            cancellationToken);
+    }
+
+    private async Task<AddressHistoryResponse?> TryGetHistoryFromEnvelopeAsync(
+        Raven.Client.Documents.Session.IAsyncDocumentSession session,
+        string address,
+        GetAddressHistoryRequest request,
+        TokenSelection tokenSelection,
+        CancellationToken cancellationToken
+    )
+    {
+        var effectiveTake = request.Take <= 0 ? MaxTake : request.Take;
+        var batchSize = Math.Clamp((request.Skip + effectiveTake) * 2, 64, 512);
+        var applicationSkip = 0;
+        var pageRows = new List<AddressHistory>(effectiveTake);
+        var skippedRows = 0;
+        var totalCount = 0;
+
+        while (true)
+        {
+            var batch = await BuildApplicationQuery(session, address, request.Desc)
+                .Skip(applicationSkip)
+                .Take(batchSize)
+                .ToListAsync(token: cancellationToken);
+
+            if (batch.Count == 0)
+                break;
+
+            if (batch.Any(x => !HasHistoryEnvelope(x)))
+                return null;
+
+            foreach (var application in batch)
+            {
+                var applicationRows = CreateRowsFromApplication(
+                    address,
+                    request.SkipZeroBalance,
+                    tokenSelection,
+                    application);
+                if (applicationRows.Count == 0)
+                    continue;
+
+                totalCount += applicationRows.Count;
+
+                foreach (var row in applicationRows)
                 {
-                    if (HasHistoryEnvelope(application))
+                    if (skippedRows < request.Skip)
                     {
-                        BuildRowsFromApplication(
-                            address.Value,
-                            request.SkipZeroBalance,
-                            tokenSelection,
-                            application,
-                            rows);
+                        skippedRows++;
                         continue;
                     }
 
-                    fallbackApplications.Add(application);
+                    if (pageRows.Count < effectiveTake)
+                        pageRows.Add(row);
                 }
+            }
 
-                if (fallbackApplications.Count > 0)
-                {
-                    var txIds = fallbackApplications
-                        .Select(x => x.TxId)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
+            applicationSkip += batch.Count;
+        }
 
-                    var transactions = await session.LoadAsync<MetaTransaction>(txIds, ct);
-                    var transactionLookup = transactions.Values
-                        .Where(x => x is not null)
-                        .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
+        return new AddressHistoryResponse
+        {
+            History = pageRows.Select(AddressHistoryDto.From).ToArray(),
+            TotalCount = totalCount
+        };
+    }
 
-                    var inputIds = transactionLookup.Values
-                        .SelectMany(x => x.Inputs ?? [])
-                        .Select(x => x.Id)
-                        .Where(x => !string.IsNullOrWhiteSpace(x))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
+    private async Task<AddressHistoryResponse> GetHistoryLegacyAsync(
+        Raven.Client.Documents.Session.IAsyncDocumentSession session,
+        string address,
+        GetAddressHistoryRequest request,
+        TokenSelection tokenSelection,
+        CancellationToken cancellationToken
+    )
+    {
+        var applications = await BuildApplicationQuery(session, address, request.Desc)
+            .ToListAsync(token: cancellationToken);
 
-                    var inputOutputs = inputIds.Length == 0
-                        ? new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase)
-                        : (await session.LoadAsync<MetaOutput>(inputIds, ct))
-                            .Values
-                            .Where(x => x is not null)
-                            .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
+        if (applications.Count == 0)
+        {
+            return new AddressHistoryResponse
+            {
+                History = [],
+                TotalCount = 0
+            };
+        }
 
-                    foreach (var application in fallbackApplications)
-                    {
-                        if (!transactionLookup.TryGetValue(application.TxId, out var transaction))
-                            continue;
+        var txIds = applications
+            .Select(x => x.TxId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-                        if (!TryBuildRows(
-                                address.Value,
-                                request.SkipZeroBalance,
-                                tokenSelection,
-                                application,
-                                transaction,
-                                inputOutputs,
-                                rows))
-                        {
-                            continue;
-                        }
-                    }
-                }
+        var transactions = await session.LoadAsync<MetaTransaction>(txIds, cancellationToken);
+        var transactionLookup = transactions.Values
+            .Where(x => x is not null)
+            .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
 
-                var ordered = request.Desc
-                    ? rows.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.TxId, StringComparer.OrdinalIgnoreCase)
-                    : rows.OrderBy(x => x.Timestamp).ThenBy(x => x.TxId, StringComparer.OrdinalIgnoreCase);
+        var inputIds = transactionLookup.Values
+            .SelectMany(x => x.Inputs ?? [])
+            .Select(x => x.Id)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-                var paged = ordered
-                    .Skip(request.Skip)
-                    .Take(request.Take <= 0 ? MaxTake : request.Take)
-                    .ToArray();
+        var inputOutputs = inputIds.Length == 0
+            ? new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase)
+            : (await session.LoadAsync<MetaOutput>(inputIds, cancellationToken))
+                .Values
+                .Where(x => x is not null)
+                .ToDictionary(x => x!.Id, x => x!, StringComparer.OrdinalIgnoreCase);
 
-                return new AddressHistoryResponse
-                {
-                    History = paged.Select(AddressHistoryDto.From).ToArray(),
-                    TotalCount = rows.Count
-                };
-            },
-            cancellationToken);
+        var rows = new List<AddressHistory>();
+        foreach (var application in applications)
+        {
+            if (!transactionLookup.TryGetValue(application.TxId, out var transaction))
+                continue;
+
+            if (!TryBuildRows(
+                    address,
+                    request.SkipZeroBalance,
+                    tokenSelection,
+                    application,
+                    transaction,
+                    inputOutputs,
+                    rows))
+            {
+                continue;
+            }
+        }
+
+        var ordered = request.Desc
+            ? rows.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.TxId, StringComparer.OrdinalIgnoreCase)
+            : rows.OrderBy(x => x.Timestamp).ThenBy(x => x.TxId, StringComparer.OrdinalIgnoreCase);
+
+        var paged = ordered
+            .Skip(request.Skip)
+            .Take(request.Take <= 0 ? MaxTake : request.Take)
+            .ToArray();
+
+        return new AddressHistoryResponse
+        {
+            History = paged.Select(AddressHistoryDto.From).ToArray(),
+            TotalCount = rows.Count
+        };
     }
 
     private bool TryBuildRows(
@@ -236,14 +308,14 @@ public sealed class AddressHistoryProjectionReader(
         return true;
     }
 
-    private static void BuildRowsFromApplication(
+    private static List<AddressHistory> CreateRowsFromApplication(
         string address,
         bool skipZeroBalance,
         TokenSelection tokenSelection,
-        AddressProjectionAppliedTransactionDocument application,
-        List<AddressHistory> rows
+        AddressProjectionAppliedTransactionDocument application
     )
     {
+        var rows = new List<AddressHistory>();
         var fromAddresses = application.FromAddresses?
             .Where(x => !string.IsNullOrWhiteSpace(x) && !string.Equals(x, address, StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -293,6 +365,8 @@ public sealed class AddressHistoryProjectionReader(
 
             rows.Add(history);
         }
+
+        return rows;
     }
 
     private TokenSelection NormalizeTokenSelection(string[]? tokenIds)
@@ -345,6 +419,22 @@ public sealed class AddressHistoryProjectionReader(
             && application.Height.HasValue
             && application.ValidStasTx.HasValue
             && application.TxFeeSatoshis.HasValue;
+
+    private static IQueryable<AddressProjectionAppliedTransactionDocument> BuildApplicationQuery(
+        Raven.Client.Documents.Session.IAsyncDocumentSession session,
+        string address,
+        bool desc
+    )
+    {
+        var query = session.Query<AddressProjectionAppliedTransactionDocument>()
+            .Where(x =>
+                x.Credits.Any(y => y.Address == address)
+                || x.Debits.Any(y => y.Address == address));
+
+        return desc
+            ? query.OrderByDescending(x => x.Timestamp).ThenByDescending(x => x.TxId)
+            : query.OrderBy(x => x.Timestamp).ThenBy(x => x.TxId);
+    }
 
     private readonly record struct TokenSelection(string?[] CandidateTokenIds)
     {

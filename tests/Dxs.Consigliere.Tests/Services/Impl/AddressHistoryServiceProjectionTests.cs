@@ -203,6 +203,52 @@ public class AddressHistoryServiceProjectionTests : RavenTestDriver
         Assert.Equal(50, response.History[1].SpentSatoshis);
     }
 
+    [Fact]
+    public async Task GetHistory_EnvelopeFastPath_HonorsSkipAndTake()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+
+        using (var session = store.OpenAsyncSession())
+        {
+            for (var i = 0; i < 10; i++)
+            {
+                var txId = $"{i:D64}";
+                await session.StoreAsync(
+                    new AddressProjectionAppliedTransactionDocument
+                    {
+                        Id = AddressProjectionAppliedTransactionDocument.GetId(txId),
+                        TxId = txId,
+                        AppliedState = AddressProjectionApplicationState.Confirmed,
+                        Timestamp = 1_710_000_000 + i,
+                        Height = i + 1,
+                        ValidStasTx = true,
+                        TxFeeSatoshis = i,
+                        Credits =
+                        [
+                            CreateSnapshot(txId, 0, IssuerAddress, TokenId, 10 + i, ScriptType.P2STAS, $"script-{i}")
+                        ],
+                        Debits = [],
+                        FromAddresses = [],
+                        ToAddresses = [ReceiverAddress]
+                    },
+                    AddressProjectionAppliedTransactionDocument.GetId(txId));
+            }
+
+            await session.SaveChangesAsync();
+        }
+
+        var service = CreateService(store);
+        var response = await service.GetHistory(new GetAddressHistoryRequest(IssuerAddress, [TokenId], true, false, 3, 4));
+
+        Assert.Equal(10, response.TotalCount);
+        Assert.Equal(4, response.History.Length);
+        Assert.Equal($"{6:D64}", response.History[0].TxId);
+        Assert.Equal($"{3:D64}", response.History[^1].TxId);
+    }
+
     private static ServiceProvider CreateCacheServices()
     {
         var services = new ServiceCollection();

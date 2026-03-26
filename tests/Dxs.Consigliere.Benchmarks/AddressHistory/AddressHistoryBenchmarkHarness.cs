@@ -77,7 +77,7 @@ public sealed class AddressHistoryBenchmarkHarness : ConfiguredRavenBenchmarkTes
             ["bsv", VNextBenchmarkFixtureFactory.TokenId(0)],
             Desc: true,
             SkipZeroBalance: false,
-            Skip: 0,
+            Skip: scenario.Skip,
             Take: scenario.Take);
 
         var totalRows = 0;

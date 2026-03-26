@@ -2,6 +2,7 @@ using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
+using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Tracking;
@@ -20,6 +21,29 @@ namespace Dxs.Consigliere.Controllers;
 [Route("api/admin")]
 public class AdminController(INetworkProvider networkProvider) : BaseController
 {
+    [HttpGet("cache/status")]
+    [Produces(typeof(ProjectionCacheStatusResponse))]
+    public IActionResult GetCacheStatus(
+        [FromServices] IProjectionReadCacheTelemetry projectionReadCacheTelemetry
+    )
+    {
+        var snapshot = projectionReadCacheTelemetry.GetSnapshot();
+        return Ok(new ProjectionCacheStatusResponse
+        {
+            Enabled = snapshot.Enabled,
+            Backend = snapshot.Backend,
+            Count = snapshot.Count,
+            MaxEntries = snapshot.MaxEntries,
+            Hits = snapshot.Hits,
+            Misses = snapshot.Misses,
+            FactoryCalls = snapshot.FactoryCalls,
+            InvalidatedKeys = snapshot.InvalidatedKeys,
+            InvalidatedTags = snapshot.InvalidatedTags,
+            Evictions = snapshot.Evictions,
+            HitRatio = snapshot.HitRatio
+        });
+    }
+
     [HttpPost("manage/address")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

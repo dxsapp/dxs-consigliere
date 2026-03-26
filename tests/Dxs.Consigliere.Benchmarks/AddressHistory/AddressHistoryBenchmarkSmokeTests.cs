@@ -10,7 +10,8 @@ public class AddressHistoryBenchmarkSmokeTests
             "address-history-baseline",
             TransferCount: 24,
             QueryCount: 8,
-            Take: 32);
+            Take: 16,
+            Skip: 12);
 
         var rebuild = await harness.MeasureRebuildAsync(scenario);
         var query = await harness.MeasureQueryAsync(scenario);
