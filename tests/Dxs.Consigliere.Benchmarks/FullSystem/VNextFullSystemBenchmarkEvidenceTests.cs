@@ -1,11 +1,18 @@
 using System.Globalization;
 using System.Text;
 
+using Dxs.Tests.Shared;
+
 namespace Dxs.Consigliere.Benchmarks.FullSystem;
 
 public class VNextFullSystemBenchmarkEvidenceTests
 {
-    private const string EvidencePath = "/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S29-full-system-benchmarks-evidence.md";
+    private static readonly string EvidencePath = RepoPathResolver.ResolveFromRepoRoot(
+        "doc",
+        "stream-tasks",
+        "consigliere-vnext",
+        "benchmarks",
+        "S29-full-system-benchmarks-evidence.md");
 
     [Fact]
     public async Task WritesBenchmarkEvidenceSnapshot()

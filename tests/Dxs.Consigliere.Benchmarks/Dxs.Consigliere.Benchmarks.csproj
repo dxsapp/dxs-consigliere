@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <Compile Include="..\Shared\DotNetRuntimeFacts.cs" Link="Shared/DotNetRuntimeFacts.cs" />
+    <Compile Include="..\Shared\RepoPathResolver.cs" Link="Shared/RepoPathResolver.cs" />
   </ItemGroup>
 
 </Project>
