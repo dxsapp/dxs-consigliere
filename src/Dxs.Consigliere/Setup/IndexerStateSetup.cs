@@ -3,6 +3,7 @@ using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Tracking;
+using Dxs.Consigliere.Data.Tokens;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
@@ -22,6 +23,8 @@ public static class IndexerStateSetup
             .AddSingleton<RavenObservationJournalReader>()
             .AddSingleton<AddressProjectionReader>()
             .AddSingleton<AddressProjectionRebuilder>()
+            .AddSingleton<TokenProjectionReader>()
+            .AddSingleton<TokenProjectionRebuilder>()
             .AddSingleton<TxLifecycleProjectionReader>()
             .AddSingleton<TxLifecycleProjectionRebuilder>()
             .AddSingleton<ITrackedEntityRegistrationStore, TrackedEntityRegistrationStore>()

@@ -11,7 +11,7 @@
 ## Active Wave
 
 - Active wave: `Wave H: Core Business Projections`
-- Critical-path slice: `S25`
+- Critical-path slice: `S26`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -43,6 +43,7 @@
 | S22 | indexer-ingest-orchestration | operator/runtime | done | S20,S21 | dependency revalidation coordinator tests + app build | lineage change now drives targeted automatic revalidation via explicit dependency facts instead of FoundMissing index fanout being the primary coordinator |
 | S23 | verification-and-conformance | operator/verification | done | S20,S21,S22 | cascade/reorg tests + token lineage benchmark evidence | explicit token lineage path has worst-case correctness and throughput evidence and is ready for A3 audit review |
 | S24 | indexer-state-and-storage | operator/state | done | S18,S22,S23 | address projection integration tests + `build:Dxs.Consigliere` | address balances and UTXOs now rebuild from journal-driven mutation facts and can be served without the legacy Raven hot mutation indexes |
+| S25 | indexer-state-and-storage | operator/state | done | S24 | token projection integration tests + `build:Dxs.Consigliere` | token state, token history, and token-centric UTXO/stats reads now rebuild from journal-driven state instead of legacy implicit STAS index semantics |
 
 ## Open Handoffs
 
@@ -87,6 +88,7 @@
 | 2026-03-26 | S23 | validation | `tests:StasDependencyRevalidationCascadeIntegrationTests + benchmarks:TokenLineageBenchmarkSmokeTests|TokenLineageBenchmarkEvidenceTests` | chain/delete cascade behavior is covered and the first token-lineage evaluator + revalidation burst baseline is recorded |
 | 2026-03-26 | A3 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | token lineage correctness, dependency discipline, and storm performance passed without remediation |
 | 2026-03-26 | S24 | validation | `tests:AddressProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | journal-driven address balance and UTXO projection landed with stored debit/credit mutation facts, service read-path cutover, and revert coverage after legacy tx deletion |
+| 2026-03-26 | S25 | validation | `tests:TokenProjectionRebuilderIntegrationTests|UtxoSetManagerProjectionTests + build:Dxs.Consigliere` | token state and history now rebuild from journal facts while token-centric UTXO and token stats read from the new projection path instead of legacy STAS indexes |
 
 ## Audit Gates
 
@@ -156,7 +158,9 @@
   - `S22`
   - `S23`
   - `S24`
+  - `S25`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
-- Next slice to open: `S25`
+  - token state currently recomputes from `MetaTransaction` plus address projection state on each touched token; this is correct and bounded for current scope, but `S29/A4` should verify replay cost before full cutover
+- Next slice to open: `S26`

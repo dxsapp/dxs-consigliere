@@ -3,22 +3,22 @@ using Dxs.Bsv.Factories;
 using Dxs.Bsv.Models;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Addresses;
-using Dxs.Consigliere.Data.Queries;
+using Dxs.Consigliere.Data.Tokens;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
 
-using Raven.Client.Documents;
 using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Services.Impl;
 
 public class UtxoSetManager(
-    IDocumentStore documentStore,
     INetworkProvider networkProvider,
     AddressProjectionReader addressProjectionReader,
-    AddressProjectionRebuilder addressProjectionRebuilder
+    AddressProjectionRebuilder addressProjectionRebuilder,
+    TokenProjectionReader tokenProjectionReader,
+    TokenProjectionRebuilder tokenProjectionRebuilder
 ) :
     IUtxoManager,
     IUtxoSetProvider
@@ -95,20 +95,10 @@ public class UtxoSetManager(
         CancellationToken cancellationToken
     )
     {
-        var toBurn = 0L;
-        var supply = 0L;
-
-        using var session = documentStore.GetNoCacheNoTrackingSession();
-
-        var query = session.StasUtxoSet().ByToken(tokenId);
-
-        await foreach (var (utxo, _) in session.Enumerate(query).WithCancellation(cancellationToken))
-        {
-            if (utxo.Address == tokenId.RedeemAddress.Value)
-                toBurn += utxo.Satoshis;
-            else
-                supply += utxo.Satoshis;
-        }
+        await tokenProjectionRebuilder.RebuildAsync(cancellationToken: cancellationToken);
+        var state = await tokenProjectionReader.LoadStateAsync(tokenId.Value, cancellationToken);
+        var supply = state?.TotalKnownSupply ?? 0L;
+        var toBurn = state?.BurnedSatoshis ?? 0L;
 
         return (
             tokenSchema.SatoshisToToken(supply),
