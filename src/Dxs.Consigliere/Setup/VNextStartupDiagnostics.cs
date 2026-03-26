@@ -7,13 +7,18 @@ namespace Dxs.Consigliere.Setup;
 
 public static class VNextStartupDiagnostics
 {
-    public static string[] Describe(ConsigliereSourcesConfig sources, ConsigliereStorageConfig storage)
+    public static string[] Describe(
+        ConsigliereSourcesConfig sources,
+        ConsigliereStorageConfig storage,
+        string? cutoverMode = null
+    )
     {
         var enabledProviders = GetEnabledProviders(sources);
         var payloadStore = DescribePayloadStore(storage);
 
         return
         [
+            $"VNext cutover mode: {cutoverMode ?? VNextCutoverMode.Legacy}",
             $"VNext routing mode: {sources.Routing.PreferredMode ?? "(unset)"}",
             $"VNext primary source: {sources.Routing.PrimarySource ?? "(unset)"}",
             $"VNext fallback sources: {FormatList(sources.Routing.FallbackSources)}",
@@ -74,12 +79,16 @@ public static class VNextStartupDiagnostics
 public sealed class VNextStartupDiagnosticsHostedService(
     ILogger<VNextStartupDiagnosticsHostedService> logger,
     IOptions<ConsigliereSourcesConfig> sources,
-    IOptions<ConsigliereStorageConfig> storage
+    IOptions<ConsigliereStorageConfig> storage,
+    IOptions<AppConfig> appConfig
 ) : IHostedService
 {
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        foreach (var line in VNextStartupDiagnostics.Describe(sources.Value, storage.Value))
+        foreach (var line in VNextStartupDiagnostics.Describe(
+                     sources.Value,
+                     storage.Value,
+                     appConfig.Value.VNextRuntime.CutoverMode))
             logger.LogInformation("{StartupDiagnostic}", line);
 
         return Task.CompletedTask;

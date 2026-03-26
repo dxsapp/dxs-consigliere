@@ -30,7 +30,8 @@ public class ConsigliereConfigBindingTests
             ["Consigliere:Storage:RawTransactionPayloads:Provider"] = "raven",
             ["Consigliere:Storage:RawTransactionPayloads:Location:Collection"] = "RawTransactionPayloads",
             ["Consigliere:Storage:RawTransactionPayloads:Compression:Enabled"] = "true",
-            ["Consigliere:Storage:RawTransactionPayloads:Compression:Algorithm"] = "zstd"
+            ["Consigliere:Storage:RawTransactionPayloads:Compression:Algorithm"] = "zstd",
+            ["VNextRuntime:CutoverMode"] = "shadow_read"
         };
 
         var configuration = new ConfigurationBuilder()
@@ -45,6 +46,7 @@ public class ConsigliereConfigBindingTests
 
         var sources = provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value;
         var storage = provider.GetRequiredService<IOptions<ConsigliereStorageConfig>>().Value;
+        var appConfig = provider.GetRequiredService<IOptions<AppConfig>>().Value;
 
         Assert.Equal("hybrid", sources.Routing.PreferredMode);
         Assert.Equal("junglebus", sources.Routing.PrimarySource);
@@ -64,6 +66,7 @@ public class ConsigliereConfigBindingTests
         Assert.NotNull(storage.RawTransactionPayloads.Compression);
         Assert.True(storage.RawTransactionPayloads.Compression.Enabled);
         Assert.Equal("zstd", storage.RawTransactionPayloads.Compression.Algorithm);
+        Assert.Equal("shadow_read", appConfig.VNextRuntime.CutoverMode);
     }
 
     [Fact]

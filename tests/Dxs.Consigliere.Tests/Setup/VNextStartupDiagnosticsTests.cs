@@ -38,8 +38,9 @@ public class VNextStartupDiagnosticsTests
             }
         };
 
-        var lines = VNextStartupDiagnostics.Describe(sources, storage);
+        var lines = VNextStartupDiagnostics.Describe(sources, storage, VNextCutoverMode.ShadowRead);
 
+        Assert.Contains(lines, x => x.Contains("VNext cutover mode: shadow_read"));
         Assert.Contains(lines, x => x.Contains("VNext routing mode: hybrid"));
         Assert.Contains(lines, x => x.Contains("VNext primary source: junglebus"));
         Assert.Contains(lines, x => x.Contains("node (broadcast, validation_fetch)"));

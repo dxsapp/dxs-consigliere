@@ -5,13 +5,13 @@
 - Parent task: Consigliere vnext rollout
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
-- Current cutover mode: `legacy`
+- Current cutover mode: `legacy` (default config) / `vnext_default` (example rollout configs)
 - Current audit gate status: `A5 passed`
 
 ## Active Wave
 
-- Active wave: `Wave I: Packaging, Cutover, And Validation`
-- Critical-path slice: `S33`
+- Active wave: `Wave I: Packaging, Cutover, And Validation (completed)`
+- Critical-path slice: `complete`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -51,6 +51,7 @@
 | S30 | indexer-state-and-storage | operator/state | done | S26,S29 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TransactionStoreIntegrationTests` | legacy `TransactionStore` no longer relies on per-output/per-input patch fanout to persist compatibility state |
 | S31 | indexer-ingest-orchestration | operator/runtime | done | S30 | `build:Dxs.Consigliere.Tests(useapphost=false)` + `vstest:TxObservationJournalMirrorBackgroundTaskTests|BlockObservationJournalMirrorBackgroundTaskTests|TransactionFilterJournalFirstTests` | tx/block observations enter the journal inline in journal-first modes while legacy and mirror modes preserve rollback-safe fallback semantics |
 | S32 | public-api-and-realtime | operator/api | done | S31 | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:WalletHubCutoverTests|TransactionNotificationDispatcherTests|ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests|AddressHistoryServiceProjectionTests + vstest:VNextFullSystemValidationTests + vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | public reads and realtime now default to projection-backed vnext semantics, with journal-first modes suppressing legacy push callbacks while preserving compatibility lanes |
+| S33 | service-bootstrap-and-ops | operator/platform | done | S32,A5 | `vstest:ConsigliereConfigBindingTests|VNextStartupDiagnosticsTests + build:Dxs.Consigliere.Tests(useapphost=false) + build:Dxs.Consigliere.Benchmarks(useapphost=false) + publish:Dxs.Consigliere(useapphost=false)` | rollout docs, startup diagnostics, conservative default cutover config, and packaging proof now ship as one coherent vnext service version |
 
 ## Open Handoffs
 
@@ -107,6 +108,8 @@
 | 2026-03-26 | S31 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:TxObservationJournalMirrorBackgroundTaskTests|BlockObservationJournalMirrorBackgroundTaskTests|TransactionFilterJournalFirstTests` | journal-first ingest cutover now writes tx/block observations inline in journal-first modes while keeping rollback-safe legacy mirror fallbacks |
 | 2026-03-26 | A5 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A5.md` | cutover safety, rollback viability, and operator ergonomics passed with watch-only follow-ups and no blocking remediation |
 | 2026-03-26 | S32 | validation | `build:Dxs.Consigliere.Tests(useapphost=false) + vstest:WalletHubCutoverTests|TransactionNotificationDispatcherTests|ManagedScopeRealtimeNotifierTests|AddressControllerStateTests|TokenControllerTests|AddressControllerReadinessTests|AddressHistoryServiceProjectionTests + build:Dxs.Consigliere.Benchmarks(useapphost=false) + vstest:VNextFullSystemValidationTests|VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | address history now reads from projection-backed state, websocket reads enforce readiness, and journal-first modes default clients to vnext realtime envelopes without losing compatibility-only delete callbacks |
+| 2026-03-26 | S33 | validation | `vstest:ConsigliereConfigBindingTests|VNextStartupDiagnosticsTests + build:Dxs.Consigliere.Tests(useapphost=false) + build:Dxs.Consigliere.Benchmarks(useapphost=false) + publish:Dxs.Consigliere(useapphost=false)` | cutover mode now appears in startup diagnostics/config examples, operator rollout notes are present, and the service publishes successfully with `UseAppHost=false` through the final packaging path |
+| 2026-03-26 | S33 | docs | `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-rollout-notes.md` | final operator-facing rollout/cutover notes added for packaging and deployment handoff |
 
 ## Audit Gates
 
@@ -192,6 +195,7 @@
   - `S30`
   - `S31`
   - `S32`
+  - `S33`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
   - address projection currently blocks checkpoint advance when source `MetaTransaction`/`MetaOutput` docs are not yet available; this preserves correctness but should be revisited before broader cutover waves
@@ -201,4 +205,4 @@
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
   - projection-backed address history currently materializes address-scoped applied transactions and shapes rows in-memory; this is bounded for managed selective scope, but it should be revisited if history pages or tracked scope become materially larger
   - journal-first modes suppress legacy `OnTransactionFound` and `OnBalanceChanged` push callbacks by default, but `OnTransactionDeleted` remains a compatibility-only stream until the final packaging wave decides whether to retire it
-- Next slice to open: `S33`
+- Next slice to open: `none`
