@@ -181,10 +181,14 @@ Controls what the service tracks and how scope is maintained.
 Mandatory endpoints:
 - `POST /api/scope/addresses`
 - `POST /api/scope/addresses/bulk`
+- `POST /api/scope/addresses/{address}/history/full`
+- `POST /api/scope/addresses/history/full/bulk`
 - `DELETE /api/scope/addresses/{address}`
 - `POST /api/scope/addresses/untrack/bulk`
 - `POST /api/scope/tokens`
 - `POST /api/scope/tokens/bulk`
+- `POST /api/scope/tokens/{tokenId}/history/full`
+- `POST /api/scope/tokens/history/full/bulk`
 - `DELETE /api/scope/tokens/{tokenId}`
 - `POST /api/scope/tokens/untrack/bulk`
 - `GET /api/scope/status`
@@ -195,6 +199,47 @@ Mandatory endpoints:
 
 ### 2. State and query plane
 Main product surface.
+
+## Decision: History Policy Uses a Nested Object
+
+Tracked entity registration and future scope-control operations should use:
+- `historyPolicy`
+  - `mode`
+
+Allowed `mode` values:
+- `forward_only`
+- `full_history`
+
+`forward_only` is the recommended default.
+
+## Decision: State And History Readiness Are Separate
+
+`Consigliere` must model:
+- current state readiness
+- history readiness
+
+as separate but related dimensions.
+
+This allows normal product states such as:
+- current state is `live`
+- full historical coverage is not requested, not complete, or still backfilling
+
+## Decision: History Query Semantics Require Explicit Partial Acceptance
+
+History endpoints must support an explicit request flag:
+- `acceptPartialHistory`
+
+Semantics:
+- omitted or `false`: authoritative history is required
+- `true`: partial history may be returned, but only with honest readiness and coverage metadata
+
+Partial history is allowed only when:
+- `historyReadiness = forward_live`
+- `historyReadiness = backfilling_full_history`
+
+Partial history must not be served when:
+- `historyReadiness = not_requested`
+- `historyReadiness = degraded`
 
 #### Transactions
 - `GET /api/tx/get/{id}`
@@ -275,6 +320,12 @@ The required core address state surface for `v1` is:
 
 `activity` may exist, but it is not part of the minimal mandatory address state core.
 
+Address history responses should carry:
+- `historyReadiness`
+- `historyCoverage`
+
+and may include public-safe `backfillStatus` when history progress detail is relevant.
+
 #### Tokens
 - `GET /api/token/{tokenId}/state`
 - `GET /api/token/{tokenId}/balances`
@@ -297,6 +348,11 @@ The required core token surface for `v1` is:
 `holders` is a useful derivative view, but it is not part of the minimal mandatory token core.
 
 For `(D)STAS`, the existing `validate stas tx` capability is part of this token-core promise and should evolve into the platform's authoritative Back-to-Genesis validation path.
+
+Token history responses follow the same partial-history contract as address history:
+- no silent partial answers
+- explicit `acceptPartialHistory`
+- explicit readiness and coverage metadata
 
 ## Decision: Token State and Transaction Validation Stay Separate
 

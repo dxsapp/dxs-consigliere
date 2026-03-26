@@ -240,6 +240,73 @@ The minimum readiness metadata object includes:
 
 Optional fields remain optional because readiness detail depends on source capability and sync strategy.
 
+## Decision: State Readiness And History Readiness Are Separate
+
+Tracked entities must model current-state readiness separately from history readiness.
+
+Normal states include:
+- current state is `live`
+- history was not requested
+- history is authoritative only from a forward anchor
+- history is still backfilling toward full coverage
+
+This keeps current-state usability independent from long-running historical syncs.
+
+## Decision: History Sync Supports Only Two Modes
+
+Allowed history sync modes:
+- `forward_only`
+- `full_history`
+
+`forward_only` is the recommended default.
+
+`full_history` is explicit and may be long-running.
+
+Explicitly not supported:
+- `last_n_blocks`
+
+## Decision: `forward_only` Uses an Explicit Authority Boundary
+
+`forward_only` becomes authoritative only after:
+1. registration anchor recorded
+2. realtime attached
+3. gap closure from the anchor confirmed
+
+Before that point, forward authority is not established.
+
+## Decision: History Readiness Uses a Separate Vocabulary
+
+Minimum `historyReadiness` values:
+- `not_requested`
+- `forward_live`
+- `backfilling_full_history`
+- `full_history_live`
+- `degraded`
+
+These values describe history authority, not general current-state readiness.
+
+## Decision: History Coverage Must Be Explicit
+
+Tracked entities should expose:
+- `historyCoverage.mode`
+- `historyCoverage.fullCoverage`
+- `historyCoverage.authoritativeFromBlockHeight?`
+- `historyCoverage.authoritativeFromObservedAt?`
+
+This avoids silent ambiguity about what portion of history is authoritative.
+
+## Decision: Full-History Requests Are Monotonic
+
+Once a tracked entity has explicitly requested `full_history`, the history intent should remain monotonic.
+
+Allowed:
+- `forward_only -> full_history`
+
+Not allowed:
+- `full_history -> forward_only`
+
+This keeps public semantics simple and avoids confusing downgrade flows.
+
 ## Decision: No State Reads Before `live`
 
 Tracked entities in `backfilling` or `catching_up` must not expose state reads.

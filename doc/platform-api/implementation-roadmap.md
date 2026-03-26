@@ -268,6 +268,56 @@ Rationale:
 - it matches operator expectations in BSV-heavy environments that prefer full payload preservation
 - it avoids introducing premature garbage-collection policy before the write/storage model is implemented end to end
 
+## Decision: Tracked History Uses Explicit Sync Policy
+
+Tracked entities should carry an explicit history policy:
+- `forward_only`
+- `full_history`
+
+This policy is separate from current-state readiness and must survive into the orchestration and status model.
+
+## Decision: Historical Sync Uses Explicit Routing Capabilities
+
+Historical sync should not piggyback on generic realtime routing semantics.
+
+The roadmap assumes explicit historical capabilities:
+- `historical_address_scan`
+- `historical_token_scan`
+
+This keeps provider economics, backoff, and operator visibility honest.
+
+## Decision: Historical Sync Reuses the Canonical Journal Path
+
+Historical discovery should emit the same observation facts as live ingest.
+
+This means:
+- no special history-only projection pipeline
+- one dedupe path
+- one replay model
+- one projection model
+
+## Decision: Full-History Backfill Uses Explicit Job Storage
+
+The roadmap includes explicit internal backfill job storage for `full_history` work.
+
+This job model is separate from public readiness and should track:
+- queued/running/retry/completed/failed status
+- provider and capability
+- cursor/checkpoint state
+- progress counters
+- terminal failure detail
+
+## Decision: History Query Semantics Must Be Enforced, Not Implied
+
+The implementation must enforce:
+- no silent partial history
+- explicit `acceptPartialHistory`
+- denial when authoritative history is requested but unavailable
+
+This enforcement belongs in the query layer and depends on:
+- `historyReadiness`
+- `historyCoverage`
+
 ## Decision: Allowed Payload Store Providers in v1
 
 The allowed `provider` values for `Consigliere:Storage:RawTransactionPayloads` are:

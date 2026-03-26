@@ -5,10 +5,12 @@ This directory contains the product and architecture baseline for turning `Consi
 Documents:
 - `consigliere-public-api-contract-v1.md` — public API contract and product promise.
 - `managed-scope-model.md` — tracking model, lifecycle, completeness, and indexing guarantees.
+- `history-sync-model.md` — tracked history policy, readiness, coverage, and sync semantics.
 - `source-capability-matrix.md` — upstream source capabilities, routing roles, and provider constraints.
 - `source-config-examples.md` — canonical `appsettings`-style source configuration examples.
 - `implementation-roadmap.md` — phased implementation plan and mandatory write-path rework.
 - `vnext-implementation-slices.md` — detailed zone-based vnext delivery plan with implementation slices.
+- `history-sync-implementation-slices.md` — zone-based implementation slices for tracked history sync and readiness.
 
 Principles:
 - `Consigliere` is not an explorer-first product.
