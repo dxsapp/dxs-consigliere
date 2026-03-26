@@ -238,6 +238,8 @@ public sealed class AddressProjectionRebuilder(
                 batchContext.Applications[application.TxId] = application;
         }
 
+        await PreloadRevertDependenciesAsync(session, batchContext, applications, cancellationToken);
+
         foreach (var application in applications)
         {
             await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, cancellationToken);
@@ -432,26 +434,105 @@ public sealed class AddressProjectionRebuilder(
         var utxoIds = metaTransactions.Values
             .SelectMany(x => x.Inputs ?? [])
             .Select(x => AddressUtxoProjectionDocument.GetId(x.TxId, x.Vout))
+            .Concat(metaOutputs.Values.Select(x => AddressUtxoProjectionDocument.GetId(x.TxId, x.Vout)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var utxos = new Dictionary<string, AddressUtxoProjectionDocument>(StringComparer.OrdinalIgnoreCase);
-        if (utxoIds.Length > 0)
-        {
-            var loaded = await session.LoadAsync<AddressUtxoProjectionDocument>(utxoIds, cancellationToken);
-            foreach (var utxo in loaded)
-            {
-                if (utxo.Value is not null)
-                    utxos[utxo.Key] = utxo.Value;
-            }
-        }
+        var utxos = await LoadUtxoMapAsync(session, utxoIds, cancellationToken);
+
+        var balanceIds = metaOutputs.Values
+            .Where(x => !string.IsNullOrWhiteSpace(x.Address))
+            .Select(x => AddressBalanceProjectionDocument.GetId(x.Address, x.TokenId))
+            .Concat(utxos.Values
+                .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.Address))
+                .Select(x => AddressBalanceProjectionDocument.GetId(x!.Address, x.TokenId)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var balances = await LoadBalanceMapAsync(session, balanceIds, cancellationToken);
 
         return new AddressProjectionBatchContext(
             applications,
             metaTransactions,
             metaOutputs,
             utxos,
-            new Dictionary<string, AddressBalanceProjectionDocument>(StringComparer.OrdinalIgnoreCase));
+            balances);
+    }
+
+    private static async Task PreloadRevertDependenciesAsync(
+        IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
+        IReadOnlyCollection<AddressProjectionAppliedTransactionDocument> applications,
+        CancellationToken cancellationToken
+    )
+    {
+        var snapshots = applications
+            .SelectMany(EnumerateSnapshots)
+            .ToArray();
+
+        if (snapshots.Length == 0)
+            return;
+
+        var utxoIds = snapshots
+            .Select(x => AddressUtxoProjectionDocument.GetId(x.TxId, x.Vout))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(x => !batchContext.Utxos.ContainsKey(x))
+            .ToArray();
+
+        if (utxoIds.Length > 0)
+        {
+            var loaded = await LoadUtxoMapAsync(session, utxoIds, cancellationToken);
+            foreach (var pair in loaded)
+                batchContext.Utxos[pair.Key] = pair.Value;
+        }
+
+        var balanceIds = snapshots
+            .Where(x => !string.IsNullOrWhiteSpace(x.Address))
+            .Select(x => AddressBalanceProjectionDocument.GetId(x.Address, x.TokenId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(x => !batchContext.Balances.ContainsKey(x))
+            .ToArray();
+
+        if (balanceIds.Length == 0)
+            return;
+
+        var loadedBalances = await LoadBalanceMapAsync(session, balanceIds, cancellationToken);
+        foreach (var pair in loadedBalances)
+            batchContext.Balances[pair.Key] = pair.Value;
+    }
+
+    private static async Task<Dictionary<string, AddressUtxoProjectionDocument>> LoadUtxoMapAsync(
+        IAsyncDocumentSession session,
+        IReadOnlyCollection<string> ids,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = new Dictionary<string, AddressUtxoProjectionDocument>(StringComparer.OrdinalIgnoreCase);
+        if (ids.Count == 0)
+            return result;
+
+        var loaded = await session.LoadAsync<AddressUtxoProjectionDocument>(ids, cancellationToken);
+        foreach (var pair in loaded)
+            result[pair.Key] = pair.Value;
+
+        return result;
+    }
+
+    private static async Task<Dictionary<string, AddressBalanceProjectionDocument>> LoadBalanceMapAsync(
+        IAsyncDocumentSession session,
+        IReadOnlyCollection<string> ids,
+        CancellationToken cancellationToken
+    )
+    {
+        var result = new Dictionary<string, AddressBalanceProjectionDocument>(StringComparer.OrdinalIgnoreCase);
+        if (ids.Count == 0)
+            return result;
+
+        var loaded = await session.LoadAsync<AddressBalanceProjectionDocument>(ids, cancellationToken);
+        foreach (var pair in loaded)
+            result[pair.Key] = pair.Value;
+
+        return result;
     }
 
     private static Task<AddressUtxoProjectionDocument> GetOrLoadUtxoAsync(
@@ -475,6 +556,15 @@ public sealed class AddressProjectionRebuilder(
         existing = await session.LoadAsync<AddressUtxoProjectionDocument>(id, cancellationToken);
         batchContext.Utxos[id] = existing;
         return existing;
+    }
+
+    private static IEnumerable<AddressProjectionUtxoSnapshot> EnumerateSnapshots(AddressProjectionAppliedTransactionDocument application)
+    {
+        foreach (var credit in application.Credits ?? [])
+            yield return credit;
+
+        foreach (var debit in application.Debits ?? [])
+            yield return debit;
     }
 
     private static bool ShouldProjectOutput(MetaTransaction transaction, MetaOutput output)
