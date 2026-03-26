@@ -1,10 +1,9 @@
-using System.Text.Json;
-
 using Dxs.Bsv;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Script.Read;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Tests.Shared;
 
 namespace Dxs.Consigliere.Tests.Data.Models.Transactions;
 
@@ -13,7 +12,7 @@ public class MetaOutputDstasMappingTests
     [Fact]
     public void MapsDstasProtocolFieldsFromOutputReader()
     {
-        var vector = LoadVector("transfer_regular_valid");
+        var vector = DstasConformanceVectorFixture.Load("transfer_regular_valid");
         var transaction = Transaction.Parse(vector.TxHex, Network.Mainnet);
         var output = transaction.Outputs.First(x => x.Type == ScriptType.DSTAS);
         var outPoint = new OutPoint(transaction, output.Idx);
@@ -44,7 +43,7 @@ public class MetaOutputDstasMappingTests
     [Fact]
     public void MapsServiceAuthoritiesUsingFlagsOrder()
     {
-        var vector = LoadVector("confiscate_valid");
+        var vector = DstasConformanceVectorFixture.Load("confiscate_valid");
         var transaction = Transaction.Parse(vector.TxHex, Network.Mainnet);
         var output = transaction.Outputs.First(x => x.Type == ScriptType.DSTAS);
 
@@ -72,7 +71,7 @@ public class MetaOutputDstasMappingTests
     [Fact]
     public void MapsSwapRequestedScriptHashAndNeutralActionData()
     {
-        var vector = LoadVector("swap_cancel_valid");
+        var vector = DstasConformanceVectorFixture.Load("swap_cancel_valid");
         var transaction = Transaction.Parse(vector.TxHex, Network.Mainnet);
         var output = transaction.Outputs.First(x => x.Type == ScriptType.DSTAS);
         var reader = LockingScriptReader.Read(new OutPoint(transaction, output.Idx).ScriptPubKey, Network.Mainnet);
@@ -85,24 +84,4 @@ public class MetaOutputDstasMappingTests
         Assert.Equal(reader.Dstas.ActionDataRaw.Length > 0 ? reader.Dstas.ActionDataRaw.ToHexString() : null, metaOutput.DstasActionData);
     }
 
-    private static ConformanceVector LoadVector(string id)
-    {
-        var fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "dstas-conformance-vectors.json");
-        var json = File.ReadAllText(fixturePath);
-        var vectors = JsonSerializer.Deserialize<List<ConformanceVector>>(json, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
-
-        Assert.NotNull(vectors);
-        var vector = vectors!.FirstOrDefault(x => x.Id == id);
-        Assert.NotNull(vector);
-        return vector!;
-    }
-
-    private sealed class ConformanceVector
-    {
-        public string Id { get; set; } = string.Empty;
-        public string TxHex { get; set; } = string.Empty;
-    }
 }
