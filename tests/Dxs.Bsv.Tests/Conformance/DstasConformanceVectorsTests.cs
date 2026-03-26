@@ -115,6 +115,49 @@ public class DstasConformanceVectorsTests
         }
     }
 
+    [Fact]
+    public void ConformanceVectors_PreserveRepresentativeDstasFlagsAndActions()
+    {
+        var vectors = LoadVectors()
+            .Where(x => x.Id is "freeze_valid" or "unfreeze_valid" or "confiscate_valid" or "swap_cancel_valid")
+            .OrderBy(x => x.Id, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(4, vectors.Count);
+
+        foreach (var vector in vectors)
+        {
+            var tx = Transaction.Parse(vector.TxHex, Network.Mainnet);
+            var dstasOutput = tx.Outputs.First(x => x.Type == ScriptType.DSTAS);
+            var reader = LockingScriptReader.Read(new OutPoint(tx, dstasOutput.Idx).ScriptPubKey, Network.Mainnet);
+
+            Assert.NotNull(reader.Dstas);
+
+            switch (vector.Id)
+            {
+                case "freeze_valid":
+                    Assert.True(reader.Dstas!.Frozen);
+                    Assert.Equal("empty", reader.Dstas.ActionType);
+                    Assert.True(reader.Dstas.FreezeEnabled);
+                    break;
+                case "unfreeze_valid":
+                    Assert.False(reader.Dstas!.Frozen);
+                    Assert.Equal("empty", reader.Dstas.ActionType);
+                    Assert.True(reader.Dstas.FreezeEnabled);
+                    break;
+                case "confiscate_valid":
+                    Assert.False(reader.Dstas!.Frozen);
+                    Assert.Equal("empty", reader.Dstas.ActionType);
+                    Assert.True(reader.Dstas.ConfiscationEnabled);
+                    break;
+                case "swap_cancel_valid":
+                    Assert.Equal("swap", reader.Dstas!.ActionType);
+                    Assert.NotNull(reader.Dstas.RequestedScriptHash);
+                    break;
+            }
+        }
+    }
+
     private static List<ConformanceVector> LoadVectors()
     {
         var fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "dstas-conformance-vectors.json");

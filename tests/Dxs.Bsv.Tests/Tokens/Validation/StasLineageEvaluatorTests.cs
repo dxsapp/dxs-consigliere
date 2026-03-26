@@ -55,6 +55,96 @@ public class StasLineageEvaluatorTests
     }
 
     [Fact]
+    public void Evaluate_DetectsUnfreezeEventWhenFrozenInputBecomesUnfrozen()
+    {
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-unfreeze",
+            [
+                new StasLineageInput(
+                    "parent-frozen",
+                    0,
+                    2,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: "1FrozenOwner",
+                                TokenId: "token-1",
+                                Hash160: "issuer-1",
+                                DstasFrozen: true,
+                                DstasActionType: "freeze",
+                                DstasOptionalDataFingerprint: "opt-1"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.DSTAS,
+                    Address: "1RecoveredOwner",
+                    TokenId: "token-1",
+                    Hash160: "receiver-1",
+                    DstasFrozen: false,
+                    DstasActionType: "empty",
+                    DstasOptionalDataFingerprint: "opt-1"
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.Equal("unfreeze", result.DstasEventType);
+        Assert.Equal(2, result.DstasSpendingType);
+        Assert.True(result.DstasInputFrozen);
+        Assert.False(result.DstasOutputFrozen);
+        Assert.True(result.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
+    public void Evaluate_DetectsConfiscationEvent()
+    {
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-confiscation",
+            [
+                new StasLineageInput(
+                    "parent-frozen",
+                    0,
+                    3,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: "1OwnerBeforeConfiscation",
+                                TokenId: "token-1",
+                                Hash160: "issuer-1",
+                                DstasFrozen: true,
+                                DstasActionType: "freeze",
+                                DstasOptionalDataFingerprint: "opt-1"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.DSTAS,
+                    Address: "1ConfiscationReceiver",
+                    TokenId: "token-1",
+                    Hash160: "receiver-1",
+                    DstasFrozen: false,
+                    DstasActionType: "confiscation",
+                    DstasOptionalDataFingerprint: "opt-1"
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.Equal("confiscation", result.DstasEventType);
+        Assert.Equal(3, result.DstasSpendingType);
+        Assert.True(result.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
     public void Evaluate_BlocksRedeemWhenInputIsFrozen()
     {
         var tokenId = "issuer-token-hash";
@@ -135,6 +225,50 @@ public class StasLineageEvaluatorTests
         Assert.True(result.IsStas);
         Assert.Equal(1, result.DstasSpendingType);
         Assert.Equal("swap", result.DstasEventType);
+        Assert.True(result.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
+    public void Evaluate_MapsSwapCancelEventFromSpendingType()
+    {
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-swap-cancel",
+            [
+                new StasLineageInput(
+                    "parent-swap",
+                    0,
+                    4,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: "1SwapOwner",
+                                TokenId: "token-3",
+                                Hash160: "issuer-3",
+                                DstasFrozen: false,
+                                DstasActionType: "swap",
+                                DstasOptionalDataFingerprint: "opt-swap"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.DSTAS,
+                    Address: "1SwapOwner",
+                    TokenId: "token-3",
+                    Hash160: "issuer-3",
+                    DstasFrozen: false,
+                    DstasActionType: "empty",
+                    DstasOptionalDataFingerprint: "opt-swap"
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.Equal("swap_cancel", result.DstasEventType);
+        Assert.Equal(4, result.DstasSpendingType);
         Assert.True(result.DstasOptionalDataContinuity);
     }
 
@@ -239,6 +373,91 @@ public class StasLineageEvaluatorTests
         Assert.False(result.AllInputsKnown);
         Assert.Equal(["invalid-issue-parent", "root-b"], result.IllegalRoots);
         Assert.Equal(["missing-parent", "partial-parent"], result.MissingDependencies);
+    }
+
+    [Fact]
+    public void Evaluate_FailsOptionalDataContinuityWhenDescendantDropsFingerprint()
+    {
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-drop-optional-data",
+            [
+                new StasLineageInput(
+                    "parent-with-optional-data",
+                    0,
+                    1,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: "1ParentOwner",
+                                TokenId: "token-4",
+                                Hash160: "issuer-4",
+                                DstasFrozen: false,
+                                DstasActionType: "empty",
+                                DstasOptionalDataFingerprint: "opt-preserved"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.DSTAS,
+                    Address: "1ChildOwner",
+                    TokenId: "token-4",
+                    Hash160: "receiver-4",
+                    DstasFrozen: false,
+                    DstasActionType: "empty",
+                    DstasOptionalDataFingerprint: null
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.False(result.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
+    public void Evaluate_AllowsRedeemAfterUnfreezeWhenIssuerIsCurrentOwner()
+    {
+        const string tokenId = "issuer-token-hash";
+        const string issuerAddress = "1IssuerRedeem";
+
+        var result = _sut.Evaluate(new StasLineageTransaction(
+            "tx-redeem-after-unfreeze",
+            [
+                new StasLineageInput(
+                    "parent-unfrozen",
+                    0,
+                    1,
+                    new StasLineageParentTransaction(
+                        [
+                            new StasLineageOutput(
+                                ScriptType.DSTAS,
+                                Address: issuerAddress,
+                                TokenId: tokenId,
+                                Hash160: tokenId,
+                                DstasFrozen: false,
+                                DstasActionType: "empty",
+                                DstasOptionalDataFingerprint: "opt-issuer"
+                            )
+                        ]
+                    )
+                )
+            ],
+            [
+                new StasLineageOutput(
+                    ScriptType.P2MPKH,
+                    Address: issuerAddress,
+                    Hash160: tokenId
+                )
+            ]
+        ));
+
+        Assert.True(result.IsStas);
+        Assert.True(result.IsRedeem);
+        Assert.Equal(1, result.DstasSpendingType);
+        Assert.Null(result.DstasEventType);
     }
 
     [Fact]

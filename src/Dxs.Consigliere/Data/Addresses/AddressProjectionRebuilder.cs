@@ -257,17 +257,22 @@ public sealed class AddressProjectionRebuilder(
         CancellationToken cancellationToken
     )
     {
+        var balanceDeltas = new Dictionary<(string Address, string? TokenId), long>();
+
         foreach (var debit in debits)
         {
             await DeleteUtxoAsync(session, batchContext, debit, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, batchContext, debit.Address, debit.TokenId, -debit.Satoshis, sequence, cancellationToken);
+            AccumulateBalanceDelta(balanceDeltas, debit.Address, debit.TokenId, -debit.Satoshis);
         }
 
         foreach (var credit in credits)
         {
             await UpsertUtxoAsync(session, batchContext, credit, sequence, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, batchContext, credit.Address, credit.TokenId, credit.Satoshis, sequence, cancellationToken);
+            AccumulateBalanceDelta(balanceDeltas, credit.Address, credit.TokenId, credit.Satoshis);
         }
+
+        foreach (var ((address, tokenId), delta) in balanceDeltas)
+            await ApplyBalanceDeltaAsync(session, batchContext, address, tokenId, delta, sequence, cancellationToken);
     }
 
     private static async Task RevertApplicationAsync(
@@ -278,23 +283,44 @@ public sealed class AddressProjectionRebuilder(
         CancellationToken cancellationToken
     )
     {
+        var balanceDeltas = new Dictionary<(string Address, string? TokenId), long>();
+
         foreach (var credit in application.Credits ?? [])
         {
             await DeleteUtxoAsync(session, batchContext, credit, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, batchContext, credit.Address, credit.TokenId, -credit.Satoshis, sequence, cancellationToken);
+            AccumulateBalanceDelta(balanceDeltas, credit.Address, credit.TokenId, -credit.Satoshis);
         }
 
         foreach (var debit in application.Debits ?? [])
         {
             await UpsertUtxoAsync(session, batchContext, debit, sequence, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, batchContext, debit.Address, debit.TokenId, debit.Satoshis, sequence, cancellationToken);
+            AccumulateBalanceDelta(balanceDeltas, debit.Address, debit.TokenId, debit.Satoshis);
         }
+
+        foreach (var ((address, tokenId), delta) in balanceDeltas)
+            await ApplyBalanceDeltaAsync(session, batchContext, address, tokenId, delta, sequence, cancellationToken);
 
         application.AppliedState = AddressProjectionApplicationState.None;
         application.ConfirmedBlockHash = null;
         application.Credits = [];
         application.Debits = [];
         application.LastSequence = sequence;
+    }
+
+    private static void AccumulateBalanceDelta(
+        IDictionary<(string Address, string? TokenId), long> balanceDeltas,
+        string address,
+        string? tokenId,
+        long delta
+    )
+    {
+        if (delta == 0 || string.IsNullOrWhiteSpace(address))
+            return;
+
+        var key = (address, tokenId);
+        balanceDeltas[key] = balanceDeltas.TryGetValue(key, out var current)
+            ? current + delta
+            : delta;
     }
 
     private static async Task UpsertUtxoAsync(

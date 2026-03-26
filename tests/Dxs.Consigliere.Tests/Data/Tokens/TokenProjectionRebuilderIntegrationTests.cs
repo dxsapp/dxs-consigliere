@@ -232,6 +232,170 @@ public class TokenProjectionRebuilderIntegrationTests : RavenTestDriver
         Assert.Contains(history, x => x.TxId == "tx-redeem-dstas" && x.ProtocolType == TokenProjectionProtocolType.Dstas && x.BalanceDeltaSatoshis == -50);
     }
 
+    [Fact]
+    public async Task RebuildAsync_RemovesDroppedDstasTransferAndRestoresIssuerBalance()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTransactionAsync(
+            store,
+            CreateTokenTransaction(
+                "tx-issue-dstas",
+                outputs:
+                [CreateOutput("tx-issue-dstas", 0, HolderA, TokenId, 50, ScriptType.DSTAS)],
+                isIssue: true,
+                isValidIssue: true,
+                redeemAddress: RedeemAddress
+            )
+        );
+        await SeedTransactionAsync(
+            store,
+            CreateTokenTransaction(
+                "tx-transfer-dstas",
+                inputs:
+                [CreateInput("tx-issue-dstas", 0)],
+                outputs:
+                [CreateOutput("tx-transfer-dstas", 0, HolderB, TokenId, 50, ScriptType.DSTAS)],
+                allStasInputsKnown: true,
+                illegalRoots: []
+            )
+        );
+
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInBlock, "tx-issue-dstas", 1, "block-1", 100));
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInMempool, "tx-transfer-dstas", 2));
+
+        var rebuilder = new TokenProjectionRebuilder(
+            store,
+            new RavenObservationJournalReader(store),
+            new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store))
+        );
+        var reader = new TokenProjectionReader(store);
+
+        await rebuilder.RebuildAsync();
+
+        using (var session = store.OpenAsyncSession())
+        {
+            session.Delete(await session.LoadAsync<MetaTransaction>("tx-transfer-dstas"));
+            session.Delete(await session.LoadAsync<MetaOutput>(MetaOutput.GetId("tx-transfer-dstas", 0)));
+            await session.SaveChangesAsync();
+        }
+
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.DroppedBySource, "tx-transfer-dstas", 3));
+        await rebuilder.RebuildAsync();
+
+        var state = await reader.LoadStateAsync(TokenId);
+        var history = await reader.LoadHistoryAsync(TokenId);
+        var utxos = await reader.LoadUtxosAsync(TokenId);
+
+        Assert.NotNull(state);
+        Assert.Equal(TokenProjectionProtocolType.Dstas, state!.ProtocolType);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, state.ValidationStatus);
+        Assert.Equal(50, state.TotalKnownSupply);
+        Assert.Single(history);
+        Assert.Equal("tx-issue-dstas", history[0].TxId);
+        Assert.Single(utxos);
+        Assert.Equal("tx-issue-dstas", utxos[0].TxId);
+    }
+
+    [Fact]
+    public async Task RebuildAsync_MarksDstasTokenUnknownWhenDependenciesAreMissing()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTransactionAsync(
+            store,
+            new MetaTransaction
+            {
+                Id = "tx-missing-dstas",
+                Inputs = [CreateInput("missing-parent", 0)],
+                Outputs =
+                [
+                    new MetaTransaction.Output(CreateOutput("tx-missing-dstas", 0, HolderA, TokenId, 50, ScriptType.DSTAS))
+                ],
+                Addresses = [HolderA],
+                TokenIds = [TokenId],
+                IsStas = true,
+                AllStasInputsKnown = false,
+                MissingTransactions = ["missing-parent"],
+                IllegalRoots = []
+            }
+        );
+
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInMempool, "tx-missing-dstas", 1));
+
+        var rebuilder = new TokenProjectionRebuilder(
+            store,
+            new RavenObservationJournalReader(store),
+            new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store))
+        );
+        var reader = new TokenProjectionReader(store);
+
+        await rebuilder.RebuildAsync();
+
+        var state = await reader.LoadStateAsync(TokenId);
+        var history = await reader.LoadHistoryAsync(TokenId);
+
+        Assert.NotNull(state);
+        Assert.Equal(TokenProjectionProtocolType.Dstas, state!.ProtocolType);
+        Assert.Equal(TokenProjectionValidationStatus.Unknown, state.ValidationStatus);
+        Assert.Single(history);
+        Assert.Equal(TokenProjectionValidationStatus.Unknown, history[0].ValidationStatus);
+    }
+
+    [Fact]
+    public async Task RebuildAsync_MarksDstasTokenInvalidWhenIllegalRootsExist()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTransactionAsync(
+            store,
+            new MetaTransaction
+            {
+                Id = "tx-invalid-dstas",
+                Inputs = [CreateInput("invalid-root-parent", 0)],
+                Outputs =
+                [
+                    new MetaTransaction.Output(CreateOutput("tx-invalid-dstas", 0, HolderB, TokenId, 50, ScriptType.DSTAS))
+                ],
+                Addresses = [HolderB],
+                TokenIds = [TokenId],
+                IsStas = true,
+                AllStasInputsKnown = true,
+                MissingTransactions = [],
+                IllegalRoots = ["invalid-root-parent"]
+            }
+        );
+
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInMempool, "tx-invalid-dstas", 1));
+
+        var rebuilder = new TokenProjectionRebuilder(
+            store,
+            new RavenObservationJournalReader(store),
+            new AddressProjectionRebuilder(store, new RavenObservationJournalReader(store))
+        );
+        var reader = new TokenProjectionReader(store);
+
+        await rebuilder.RebuildAsync();
+
+        var state = await reader.LoadStateAsync(TokenId);
+        var history = await reader.LoadHistoryAsync(TokenId);
+
+        Assert.NotNull(state);
+        Assert.Equal(TokenProjectionProtocolType.Dstas, state!.ProtocolType);
+        Assert.Equal(TokenProjectionValidationStatus.Invalid, state.ValidationStatus);
+        Assert.Single(history);
+        Assert.Equal(TokenProjectionValidationStatus.Invalid, history[0].ValidationStatus);
+    }
+
     private static ObservationJournalAppendRequest<ObservationJournalEntry<TxObservation>> CreateObservation(
         string eventType,
         string txId,

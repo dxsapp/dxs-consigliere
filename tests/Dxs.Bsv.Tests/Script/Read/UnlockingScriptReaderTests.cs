@@ -66,6 +66,48 @@ public class UnlockingScriptReaderTests
     }
 
     [Fact]
+    public void ParsesDstasSwapCancelFromSimpleTailTokens()
+    {
+        var preimage = RepeatHex("bb", 160);
+        var signature = RepeatHex("30", 71);
+        var publicKey = "03" + RepeatHex("12", 32);
+        var unlockingHex = string.Concat(
+            BuildPush("beef"),
+            BuildPush(preimage),
+            "54",
+            BuildPush(signature),
+            BuildPush(publicKey)
+        );
+
+        var reader = UnlockingScriptReader.Read(unlockingHex, Network.Mainnet);
+
+        Assert.Equal(4, reader.DstasSpendingType);
+    }
+
+    [Fact]
+    public void ParsesDstasConfiscationFromAuthorityMultisigTailTokens()
+    {
+        var preimage = RepeatHex("cc", 160);
+        var signatureA = RepeatHex("30", 72);
+        var signatureB = RepeatHex("31", 70);
+        var authorityPreimage = "03" + RepeatHex("44", 39);
+
+        var unlockingHex = string.Concat(
+            BuildPush("cafe"),
+            BuildPush(preimage),
+            "53",
+            "00",
+            BuildPush(signatureA),
+            BuildPush(signatureB),
+            BuildPush(authorityPreimage)
+        );
+
+        var reader = UnlockingScriptReader.Read(unlockingHex, Network.Mainnet);
+
+        Assert.Equal(3, reader.DstasSpendingType);
+    }
+
+    [Fact]
     public void DoesNotParseAuthorityMultisigTailWhenDummyOpcodeIsMissing()
     {
         var preimage = RepeatHex("aa", 160);

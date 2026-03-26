@@ -114,6 +114,84 @@ public class TransactionStoreIntegrationTests : RavenTestDriver
     }
 
     [Fact]
+    public async Task UpdateStasAttributes_SetsUnfreezeEventWhenFrozenInputBecomesSpendable()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var sut = BuildStore(store);
+
+        const string parentId = "2121212121212121212121212121212121212121212121212121212121212121";
+        const string txId = "3131313131313131313131313131313131313131313131313131313131313131";
+
+        await SeedTransaction(store, parentId, new RawMetaTransaction
+        {
+            Inputs = [],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-1",
+                    Hash160 = "issuer-1",
+                    Address = "1FrozenOwner",
+                    DstasFrozen = true,
+                    DstasActionType = "freeze",
+                    DstasOptionalDataFingerprint = "opt-1"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await SeedTransaction(store, txId, new RawMetaTransaction
+        {
+            Inputs =
+            [
+                new RawInput
+                {
+                    TxId = parentId,
+                    Vout = 0,
+                    DstasSpendingType = 2
+                }
+            ],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-1",
+                    Hash160 = "receiver-1",
+                    Address = "1RecoveredOwner",
+                    DstasFrozen = false,
+                    DstasActionType = "empty",
+                    DstasOptionalDataFingerprint = "opt-1"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await sut.UpdateStasAttributes(txId);
+
+        using var session = store.OpenAsyncSession();
+        var updated = await session.LoadAsync<MetaTransaction>(txId);
+
+        Assert.NotNull(updated);
+        Assert.True(updated!.IsStas);
+        Assert.Equal("unfreeze", updated.DstasEventType);
+        Assert.Equal(2, updated.DstasSpendingType);
+        Assert.True(updated.DstasInputFrozen);
+        Assert.False(updated.DstasOutputFrozen);
+        Assert.True(updated.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
     public async Task UpdateStasAttributes_BlocksRedeemWhenInputIsFrozen()
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
@@ -262,6 +340,160 @@ public class TransactionStoreIntegrationTests : RavenTestDriver
     }
 
     [Fact]
+    public async Task UpdateStasAttributes_MapsConfiscationEvent()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var sut = BuildStore(store);
+
+        const string parentId = "5656565656565656565656565656565656565656565656565656565656565656";
+        const string txId = "7878787878787878787878787878787878787878787878787878787878787878";
+
+        await SeedTransaction(store, parentId, new RawMetaTransaction
+        {
+            Inputs = [],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-4",
+                    Hash160 = "issuer-4",
+                    Address = "1FrozenOwner",
+                    DstasFrozen = true,
+                    DstasActionType = "freeze",
+                    DstasOptionalDataFingerprint = "opt-confiscation"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await SeedTransaction(store, txId, new RawMetaTransaction
+        {
+            Inputs =
+            [
+                new RawInput
+                {
+                    TxId = parentId,
+                    Vout = 0,
+                    DstasSpendingType = 3
+                }
+            ],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-4",
+                    Hash160 = "receiver-4",
+                    Address = "1ConfiscationReceiver",
+                    DstasFrozen = false,
+                    DstasActionType = "confiscation",
+                    DstasOptionalDataFingerprint = "opt-confiscation"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await sut.UpdateStasAttributes(txId);
+
+        using var session = store.OpenAsyncSession();
+        var updated = await session.LoadAsync<MetaTransaction>(txId);
+
+        Assert.NotNull(updated);
+        Assert.True(updated!.IsStas);
+        Assert.Equal("confiscation", updated.DstasEventType);
+        Assert.Equal(3, updated.DstasSpendingType);
+        Assert.True(updated.DstasInputFrozen);
+        Assert.False(updated.DstasOutputFrozen);
+        Assert.True(updated.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
+    public async Task UpdateStasAttributes_MapsSwapCancelEvent()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var sut = BuildStore(store);
+
+        const string parentId = "8989898989898989898989898989898989898989898989898989898989898989";
+        const string txId = "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a";
+
+        await SeedTransaction(store, parentId, new RawMetaTransaction
+        {
+            Inputs = [],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-5",
+                    Hash160 = "issuer-5",
+                    Address = "1SwapOwner",
+                    DstasFrozen = false,
+                    DstasActionType = "swap",
+                    DstasOptionalDataFingerprint = "opt-swap"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await SeedTransaction(store, txId, new RawMetaTransaction
+        {
+            Inputs =
+            [
+                new RawInput
+                {
+                    TxId = parentId,
+                    Vout = 0,
+                    DstasSpendingType = 4
+                }
+            ],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-5",
+                    Hash160 = "issuer-5",
+                    Address = "1SwapOwner",
+                    DstasFrozen = false,
+                    DstasActionType = "empty",
+                    DstasOptionalDataFingerprint = "opt-swap"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await sut.UpdateStasAttributes(txId);
+
+        using var session = store.OpenAsyncSession();
+        var updated = await session.LoadAsync<MetaTransaction>(txId);
+
+        Assert.NotNull(updated);
+        Assert.True(updated!.IsStas);
+        Assert.Equal("swap_cancel", updated.DstasEventType);
+        Assert.Equal(4, updated.DstasSpendingType);
+        Assert.True(updated.DstasOptionalDataContinuity);
+    }
+
+    [Fact]
     public async Task UpdateStasAttributes_RequiresCurrentOwnerToMatchIssuerForRedeem()
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
@@ -405,6 +637,79 @@ public class TransactionStoreIntegrationTests : RavenTestDriver
         Assert.Equal(1, updated.DstasSpendingType);
         Assert.Null(updated.DstasEventType);
         Assert.Equal(issuerAddress, updated.RedeemAddress);
+    }
+
+    [Fact]
+    public async Task UpdateStasAttributes_FlagsOptionalDataContinuityRegression()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var sut = BuildStore(store);
+
+        const string parentId = "4545454545454545454545454545454545454545454545454545454545454545";
+        const string txId = "6767676767676767676767676767676767676767676767676767676767676767";
+
+        await SeedTransaction(store, parentId, new RawMetaTransaction
+        {
+            Inputs = [],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-6",
+                    Hash160 = "issuer-6",
+                    Address = "1ParentOwner",
+                    DstasFrozen = false,
+                    DstasActionType = "empty",
+                    DstasOptionalDataFingerprint = "opt-preserved"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await SeedTransaction(store, txId, new RawMetaTransaction
+        {
+            Inputs =
+            [
+                new RawInput
+                {
+                    TxId = parentId,
+                    Vout = 0,
+                    DstasSpendingType = 1
+                }
+            ],
+            Outputs =
+            [
+                new RawOutput
+                {
+                    Type = "DSTAS",
+                    TokenId = "token-6",
+                    Hash160 = "receiver-6",
+                    Address = "1ChildOwner",
+                    DstasFrozen = false,
+                    DstasActionType = "empty"
+                }
+            ],
+            MissingTransactions = [],
+            IllegalRoots = [],
+            IsIssue = false,
+            IsValidIssue = false
+        });
+
+        await sut.UpdateStasAttributes(txId);
+
+        using var session = store.OpenAsyncSession();
+        var updated = await session.LoadAsync<MetaTransaction>(txId);
+
+        Assert.NotNull(updated);
+        Assert.True(updated!.IsStas);
+        Assert.False(updated.DstasOptionalDataContinuity);
     }
 
     [Fact]

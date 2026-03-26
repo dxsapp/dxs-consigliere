@@ -69,6 +69,22 @@ public class MetaOutputDstasMappingTests
         }
     }
 
+    [Fact]
+    public void MapsSwapRequestedScriptHashAndNeutralActionData()
+    {
+        var vector = LoadVector("swap_cancel_valid");
+        var transaction = Transaction.Parse(vector.TxHex, Network.Mainnet);
+        var output = transaction.Outputs.First(x => x.Type == ScriptType.DSTAS);
+        var reader = LockingScriptReader.Read(new OutPoint(transaction, output.Idx).ScriptPubKey, Network.Mainnet);
+
+        var metaOutput = MetaOutput.FromOutput(transaction, output, timestamp: 0, height: 0);
+
+        Assert.NotNull(reader.Dstas);
+        Assert.Equal(reader.Dstas.ActionType, metaOutput.DstasActionType);
+        Assert.Equal(reader.Dstas!.RequestedScriptHash?.ToHexString(), metaOutput.DstasRequestedScriptHash);
+        Assert.Equal(reader.Dstas.ActionDataRaw.Length > 0 ? reader.Dstas.ActionDataRaw.ToHexString() : null, metaOutput.DstasActionData);
+    }
+
     private static ConformanceVector LoadVector(string id)
     {
         var fixturePath = Path.Combine(AppContext.BaseDirectory, "fixtures", "dstas-conformance-vectors.json");
