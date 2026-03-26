@@ -34,10 +34,11 @@ public sealed class AddressProjectionRebuilder(
                 return checkpoint;
 
             using var session = documentStore.GetSession();
+            var batchContext = await LoadBatchContextAsync(session, records, cancellationToken);
 
             foreach (var record in records)
             {
-                var applied = await ApplyAsync(session, record, cancellationToken);
+                var applied = await ApplyAsync(session, batchContext, record, cancellationToken);
                 if (!applied)
                 {
                     await StoreCheckpointAsync(session, checkpoint, cancellationToken);
@@ -57,16 +58,17 @@ public sealed class AddressProjectionRebuilder(
 
     private async Task<bool> ApplyAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         CancellationToken cancellationToken
     )
     {
         if (record.IsObservationType<TxObservation>())
-            return await ApplyTxObservationAsync(session, record, record.Deserialize<TxObservation>(), cancellationToken);
+            return await ApplyTxObservationAsync(session, batchContext, record, record.Deserialize<TxObservation>(), cancellationToken);
 
         if (record.IsObservationType<BlockObservation>())
         {
-            await ApplyBlockObservationAsync(session, record, record.Deserialize<BlockObservation>(), cancellationToken);
+            await ApplyBlockObservationAsync(session, batchContext, record, record.Deserialize<BlockObservation>(), cancellationToken);
             return true;
         }
 
@@ -75,41 +77,42 @@ public sealed class AddressProjectionRebuilder(
 
     private static async Task<bool> ApplyTxObservationAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         TxObservation observation,
         CancellationToken cancellationToken
     )
     {
-        var application = await session.LoadAsync<AddressProjectionAppliedTransactionDocument>(
-                AddressProjectionAppliedTransactionDocument.GetId(observation.TxId),
-                cancellationToken)
-            ?? new AddressProjectionAppliedTransactionDocument
+        if (!batchContext.Applications.TryGetValue(observation.TxId, out var application))
+        {
+            application = new AddressProjectionAppliedTransactionDocument
             {
                 Id = AddressProjectionAppliedTransactionDocument.GetId(observation.TxId),
                 TxId = observation.TxId
             };
 
+            batchContext.Applications[observation.TxId] = application;
+        }
+
         switch (observation.EventType)
         {
             case TxObservationEventType.SeenInMempool:
-                if (string.Equals(application.AppliedState, AddressProjectionApplicationState.Confirmed, StringComparison.Ordinal))
+                if (string.Equals(application.AppliedState, AddressProjectionApplicationState.Confirmed, StringComparison.Ordinal)
+                    || string.Equals(application.AppliedState, AddressProjectionApplicationState.Pending, StringComparison.Ordinal))
                 {
                     Touch(application, record, observation);
                     await session.StoreAsync(application, application.Id, cancellationToken);
                     return true;
                 }
 
-                if (string.Equals(application.AppliedState, AddressProjectionApplicationState.Pending, StringComparison.Ordinal))
-                {
-                    Touch(application, record, observation);
-                    await session.StoreAsync(application, application.Id, cancellationToken);
-                    return true;
-                }
-
-                if (!await TryApplyTransactionAsync(session, application, record, observation, AddressProjectionApplicationState.Pending, cancellationToken))
-                    return false;
-
-                return true;
+                return await TryApplyTransactionAsync(
+                    session,
+                    batchContext,
+                    application,
+                    record,
+                    observation,
+                    AddressProjectionApplicationState.Pending,
+                    cancellationToken);
 
             case TxObservationEventType.SeenInBlock:
                 if (string.Equals(application.AppliedState, AddressProjectionApplicationState.Confirmed, StringComparison.Ordinal))
@@ -129,7 +132,14 @@ public sealed class AddressProjectionRebuilder(
                     return true;
                 }
 
-                if (!await TryApplyTransactionAsync(session, application, record, observation, AddressProjectionApplicationState.Confirmed, cancellationToken))
+                if (!await TryApplyTransactionAsync(
+                        session,
+                        batchContext,
+                        application,
+                        record,
+                        observation,
+                        AddressProjectionApplicationState.Confirmed,
+                        cancellationToken))
                     return false;
 
                 application.ConfirmedBlockHash = observation.BlockHash;
@@ -144,7 +154,7 @@ public sealed class AddressProjectionRebuilder(
                     return true;
                 }
 
-                await RevertApplicationAsync(session, application, record.Sequence.Value, cancellationToken);
+                await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, cancellationToken);
                 Touch(application, record, observation);
                 await session.StoreAsync(application, application.Id, cancellationToken);
                 return true;
@@ -155,6 +165,7 @@ public sealed class AddressProjectionRebuilder(
 
     private static async Task<bool> TryApplyTransactionAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         AddressProjectionAppliedTransactionDocument application,
         StoredObservationJournalRecord record,
         TxObservation observation,
@@ -162,38 +173,32 @@ public sealed class AddressProjectionRebuilder(
         CancellationToken cancellationToken
     )
     {
-        var metaTransaction = await session.LoadAsync<MetaTransaction>(observation.TxId, cancellationToken);
-        if (metaTransaction is null)
+        if (!batchContext.MetaTransactions.TryGetValue(observation.TxId, out var metaTransaction))
             return false;
 
         var outputIds = (metaTransaction.Outputs ?? []).Select(x => x.Id).ToArray();
-        var loadedOutputs = outputIds.Length == 0
-            ? []
-            : (await session.LoadAsync<MetaOutput>(outputIds, cancellationToken)).Values
-                .Where(x => x is not null)
-                .ToArray();
+        var loadedOutputs = outputIds
+            .Select(id => batchContext.MetaOutputs.TryGetValue(id, out var output) ? output : null)
+            .Where(x => x is not null)
+            .ToArray();
 
         if (loadedOutputs.Length != outputIds.Length)
             return false;
 
         var credits = loadedOutputs
-            .Where(x => ShouldProjectOutput(metaTransaction, x))
+            .Where(x => ShouldProjectOutput(metaTransaction, x!))
             .Select(AddressProjectionUtxoSnapshot.From)
             .ToArray();
 
         var debits = new List<AddressProjectionUtxoSnapshot>();
         foreach (var input in metaTransaction.Inputs ?? [])
         {
-            var debitDocument = await session.LoadAsync<AddressUtxoProjectionDocument>(
-                AddressUtxoProjectionDocument.GetId(input.TxId, input.Vout),
-                cancellationToken
-            );
-
+            var debitDocument = await GetOrLoadUtxoAsync(session, batchContext, input.TxId, input.Vout, cancellationToken);
             if (debitDocument is not null)
                 debits.Add(debitDocument.ToSnapshot());
         }
 
-        await ApplyMutationAsync(session, debits, credits, record.Sequence.Value, cancellationToken);
+        await ApplyMutationAsync(session, batchContext, debits, credits, record.Sequence.Value, cancellationToken);
 
         application.AppliedState = targetState;
         application.ConfirmedBlockHash = targetState == AddressProjectionApplicationState.Confirmed
@@ -209,6 +214,7 @@ public sealed class AddressProjectionRebuilder(
 
     private static async Task ApplyBlockObservationAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         BlockObservation observation,
         CancellationToken cancellationToken
@@ -217,13 +223,24 @@ public sealed class AddressProjectionRebuilder(
         if (!string.Equals(observation.EventType, BlockObservationEventType.Disconnected, StringComparison.Ordinal))
             return;
 
-        var applications = await session.Query<AddressProjectionAppliedTransactionDocument>()
-            .Where(x => x.AppliedState == AddressProjectionApplicationState.Confirmed && x.ConfirmedBlockHash == observation.BlockHash)
-            .ToListAsync(token: cancellationToken);
+        var applications = batchContext.Applications.Values
+            .Where(x => string.Equals(x.AppliedState, AddressProjectionApplicationState.Confirmed, StringComparison.Ordinal)
+                && string.Equals(x.ConfirmedBlockHash, observation.BlockHash, StringComparison.Ordinal))
+            .ToList();
+
+        if (applications.Count == 0)
+        {
+            applications = await session.Query<AddressProjectionAppliedTransactionDocument>()
+                .Where(x => x.AppliedState == AddressProjectionApplicationState.Confirmed && x.ConfirmedBlockHash == observation.BlockHash)
+                .ToListAsync(token: cancellationToken);
+
+            foreach (var application in applications)
+                batchContext.Applications[application.TxId] = application;
+        }
 
         foreach (var application in applications)
         {
-            await RevertApplicationAsync(session, application, record.Sequence.Value, cancellationToken);
+            await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, cancellationToken);
             application.LastObservedAt = observation.ObservedAt ?? record.AppendedAt;
             await session.StoreAsync(application, application.Id, cancellationToken);
         }
@@ -231,6 +248,7 @@ public sealed class AddressProjectionRebuilder(
 
     private static async Task ApplyMutationAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         IReadOnlyCollection<AddressProjectionUtxoSnapshot> debits,
         IReadOnlyCollection<AddressProjectionUtxoSnapshot> credits,
         long sequence,
@@ -239,19 +257,20 @@ public sealed class AddressProjectionRebuilder(
     {
         foreach (var debit in debits)
         {
-            await DeleteUtxoAsync(session, debit, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, debit.Address, debit.TokenId, -debit.Satoshis, sequence, cancellationToken);
+            await DeleteUtxoAsync(session, batchContext, debit, cancellationToken);
+            await ApplyBalanceDeltaAsync(session, batchContext, debit.Address, debit.TokenId, -debit.Satoshis, sequence, cancellationToken);
         }
 
         foreach (var credit in credits)
         {
-            await UpsertUtxoAsync(session, credit, sequence, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, credit.Address, credit.TokenId, credit.Satoshis, sequence, cancellationToken);
+            await UpsertUtxoAsync(session, batchContext, credit, sequence, cancellationToken);
+            await ApplyBalanceDeltaAsync(session, batchContext, credit.Address, credit.TokenId, credit.Satoshis, sequence, cancellationToken);
         }
     }
 
     private static async Task RevertApplicationAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         AddressProjectionAppliedTransactionDocument application,
         long sequence,
         CancellationToken cancellationToken
@@ -259,14 +278,14 @@ public sealed class AddressProjectionRebuilder(
     {
         foreach (var credit in application.Credits ?? [])
         {
-            await DeleteUtxoAsync(session, credit, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, credit.Address, credit.TokenId, -credit.Satoshis, sequence, cancellationToken);
+            await DeleteUtxoAsync(session, batchContext, credit, cancellationToken);
+            await ApplyBalanceDeltaAsync(session, batchContext, credit.Address, credit.TokenId, -credit.Satoshis, sequence, cancellationToken);
         }
 
         foreach (var debit in application.Debits ?? [])
         {
-            await UpsertUtxoAsync(session, debit, sequence, cancellationToken);
-            await ApplyBalanceDeltaAsync(session, debit.Address, debit.TokenId, debit.Satoshis, sequence, cancellationToken);
+            await UpsertUtxoAsync(session, batchContext, debit, sequence, cancellationToken);
+            await ApplyBalanceDeltaAsync(session, batchContext, debit.Address, debit.TokenId, debit.Satoshis, sequence, cancellationToken);
         }
 
         application.AppliedState = AddressProjectionApplicationState.None;
@@ -278,13 +297,14 @@ public sealed class AddressProjectionRebuilder(
 
     private static async Task UpsertUtxoAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         AddressProjectionUtxoSnapshot snapshot,
         long sequence,
         CancellationToken cancellationToken
     )
     {
         var id = AddressUtxoProjectionDocument.GetId(snapshot.TxId, snapshot.Vout);
-        var existing = await session.LoadAsync<AddressUtxoProjectionDocument>(id, cancellationToken);
+        var existing = await GetOrLoadUtxoByIdAsync(session, batchContext, id, cancellationToken);
         if (existing is not null)
         {
             existing.Address = snapshot.Address;
@@ -296,23 +316,30 @@ public sealed class AddressProjectionRebuilder(
             return;
         }
 
-        await session.StoreAsync(AddressUtxoProjectionDocument.From(snapshot, sequence), id, cancellationToken);
+        var document = AddressUtxoProjectionDocument.From(snapshot, sequence);
+        batchContext.Utxos[id] = document;
+        await session.StoreAsync(document, id, cancellationToken);
     }
 
     private static async Task DeleteUtxoAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         AddressProjectionUtxoSnapshot snapshot,
         CancellationToken cancellationToken
     )
     {
         var id = AddressUtxoProjectionDocument.GetId(snapshot.TxId, snapshot.Vout);
-        var existing = await session.LoadAsync<AddressUtxoProjectionDocument>(id, cancellationToken);
+        var existing = await GetOrLoadUtxoByIdAsync(session, batchContext, id, cancellationToken);
         if (existing is not null)
+        {
+            batchContext.Utxos[id] = null;
             session.Delete(existing);
+        }
     }
 
     private static async Task ApplyBalanceDeltaAsync(
         IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
         string address,
         string tokenId,
         long delta,
@@ -324,12 +351,14 @@ public sealed class AddressProjectionRebuilder(
             return;
 
         var id = AddressBalanceProjectionDocument.GetId(address, tokenId);
-        var balance = await session.LoadAsync<AddressBalanceProjectionDocument>(id, cancellationToken);
+        if (!batchContext.Balances.TryGetValue(id, out var balance))
+        {
+            balance = await session.LoadAsync<AddressBalanceProjectionDocument>(id, cancellationToken);
+            batchContext.Balances[id] = balance;
+        }
+
         if (balance is null)
         {
-            if (delta == 0)
-                return;
-
             balance = new AddressBalanceProjectionDocument
             {
                 Id = id,
@@ -338,6 +367,7 @@ public sealed class AddressProjectionRebuilder(
                 Satoshis = 0
             };
 
+            batchContext.Balances[id] = balance;
             await session.StoreAsync(balance, id, cancellationToken);
         }
 
@@ -345,7 +375,106 @@ public sealed class AddressProjectionRebuilder(
         balance.LastSequence = sequence;
 
         if (balance.Satoshis == 0)
+        {
+            batchContext.Balances[id] = null;
             session.Delete(balance);
+        }
+    }
+
+    private static async Task<AddressProjectionBatchContext> LoadBatchContextAsync(
+        IAsyncDocumentSession session,
+        IReadOnlyList<StoredObservationJournalRecord> records,
+        CancellationToken cancellationToken
+    )
+    {
+        var txIds = records
+            .Where(x => x.IsObservationType<TxObservation>())
+            .Select(x => x.Deserialize<TxObservation>().TxId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var applications = new Dictionary<string, AddressProjectionAppliedTransactionDocument>(StringComparer.OrdinalIgnoreCase);
+        if (txIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<AddressProjectionAppliedTransactionDocument>(
+                txIds.Select(AddressProjectionAppliedTransactionDocument.GetId),
+                cancellationToken);
+
+            foreach (var application in loaded.Values.Where(x => x is not null))
+                applications[application!.TxId] = application;
+        }
+
+        var metaTransactions = new Dictionary<string, MetaTransaction>(StringComparer.OrdinalIgnoreCase);
+        if (txIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<MetaTransaction>(txIds, cancellationToken);
+            foreach (var transaction in loaded.Values.Where(x => x is not null))
+                metaTransactions[transaction!.Id] = transaction;
+        }
+
+        var outputIds = metaTransactions.Values
+            .SelectMany(x => x.Outputs ?? [])
+            .Select(x => x.Id)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var metaOutputs = new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase);
+        if (outputIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<MetaOutput>(outputIds, cancellationToken);
+            foreach (var output in loaded)
+            {
+                if (output.Value is not null)
+                    metaOutputs[output.Key] = output.Value;
+            }
+        }
+
+        var utxoIds = metaTransactions.Values
+            .SelectMany(x => x.Inputs ?? [])
+            .Select(x => AddressUtxoProjectionDocument.GetId(x.TxId, x.Vout))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var utxos = new Dictionary<string, AddressUtxoProjectionDocument>(StringComparer.OrdinalIgnoreCase);
+        if (utxoIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<AddressUtxoProjectionDocument>(utxoIds, cancellationToken);
+            foreach (var utxo in loaded)
+            {
+                if (utxo.Value is not null)
+                    utxos[utxo.Key] = utxo.Value;
+            }
+        }
+
+        return new AddressProjectionBatchContext(
+            applications,
+            metaTransactions,
+            metaOutputs,
+            utxos,
+            new Dictionary<string, AddressBalanceProjectionDocument>(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static Task<AddressUtxoProjectionDocument> GetOrLoadUtxoAsync(
+        IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
+        string txId,
+        int vout,
+        CancellationToken cancellationToken
+    ) => GetOrLoadUtxoByIdAsync(session, batchContext, AddressUtxoProjectionDocument.GetId(txId, vout), cancellationToken);
+
+    private static async Task<AddressUtxoProjectionDocument> GetOrLoadUtxoByIdAsync(
+        IAsyncDocumentSession session,
+        AddressProjectionBatchContext batchContext,
+        string id,
+        CancellationToken cancellationToken
+    )
+    {
+        if (batchContext.Utxos.TryGetValue(id, out var existing))
+            return existing;
+
+        existing = await session.LoadAsync<AddressUtxoProjectionDocument>(id, cancellationToken);
+        batchContext.Utxos[id] = existing;
+        return existing;
     }
 
     private static bool ShouldProjectOutput(MetaTransaction transaction, MetaOutput output)
@@ -406,4 +535,12 @@ public sealed class AddressProjectionRebuilder(
             AddressProjectionCheckpointDocument.DocumentId,
             cancellationToken
         );
+
+    private sealed record AddressProjectionBatchContext(
+        Dictionary<string, AddressProjectionAppliedTransactionDocument> Applications,
+        Dictionary<string, MetaTransaction> MetaTransactions,
+        Dictionary<string, MetaOutput> MetaOutputs,
+        Dictionary<string, AddressUtxoProjectionDocument> Utxos,
+        Dictionary<string, AddressBalanceProjectionDocument> Balances
+    );
 }

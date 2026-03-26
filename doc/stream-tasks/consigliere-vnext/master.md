@@ -6,12 +6,12 @@
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
 - Current cutover mode: `legacy`
-- Current audit gate status: `A4 passed_with_remediation`
+- Current audit gate status: `A4 passed`
 
 ## Active Wave
 
 - Active wave: `Wave I: Packaging, Cutover, And Validation`
-- Critical-path slice: `A4 / R-A4-01`
+- Critical-path slice: `S30`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -99,6 +99,7 @@
 | 2026-03-26 | S29 | validation | `vstest:VNextFullSystemValidationTests|VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | full-system replay/reorg/soak validation passed and benchmark evidence was recorded after direct-load harness simplification and bounded scenario tuning |
 | 2026-03-26 | S29 | evidence | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/benchmarks/S29-full-system-benchmarks-evidence.md` | replay/query/soak throughput captured for the bounded vnext full-system harness |
 | 2026-03-26 | A4 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | full-system correctness/perf review passed with mandatory remediation for projection request amplification before S30 |
+| 2026-03-26 | R-A4-01 | validation | `vstest:VNextFullSystemBenchmarkSmokeTests|VNextFullSystemBenchmarkEvidenceTests` | address/token projection batching and deferred token recompute now allow the full-system benchmark harness to pass again at `TransferCount = 4` |
 
 ## Audit Gates
 
@@ -107,7 +108,7 @@
 | A1 | S08 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A1.md` | yes |
 | A2 | S16 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | no |
 | A3 | S23 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | no |
-| A4 | S29 | passed_with_remediation | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | yes |
+| A4 | S29 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A4.md` | no |
 | A5 | S31 | not_opened | - | no |
 
 ## Remediation Slices
@@ -116,7 +117,7 @@
 |---|---|---|---|---|
 | R-A1-01 | A1 | done | operator/verification | Wave C |
 | R-A1-02 | A1 | done | operator/verification | Wave C |
-| R-A4-01 | A4 | open | operator/state | S30 |
+| R-A4-01 | A4 | done | operator/state | S30 |
 
 ## API Compatibility Notes
 
@@ -189,6 +190,5 @@
   - additive `GET /api/address/{address}/history` still delegates to the existing history service; full projection-backed address history remains a follow-up concern for later cutover waves
   - scope lifecycle events are emitted from tracked-status snapshot diffs during block-processed notifications; this keeps S27 additive, but means non-block lifecycle changes may not surface until the next block-driven pass
   - local macOS apphost signing drift requires `UseAppHost=false` for packaging-zone validation commands; repository packaging semantics remain unchanged
-  - full-system validation exposed that address/token projection rebuild still amplifies Raven session requests enough to trip the default request ceiling on small benchmark scenarios; `R-A4-01` must reduce this before `S30`
   - same-pass `block_disconnected` handling does not currently observe freshly stored applied-transaction rows inside the same rebuild session; reorg validation therefore uses a two-phase pass and this behavior should be revisited in later state/runtime work
-- Next slice to open: `R-A4-01`
+- Next slice to open: `S30`

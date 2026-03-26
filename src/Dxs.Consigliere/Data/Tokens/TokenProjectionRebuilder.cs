@@ -38,10 +38,11 @@ public sealed class TokenProjectionRebuilder(
                 return checkpoint;
 
             using var session = documentStore.GetSession();
+            var batchContext = await LoadBatchContextAsync(session, records, cancellationToken);
 
             foreach (var record in records)
             {
-                var applied = await ApplyAsync(session, record, cancellationToken);
+                var applied = await ApplyAsync(session, batchContext, record, cancellationToken);
                 if (!applied)
                 {
                     await StoreCheckpointAsync(session, checkpoint, cancellationToken);
@@ -52,6 +53,7 @@ public sealed class TokenProjectionRebuilder(
                 checkpoint = checkpoint.AdvanceTo(record.Sequence, record.Fingerprint);
             }
 
+            await RecomputeTouchedTokenStatesAsync(session, batchContext.DirtyTokenIds, checkpoint.Sequence.Value, cancellationToken);
             await StoreCheckpointAsync(session, checkpoint, cancellationToken);
             await session.SaveChangesAsync(cancellationToken);
         }
@@ -61,16 +63,17 @@ public sealed class TokenProjectionRebuilder(
 
     private async Task<bool> ApplyAsync(
         IAsyncDocumentSession session,
+        TokenProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         CancellationToken cancellationToken
     )
     {
         if (record.IsObservationType<TxObservation>())
-            return await ApplyTxObservationAsync(session, record, record.Deserialize<TxObservation>(), cancellationToken);
+            return await ApplyTxObservationAsync(session, batchContext, record, record.Deserialize<TxObservation>(), cancellationToken);
 
         if (record.IsObservationType<BlockObservation>())
         {
-            await ApplyBlockObservationAsync(session, record, record.Deserialize<BlockObservation>(), cancellationToken);
+            await ApplyBlockObservationAsync(session, batchContext, record, record.Deserialize<BlockObservation>(), cancellationToken);
             return true;
         }
 
@@ -79,19 +82,22 @@ public sealed class TokenProjectionRebuilder(
 
     private static async Task<bool> ApplyTxObservationAsync(
         IAsyncDocumentSession session,
+        TokenProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         TxObservation observation,
         CancellationToken cancellationToken
     )
     {
-        var application = await session.LoadAsync<TokenProjectionAppliedTransactionDocument>(
-                TokenProjectionAppliedTransactionDocument.GetId(observation.TxId),
-                cancellationToken)
-            ?? new TokenProjectionAppliedTransactionDocument
+        if (!batchContext.Applications.TryGetValue(observation.TxId, out var application))
+        {
+            application = new TokenProjectionAppliedTransactionDocument
             {
                 Id = TokenProjectionAppliedTransactionDocument.GetId(observation.TxId),
                 TxId = observation.TxId
             };
+
+            batchContext.Applications[observation.TxId] = application;
+        }
 
         switch (observation.EventType)
         {
@@ -103,7 +109,14 @@ public sealed class TokenProjectionRebuilder(
                     return true;
                 }
 
-                return await TryApplyTransactionAsync(session, application, observation, record, TokenProjectionApplicationState.Pending, cancellationToken);
+                return await TryApplyTransactionAsync(
+                    session,
+                    batchContext,
+                    application,
+                    observation,
+                    record,
+                    TokenProjectionApplicationState.Pending,
+                    cancellationToken);
 
             case TxObservationEventType.SeenInBlock:
                 if (string.Equals(application.AppliedState, TokenProjectionApplicationState.Pending, StringComparison.Ordinal)
@@ -114,10 +127,18 @@ public sealed class TokenProjectionRebuilder(
                     Touch(application, observation, record);
                     await UpdateHistoryBlockHashAsync(session, application.HistoryDocumentIds, observation.BlockHash, record.Sequence.Value, cancellationToken);
                     await session.StoreAsync(application, application.Id, cancellationToken);
+                    batchContext.DirtyTokenIds.UnionWith(application.TokenIds ?? []);
                     return true;
                 }
 
-                return await TryApplyTransactionAsync(session, application, observation, record, TokenProjectionApplicationState.Confirmed, cancellationToken);
+                return await TryApplyTransactionAsync(
+                    session,
+                    batchContext,
+                    application,
+                    observation,
+                    record,
+                    TokenProjectionApplicationState.Confirmed,
+                    cancellationToken);
 
             case TxObservationEventType.DroppedBySource:
                 if (!string.Equals(application.AppliedState, TokenProjectionApplicationState.Pending, StringComparison.Ordinal))
@@ -128,7 +149,7 @@ public sealed class TokenProjectionRebuilder(
                 }
 
                 await RemoveHistoryAsync(session, application.HistoryDocumentIds, cancellationToken);
-                await RecomputeTouchedTokenStatesAsync(session, application.TokenIds, record.Sequence.Value, cancellationToken);
+                batchContext.DirtyTokenIds.UnionWith(application.TokenIds ?? []);
                 application.AppliedState = TokenProjectionApplicationState.None;
                 application.ConfirmedBlockHash = null;
                 application.HistoryDocumentIds = [];
@@ -142,6 +163,7 @@ public sealed class TokenProjectionRebuilder(
 
     private static async Task<bool> TryApplyTransactionAsync(
         IAsyncDocumentSession session,
+        TokenProjectionBatchContext batchContext,
         TokenProjectionAppliedTransactionDocument application,
         TxObservation observation,
         StoredObservationJournalRecord record,
@@ -149,11 +171,14 @@ public sealed class TokenProjectionRebuilder(
         CancellationToken cancellationToken
     )
     {
-        var transaction = await session.LoadAsync<MetaTransaction>(observation.TxId, cancellationToken);
-        if (transaction is null)
+        if (!batchContext.MetaTransactions.TryGetValue(observation.TxId, out var transaction))
             return false;
 
-        var tokenIds = (transaction.TokenIds ?? []).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var tokenIds = (transaction.TokenIds ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         if (tokenIds.Length == 0)
         {
             application.AppliedState = targetState;
@@ -165,15 +190,8 @@ public sealed class TokenProjectionRebuilder(
             return true;
         }
 
-        var inputs = (transaction.Inputs ?? []).Select(x => x.Id).ToArray();
-        var inputOutputs = inputs.Length == 0
-            ? new Dictionary<string, MetaOutput>()
-            : (await session.LoadAsync<MetaOutput>(inputs, cancellationToken))
-                .Where(x => x.Value is not null)
-                .ToDictionary(x => x.Key, x => x.Value!, StringComparer.OrdinalIgnoreCase);
-
         var historyDocuments = tokenIds
-            .Select(tokenId => CreateHistoryDocument(transaction, tokenId, inputOutputs, observation, record.Sequence.Value))
+            .Select(tokenId => CreateHistoryDocument(transaction, tokenId, batchContext.InputOutputs, observation, record.Sequence.Value))
             .ToArray();
 
         foreach (var history in historyDocuments)
@@ -186,12 +204,13 @@ public sealed class TokenProjectionRebuilder(
         Touch(application, observation, record);
         await session.StoreAsync(application, application.Id, cancellationToken);
 
-        await RecomputeTouchedTokenStatesAsync(session, tokenIds, record.Sequence.Value, cancellationToken);
+        batchContext.DirtyTokenIds.UnionWith(tokenIds);
         return true;
     }
 
     private static async Task ApplyBlockObservationAsync(
         IAsyncDocumentSession session,
+        TokenProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         BlockObservation observation,
         CancellationToken cancellationToken
@@ -200,14 +219,25 @@ public sealed class TokenProjectionRebuilder(
         if (!string.Equals(observation.EventType, BlockObservationEventType.Disconnected, StringComparison.Ordinal))
             return;
 
-        var applications = await session.Query<TokenProjectionAppliedTransactionDocument>()
-            .Where(x => x.AppliedState == TokenProjectionApplicationState.Confirmed && x.ConfirmedBlockHash == observation.BlockHash)
-            .ToListAsync(token: cancellationToken);
+        var applications = batchContext.Applications.Values
+            .Where(x => string.Equals(x.AppliedState, TokenProjectionApplicationState.Confirmed, StringComparison.Ordinal)
+                && string.Equals(x.ConfirmedBlockHash, observation.BlockHash, StringComparison.Ordinal))
+            .ToList();
+
+        if (applications.Count == 0)
+        {
+            applications = await session.Query<TokenProjectionAppliedTransactionDocument>()
+                .Where(x => x.AppliedState == TokenProjectionApplicationState.Confirmed && x.ConfirmedBlockHash == observation.BlockHash)
+                .ToListAsync(token: cancellationToken);
+
+            foreach (var application in applications)
+                batchContext.Applications[application.TxId] = application;
+        }
 
         foreach (var application in applications)
         {
             await RemoveHistoryAsync(session, application.HistoryDocumentIds, cancellationToken);
-            await RecomputeTouchedTokenStatesAsync(session, application.TokenIds, record.Sequence.Value, cancellationToken);
+            batchContext.DirtyTokenIds.UnionWith(application.TokenIds ?? []);
             application.AppliedState = TokenProjectionApplicationState.None;
             application.ConfirmedBlockHash = null;
             application.HistoryDocumentIds = [];
@@ -345,7 +375,7 @@ public sealed class TokenProjectionRebuilder(
             .ThenBy(x => x.Index)
             .FirstOrDefault();
         var anyInvalid = transactions.Any(x => x.IsIssue ? !x.IsValidIssue : (x.IllegalRoots?.Count ?? 0) > 0);
-        var anyUnknown = transactions.Any(x => x.IsStas && !x.IsIssue && (!(x.AllStasInputsKnown) || (x.MissingTransactions?.Count ?? 0) > 0));
+        var anyUnknown = transactions.Any(x => x.IsStas && !x.IsIssue && (!x.AllStasInputsKnown || (x.MissingTransactions?.Count ?? 0) > 0));
         var utxos = await session.Query<AddressUtxoProjectionDocument>()
             .Where(x => x.TokenId == tokenId)
             .ToListAsync(token: cancellationToken);
@@ -373,6 +403,61 @@ public sealed class TokenProjectionRebuilder(
         state.LastSequence = sequence;
 
         await session.StoreAsync(state, state.Id, cancellationToken);
+    }
+
+    private static async Task<TokenProjectionBatchContext> LoadBatchContextAsync(
+        IAsyncDocumentSession session,
+        IReadOnlyList<StoredObservationJournalRecord> records,
+        CancellationToken cancellationToken
+    )
+    {
+        var txIds = records
+            .Where(x => x.IsObservationType<TxObservation>())
+            .Select(x => x.Deserialize<TxObservation>().TxId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var applications = new Dictionary<string, TokenProjectionAppliedTransactionDocument>(StringComparer.OrdinalIgnoreCase);
+        if (txIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<TokenProjectionAppliedTransactionDocument>(
+                txIds.Select(TokenProjectionAppliedTransactionDocument.GetId),
+                cancellationToken);
+
+            foreach (var application in loaded.Values.Where(x => x is not null))
+                applications[application!.TxId] = application;
+        }
+
+        var metaTransactions = new Dictionary<string, MetaTransaction>(StringComparer.OrdinalIgnoreCase);
+        if (txIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<MetaTransaction>(txIds, cancellationToken);
+            foreach (var transaction in loaded.Values.Where(x => x is not null))
+                metaTransactions[transaction!.Id] = transaction;
+        }
+
+        var inputIds = metaTransactions.Values
+            .SelectMany(x => x.Inputs ?? [])
+            .Select(x => x.Id)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var inputOutputs = new Dictionary<string, MetaOutput>(StringComparer.OrdinalIgnoreCase);
+        if (inputIds.Length > 0)
+        {
+            var loaded = await session.LoadAsync<MetaOutput>(inputIds, cancellationToken);
+            foreach (var output in loaded)
+            {
+                if (output.Value is not null)
+                    inputOutputs[output.Key] = output.Value;
+            }
+        }
+
+        return new TokenProjectionBatchContext(
+            applications,
+            metaTransactions,
+            inputOutputs,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase));
     }
 
     private static string GetProtocolType(MetaTransaction transaction)
@@ -428,4 +513,11 @@ public sealed class TokenProjectionRebuilder(
             TokenProjectionCheckpointDocument.DocumentId,
             cancellationToken
         );
+
+    private sealed record TokenProjectionBatchContext(
+        Dictionary<string, TokenProjectionAppliedTransactionDocument> Applications,
+        Dictionary<string, MetaTransaction> MetaTransactions,
+        Dictionary<string, MetaOutput> InputOutputs,
+        HashSet<string> DirtyTokenIds
+    );
 }

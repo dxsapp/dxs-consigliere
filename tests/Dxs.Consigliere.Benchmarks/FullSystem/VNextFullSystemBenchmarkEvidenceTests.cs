@@ -11,7 +11,7 @@ public class VNextFullSystemBenchmarkEvidenceTests
     public async Task WritesBenchmarkEvidenceSnapshot()
     {
         var harness = new VNextFullSystemBenchmarkHarness();
-        var scenario = new VNextFullSystemBenchmarkScenario("vnext-full-system-baseline", TransferCount: 2, QueryCount: 2, SoakCycles: 2);
+        var scenario = new VNextFullSystemBenchmarkScenario("vnext-full-system-baseline", TransferCount: 4, QueryCount: 4, SoakCycles: 2);
 
         var replay = await harness.MeasureReplayAsync(scenario);
         var query = await harness.MeasureQueryBundleAsync(scenario);
