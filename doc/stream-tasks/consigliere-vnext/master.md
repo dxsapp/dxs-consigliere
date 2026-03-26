@@ -6,12 +6,12 @@
 - Branch: `codex/consigliere-vnext`
 - Main plan: `/Users/imighty/Code/dxs-consigliere/doc/platform-api/vnext-implementation-slices.md`
 - Current cutover mode: `legacy`
-- Current audit gate status: `A2 passed`
+- Current audit gate status: `A3 passed`
 
 ## Active Wave
 
-- Active wave: `Wave G: Explicit Token Validation Engine`
-- Critical-path slice: `S23`
+- Active wave: `Wave H: Core Business Projections`
+- Critical-path slice: `S24`
 - Parallel sidecar slices: `-`
 - Current hard stop status: `none`
 
@@ -41,6 +41,7 @@
 | S20 | indexer-state-and-storage | operator/state | done | S18 | dependency store integration tests + app build | direct token-validation dependency facts and reverse dependent lookup exist without relying on broad Raven fanout scans |
 | S21 | bsv-protocol-core | operator/protocol | done | S20 | STAS lineage evaluator tests + app build | token lineage and validation verdicts can be computed from explicit reusable inputs instead of only through implicit TransactionStore patch logic |
 | S22 | indexer-ingest-orchestration | operator/runtime | done | S20,S21 | dependency revalidation coordinator tests + app build | lineage change now drives targeted automatic revalidation via explicit dependency facts instead of FoundMissing index fanout being the primary coordinator |
+| S23 | verification-and-conformance | operator/verification | done | S20,S21,S22 | cascade/reorg tests + token lineage benchmark evidence | explicit token lineage path has worst-case correctness and throughput evidence and is ready for A3 audit review |
 
 ## Open Handoffs
 
@@ -82,6 +83,8 @@
 | 2026-03-26 | S20 | validation | `tests:TokenValidationDependencyStoreIntegrationTests + build:Dxs.Consigliere` | explicit direct-edge token validation dependencies and reverse dependents now persist separately from legacy implicit MissingTransactions coordination |
 | 2026-03-26 | S21 | validation | `tests:Dxs.Bsv.Tests/StasLineageEvaluatorTests + build:Dxs.Consigliere` | explicit STAS/DSTAS lineage evaluation contract now reproduces freeze/redeem/missing-dependency/issue verdicts without Raven patch-script coupling |
 | 2026-03-26 | S22 | validation | `tests:StasDependencyRevalidationCoordinatorIntegrationTests + build:Dxs.Consigliere` | runtime revalidation now cascades by explicit direct dependents and startup recovery seeds from unresolved MetaTransactions rather than FoundMissing reduce-output coordination |
+| 2026-03-26 | S23 | validation | `tests:StasDependencyRevalidationCascadeIntegrationTests + benchmarks:TokenLineageBenchmarkSmokeTests|TokenLineageBenchmarkEvidenceTests` | chain/delete cascade behavior is covered and the first token-lineage evaluator + revalidation burst baseline is recorded |
+| 2026-03-26 | A3 | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | token lineage correctness, dependency discipline, and storm performance passed without remediation |
 
 ## Audit Gates
 
@@ -89,7 +92,7 @@
 |---|---|---|---|---|
 | A1 | S08 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A1.md` | yes |
 | A2 | S16 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A2.md` | no |
-| A3 | S23 | pending_open | - | no |
+| A3 | S23 | passed | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/consigliere-vnext/audits/A3.md` | no |
 | A4 | S29 | not_opened | - | no |
 | A5 | S31 | not_opened | - | no |
 
@@ -149,6 +152,7 @@
   - `S20`
   - `S21`
   - `S22`
+  - `S23`
 - Current risks:
   - journal benchmark workflow depends on `/Users/imighty/.dotnet-vnext`
-- Next slice to open: `S23`
+- Next slice to open: `S24`
