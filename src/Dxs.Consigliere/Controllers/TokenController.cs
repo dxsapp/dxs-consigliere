@@ -59,18 +59,7 @@ public class TokenController : BaseController
 
         await tokenProjectionRebuilder.RebuildAsync(cancellationToken: cancellationToken);
 
-        var balances = (await tokenProjectionReader.LoadUtxosAsync(normalizedTokenId, cancellationToken))
-            .GroupBy(x => x.Address, StringComparer.Ordinal)
-            .Select(x => new BalanceDto
-            {
-                Address = x.Key,
-                TokenId = normalizedTokenId,
-                Satoshis = x.Sum(y => y.Satoshis)
-            })
-            .OrderBy(x => x.Address, StringComparer.Ordinal)
-            .ToArray();
-
-        return Ok(balances);
+        return Ok((await tokenProjectionReader.LoadBalancesAsync(normalizedTokenId, cancellationToken)).ToArray());
     }
 
     [HttpGet("{tokenId}/utxos")]

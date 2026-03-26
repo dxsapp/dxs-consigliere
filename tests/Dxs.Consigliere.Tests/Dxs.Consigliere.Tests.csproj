@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azos" Version="3.20.2.1" />
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="Moq" Version="4.20.72" />
@@ -30,6 +31,7 @@
     <Compile Include="..\Shared\RepoPathResolver.cs" Link="Shared/RepoPathResolver.cs" />
     <Compile Include="..\Shared\DstasConformanceVectorFixture.cs" Link="Shared/DstasConformanceVectorFixture.cs" />
     <Compile Include="..\Shared\DstasProtocolOwnerFixture.cs" Link="Shared/DstasProtocolOwnerFixture.cs" />
+    <Compile Include="..\Shared\AzosProjectionReadCacheSpike.cs" Link="Shared/AzosProjectionReadCacheSpike.cs" />
   </ItemGroup>
 
   <ItemGroup>

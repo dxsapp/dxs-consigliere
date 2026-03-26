@@ -1,12 +1,16 @@
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Script;
+using Dxs.Common.Cache;
 using Dxs.Common.Journal;
 using Dxs.Consigliere.Data.Addresses;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Tokens;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Tokens;
 using Dxs.Tests.Shared;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Raven.Client.Documents;
 using Raven.TestDriver;
@@ -298,6 +302,98 @@ public class TokenProjectionRebuilderIntegrationTests : RavenTestDriver
         Assert.Equal("tx-issue-dstas", history[0].TxId);
         Assert.Single(utxos);
         Assert.Equal("tx-issue-dstas", utxos[0].TxId);
+    }
+
+    [Fact]
+    public async Task RebuildAsync_InvalidatesCachedTokenViewsAfterDroppedTransfer()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedTransactionAsync(
+            store,
+            CreateTokenTransaction(
+                "tx-issue",
+                outputs:
+                [CreateOutput("tx-issue", 0, HolderA, TokenId, 50, ScriptType.P2STAS)],
+                isIssue: true,
+                isValidIssue: true,
+                redeemAddress: RedeemAddress
+            )
+        );
+        await SeedTransactionAsync(
+            store,
+            CreateTokenTransaction(
+                "tx-transfer",
+                inputs:
+                [CreateInput("tx-issue", 0)],
+                outputs:
+                [CreateOutput("tx-transfer", 0, HolderB, TokenId, 50, ScriptType.P2STAS)],
+                allStasInputsKnown: true,
+                illegalRoots: []
+            )
+        );
+
+        var txJournal = new RavenObservationJournal<TxObservation>(store);
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInBlock, "tx-issue", 1, "block-1", 100));
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.SeenInMempool, "tx-transfer", 2));
+
+        var services = CreateCacheServices();
+        var cache = services.GetRequiredService<IProjectionReadCache>();
+        var invalidationSink = services.GetRequiredService<IProjectionCacheInvalidationSink>();
+        var keyFactory = services.GetRequiredService<IProjectionReadCacheKeyFactory>();
+        var addressRebuilder = new AddressProjectionRebuilder(
+            store,
+            new RavenObservationJournalReader(store),
+            invalidationSink,
+            keyFactory);
+        var rebuilder = new TokenProjectionRebuilder(
+            store,
+            new RavenObservationJournalReader(store),
+            addressRebuilder,
+            invalidationSink,
+            keyFactory
+        );
+        var reader = new TokenProjectionReader(store, cache, keyFactory);
+
+        await rebuilder.RebuildAsync();
+
+        var firstState = await reader.LoadStateAsync(TokenId);
+        var firstHistory = await reader.LoadHistoryAsync(TokenId);
+        Assert.NotNull(firstState);
+        Assert.Equal(2, firstHistory.Count);
+
+        using (var session = store.OpenAsyncSession())
+        {
+            session.Delete(await session.LoadAsync<MetaTransaction>("tx-transfer"));
+            session.Delete(await session.LoadAsync<MetaOutput>(MetaOutput.GetId("tx-transfer", 0)));
+            await session.SaveChangesAsync();
+        }
+
+        await txJournal.AppendAsync(CreateObservation(TxObservationEventType.DroppedBySource, "tx-transfer", 3));
+        await rebuilder.RebuildAsync();
+
+        var secondState = await reader.LoadStateAsync(TokenId);
+        var secondHistory = await reader.LoadHistoryAsync(TokenId);
+
+        Assert.NotNull(secondState);
+        Assert.Equal(50, secondState!.TotalKnownSupply);
+        Assert.Single(secondHistory);
+        Assert.Equal("tx-issue", secondHistory[0].TxId);
+    }
+
+    private static ServiceProvider CreateCacheServices()
+    {
+        var services = new ServiceCollection();
+        services.AddProjectionReadCache(
+            options =>
+            {
+                options.MaxEntries = 128;
+                options.DefaultSafetyTtl = TimeSpan.FromMinutes(5);
+            });
+        services.AddSingleton<IProjectionReadCacheKeyFactory, ProjectionReadCacheKeyFactory>();
+        return services.BuildServiceProvider();
     }
 
     [Fact]

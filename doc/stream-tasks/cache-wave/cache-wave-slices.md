@@ -24,22 +24,22 @@ Foundational constraints:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| C01 | repo-governance | operator/governance | todo | - | docs review | durable cache-wave package and evidence paths exist |
-| C02 | platform-common | operator/platform | todo | C01 | build + unit tests | `IProjectionReadCache` and narrow cache contracts exist without backend leakage |
-| C03 | indexer-state-and-storage | operator/state | todo | C02 | contract/unit tests | canonical cache key space exists for address/token read shapes |
-| C04 | platform-common | operator/platform | todo | C02 | unit tests + allocation sanity | bounded in-process cache backend exists and respects contract semantics |
-| C05 | indexer-state-and-storage | operator/state | todo | C03,C04 | service tests | `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Services/Impl/AddressHistoryService.cs` is cache-backed |
-| C06 | indexer-state-and-storage | operator/state | todo | C03,C04 | service tests | `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Services/Impl/UtxoSetManager.cs` balances and UTXO reads are cache-backed |
-| C07 | indexer-state-and-storage | operator/state | todo | C03,C04 | query/service tests | token history/balance/UTXO reads are cache-backed |
-| C08 | indexer-state-and-storage | operator/state | todo | C05,C06,C07 | integration tests | address/token projection rebuilders publish precise invalidation events on apply/revert |
-| C09 | service-bootstrap-and-ops | operator/platform | todo | C04,C08 | startup/config tests | cache wiring and config shape land cleanly in startup/DI |
-| C10 | verification-and-conformance | operator/verification | todo | C05,C06,C07,C08,C09 | integration tests | replay/reorg-safe correctness suite exists for memory backend |
-| A1 | repo-governance | operator/governance | todo | C10 | audit note | first cache-wave audit gate passed or remediation slices opened |
-| C11 | verification-and-conformance | operator/verification | todo | A1 | benchmark suite | baseline cache benchmarks exist for memory backend |
-| C12 | platform-common | operator/platform | todo | A1 | build + isolated tests | `AzosPileProjectionReadCache` spike exists behind the same abstraction |
-| C13 | verification-and-conformance | operator/verification | todo | C11,C12 | comparative benchmarks | comparative memory vs `Azos` evidence exists for hot read shapes |
-| A2 | repo-governance | operator/governance | todo | C13 | audit note | explicit `Azos` adoption decision is recorded |
-| C14 | repo-governance | operator/governance | todo | A2 | docs review | closeout docs, benchmark notes, and recommendation are recorded |
+| C01 | repo-governance | operator/governance | done | - | docs review | durable cache-wave package and evidence paths exist |
+| C02 | platform-common | operator/platform | done | C01 | build + unit tests | `IProjectionReadCache` and narrow cache contracts exist without backend leakage |
+| C03 | indexer-state-and-storage | operator/state | done | C02 | contract/unit tests | canonical cache key space exists for address/token read shapes |
+| C04 | platform-common | operator/platform | done | C02 | unit tests + allocation sanity | bounded in-process cache backend exists and respects contract semantics |
+| C05 | indexer-state-and-storage | operator/state | done | C03,C04 | service tests | `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Services/Impl/AddressHistoryService.cs` is cache-backed |
+| C06 | indexer-state-and-storage | operator/state | done | C03,C04 | service tests | `/Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Services/Impl/UtxoSetManager.cs` balances and UTXO reads are cache-backed |
+| C07 | indexer-state-and-storage | operator/state | done | C03,C04 | query/service tests | token history/balance/UTXO reads are cache-backed |
+| C08 | indexer-state-and-storage | operator/state | done | C05,C06,C07 | integration tests | address/token projection rebuilders publish precise invalidation events on apply/revert |
+| C09 | service-bootstrap-and-ops | operator/platform | done | C04,C08 | startup/config tests | cache wiring and config shape land cleanly in startup/DI |
+| C10 | verification-and-conformance | operator/verification | done | C05,C06,C07,C08,C09 | integration tests | replay/reorg-safe correctness suite exists for memory backend |
+| A1 | repo-governance | operator/governance | done | C10 | audit note | first cache-wave audit gate passed or remediation slices opened |
+| C11 | verification-and-conformance | operator/verification | done | A1 | benchmark suite | baseline cache benchmarks exist for memory backend |
+| C12 | platform-common | operator/platform | done | A1 | build + isolated tests | `Azos` spike exists behind the same abstraction boundary in test/benchmark space |
+| C13 | verification-and-conformance | operator/verification | done | C11,C12 | comparative benchmarks | comparative memory vs `Azos` evidence exists for hot read shapes |
+| A2 | repo-governance | operator/governance | done | C13 | audit note | explicit `Azos` adoption decision is recorded |
+| C14 | repo-governance | operator/governance | done | A2 | docs review | closeout docs, benchmark notes, and recommendation are recorded |
 
 ## Detailed Slice Notes
 

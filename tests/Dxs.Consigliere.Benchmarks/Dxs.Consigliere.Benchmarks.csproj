@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azos" Version="3.20.2.1" />
     <PackageReference Include="coverlet.collector" Version="6.0.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="RavenDB.TestDriver" Version="7.1.2" />
@@ -29,6 +30,7 @@
   <ItemGroup>
     <Compile Include="..\Shared\DotNetRuntimeFacts.cs" Link="Shared/DotNetRuntimeFacts.cs" />
     <Compile Include="..\Shared\RepoPathResolver.cs" Link="Shared/RepoPathResolver.cs" />
+    <Compile Include="..\Shared\AzosProjectionReadCacheSpike.cs" Link="Shared/AzosProjectionReadCacheSpike.cs" />
   </ItemGroup>
 
 </Project>

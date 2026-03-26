@@ -1,4 +1,5 @@
 using Dxs.Bsv;
+using Dxs.Common.Cache;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
@@ -33,13 +34,30 @@ public static class CorePlatformSetup
             .ValidateOnStart();
 
         services
+            .AddOptions<ConsigliereCacheConfig>()
+            .Bind(configuration.GetSection("Consigliere:Cache"))
+            .ValidateOnStart();
+
+        services
             .AddSingleton<IValidateOptions<ConsigliereSourcesConfig>, ConsigliereSourcesConfigValidation>()
             .AddSingleton<IValidateOptions<ConsigliereStorageConfig>, ConsigliereStorageConfigValidation>()
+            .AddSingleton<IValidateOptions<ConsigliereCacheConfig>, ConsigliereCacheConfigValidation>()
             .AddHostedService<VNextStartupDiagnosticsHostedService>()
             .AddSingleton<INetworkProvider, NetworkProvider>()
             .AddTransient<IBitcoindService, BitcoindService>()
             .AddTransient<IBroadcastProvider>(sp => sp.GetRequiredService<IBitcoindService>())
             .AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<IMediator>(); });
+
+        var cacheConfig = configuration.GetSection("Consigliere:Cache").Get<ConsigliereCacheConfig>() ?? new ConsigliereCacheConfig();
+        services.AddProjectionReadCache(
+            options =>
+            {
+                options.MaxEntries = cacheConfig.MaxEntries;
+                options.DefaultSafetyTtl = cacheConfig.SafetyTtlSeconds is > 0
+                    ? TimeSpan.FromSeconds(cacheConfig.SafetyTtlSeconds.Value)
+                    : null;
+            },
+            cacheConfig.Enabled && string.Equals(cacheConfig.Backend, "memory", StringComparison.OrdinalIgnoreCase));
 
         return services;
     }

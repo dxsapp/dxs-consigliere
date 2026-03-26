@@ -2,7 +2,9 @@ using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Script;
+using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Addresses;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto.Requests;
@@ -10,6 +12,7 @@ using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Tests.Shared;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Moq;
@@ -90,7 +93,61 @@ public class AddressHistoryServiceProjectionTests : RavenTestDriver
         Assert.Equal(-50, response.History[1].BalanceSatoshis);
     }
 
-    private static AddressHistoryService CreateService(IDocumentStore store)
+    [Fact]
+    public async Task GetHistory_InvalidatesCachedPagesAfterDroppedTransferRebuild()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        await SeedScenarioAsync(store);
+
+        var services = CreateCacheServices();
+        var cache = services.GetRequiredService<IProjectionReadCache>();
+        var invalidationSink = services.GetRequiredService<IProjectionCacheInvalidationSink>();
+        var keyFactory = services.GetRequiredService<IProjectionReadCacheKeyFactory>();
+        var projectionReader = new AddressHistoryProjectionReader(
+            store,
+            Mock.Of<INetworkProvider>(x => x.Network == Dxs.Bsv.Network.Mainnet),
+            cache,
+            keyFactory);
+        var service = CreateService(store, projectionReader);
+
+        var first = await service.GetHistory(new GetAddressHistoryRequest(IssuerAddress, [TokenId], false, false, 0, 100));
+        Assert.Equal(2, first.TotalCount);
+
+        using (var session = store.OpenAsyncSession())
+        {
+            var application = await session.LoadAsync<AddressProjectionAppliedTransactionDocument>(
+                AddressProjectionAppliedTransactionDocument.GetId(TransferTxId));
+            application.AppliedState = AddressProjectionApplicationState.None;
+            application.Credits = [];
+            application.Debits = [];
+            await session.SaveChangesAsync();
+        }
+
+        await invalidationSink.InvalidateTagsAsync(keyFactory.GetAddressInvalidationTags([IssuerAddress]));
+
+        var second = await service.GetHistory(new GetAddressHistoryRequest(IssuerAddress, [TokenId], false, false, 0, 100));
+        Assert.Single(second.History);
+        Assert.Equal(1, second.TotalCount);
+        Assert.Equal(IssueTxId, second.History[0].TxId);
+    }
+
+    private static ServiceProvider CreateCacheServices()
+    {
+        var services = new ServiceCollection();
+        services.AddProjectionReadCache(
+            options =>
+            {
+                options.MaxEntries = 128;
+                options.DefaultSafetyTtl = TimeSpan.FromMinutes(5);
+            });
+        services.AddSingleton<IProjectionReadCacheKeyFactory, ProjectionReadCacheKeyFactory>();
+        return services.BuildServiceProvider();
+    }
+
+    private static AddressHistoryService CreateService(IDocumentStore store, AddressHistoryProjectionReader? projectionReader = null)
     {
         var bus = new Mock<IFilteredTransactionMessageBus>(MockBehavior.Strict);
         bus.Setup(x => x.Subscribe(It.IsAny<IObserver<FilteredTransactionMessage>>()))
@@ -101,6 +158,7 @@ public class AddressHistoryServiceProjectionTests : RavenTestDriver
             bus.Object,
             Mock.Of<IConnectionManager>(),
             Mock.Of<INetworkProvider>(x => x.Network == Dxs.Bsv.Network.Mainnet),
+            projectionReader ?? new AddressHistoryProjectionReader(store, Mock.Of<INetworkProvider>(x => x.Network == Dxs.Bsv.Network.Mainnet)),
             NullLogger<AddressHistoryService>.Instance
         );
     }

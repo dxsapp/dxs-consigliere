@@ -96,7 +96,7 @@ public class TokenControllerTests : RavenTestDriver
 
         using var store = GetDocumentStore();
         await SeedTrackedTokenAsync(store, readable: true);
-        await SeedTokenUtxosAsync(store);
+        await SeedTokenBalancesAsync(store);
 
         var controller = new TokenController();
 
@@ -160,7 +160,7 @@ public class TokenControllerTests : RavenTestDriver
         await session.SaveChangesAsync();
     }
 
-    private static async Task SeedTokenUtxosAsync(IDocumentStore store)
+    private static async Task SeedTokenBalancesAsync(IDocumentStore store)
     {
         using var session = store.OpenAsyncSession();
         await session.StoreAsync(new AddressUtxoProjectionDocument
@@ -195,6 +195,22 @@ public class TokenControllerTests : RavenTestDriver
             Satoshis = 11,
             ScriptPubKey = "script-3",
             ScriptType = Dxs.Bsv.Script.ScriptType.P2STAS
+        });
+        await session.StoreAsync(new AddressBalanceProjectionDocument
+        {
+            Id = AddressBalanceProjectionDocument.GetId("addr-1", TokenId),
+            Address = "addr-1",
+            TokenId = TokenId,
+            Satoshis = 12,
+            LastSequence = 1
+        });
+        await session.StoreAsync(new AddressBalanceProjectionDocument
+        {
+            Id = AddressBalanceProjectionDocument.GetId("addr-2", TokenId),
+            Address = "addr-2",
+            TokenId = TokenId,
+            Satoshis = 11,
+            LastSequence = 1
         });
         await session.SaveChangesAsync();
     }

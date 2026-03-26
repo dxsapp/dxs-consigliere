@@ -6,7 +6,7 @@ namespace Dxs.Consigliere.Tests.Setup;
 public class VNextStartupDiagnosticsTests
 {
     [Fact]
-    public void Describe_FormatsRoutingProvidersAndPayloadStore()
+    public void Describe_FormatsRoutingProvidersPayloadStoreAndCache()
     {
         var sources = new ConsigliereSourcesConfig
         {
@@ -37,13 +37,20 @@ public class VNextStartupDiagnosticsTests
                 }
             }
         };
+        var cache = new ConsigliereCacheConfig
+        {
+            Enabled = true,
+            Backend = "memory",
+            MaxEntries = 4096
+        };
 
-        var lines = VNextStartupDiagnostics.Describe(sources, storage, VNextCutoverMode.ShadowRead);
+        var lines = VNextStartupDiagnostics.Describe(sources, storage, cache, VNextCutoverMode.ShadowRead);
 
         Assert.Contains(lines, x => x.Contains("VNext cutover mode: shadow_read"));
         Assert.Contains(lines, x => x.Contains("VNext routing mode: hybrid"));
         Assert.Contains(lines, x => x.Contains("VNext primary source: junglebus"));
         Assert.Contains(lines, x => x.Contains("node (broadcast, validation_fetch)"));
         Assert.Contains(lines, x => x.Contains("raven/(default-db)/RawTransactionPayloads"));
+        Assert.Contains(lines, x => x.Contains("memory/4096"));
     }
 }

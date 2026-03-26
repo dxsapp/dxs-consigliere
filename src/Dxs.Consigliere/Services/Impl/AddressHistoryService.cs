@@ -4,8 +4,10 @@ using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.Script;
 using Dxs.Bsv.Script.Read;
+using Dxs.Common.Cache;
 using Dxs.Common.Extensions;
 using Dxs.Consigliere.Data.Addresses;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Models.History;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
@@ -33,6 +35,7 @@ public class AddressHistoryService : IAddressHistoryService, IDisposable
         IFilteredTransactionMessageBus filteredTransactionMessageBus,
         IConnectionManager connectionManager,
         INetworkProvider networkProvider,
+        AddressHistoryProjectionReader projectionReader,
         ILogger<AddressHistoryService> logger
     )
     {
@@ -40,9 +43,26 @@ public class AddressHistoryService : IAddressHistoryService, IDisposable
         _connectionManager = connectionManager;
         _networkProvider = networkProvider;
         _logger = logger;
-        _projectionReader = new AddressHistoryProjectionReader(documentStore, networkProvider);
+        _projectionReader = projectionReader;
 
         _subscription = filteredTransactionMessageBus.SubscribeAsync(OnTransactionFound, OnTransactionFoundError);
+    }
+
+    public AddressHistoryService(
+        IDocumentStore documentStore,
+        IFilteredTransactionMessageBus filteredTransactionMessageBus,
+        IConnectionManager connectionManager,
+        INetworkProvider networkProvider,
+        ILogger<AddressHistoryService> logger
+    )
+        : this(
+            documentStore,
+            filteredTransactionMessageBus,
+            connectionManager,
+            networkProvider,
+            new AddressHistoryProjectionReader(documentStore, networkProvider, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory()),
+            logger)
+    {
     }
 
     public async Task<AddressHistoryResponse> GetHistory(GetAddressHistoryRequest request)

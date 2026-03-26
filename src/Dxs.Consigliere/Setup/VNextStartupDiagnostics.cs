@@ -1,3 +1,5 @@
+#nullable enable
+
 using Dxs.Consigliere.Configs;
 
 using Microsoft.Extensions.Hosting;
@@ -10,11 +12,13 @@ public static class VNextStartupDiagnostics
     public static string[] Describe(
         ConsigliereSourcesConfig sources,
         ConsigliereStorageConfig storage,
+        ConsigliereCacheConfig cache,
         string? cutoverMode = null
     )
     {
         var enabledProviders = GetEnabledProviders(sources);
         var payloadStore = DescribePayloadStore(storage);
+        var cacheStore = DescribeCache(cache);
 
         return
         [
@@ -24,7 +28,8 @@ public static class VNextStartupDiagnostics
             $"VNext fallback sources: {FormatList(sources.Routing.FallbackSources)}",
             $"VNext verification source: {sources.Routing.VerificationSource ?? "(unset)"}",
             $"VNext enabled providers: {FormatList(enabledProviders)}",
-            $"VNext raw payload storage: {payloadStore}"
+            $"VNext raw payload storage: {payloadStore}",
+            $"VNext projection cache: {cacheStore}"
         ];
     }
 
@@ -67,6 +72,19 @@ public static class VNextStartupDiagnostics
         };
     }
 
+    private static string DescribeCache(ConsigliereCacheConfig cache)
+    {
+        if (!cache.Enabled || string.Equals(cache.Backend, "disabled", StringComparison.OrdinalIgnoreCase))
+            return "disabled";
+
+        return cache.Backend?.ToLowerInvariant() switch
+        {
+            "memory" => $"memory/{cache.MaxEntries}",
+            "azos" => $"azos/{cache.Azos?.TableName ?? "projection-read-cache"}/{cache.MaxEntries}",
+            _ => cache.Backend ?? "(unset)"
+        };
+    }
+
     private static string FormatList(IEnumerable<string> values)
     {
         var items = values?.Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? [];
@@ -80,6 +98,7 @@ public sealed class VNextStartupDiagnosticsHostedService(
     ILogger<VNextStartupDiagnosticsHostedService> logger,
     IOptions<ConsigliereSourcesConfig> sources,
     IOptions<ConsigliereStorageConfig> storage,
+    IOptions<ConsigliereCacheConfig> cache,
     IOptions<AppConfig> appConfig
 ) : IHostedService
 {
@@ -88,6 +107,7 @@ public sealed class VNextStartupDiagnosticsHostedService(
         foreach (var line in VNextStartupDiagnostics.Describe(
                      sources.Value,
                      storage.Value,
+                     cache.Value,
                      appConfig.Value.VNextRuntime.CutoverMode))
             logger.LogInformation("{StartupDiagnostic}", line);
 

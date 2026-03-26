@@ -31,6 +31,10 @@ public class ConsigliereConfigBindingTests
             ["Consigliere:Storage:RawTransactionPayloads:Location:Collection"] = "RawTransactionPayloads",
             ["Consigliere:Storage:RawTransactionPayloads:Compression:Enabled"] = "true",
             ["Consigliere:Storage:RawTransactionPayloads:Compression:Algorithm"] = "zstd",
+            ["Consigliere:Cache:Enabled"] = "true",
+            ["Consigliere:Cache:Backend"] = "memory",
+            ["Consigliere:Cache:MaxEntries"] = "2048",
+            ["Consigliere:Cache:SafetyTtlSeconds"] = "45",
             ["VNextRuntime:CutoverMode"] = "shadow_read"
         };
 
@@ -46,6 +50,7 @@ public class ConsigliereConfigBindingTests
 
         var sources = provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value;
         var storage = provider.GetRequiredService<IOptions<ConsigliereStorageConfig>>().Value;
+        var cache = provider.GetRequiredService<IOptions<ConsigliereCacheConfig>>().Value;
         var appConfig = provider.GetRequiredService<IOptions<AppConfig>>().Value;
 
         Assert.Equal("hybrid", sources.Routing.PreferredMode);
@@ -66,6 +71,10 @@ public class ConsigliereConfigBindingTests
         Assert.NotNull(storage.RawTransactionPayloads.Compression);
         Assert.True(storage.RawTransactionPayloads.Compression.Enabled);
         Assert.Equal("zstd", storage.RawTransactionPayloads.Compression.Algorithm);
+        Assert.True(cache.Enabled);
+        Assert.Equal("memory", cache.Backend);
+        Assert.Equal(2048, cache.MaxEntries);
+        Assert.Equal(45, cache.SafetyTtlSeconds);
         Assert.Equal("shadow_read", appConfig.VNextRuntime.CutoverMode);
     }
 
@@ -164,5 +173,31 @@ public class ConsigliereConfigBindingTests
             provider.GetRequiredService<IOptions<ConsigliereStorageConfig>>().Value);
 
         Assert.Contains("location.rootPath", exception.Failures.Single());
+    }
+
+    [Fact]
+    public void AddCorePlatformZoneServices_RejectsAzosCacheBackend()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Network"] = "Mainnet",
+                ["Consigliere:Cache:Enabled"] = "true",
+                ["Consigliere:Cache:Backend"] = "azos",
+                ["Consigliere:Cache:MaxEntries"] = "4096",
+                ["Consigliere:Cache:Azos:TableName"] = "projection-cache"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCorePlatformZoneServices(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            provider.GetRequiredService<IOptions<ConsigliereCacheConfig>>().Value);
+
+        Assert.Contains("Unsupported cache backend", exception.Failures.Single());
     }
 }

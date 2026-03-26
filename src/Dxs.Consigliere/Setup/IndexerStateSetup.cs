@@ -1,5 +1,6 @@
 using Dxs.Bsv.Factories;
 using Dxs.Common.Cache;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Tracking;
@@ -21,7 +22,9 @@ public static class IndexerStateSetup
             .AddSingleton<IUtxoSetProvider>(sp => sp.GetRequiredService<UtxoSetManager>())
             .AddSingleton<IUtxoManager>(sp => sp.GetRequiredService<UtxoSetManager>())
             .AddSingleton<RavenObservationJournalReader>()
+            .AddSingleton<IProjectionReadCacheKeyFactory, ProjectionReadCacheKeyFactory>()
             .AddSingleton<AddressProjectionReader>()
+            .AddSingleton<AddressHistoryProjectionReader>()
             .AddSingleton<AddressProjectionRebuilder>()
             .AddSingleton<TokenProjectionReader>()
             .AddSingleton<TokenProjectionRebuilder>()

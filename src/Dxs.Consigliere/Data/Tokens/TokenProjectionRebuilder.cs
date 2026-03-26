@@ -1,7 +1,9 @@
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Script;
+using Dxs.Common.Cache;
 using Dxs.Common.Journal;
 using Dxs.Consigliere.Data.Addresses;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Tokens;
@@ -17,9 +19,20 @@ namespace Dxs.Consigliere.Data.Tokens;
 public sealed class TokenProjectionRebuilder(
     IDocumentStore documentStore,
     RavenObservationJournalReader journalReader,
-    AddressProjectionRebuilder addressProjectionRebuilder
+    AddressProjectionRebuilder addressProjectionRebuilder,
+    IProjectionCacheInvalidationSink cacheInvalidationSink,
+    IProjectionReadCacheKeyFactory cacheKeyFactory
 )
 {
+    public TokenProjectionRebuilder(
+        IDocumentStore documentStore,
+        RavenObservationJournalReader journalReader,
+        AddressProjectionRebuilder addressProjectionRebuilder
+    )
+        : this(documentStore, journalReader, addressProjectionRebuilder, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+    {
+    }
+
     private const int DefaultPageSize = 512;
 
     public async Task<ProjectionCheckpoint> RebuildAsync(
@@ -39,14 +52,17 @@ public sealed class TokenProjectionRebuilder(
 
             using var session = documentStore.GetSession();
             var batchContext = await LoadBatchContextAsync(session, records, cancellationToken);
+            var invalidationTags = new HashSet<ProjectionCacheTag>();
 
             foreach (var record in records)
             {
-                var applied = await ApplyAsync(session, batchContext, record, cancellationToken);
+                var applied = await ApplyAsync(session, batchContext, record, invalidationTags, cancellationToken);
                 if (!applied)
                 {
                     await StoreCheckpointAsync(session, checkpoint, cancellationToken);
                     await session.SaveChangesAsync(cancellationToken);
+                    if (invalidationTags.Count > 0)
+                        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
                     return checkpoint;
                 }
 
@@ -56,6 +72,8 @@ public sealed class TokenProjectionRebuilder(
             await RecomputeTouchedTokenStatesAsync(session, batchContext.DirtyTokenIds, checkpoint.Sequence.Value, cancellationToken);
             await StoreCheckpointAsync(session, checkpoint, cancellationToken);
             await session.SaveChangesAsync(cancellationToken);
+            if (invalidationTags.Count > 0)
+                await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
         }
 
         return checkpoint;
@@ -65,26 +83,28 @@ public sealed class TokenProjectionRebuilder(
         IAsyncDocumentSession session,
         TokenProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
         if (record.IsObservationType<TxObservation>())
-            return await ApplyTxObservationAsync(session, batchContext, record, record.Deserialize<TxObservation>(), cancellationToken);
+            return await ApplyTxObservationAsync(session, batchContext, record, record.Deserialize<TxObservation>(), invalidationTags, cancellationToken);
 
         if (record.IsObservationType<BlockObservation>())
         {
-            await ApplyBlockObservationAsync(session, batchContext, record, record.Deserialize<BlockObservation>(), cancellationToken);
+            await ApplyBlockObservationAsync(session, batchContext, record, record.Deserialize<BlockObservation>(), invalidationTags, cancellationToken);
             return true;
         }
 
         return true;
     }
 
-    private static async Task<bool> ApplyTxObservationAsync(
+    private async Task<bool> ApplyTxObservationAsync(
         IAsyncDocumentSession session,
         TokenProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         TxObservation observation,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -116,6 +136,7 @@ public sealed class TokenProjectionRebuilder(
                     observation,
                     record,
                     TokenProjectionApplicationState.Pending,
+                    invalidationTags,
                     cancellationToken);
 
             case TxObservationEventType.SeenInBlock:
@@ -128,6 +149,7 @@ public sealed class TokenProjectionRebuilder(
                     await UpdateHistoryBlockHashAsync(session, application.HistoryDocumentIds, observation.BlockHash, record.Sequence.Value, cancellationToken);
                     await session.StoreAsync(application, application.Id, cancellationToken);
                     batchContext.DirtyTokenIds.UnionWith(application.TokenIds ?? []);
+                    CollectInvalidationTags(invalidationTags, application.TokenIds ?? []);
                     return true;
                 }
 
@@ -138,6 +160,7 @@ public sealed class TokenProjectionRebuilder(
                     observation,
                     record,
                     TokenProjectionApplicationState.Confirmed,
+                    invalidationTags,
                     cancellationToken);
 
             case TxObservationEventType.DroppedBySource:
@@ -150,6 +173,7 @@ public sealed class TokenProjectionRebuilder(
 
                 await RemoveHistoryAsync(session, application.HistoryDocumentIds, cancellationToken);
                 batchContext.DirtyTokenIds.UnionWith(application.TokenIds ?? []);
+                CollectInvalidationTags(invalidationTags, application.TokenIds ?? []);
                 application.AppliedState = TokenProjectionApplicationState.None;
                 application.ConfirmedBlockHash = null;
                 application.HistoryDocumentIds = [];
@@ -161,13 +185,14 @@ public sealed class TokenProjectionRebuilder(
         return true;
     }
 
-    private static async Task<bool> TryApplyTransactionAsync(
+    private async Task<bool> TryApplyTransactionAsync(
         IAsyncDocumentSession session,
         TokenProjectionBatchContext batchContext,
         TokenProjectionAppliedTransactionDocument application,
         TxObservation observation,
         StoredObservationJournalRecord record,
         string targetState,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -205,14 +230,16 @@ public sealed class TokenProjectionRebuilder(
         await session.StoreAsync(application, application.Id, cancellationToken);
 
         batchContext.DirtyTokenIds.UnionWith(tokenIds);
+        CollectInvalidationTags(invalidationTags, tokenIds);
         return true;
     }
 
-    private static async Task ApplyBlockObservationAsync(
+    private async Task ApplyBlockObservationAsync(
         IAsyncDocumentSession session,
         TokenProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         BlockObservation observation,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -238,6 +265,7 @@ public sealed class TokenProjectionRebuilder(
         {
             await RemoveHistoryAsync(session, application.HistoryDocumentIds, cancellationToken);
             batchContext.DirtyTokenIds.UnionWith(application.TokenIds ?? []);
+            CollectInvalidationTags(invalidationTags, application.TokenIds ?? []);
             application.AppliedState = TokenProjectionApplicationState.None;
             application.ConfirmedBlockHash = null;
             application.HistoryDocumentIds = [];
@@ -489,6 +517,15 @@ public sealed class TokenProjectionRebuilder(
     {
         application.LastObservedAt = observation.ObservedAt ?? record.AppendedAt;
         application.LastSequence = record.Sequence.Value;
+    }
+
+    private void CollectInvalidationTags(
+        ISet<ProjectionCacheTag> invalidationTags,
+        IEnumerable<string> tokenIds
+    )
+    {
+        foreach (var tag in cacheKeyFactory.GetTokenInvalidationTags(tokenIds))
+            invalidationTags.Add(tag);
     }
 
     private async Task<ProjectionCheckpoint> LoadCheckpointAsync(CancellationToken cancellationToken)

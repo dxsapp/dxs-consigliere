@@ -206,3 +206,39 @@ public class ConsigliereStorageConfigValidation : IValidateOptions<ConsigliereSt
             : ValidateOptionsResult.Fail(errors);
     }
 }
+
+public class ConsigliereCacheConfigValidation : IValidateOptions<ConsigliereCacheConfig>
+{
+    private static readonly HashSet<string> KnownBackends = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "memory",
+        "disabled"
+    };
+
+    public ValidateOptionsResult Validate(string name, ConsigliereCacheConfig options)
+    {
+        if (!options.Enabled)
+            return ValidateOptionsResult.Success;
+
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(options.Backend))
+        {
+            errors.Add("Consigliere:Cache:Backend must be set when the cache is enabled.");
+        }
+        else if (!KnownBackends.Contains(options.Backend))
+        {
+            errors.Add($"Unsupported cache backend '{options.Backend}'.");
+        }
+
+        if (options.MaxEntries <= 0)
+            errors.Add("Consigliere:Cache:MaxEntries must be greater than zero.");
+
+        if (options.SafetyTtlSeconds is < 0)
+            errors.Add("Consigliere:Cache:SafetyTtlSeconds must be zero or greater.");
+
+        return errors.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(errors);
+    }
+}

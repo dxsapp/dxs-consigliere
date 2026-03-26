@@ -1,5 +1,9 @@
+#nullable enable
+
 using Dxs.Bsv.BitcoinMonitor.Models;
+using Dxs.Common.Cache;
 using Dxs.Common.Journal;
+using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Transactions;
@@ -12,9 +16,16 @@ namespace Dxs.Consigliere.Data.Addresses;
 
 public sealed class AddressProjectionRebuilder(
     IDocumentStore documentStore,
-    RavenObservationJournalReader journalReader
+    RavenObservationJournalReader journalReader,
+    IProjectionCacheInvalidationSink cacheInvalidationSink,
+    IProjectionReadCacheKeyFactory cacheKeyFactory
 )
 {
+    public AddressProjectionRebuilder(IDocumentStore documentStore, RavenObservationJournalReader journalReader)
+        : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory())
+    {
+    }
+
     private const int DefaultPageSize = 512;
 
     public async Task<ProjectionCheckpoint> RebuildAsync(
@@ -35,14 +46,17 @@ public sealed class AddressProjectionRebuilder(
 
             using var session = documentStore.GetSession();
             var batchContext = await LoadBatchContextAsync(session, records, cancellationToken);
+            var invalidationTags = new HashSet<ProjectionCacheTag>();
 
             foreach (var record in records)
             {
-                var applied = await ApplyAsync(session, batchContext, record, cancellationToken);
+                var applied = await ApplyAsync(session, batchContext, record, invalidationTags, cancellationToken);
                 if (!applied)
                 {
                     await StoreCheckpointAsync(session, checkpoint, cancellationToken);
                     await session.SaveChangesAsync(cancellationToken);
+                    if (invalidationTags.Count > 0)
+                        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
                     return checkpoint;
                 }
 
@@ -51,6 +65,8 @@ public sealed class AddressProjectionRebuilder(
 
             await StoreCheckpointAsync(session, checkpoint, cancellationToken);
             await session.SaveChangesAsync(cancellationToken);
+            if (invalidationTags.Count > 0)
+                await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
         }
 
         return checkpoint;
@@ -60,26 +76,28 @@ public sealed class AddressProjectionRebuilder(
         IAsyncDocumentSession session,
         AddressProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
         if (record.IsObservationType<TxObservation>())
-            return await ApplyTxObservationAsync(session, batchContext, record, record.Deserialize<TxObservation>(), cancellationToken);
+            return await ApplyTxObservationAsync(session, batchContext, record, record.Deserialize<TxObservation>(), invalidationTags, cancellationToken);
 
         if (record.IsObservationType<BlockObservation>())
         {
-            await ApplyBlockObservationAsync(session, batchContext, record, record.Deserialize<BlockObservation>(), cancellationToken);
+            await ApplyBlockObservationAsync(session, batchContext, record, record.Deserialize<BlockObservation>(), invalidationTags, cancellationToken);
             return true;
         }
 
         return true;
     }
 
-    private static async Task<bool> ApplyTxObservationAsync(
+    private async Task<bool> ApplyTxObservationAsync(
         IAsyncDocumentSession session,
         AddressProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         TxObservation observation,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -112,6 +130,7 @@ public sealed class AddressProjectionRebuilder(
                     record,
                     observation,
                     AddressProjectionApplicationState.Pending,
+                    invalidationTags,
                     cancellationToken);
 
             case TxObservationEventType.SeenInBlock:
@@ -139,6 +158,7 @@ public sealed class AddressProjectionRebuilder(
                         record,
                         observation,
                         AddressProjectionApplicationState.Confirmed,
+                        invalidationTags,
                         cancellationToken))
                     return false;
 
@@ -154,7 +174,7 @@ public sealed class AddressProjectionRebuilder(
                     return true;
                 }
 
-                await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, cancellationToken);
+                await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, invalidationTags, cancellationToken);
                 Touch(application, record, observation);
                 await session.StoreAsync(application, application.Id, cancellationToken);
                 return true;
@@ -163,13 +183,14 @@ public sealed class AddressProjectionRebuilder(
         return true;
     }
 
-    private static async Task<bool> TryApplyTransactionAsync(
+    private async Task<bool> TryApplyTransactionAsync(
         IAsyncDocumentSession session,
         AddressProjectionBatchContext batchContext,
         AddressProjectionAppliedTransactionDocument application,
         StoredObservationJournalRecord record,
         TxObservation observation,
         string targetState,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -198,7 +219,7 @@ public sealed class AddressProjectionRebuilder(
                 debits.Add(debitDocument.ToSnapshot());
         }
 
-        await ApplyMutationAsync(session, batchContext, debits, credits, record.Sequence.Value, cancellationToken);
+        await ApplyMutationAsync(session, batchContext, debits, credits, record.Sequence.Value, invalidationTags, cancellationToken);
 
         application.AppliedState = targetState;
         application.ConfirmedBlockHash = targetState == AddressProjectionApplicationState.Confirmed
@@ -212,11 +233,12 @@ public sealed class AddressProjectionRebuilder(
         return true;
     }
 
-    private static async Task ApplyBlockObservationAsync(
+    private async Task ApplyBlockObservationAsync(
         IAsyncDocumentSession session,
         AddressProjectionBatchContext batchContext,
         StoredObservationJournalRecord record,
         BlockObservation observation,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -242,18 +264,19 @@ public sealed class AddressProjectionRebuilder(
 
         foreach (var application in applications)
         {
-            await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, cancellationToken);
+            await RevertApplicationAsync(session, batchContext, application, record.Sequence.Value, invalidationTags, cancellationToken);
             application.LastObservedAt = observation.ObservedAt ?? record.AppendedAt;
             await session.StoreAsync(application, application.Id, cancellationToken);
         }
     }
 
-    private static async Task ApplyMutationAsync(
+    private async Task ApplyMutationAsync(
         IAsyncDocumentSession session,
         AddressProjectionBatchContext batchContext,
         IReadOnlyCollection<AddressProjectionUtxoSnapshot> debits,
         IReadOnlyCollection<AddressProjectionUtxoSnapshot> credits,
         long sequence,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -273,13 +296,17 @@ public sealed class AddressProjectionRebuilder(
 
         foreach (var ((address, tokenId), delta) in balanceDeltas)
             await ApplyBalanceDeltaAsync(session, batchContext, address, tokenId, delta, sequence, cancellationToken);
+
+        foreach (var tag in cacheKeyFactory.GetAddressInvalidationTags(balanceDeltas.Keys.Select(x => x.Address)))
+            invalidationTags.Add(tag);
     }
 
-    private static async Task RevertApplicationAsync(
+    private async Task RevertApplicationAsync(
         IAsyncDocumentSession session,
         AddressProjectionBatchContext batchContext,
         AddressProjectionAppliedTransactionDocument application,
         long sequence,
+        ISet<ProjectionCacheTag> invalidationTags,
         CancellationToken cancellationToken
     )
     {
@@ -299,6 +326,9 @@ public sealed class AddressProjectionRebuilder(
 
         foreach (var ((address, tokenId), delta) in balanceDeltas)
             await ApplyBalanceDeltaAsync(session, batchContext, address, tokenId, delta, sequence, cancellationToken);
+
+        foreach (var tag in cacheKeyFactory.GetAddressInvalidationTags(balanceDeltas.Keys.Select(x => x.Address)))
+            invalidationTags.Add(tag);
 
         application.AppliedState = AddressProjectionApplicationState.None;
         application.ConfirmedBlockHash = null;
