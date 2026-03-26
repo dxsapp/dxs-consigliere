@@ -92,6 +92,7 @@ public sealed class TrackedEntityRegistrationStore(
         string tokenId,
         string symbol,
         string historyMode = TrackedEntityHistoryMode.ForwardOnly,
+        IReadOnlyCollection<string>? trustedRoots = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -119,8 +120,9 @@ public sealed class TrackedEntityRegistrationStore(
         var legacy = await session.Query<WatchingToken>()
             .FirstOrDefaultAsync(x => x.TokenId == tokenId, cancellationToken);
 
-        ApplyRegistration(tracked, tracked.TokenId, tracked.Symbol, symbol, historyMode);
-        ApplyRegistration(status, status.TokenId, historyMode);
+        var normalizedTrustedRoots = NormalizeTrustedRoots(trustedRoots);
+        ApplyRegistration(tracked, tracked.TokenId, tracked.Symbol, symbol, historyMode, normalizedTrustedRoots);
+        ApplyRegistration(status, status.TokenId, historyMode, normalizedTrustedRoots);
 
         if (legacy is null)
         {
@@ -166,16 +168,24 @@ public sealed class TrackedEntityRegistrationStore(
         return true;
     }
 
-    public async Task<bool> RequestTokenFullHistoryAsync(string tokenId, CancellationToken cancellationToken = default)
+    public async Task<bool> RequestTokenFullHistoryAsync(
+        string tokenId,
+        IReadOnlyCollection<string> trustedRoots,
+        CancellationToken cancellationToken = default
+    )
     {
+        var normalizedTrustedRoots = NormalizeTrustedRoots(trustedRoots);
+        if (normalizedTrustedRoots.Length == 0)
+            return false;
+
         using var session = documentStore.GetSession();
         var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken);
         var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken);
         if (tracked is null || status is null || !tracked.Tracked || status.IsTombstoned)
             return false;
 
-        PromoteToFullHistory(tracked);
-        PromoteToFullHistory(status);
+        PromoteToFullHistory(tracked, normalizedTrustedRoots);
+        PromoteToFullHistory(status, normalizedTrustedRoots);
         tracked.SetUpdate();
         status.SetUpdate();
 
@@ -204,12 +214,13 @@ public sealed class TrackedEntityRegistrationStore(
         string tokenId,
         string currentSymbol,
         string requestedSymbol,
-        string historyMode
+        string historyMode,
+        IReadOnlyCollection<string> trustedRoots
     )
     {
         document.TokenId = tokenId;
         document.Symbol = string.IsNullOrWhiteSpace(requestedSymbol) ? currentSymbol : requestedSymbol;
-        ApplyRegistration(document, historyMode);
+        ApplyRegistration(document, historyMode, trustedRoots);
     }
 
     private static void ApplyRegistration(TrackedAddressStatusDocument document, string address, string historyMode)
@@ -218,10 +229,10 @@ public sealed class TrackedEntityRegistrationStore(
         ApplyRegistration(document, historyMode);
     }
 
-    private static void ApplyRegistration(TrackedTokenStatusDocument document, string tokenId, string historyMode)
+    private static void ApplyRegistration(TrackedTokenStatusDocument document, string tokenId, string historyMode, IReadOnlyCollection<string> trustedRoots)
     {
         document.TokenId = tokenId;
-        ApplyRegistration(document, historyMode);
+        ApplyRegistration(document, historyMode, trustedRoots);
     }
 
     private static void ApplyRegistration(TrackedEntityDocumentBase document, string historyMode)
@@ -261,7 +272,25 @@ public sealed class TrackedEntityRegistrationStore(
         document.SetUpdate();
     }
 
-    private static void PromoteToFullHistory(TrackedEntityDocumentBase document)
+    private static void ApplyRegistration(TrackedTokenDocument document, string historyMode, IReadOnlyCollection<string> trustedRoots)
+    {
+        ApplyRegistration((TrackedEntityDocumentBase)document, historyMode);
+        document.HistorySecurity = CreateOrResetSecurityState(document.HistorySecurity, trustedRoots);
+        if (!string.Equals(document.HistoryMode, TrackedEntityHistoryMode.FullHistory, StringComparison.Ordinal))
+            document.HistorySecurity = CreateOrResetSecurityState(document.HistorySecurity, []);
+        document.SetUpdate();
+    }
+
+    private static void ApplyRegistration(TrackedTokenStatusDocument document, string historyMode, IReadOnlyCollection<string> trustedRoots)
+    {
+        ApplyRegistration((TrackedEntityDocumentBase)document, historyMode);
+        document.HistorySecurity = CreateOrResetSecurityState(document.HistorySecurity, trustedRoots);
+        if (!string.Equals(document.HistoryMode, TrackedEntityHistoryMode.FullHistory, StringComparison.Ordinal))
+            document.HistorySecurity = CreateOrResetSecurityState(document.HistorySecurity, []);
+        document.SetUpdate();
+    }
+
+    private static void PromoteToFullHistory(TrackedEntityDocumentBase document, IReadOnlyCollection<string>? trustedRoots = null)
     {
         document.HistoryMode = TrackedEntityHistoryMode.FullHistory;
         document.HistoryCoverage ??= new TrackedHistoryCoverage();
@@ -271,8 +300,41 @@ public sealed class TrackedEntityRegistrationStore(
             document.HistoryReadiness = TrackedEntityHistoryReadiness.BackfillingFullHistory;
     }
 
+    private static void PromoteToFullHistory(TrackedTokenDocument document, IReadOnlyCollection<string> trustedRoots)
+    {
+        PromoteToFullHistory((TrackedEntityDocumentBase)document, trustedRoots);
+        document.HistorySecurity = CreateOrResetSecurityState(document.HistorySecurity, trustedRoots);
+    }
+
+    private static void PromoteToFullHistory(TrackedTokenStatusDocument document, IReadOnlyCollection<string> trustedRoots)
+    {
+        PromoteToFullHistory((TrackedEntityDocumentBase)document, trustedRoots);
+        document.HistorySecurity = CreateOrResetSecurityState(document.HistorySecurity, trustedRoots);
+    }
+
     private static string NormalizeHistoryMode(string historyMode)
         => string.Equals(historyMode, TrackedEntityHistoryMode.FullHistory, StringComparison.OrdinalIgnoreCase)
             ? TrackedEntityHistoryMode.FullHistory
             : TrackedEntityHistoryMode.ForwardOnly;
+
+    private static string[] NormalizeTrustedRoots(IReadOnlyCollection<string>? trustedRoots)
+        => (trustedRoots ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static TrackedTokenHistorySecurityState CreateOrResetSecurityState(
+        TrackedTokenHistorySecurityState? existing,
+        IReadOnlyCollection<string> trustedRoots
+    )
+    {
+        var state = existing?.Clone() ?? new TrackedTokenHistorySecurityState();
+        state.TrustedRoots = NormalizeTrustedRoots(trustedRoots);
+        state.UnknownRootFindings = [];
+        state.CompletedTrustedRootCount = 0;
+        state.RootedHistorySecure = state.TrustedRoots.Length == 0;
+        state.BlockingUnknownRoot = false;
+        return state;
+    }
 }

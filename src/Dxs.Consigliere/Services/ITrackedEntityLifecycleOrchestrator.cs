@@ -1,5 +1,7 @@
 namespace Dxs.Consigliere.Services;
 
+using Dxs.Consigliere.Data.Models.Tracking;
+
 public interface ITrackedEntityLifecycleOrchestrator
 {
     Task BeginTrackingAddressAsync(string address, CancellationToken cancellationToken = default);
@@ -36,4 +38,9 @@ public interface ITrackedEntityLifecycleOrchestrator
     Task MarkTokenDegradedAsync(string tokenId, bool integritySafe, string reason = null, CancellationToken cancellationToken = default);
     Task RecoverAddressAsync(string address, CancellationToken cancellationToken = default);
     Task RecoverTokenAsync(string tokenId, CancellationToken cancellationToken = default);
+    Task UpdateTokenHistorySecurityAsync(
+        string tokenId,
+        TrackedTokenHistorySecurityState historySecurity,
+        CancellationToken cancellationToken = default
+    );
 }

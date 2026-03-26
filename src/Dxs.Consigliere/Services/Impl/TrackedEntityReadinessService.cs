@@ -319,7 +319,13 @@ public sealed class TrackedEntityReadinessService(
                     ItemsScanned = document.HistoryBackfillItemsScanned,
                     ItemsApplied = document.HistoryBackfillItemsApplied,
                     ErrorCode = document.HistoryBackfillErrorCode,
-                }
+                },
+            RootedToken = document switch
+            {
+                TrackedTokenDocument token => MapRootedToken(token.HistorySecurity),
+                TrackedTokenStatusDocument status => MapRootedToken(status.HistorySecurity),
+                _ => null
+            }
         };
 
     private static TrackedHistoryStatusResponse CreateDefaultHistoryStatus()
@@ -332,4 +338,18 @@ public sealed class TrackedEntityReadinessService(
                 FullCoverage = false,
             }
         };
+
+    private static RootedTokenHistoryStatusResponse MapRootedToken(TrackedTokenHistorySecurityState? state)
+        => state is null
+            ? null
+            : new RootedTokenHistoryStatusResponse
+            {
+                TrustedRoots = state.TrustedRoots?.ToArray() ?? [],
+                TrustedRootCount = state.TrustedRoots?.Length ?? 0,
+                CompletedTrustedRootCount = state.CompletedTrustedRootCount,
+                UnknownRootFindingCount = state.UnknownRootFindings?.Length ?? 0,
+                RootedHistorySecure = state.RootedHistorySecure,
+                BlockingUnknownRoot = state.BlockingUnknownRoot,
+                UnknownRootFindings = state.UnknownRootFindings?.ToArray() ?? []
+            };
 }

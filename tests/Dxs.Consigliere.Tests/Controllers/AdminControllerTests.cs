@@ -2,9 +2,14 @@ using Dxs.Common.Cache;
 using Dxs.Consigliere.Controllers;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Cache;
+using Dxs.Consigliere.Data.Tracking;
+using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
+using Dxs.Consigliere.Services;
 
 using Microsoft.AspNetCore.Mvc;
+
+using Moq;
 
 namespace Dxs.Consigliere.Tests.Controllers;
 
@@ -26,6 +31,58 @@ public class AdminControllerTests
         Assert.Equal(2, payload.Invalidation.Domains.Length);
         Assert.Equal(4, payload.ProjectionLag.Token.Lag);
         Assert.Equal(7, payload.HistoryEnvelopeBackfill.PendingCount);
+    }
+
+    [Fact]
+    public async Task ManageStasToken_RejectsFullHistoryWithoutTrustedRoots()
+    {
+        var controller = new AdminController(new TestNetworkProvider());
+
+        var result = await controller.ManageStasToken(
+            new WatchStasTokenRequest(
+                "1111111111111111111111111111111111111111",
+                "ROOT",
+                new HistoryPolicyRequest { Mode = HistoryPolicyMode.FullHistory }),
+            Mock.Of<ITrackedEntityRegistrationStore>(MockBehavior.Strict),
+            Mock.Of<ITrackedEntityLifecycleOrchestrator>(MockBehavior.Strict),
+            Mock.Of<ITrackedHistoryBackfillScheduler>(MockBehavior.Strict),
+            Mock.Of<ITrackedEntityReadinessService>(MockBehavior.Strict),
+            Mock.Of<Dxs.Bsv.BitcoinMonitor.ITransactionFilter>(MockBehavior.Strict));
+
+        var badRequest = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(400, badRequest.StatusCode);
+        Assert.NotNull(badRequest.Value);
+    }
+
+    [Fact]
+    public async Task UpgradeTokensHistory_BulkRejectsMissingTrustedRootsPerItem()
+    {
+        var controller = new AdminController(new TestNetworkProvider());
+        var readiness = new Mock<ITrackedEntityReadinessService>(MockBehavior.Strict);
+
+        var result = await controller.UpgradeTokensHistory(
+            new BulkTokenHistoryUpgradeRequest
+            {
+                Items =
+                [
+                    new TokenHistoryUpgradeRequest
+                    {
+                        TokenId = "1111111111111111111111111111111111111111",
+                        TokenHistoryPolicy = new TokenHistoryPolicyRequest()
+                    }
+                ]
+            },
+            Mock.Of<ITrackedEntityRegistrationStore>(MockBehavior.Strict),
+            Mock.Of<ITrackedEntityLifecycleOrchestrator>(MockBehavior.Strict),
+            Mock.Of<ITrackedHistoryBackfillScheduler>(MockBehavior.Strict),
+            readiness.Object,
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<Dxs.Consigliere.Dto.Responses.History.BulkHistoryUpgradeResponse>(ok.Value);
+        Assert.Single(payload.Items);
+        Assert.False(payload.Items[0].Accepted);
+        Assert.Equal("trusted_roots_required", payload.Items[0].MessageCode);
     }
 
     private sealed class FakeProjectionReadCacheTelemetry : IProjectionReadCacheTelemetry

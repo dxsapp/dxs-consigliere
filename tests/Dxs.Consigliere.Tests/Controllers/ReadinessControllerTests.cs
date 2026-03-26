@@ -1,4 +1,5 @@
 using Dxs.Consigliere.Controllers;
+using Dxs.Consigliere.Dto.Responses.History;
 using Dxs.Consigliere.Dto.Responses.Readiness;
 using Dxs.Consigliere.Services;
 
@@ -58,6 +59,45 @@ public class ReadinessControllerTests
         var payload = Assert.IsType<TrackedEntityReadinessResponse>(ok.Value);
         Assert.True(payload.Readable);
         Assert.True(payload.Authoritative);
+    }
+
+    [Fact]
+    public async Task ReturnsRootedTokenHistoryStatusWhenPresent()
+    {
+        const string tokenId = "1111111111111111111111111111111111111111";
+        var service = new Mock<ITrackedEntityReadinessService>();
+        service.Setup(x => x.GetTokenReadinessAsync(tokenId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TrackedEntityReadinessResponse
+            {
+                Tracked = true,
+                EntityType = "token",
+                EntityId = tokenId,
+                LifecycleStatus = "live",
+                Readable = true,
+                Authoritative = true,
+                History = new TrackedHistoryStatusResponse
+                {
+                    HistoryReadiness = "full_history_live",
+                    RootedToken = new RootedTokenHistoryStatusResponse
+                    {
+                        TrustedRoots = ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+                        TrustedRootCount = 1,
+                        CompletedTrustedRootCount = 1,
+                        RootedHistorySecure = true
+                    }
+                }
+            });
+
+        var controller = new ReadinessController(new TestNetworkProvider());
+
+        var result = await controller.GetTokenReadiness(tokenId, service.Object, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<TrackedEntityReadinessResponse>(ok.Value);
+        Assert.NotNull(payload.History);
+        Assert.NotNull(payload.History.RootedToken);
+        Assert.True(payload.History.RootedToken.RootedHistorySecure);
+        Assert.Equal(1, payload.History.RootedToken.TrustedRootCount);
     }
 
     private sealed class TestNetworkProvider : INetworkProvider

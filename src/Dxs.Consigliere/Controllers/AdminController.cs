@@ -91,11 +91,15 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         try
         {
             var historyMode = NormalizeHistoryMode(request.HistoryPolicy?.Mode);
-            await trackedEntityRegistrationStore.RegisterTokenAsync(tokenId.Value, request.Symbol, historyMode);
+            var trustedRoots = NormalizeTrustedRoots(request.TokenHistoryPolicy?.TrustedRoots);
+            if (RequiresTrustedRoots(historyMode) && trustedRoots.Length == 0)
+                return BadRequest(new { code = "trusted_roots_required", entityId = tokenId.Value });
+
+            await trackedEntityRegistrationStore.RegisterTokenAsync(tokenId.Value, request.Symbol, historyMode, trustedRoots);
             await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(tokenId.Value);
             if (string.Equals(historyMode, HistoryPolicyMode.FullHistory, StringComparison.Ordinal))
             {
-                await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(tokenId.Value);
+                await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(tokenId.Value, trustedRoots);
                 await trackedHistoryBackfillScheduler.QueueTokenFullHistoryAsync(tokenId.Value);
             }
 
@@ -136,6 +140,7 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     [Produces(typeof(TrackedHistoryStatusResponse))]
     public async Task<IActionResult> UpgradeTokenHistory(
         string tokenId,
+        [FromBody] TokenHistoryPolicyRequest request,
         [FromServices] ITrackedEntityRegistrationStore trackedEntityRegistrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator trackedEntityLifecycleOrchestrator,
         [FromServices] ITrackedHistoryBackfillScheduler trackedHistoryBackfillScheduler,
@@ -146,7 +151,11 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         if (!TokenId.TryParse(tokenId, networkProvider.Network, out var parsed))
             return BadRequest($"Unable to parse TokenId: \"{tokenId}\"");
 
-        if (!await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(parsed.Value, cancellationToken))
+        var trustedRoots = NormalizeTrustedRoots(request?.TrustedRoots);
+        if (trustedRoots.Length == 0)
+            return BadRequest(new { code = "trusted_roots_required", entityId = parsed.Value });
+
+        if (!await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(parsed.Value, trustedRoots, cancellationToken))
             return Conflict(new { code = "not_tracked", entityId = parsed.Value });
 
         await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
@@ -211,15 +220,25 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     )
     {
         var items = new List<HistoryUpgradeItemResponse>();
-        foreach (var raw in request.TokenIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal))
+        foreach (var item in (request.Items ?? [])
+                     .Where(x => x is not null && !string.IsNullOrWhiteSpace(x.TokenId))
+                     .GroupBy(x => x.TokenId, StringComparer.Ordinal)
+                     .Select(x => x.First()))
         {
-            if (!TokenId.TryParse(raw, networkProvider.Network, out var parsed))
+            if (!TokenId.TryParse(item.TokenId, networkProvider.Network, out var parsed))
             {
-                items.Add(new HistoryUpgradeItemResponse { EntityId = raw, Accepted = false, MessageCode = "invalid_token_id" });
+                items.Add(new HistoryUpgradeItemResponse { EntityId = item.TokenId, Accepted = false, MessageCode = "invalid_token_id" });
                 continue;
             }
 
-            var accepted = await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(parsed.Value, cancellationToken);
+            var trustedRoots = NormalizeTrustedRoots(item.TokenHistoryPolicy?.TrustedRoots);
+            if (trustedRoots.Length == 0)
+            {
+                items.Add(new HistoryUpgradeItemResponse { EntityId = parsed.Value, Accepted = false, MessageCode = "trusted_roots_required" });
+                continue;
+            }
+
+            var accepted = await trackedEntityRegistrationStore.RequestTokenFullHistoryAsync(parsed.Value, trustedRoots, cancellationToken);
             if (accepted)
             {
                 await trackedEntityLifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
@@ -313,4 +332,14 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
         => string.Equals(mode, HistoryPolicyMode.FullHistory, StringComparison.OrdinalIgnoreCase)
             ? HistoryPolicyMode.FullHistory
             : HistoryPolicyMode.ForwardOnly;
+
+    private static bool RequiresTrustedRoots(string historyMode)
+        => string.Equals(historyMode, HistoryPolicyMode.FullHistory, StringComparison.Ordinal);
+
+    private static string[] NormalizeTrustedRoots(IEnumerable<string>? trustedRoots)
+        => (trustedRoots ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 }

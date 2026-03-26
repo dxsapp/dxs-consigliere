@@ -10,7 +10,7 @@ namespace Dxs.Consigliere.Tests.Services.Impl;
 public class TrackedEntityLifecycleOrchestratorIntegrationTests : RavenTestDriver
 {
     [Fact]
-    public async Task BeginTrackingAddressAsync_MovesRegisteredEntityToBackfilling()
+    public async Task BeginTrackingAddressAsync_MakesForwardOnlyEntityLiveAfterBoundaryInitialization()
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
@@ -27,16 +27,18 @@ public class TrackedEntityLifecycleOrchestratorIntegrationTests : RavenTestDrive
         var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address));
         var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address));
 
-        Assert.Equal(TrackedEntityLifecycleStatus.Backfilling, tracked!.LifecycleStatus);
-        Assert.Equal(TrackedEntityLifecycleStatus.Backfilling, status!.LifecycleStatus);
+        Assert.Equal(TrackedEntityLifecycleStatus.Live, tracked!.LifecycleStatus);
+        Assert.Equal(TrackedEntityLifecycleStatus.Live, status!.LifecycleStatus);
         Assert.NotNull(status.BackfillStartedAt);
         Assert.NotNull(status.RealtimeAttachedAt);
-        Assert.False(tracked.Readable);
-        Assert.False(tracked.Authoritative);
+        Assert.NotNull(status.GapClosedAt);
+        Assert.True(tracked.Readable);
+        Assert.True(tracked.Authoritative);
+        Assert.Equal(TrackedEntityHistoryReadiness.ForwardLive, status.HistoryReadiness);
     }
 
     [Fact]
-    public async Task CompletionAndGapClosure_AreRequiredBeforeLive()
+    public async Task ForwardOnlyToken_IsAlreadyLiveAfterBoundaryInitialization_AndCompletionSignalsDoNotRegressState()
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
@@ -49,14 +51,6 @@ public class TrackedEntityLifecycleOrchestratorIntegrationTests : RavenTestDrive
         await registration.RegisterTokenAsync(tokenId, "STAMP");
         await orchestrator.BeginTrackingTokenAsync(tokenId);
         await orchestrator.MarkTokenBackfillCompletedAsync(tokenId);
-
-        using (var session = store.OpenAsyncSession())
-        {
-            var catchingUp = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId));
-            Assert.Equal(TrackedEntityLifecycleStatus.CatchingUp, catchingUp!.LifecycleStatus);
-            Assert.False(catchingUp.Readable);
-        }
-
         await orchestrator.MarkTokenGapClosedAsync(tokenId);
 
         using var session2 = store.OpenAsyncSession();
@@ -64,6 +58,7 @@ public class TrackedEntityLifecycleOrchestratorIntegrationTests : RavenTestDrive
         Assert.Equal(TrackedEntityLifecycleStatus.Live, live!.LifecycleStatus);
         Assert.True(live.Readable);
         Assert.True(live.Authoritative);
+        Assert.Equal(TrackedEntityHistoryReadiness.ForwardLive, live.HistoryReadiness);
     }
 
     [Fact]

@@ -3,6 +3,7 @@ namespace Dxs.Consigliere.Data.Models.Tracking;
 public sealed class TrackedTokenStatusDocument : TrackedEntityStatusDocumentBase
 {
     public string TokenId { get; set; }
+    public TrackedTokenHistorySecurityState HistorySecurity { get; set; } = new();
 
     public override string GetId() => GetId(TokenId);
 
@@ -18,6 +19,7 @@ public sealed class TrackedTokenStatusDocument : TrackedEntityStatusDocumentBase
             yield return key;
 
         yield return nameof(TokenId);
+        yield return nameof(HistorySecurity);
     }
 
     public override IEnumerable<string> UpdateableKeys()
@@ -30,6 +32,8 @@ public sealed class TrackedTokenStatusDocument : TrackedEntityStatusDocumentBase
 
         foreach (var key in StatusUpdateableKeys())
             yield return key;
+
+        yield return nameof(HistorySecurity);
     }
 
     public override IEnumerable<KeyValuePair<string, object>> ToEntries()
@@ -44,6 +48,7 @@ public sealed class TrackedTokenStatusDocument : TrackedEntityStatusDocumentBase
             yield return entry;
 
         yield return new KeyValuePair<string, object>(nameof(TokenId), TokenId);
+        yield return new KeyValuePair<string, object>(nameof(HistorySecurity), HistorySecurity);
     }
 
     public static string GetId(string tokenId) => $"tracked/token/{tokenId}/status";

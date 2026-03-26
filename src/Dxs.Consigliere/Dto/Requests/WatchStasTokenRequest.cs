@@ -5,5 +5,6 @@ namespace Dxs.Consigliere.Dto.Requests;
 public record WatchStasTokenRequest(
     [Required] string TokenId,
     [Required] string Symbol,
-    HistoryPolicyRequest HistoryPolicy = null
+    HistoryPolicyRequest HistoryPolicy = null,
+    TokenHistoryPolicyRequest TokenHistoryPolicy = null
 );

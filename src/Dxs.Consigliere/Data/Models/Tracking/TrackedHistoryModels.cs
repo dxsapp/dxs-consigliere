@@ -40,3 +40,22 @@ public sealed class TrackedHistoryCoverage
             AuthoritativeFromObservedAt = AuthoritativeFromObservedAt,
         };
 }
+
+public sealed class TrackedTokenHistorySecurityState
+{
+    public string[] TrustedRoots { get; set; } = [];
+    public string[] UnknownRootFindings { get; set; } = [];
+    public int CompletedTrustedRootCount { get; set; }
+    public bool RootedHistorySecure { get; set; }
+    public bool BlockingUnknownRoot { get; set; }
+
+    public TrackedTokenHistorySecurityState Clone()
+        => new()
+        {
+            TrustedRoots = TrustedRoots?.ToArray() ?? [],
+            UnknownRootFindings = UnknownRootFindings?.ToArray() ?? [],
+            CompletedTrustedRootCount = CompletedTrustedRootCount,
+            RootedHistorySecure = RootedHistorySecure,
+            BlockingUnknownRoot = BlockingUnknownRoot,
+        };
+}

@@ -61,22 +61,22 @@ public sealed class ProjectionReadCacheKeyFactory : IProjectionReadCacheKeyFacto
     public ProjectionCacheDescriptor CreateTokenState(string normalizedTokenId)
         => new(
             new ProjectionCacheKey($"token-state|token={normalizedTokenId}"),
-            [TokenStateTag(normalizedTokenId)]);
+            [TokenStateTag(normalizedTokenId), TrackedTokenReadinessTag(normalizedTokenId)]);
 
     public ProjectionCacheDescriptor CreateTokenUtxos(string normalizedTokenId)
         => new(
             new ProjectionCacheKey($"token-utxos|token={normalizedTokenId}"),
-            [TokenUtxoTag(normalizedTokenId)]);
+            [TokenUtxoTag(normalizedTokenId), TrackedTokenReadinessTag(normalizedTokenId)]);
 
     public ProjectionCacheDescriptor CreateTokenBalances(string normalizedTokenId)
         => new(
             new ProjectionCacheKey($"token-balances|token={normalizedTokenId}"),
-            [TokenBalanceTag(normalizedTokenId)]);
+            [TokenBalanceTag(normalizedTokenId), TrackedTokenReadinessTag(normalizedTokenId)]);
 
     public ProjectionCacheDescriptor CreateTokenHistory(string normalizedTokenId, int take, int skip = 0, bool desc = true)
         => new(
             new ProjectionCacheKey($"token-history|token={normalizedTokenId}|skip={skip}|take={take}|desc={desc}"),
-            [TokenHistoryTag(normalizedTokenId)]);
+            [TokenHistoryTag(normalizedTokenId), TrackedTokenReadinessTag(normalizedTokenId)]);
 
     public ProjectionCacheDescriptor CreateTxLifecycle(string normalizedTxId)
         => new(

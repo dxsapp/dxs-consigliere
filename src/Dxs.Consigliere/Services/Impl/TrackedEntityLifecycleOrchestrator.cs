@@ -259,6 +259,16 @@ public sealed class TrackedEntityLifecycleOrchestrator(
             }
         }, cancellationToken);
 
+    public Task UpdateTokenHistorySecurityAsync(
+        string tokenId,
+        TrackedTokenHistorySecurityState historySecurity,
+        CancellationToken cancellationToken = default
+    )
+        => MutateTokenAsync(tokenId, document =>
+        {
+            document.HistorySecurity = historySecurity?.Clone() ?? new TrackedTokenHistorySecurityState();
+        }, cancellationToken);
+
     private async Task MutateAddressAsync(
         string address,
         Action<TrackedAddressStatusDocument> mutate,
@@ -436,6 +446,7 @@ public sealed class TrackedEntityLifecycleOrchestrator(
         tracked.HistoryBackfillItemsScanned = status.HistoryBackfillItemsScanned;
         tracked.HistoryBackfillItemsApplied = status.HistoryBackfillItemsApplied;
         tracked.HistoryBackfillErrorCode = status.HistoryBackfillErrorCode;
+        tracked.HistorySecurity = status.HistorySecurity?.Clone() ?? new TrackedTokenHistorySecurityState();
         tracked.IsTombstoned = status.IsTombstoned;
         tracked.TombstonedAt = status.TombstonedAt;
     }

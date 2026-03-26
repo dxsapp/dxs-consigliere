@@ -5,4 +5,5 @@ public sealed class TrackedHistoryStatusResponse
     public string HistoryReadiness { get; set; }
     public TrackedHistoryCoverageResponse Coverage { get; set; }
     public TrackedHistoryBackfillStatusResponse BackfillStatus { get; set; }
+    public RootedTokenHistoryStatusResponse RootedToken { get; set; }
 }

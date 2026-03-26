@@ -6,6 +6,10 @@ public sealed class TokenHistoryBackfillPayload
     public int? OldestCoveredBlockHeight { get; set; }
     public string Cursor { get; set; }
     public int DiscoveredTransactionCount { get; set; }
+    public string[] TrustedRoots { get; set; } = [];
+    public string[] HydratedRoots { get; set; } = [];
+    public string[] UnknownRoots { get; set; } = [];
+    public TokenHistoryAddressCursor[] AddressCursors { get; set; } = [];
     public bool LineageBoundaryReached { get; set; }
     public bool HistoryBoundaryReached { get; set; }
 }

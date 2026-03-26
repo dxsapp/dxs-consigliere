@@ -14,8 +14,13 @@ public interface ITrackedEntityRegistrationStore
         string tokenId,
         string symbol,
         string historyMode = TrackedEntityHistoryMode.ForwardOnly,
+        IReadOnlyCollection<string>? trustedRoots = null,
         CancellationToken cancellationToken = default
     );
     Task<bool> RequestAddressFullHistoryAsync(string address, CancellationToken cancellationToken = default);
-    Task<bool> RequestTokenFullHistoryAsync(string tokenId, CancellationToken cancellationToken = default);
+    Task<bool> RequestTokenFullHistoryAsync(
+        string tokenId,
+        IReadOnlyCollection<string> trustedRoots,
+        CancellationToken cancellationToken = default
+    );
 }

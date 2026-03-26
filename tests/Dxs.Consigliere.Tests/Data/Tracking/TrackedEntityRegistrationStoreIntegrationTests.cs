@@ -67,4 +67,43 @@ public class TrackedEntityRegistrationStoreIntegrationTests : RavenTestDriver
         Assert.Equal(TrackedEntityLifecycleStatus.Registered, status.LifecycleStatus);
         Assert.False(status.IsTombstoned);
     }
+
+    [Fact]
+    public async Task RegisterTokenAsync_FullHistory_PersistsTrustedRootsAndRootedSecurityState()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var registrationStore = new TrackedEntityRegistrationStore(store);
+        const string tokenId = "2222222222222222222222222222222222222222222222222222222222222222";
+        var trustedRoots = new[]
+        {
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        };
+
+        await registrationStore.RegisterTokenAsync(tokenId, "ROOTED", TrackedEntityHistoryMode.FullHistory, trustedRoots);
+
+        using var session = store.OpenAsyncSession();
+        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId));
+        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId));
+
+        Assert.NotNull(tracked);
+        Assert.NotNull(status);
+        Assert.Equal(TrackedEntityHistoryMode.FullHistory, tracked.HistoryMode);
+        Assert.Equal(TrackedEntityHistoryReadiness.BackfillingFullHistory, tracked.HistoryReadiness);
+        Assert.Equal(
+            [
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            ],
+            tracked.HistorySecurity.TrustedRoots);
+        Assert.Equal(2, tracked.HistorySecurity.TrustedRoots.Length);
+        Assert.Equal(0, tracked.HistorySecurity.CompletedTrustedRootCount);
+        Assert.False(tracked.HistorySecurity.BlockingUnknownRoot);
+        Assert.False(status.HistorySecurity.BlockingUnknownRoot);
+        Assert.Equal(tracked.HistorySecurity.TrustedRoots, status.HistorySecurity.TrustedRoots);
+    }
 }

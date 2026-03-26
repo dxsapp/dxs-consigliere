@@ -194,7 +194,7 @@ public static class SourceCapabilityRouting
             ExternalChainCapability.ValidationFetch => NodeProvider,
             ExternalChainCapability.RawTxFetch => ExternalChainProviderName.WhatsOnChain,
             ExternalChainCapability.HistoricalAddressScan => ExternalChainProviderName.Bitails,
-            ExternalChainCapability.HistoricalTokenScan => NodeProvider,
+            ExternalChainCapability.HistoricalTokenScan => ExternalChainProviderName.Bitails,
             _ => NodeProvider
         };
 
@@ -206,6 +206,7 @@ public static class SourceCapabilityRouting
             ExternalChainCapability.RawTxFetch => [ExternalChainProviderName.Bitails],
             ExternalChainCapability.ValidationFetch => [ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain],
             ExternalChainCapability.HistoricalAddressScan => [ExternalChainProviderName.WhatsOnChain],
+            ExternalChainCapability.HistoricalTokenScan => [ExternalChainProviderName.WhatsOnChain],
             _ => []
         };
 

@@ -60,6 +60,10 @@ public sealed class TrackedHistoryBackfillScheduler(
         if (tracked is null || status is null || !tracked.Tracked || status.IsTombstoned)
             return false;
 
+        var trustedRoots = status.HistorySecurity?.TrustedRoots ?? tracked.HistorySecurity?.TrustedRoots ?? [];
+        if (trustedRoots.Length == 0)
+            return false;
+
         var job = await session.LoadAsync<TokenHistoryBackfillJobDocument>(TokenHistoryBackfillJobDocument.GetId(tokenId), cancellationToken);
         if (job is null)
         {
@@ -75,6 +79,10 @@ public sealed class TrackedHistoryBackfillScheduler(
                 {
                     AnchorBlockHeight = status.HistoryAnchorBlockHeight,
                     OldestCoveredBlockHeight = status.HistoryCoverage?.AuthoritativeFromBlockHeight,
+                    TrustedRoots = trustedRoots.ToArray(),
+                    HydratedRoots = [],
+                    UnknownRoots = [],
+                    AddressCursors = [],
                 }
             };
             await session.StoreAsync(job, job.Id, cancellationToken);
@@ -85,6 +93,8 @@ public sealed class TrackedHistoryBackfillScheduler(
         {
             job.Status = HistoryBackfillExecutionStatus.Queued;
             job.ErrorCode = null;
+            job.Payload ??= new TokenHistoryBackfillPayload();
+            job.Payload.TrustedRoots = trustedRoots.ToArray();
             job.SetUpdate();
         }
 
