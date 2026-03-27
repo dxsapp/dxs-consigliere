@@ -112,7 +112,7 @@ Notes:
 - easiest mental model
 - highest operational burden because the operator runs the node
 
-## Example 2: `hybrid` Mode With One Primary And Multiple Fallbacks
+## Example 2: `hybrid` Mode With Bitails As The Baseline Provider-First Realtime Source
 
 Use this when the operator wants one clear default source, plus fallbacks and a stronger verification path.
 
@@ -158,13 +158,18 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
           "enabled": true,
           "connectTimeout": "00:00:03",
           "requestTimeout": "00:00:10",
+          "streamTimeout": "00:00:30",
           "enabledCapabilities": [
+            "realtime_ingest",
             "raw_tx_fetch",
-            "block_backfill"
+            "validation_fetch",
+            "historical_address_scan",
+            "historical_token_scan"
           ],
           "connection": {
             "baseUrl": "https://api.bitails.io",
-            "apiKey": "replace-me"
+            "apiKey": "replace-me",
+            "transport": "websocket"
           }
         },
         "whatsonchain": {
@@ -184,9 +189,9 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
       },
       "routing": {
         "preferredMode": "hybrid",
-        "primarySource": "junglebus",
+        "primarySource": "bitails",
         "fallbackSources": [
-          "bitails",
+          "junglebus",
           "node",
           "whatsonchain"
         ],
@@ -201,15 +206,16 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
           ]
         },
         "realtime_ingest": {
-          "source": "junglebus",
+          "source": "bitails",
           "fallbackSources": [
+            "junglebus",
             "node"
           ]
         },
         "block_backfill": {
-          "source": "junglebus",
+          "source": "node",
           "fallbackSources": [
-            "bitails"
+            "junglebus"
           ]
         },
         "raw_tx_fetch": {
@@ -221,6 +227,15 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
         },
         "validation_fetch": {
           "source": "node"
+        },
+        "historical_address_scan": {
+          "source": "bitails",
+          "fallbackSources": [
+            "whatsonchain"
+          ]
+        },
+        "historical_token_scan": {
+          "source": "bitails"
         }
       }
     }
@@ -230,7 +245,8 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
 
 Notes:
 - good default serious-business profile
-- fast ingest through `junglebus`
+- provider-first realtime ingest through `bitails`
+- `junglebus` kept as an advanced fallback stream rather than the default managed-mode source
 - cheaper lookup elasticity through `bitails` and `whatsonchain`
 - truth-critical validation anchored to `node`
 
@@ -255,10 +271,7 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           "connectTimeout": "00:00:03",
           "requestTimeout": "00:00:10",
           "streamTimeout": "00:00:30",
-          "enabledCapabilities": [
-            "realtime_ingest",
-            "block_backfill"
-          ],
+          "enabledCapabilities": [],
           "connection": {
             "baseUrl": "https://junglebus.gorillapool.io",
             "apiKey": "replace-me"
@@ -268,14 +281,19 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           "enabled": true,
           "connectTimeout": "00:00:03",
           "requestTimeout": "00:00:10",
+          "streamTimeout": "00:00:30",
           "enabledCapabilities": [
             "broadcast",
+            "realtime_ingest",
             "raw_tx_fetch",
-            "validation_fetch"
+            "validation_fetch",
+            "historical_address_scan",
+            "historical_token_scan"
           ],
           "connection": {
             "baseUrl": "https://api.bitails.io",
-            "apiKey": "replace-me"
+            "apiKey": "replace-me",
+            "transport": "websocket"
           }
         },
         "whatsonchain": {
@@ -294,10 +312,10 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
         }
       },
       "routing": {
-        "preferredMode": "junglebus",
-        "primarySource": "junglebus",
+        "preferredMode": "bitails",
+        "primarySource": "bitails",
         "fallbackSources": [
-          "bitails",
+          "junglebus",
           "whatsonchain"
         ],
         "verificationSource": "bitails"
@@ -311,13 +329,7 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           ]
         },
         "realtime_ingest": {
-          "source": "junglebus"
-        },
-        "block_backfill": {
-          "source": "junglebus",
-          "fallbackSources": [
-            "bitails"
-          ]
+          "source": "bitails"
         },
         "raw_tx_fetch": {
           "source": "bitails",
@@ -330,6 +342,15 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           "fallbackSources": [
             "whatsonchain"
           ]
+        },
+        "historical_address_scan": {
+          "source": "bitails",
+          "fallbackSources": [
+            "whatsonchain"
+          ]
+        },
+        "historical_token_scan": {
+          "source": "bitails"
         }
       }
     }
@@ -340,8 +361,38 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
 Notes:
 - cheapest entry point
 - no self-hosted node required
-- best for businesses that need fast adoption more than full source sovereignty
+- best for operators that need fast adoption more than full source sovereignty
 - weaker truth posture than node-backed hybrid mode
+
+## Future Connection Modeling Note: Bitails Transport
+
+The current runtime config classes do not yet expose a first-class Bitails transport selector.
+
+Future config work should support a shape like:
+
+```json
+{
+  "bitails": {
+    "connection": {
+      "baseUrl": "https://api.bitails.io",
+      "apiKey": "replace-me",
+      "transport": "websocket",
+      "websocket": {
+        "baseUrl": "wss://socket.bitails.io"
+      },
+      "zmq": {
+        "txUrl": "tcp://127.0.0.1:28332",
+        "blockUrl": "tcp://127.0.0.1:28333"
+      }
+    }
+  }
+}
+```
+
+Interpretation:
+- `transport = websocket` is the default provider-first realtime posture
+- `transport = zmq` is a future advanced option for operators who want Bitails-backed node-adjacent subscriptions
+- `junglebus` remains an advanced/manual source choice, not the baseline managed realtime path
 
 ## Modeling Notes
 

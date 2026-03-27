@@ -339,24 +339,28 @@ Strengths:
 
 Weaknesses:
 - provider-specific availability and subscription constraints
+- current subscription model is not suitable for `Consigliere` default dynamic managed-scope onboarding
 - external dependency for uptime and semantics
 
 Likely internal roles:
 - fast
 - block crawl
 - mempool or near-realtime ingest
-- fallback for no-node mode
+- optional advanced stream source
 
 ### Bitails
 Strengths:
 - useful REST capability set
 - practical lookup source in provider-only or hybrid modes
+- websocket topics map well to managed-scope selective subscriptions
+- provider also offers a node-adjacent subscription path through ZMQ, which is a good future fit for config-driven realtime ingest
 
 Weaknesses:
 - rate limits and provider constraints
 - not ideal as the only truth source for every workload
 
 Likely internal roles:
+- baseline provider-first realtime source
 - cheap or assist lookup
 - fallback read path
 - selective supplemental fetch
@@ -371,10 +375,65 @@ Weaknesses:
 - not the preferred core product dependency for authoritative managed state
 - semantics and cost profile must be treated as provider-specific
 - operational stability is weaker than preferred primary-grade sources
+- no documented realtime subscription surface is assumed in the product model
 
 Likely internal roles:
 - optional assist lookup
 - degraded fallback
+
+## Decision: Baseline Provider Policy
+
+`Consigliere` now standardizes on:
+- `bitails` as the baseline provider-first realtime source
+- `junglebus` as an optional advanced source, not the default managed-mode source
+- `whatsonchain` as REST-only assist and fallback, not a realtime source
+
+Rationale:
+- `bitails` fits the product best when operators need dynamic subscriptions around managed addresses, script hashes, and spend/lock event surfaces
+- `junglebus` remains useful, but its subscription model is better treated as an advanced operator path rather than the default runtime-controlled source
+- `whatsonchain` is still useful for fallback lookup and historical assist, but should not be modeled as if it participates in realtime ingest
+
+## Decision: Realtime Filtered Event Surface Is A Product Requirement
+
+Provider-first realtime support is not judged only by "has websocket".
+
+For `Consigliere`, a provider is a first-class realtime source only if it can support managed-scope filtered event delivery such as:
+- address-oriented events
+- script-hash-oriented events
+- spend vs lock distinction where available
+- similar selective event filters that let the runtime subscribe narrowly rather than consume an unbounded global stream
+
+This requirement explains why `bitails` is the preferred provider-first realtime source in the current product posture.
+
+## Decision: JungleBus Is Explicitly Advanced/Manual
+
+`junglebus` remains part of the supported source schema, but its intended posture is now:
+- available for advanced operators
+- not the default provider selected for managed realtime ingest
+- not assumed to support runtime-created fine-grained dynamic subscriptions in the same way as the baseline Bitails model
+
+When operators choose `junglebus`, they are intentionally accepting a broader and more manual streaming posture.
+
+## Decision: WhatsOnChain Is REST-Only In Product Policy
+
+Even though `whatsonchain` stays in the provider schema, the product policy treats it as:
+- `raw_tx_fetch`
+- assist lookup
+- degraded fallback
+
+It is not part of the baseline realtime ingest strategy.
+
+## Decision: Future Bitails Transport Model Must Leave Room For ZMQ
+
+The future Bitails connection contract should leave room for two realtime transport modes:
+- `websocket`
+- `zmq`
+
+This is a transport choice inside the Bitails provider contract, not a separate provider brand.
+
+The product intent is:
+- `websocket` for the initial provider-first baseline path
+- `zmq` as a future config-selectable transport when operators want a more node-adjacent Bitails integration
 
 ## Future Source Type: `network_connector`
 

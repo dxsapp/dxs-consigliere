@@ -1,0 +1,89 @@
+# Source Provider Policy
+
+## Purpose
+
+This document captures the current product policy for upstream BSV sources.
+
+It is intentionally narrower than the full source-capability matrix:
+- it states the baseline operator-facing decision
+- it explains which providers are default, advanced, or fallback
+- it records the intended future Bitails transport shape
+
+## Current Product Decision
+
+`Consigliere` standardizes on:
+- `bitails` as the baseline provider-first realtime source
+- `junglebus` as an optional advanced source, not the default managed-mode source
+- `whatsonchain` as REST-only assist and fallback, not a realtime source
+
+This decision is product-driven, not merely adapter-driven.
+
+The key requirement is:
+- managed-scope selective realtime ingest must be practical to operate dynamically
+
+## Why Bitails Is The Baseline
+
+`bitails` fits the product posture best because it aligns with selective managed scope.
+
+The intended model is:
+- subscribe narrowly around operator-managed addresses, script hashes, spends, and locks
+- avoid pretending that a broad external firehose is the default operational shape
+- keep the entry barrier low for self-hosted operators who do not want to run a full node on day one
+
+## Why JungleBus Is Advanced
+
+`junglebus` remains useful, but it is not the baseline source for managed realtime ingest.
+
+In the current product posture it should be treated as:
+- a strong optional source
+- useful for advanced operators
+- acceptable when a broader or more manually managed stream is intentional
+
+It should not be treated as the default runtime-controlled dynamic subscription provider.
+
+## Why WhatsOnChain Stays REST-Only
+
+`whatsonchain` remains useful for:
+- raw transaction fetch
+- degraded fallback lookup
+- assist and fallback historical reads where acceptable
+
+It is not part of the baseline realtime ingest strategy.
+
+The product should not model `whatsonchain` as if it were a first-class websocket or selective realtime source.
+
+## Current Routing Posture
+
+The intended default posture is:
+- `bitails` for provider-first realtime ingest
+- `bitails` for provider-first historical address and token scans
+- `whatsonchain` as REST-only fallback
+- `junglebus` as optional advanced realtime source
+- `node` as the strongest verification and authority path when present
+
+## Future Bitails Transport Contract
+
+Future config work should preserve one provider identity for Bitails while allowing transport selection inside it.
+
+Planned transport modes:
+- `websocket`
+- `zmq`
+
+Interpretation:
+- `websocket` is the initial baseline provider-first path
+- `zmq` is a future advanced operator option when Bitails-backed node-adjacent subscriptions are desired
+
+This should remain:
+- one provider
+- multiple transport modes
+
+It should not become:
+- separate fake providers for Bitails WebSocket and Bitails ZMQ
+
+## Non-Goals
+
+This policy does not claim:
+- that `Consigliere` should become a universal explorer
+- that every source must support every capability
+- that all providers should participate equally in realtime ingest
+- that provider identity must leak into ordinary public business APIs
