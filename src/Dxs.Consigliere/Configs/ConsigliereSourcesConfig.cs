@@ -91,7 +91,7 @@ public class JungleBusSourceConfig : SourceProviderConfig
 
 public class BitailsSourceConfig : SourceProviderConfig
 {
-    public HttpApiSourceConnectionConfig Connection { get; set; } = new();
+    public BitailsSourceConnectionConfig Connection { get; set; } = new();
 }
 
 public class WhatsOnChainSourceConfig : SourceProviderConfig
@@ -118,4 +118,28 @@ public class HttpApiSourceConnectionConfig
 {
     public string BaseUrl { get; set; }
     public string ApiKey { get; set; }
+}
+
+public static class BitailsRealtimeTransportMode
+{
+    public const string Websocket = "websocket";
+    public const string Zmq = "zmq";
+}
+
+public class BitailsSourceConnectionConfig : HttpApiSourceConnectionConfig
+{
+    public string Transport { get; set; }
+    public BitailsWebsocketConnectionConfig Websocket { get; set; } = new();
+    public BitailsZmqConnectionConfig Zmq { get; set; } = new();
+}
+
+public class BitailsWebsocketConnectionConfig
+{
+    public string BaseUrl { get; set; }
+}
+
+public class BitailsZmqConnectionConfig
+{
+    public string TxUrl { get; set; }
+    public string BlockUrl { get; set; }
 }

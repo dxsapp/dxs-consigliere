@@ -94,6 +94,33 @@ public class SourceCapabilityRoutingTests
         Assert.Equal(SourceCapabilityRouting.NodeProvider, route.VerificationSource);
     }
 
+    [Fact]
+    public void Resolve_RealtimeIngest_CanSelectBitails_WhenProviderAndCapabilityAreConfigured()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        sourcesConfig.Routing.PrimarySource = ExternalChainProviderName.Bitails;
+        sourcesConfig.Providers.Bitails.Connection.Transport = Dxs.Consigliere.Configs.BitailsRealtimeTransportMode.Websocket;
+        sourcesConfig.Providers.Bitails.EnabledCapabilities =
+        [
+            ExternalChainCapability.RealtimeIngest,
+            ExternalChainCapability.ValidationFetch
+        ];
+
+        var legacyConfig = new AppConfig
+        {
+            JungleBus = new JungleBusConfig { Enabled = true }
+        };
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.RealtimeIngest,
+            sourcesConfig,
+            legacyConfig,
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.Bitails, route.PrimarySource);
+        Assert.Empty(route.FallbackSources);
+    }
+
     private static ConsigliereSourcesConfig CreateSourcesConfig()
     {
         return new ConsigliereSourcesConfig
@@ -117,6 +144,14 @@ public class SourceCapabilityRoutingTests
                 Bitails =
                 {
                     Enabled = true,
+                    Connection =
+                    {
+                        BaseUrl = "https://api.bitails.io",
+                        Websocket =
+                        {
+                            BaseUrl = "https://api.bitails.io/global"
+                        }
+                    },
                     EnabledCapabilities = [ExternalChainCapability.ValidationFetch]
                 }
             }
@@ -131,7 +166,12 @@ public class SourceCapabilityRoutingTests
                     [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill]),
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.Bitails,
-                    [ExternalChainCapability.Broadcast, ExternalChainCapability.RawTxFetch, ExternalChainCapability.ValidationFetch])
+                    [
+                        ExternalChainCapability.Broadcast,
+                        ExternalChainCapability.RealtimeIngest,
+                        ExternalChainCapability.RawTxFetch,
+                        ExternalChainCapability.ValidationFetch
+                    ])
             ]);
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)

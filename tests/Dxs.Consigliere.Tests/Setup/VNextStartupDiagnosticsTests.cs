@@ -21,7 +21,15 @@ public class VNextStartupDiagnosticsTests
             {
                 Node = new NodeSourceConfig { Enabled = true, EnabledCapabilities = ["broadcast", "validation_fetch"] },
                 JungleBus = new JungleBusSourceConfig { Enabled = true, EnabledCapabilities = ["realtime_ingest"] },
-                Bitails = new BitailsSourceConfig { Enabled = false },
+                Bitails = new BitailsSourceConfig
+                {
+                    Enabled = true,
+                    EnabledCapabilities = ["realtime_ingest", "raw_tx_fetch"],
+                    Connection =
+                    {
+                        Transport = BitailsRealtimeTransportMode.Websocket
+                    }
+                },
                 Whatsonchain = new WhatsOnChainSourceConfig { Enabled = false }
             }
         };
@@ -49,6 +57,7 @@ public class VNextStartupDiagnosticsTests
         Assert.Contains(lines, x => x.Contains("VNext cutover mode: shadow_read"));
         Assert.Contains(lines, x => x.Contains("VNext routing mode: hybrid"));
         Assert.Contains(lines, x => x.Contains("VNext primary source: junglebus"));
+        Assert.Contains(lines, x => x.Contains("bitails[websocket] (realtime_ingest, raw_tx_fetch)"));
         Assert.Contains(lines, x => x.Contains("node (broadcast, validation_fetch)"));
         Assert.Contains(lines, x => x.Contains("raven/(default-db)/RawTransactionPayloads"));
         Assert.Contains(lines, x => x.Contains("memory/4096"));

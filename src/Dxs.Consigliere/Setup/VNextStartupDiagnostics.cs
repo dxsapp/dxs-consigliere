@@ -56,7 +56,20 @@ public static class VNextStartupDiagnostics
             ? $" ({string.Join(", ", config.EnabledCapabilities)})"
             : string.Empty;
 
-        providers.Add($"{providerName}{capabilities}");
+        var transport = DescribeTransport(providerName, config);
+        providers.Add($"{providerName}{transport}{capabilities}");
+    }
+
+    private static string DescribeTransport(string providerName, SourceProviderConfig config)
+    {
+        if (!string.Equals(providerName, "bitails", StringComparison.OrdinalIgnoreCase) ||
+            config is not BitailsSourceConfig bitails ||
+            string.IsNullOrWhiteSpace(bitails.Connection.Transport))
+        {
+            return string.Empty;
+        }
+
+        return $"[{bitails.Connection.Transport}]";
     }
 
     private static string DescribePayloadStore(ConsigliereStorageConfig storage)

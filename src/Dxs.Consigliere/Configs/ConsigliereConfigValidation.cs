@@ -1,9 +1,17 @@
+using Dxs.Infrastructure.Common;
+
 using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Configs;
 
 public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSourcesConfig>
 {
+    private static readonly HashSet<string> KnownBitailsRealtimeTransports = new(StringComparer.OrdinalIgnoreCase)
+    {
+        BitailsRealtimeTransportMode.Websocket,
+        BitailsRealtimeTransportMode.Zmq
+    };
+
     private static readonly HashSet<string> KnownModes = new(StringComparer.OrdinalIgnoreCase)
     {
         "node",
@@ -85,6 +93,8 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
         ValidateCapabilitySources(options.Capabilities.HistoricalTokenScan.FallbackSources, "capabilities.historical_token_scan.fallbackSources", errors);
         ValidateEnabledProviderReferences(options.Capabilities.HistoricalTokenScan.FallbackSources, "capabilities.historical_token_scan.fallbackSources", providerStates, errors);
 
+        ValidateBitailsTransport(options, errors);
+
         if (!string.IsNullOrWhiteSpace(options.Capabilities.Broadcast.Mode)
             && !string.Equals(options.Capabilities.Broadcast.Mode, "single", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(options.Capabilities.Broadcast.Mode, "multi", StringComparison.OrdinalIgnoreCase))
@@ -154,6 +164,43 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
             ["bitails"] = options.Providers.Bitails.Enabled,
             ["whatsonchain"] = options.Providers.Whatsonchain.Enabled
         };
+
+    private static void ValidateBitailsTransport(ConsigliereSourcesConfig options, ICollection<string> errors)
+    {
+        var bitails = options.Providers.Bitails;
+        var transport = bitails.Connection.Transport;
+
+        if (string.IsNullOrWhiteSpace(transport))
+        {
+            if (bitails.Enabled &&
+                bitails.EnabledCapabilities.Contains(ExternalChainCapability.RealtimeIngest, StringComparer.OrdinalIgnoreCase))
+            {
+                errors.Add("Consigliere:Sources:Providers:Bitails:Connection:Transport must be set when Bitails enables realtime_ingest.");
+            }
+
+            return;
+        }
+
+        if (!KnownBitailsRealtimeTransports.Contains(transport))
+        {
+            errors.Add($"Unsupported Bitails transport '{transport}'.");
+            return;
+        }
+
+        if (string.Equals(transport, BitailsRealtimeTransportMode.Websocket, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(bitails.Connection.Websocket.BaseUrl) &&
+            string.IsNullOrWhiteSpace(bitails.Connection.BaseUrl))
+        {
+            errors.Add("Bitails websocket transport requires connection.baseUrl or connection.websocket.baseUrl.");
+        }
+
+        if (string.Equals(transport, BitailsRealtimeTransportMode.Zmq, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(bitails.Connection.Zmq.TxUrl) &&
+            string.IsNullOrWhiteSpace(bitails.Connection.Zmq.BlockUrl))
+        {
+            errors.Add("Bitails zmq transport requires connection.zmq.txUrl or connection.zmq.blockUrl.");
+        }
+    }
 }
 
 public class ConsigliereStorageConfigValidation : IValidateOptions<ConsigliereStorageConfig>
