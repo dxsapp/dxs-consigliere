@@ -129,23 +129,22 @@ public class BaseInputBuilder
         buffer.WriteUInt32Le(Sequence);
     }
 
-    /// <summary>
-    /// Only SIGHASH_ALL|FORK_ID implemented
-    /// </summary>
     public BufferWriter Preimage(SignatureHashType signatureHashType)
     {
         var size = PreimageLength;
         var preimageBuffer = new BufferWriter((int)size);
+        var baseType = signatureHashType & (SignatureHashType)0x1f;
+        var anyoneCanPay = (signatureHashType & SignatureHashType.SIGHASH_ANYONECANPAY) != 0;
 
         preimageBuffer.WriteUInt32Le(_txBuilder.Version); // 4
-        WritePrevoutHash(preimageBuffer); // 32
-        WriteSequenceHash(preimageBuffer); // 32
+        WritePrevoutHash(preimageBuffer, anyoneCanPay); // 32
+        WriteSequenceHash(preimageBuffer, anyoneCanPay, baseType); // 32
         preimageBuffer.WriteReverse(OutPoint.TransactionId.FromHexString()); // 32
         preimageBuffer.WriteUInt32Le(OutPoint.Vout); // 4
         preimageBuffer.WriteChunk(OutPoint.ScriptPubKey);
         preimageBuffer.WriteUInt64Le(OutPoint.Satoshis); // 8
         preimageBuffer.WriteUInt32Le(Sequence); // 4
-        WriteOutputsHash(preimageBuffer); // 32
+        WriteOutputsHash(preimageBuffer, baseType); // 32
         preimageBuffer.WriteUInt32Le(_txBuilder.LockTime); // 4
         preimageBuffer.WriteUInt32Le((uint)signatureHashType); // 4
 
@@ -233,8 +232,14 @@ public class BaseInputBuilder
         }
     }
 
-    private void WritePrevoutHash(BufferWriter bufferWriter)
+    private void WritePrevoutHash(BufferWriter bufferWriter, bool anyoneCanPay)
     {
+        if (anyoneCanPay)
+        {
+            bufferWriter.Write(new byte[32]);
+            return;
+        }
+
         var prevoutsBuffer = new BufferWriter(PrevoutHashLength);
 
         foreach (var input in _txBuilder.Inputs)
@@ -249,8 +254,16 @@ public class BaseInputBuilder
         bufferWriter.Write(hash.ToArray());
     }
 
-    private void WriteSequenceHash(BufferWriter buffer)
+    private void WriteSequenceHash(BufferWriter buffer, bool anyoneCanPay, SignatureHashType baseType)
     {
+        if (anyoneCanPay ||
+            baseType == SignatureHashType.SIGHASH_NONE ||
+            baseType == SignatureHashType.SIGHASH_SINGLE)
+        {
+            buffer.Write(new byte[32]);
+            return;
+        }
+
         var buf = new BufferWriter(4 * _txBuilder.Inputs.Count);
 
         foreach (var input in _txBuilder.Inputs)
@@ -264,8 +277,33 @@ public class BaseInputBuilder
         buffer.Write(hash.ToArray());
     }
 
-    private void WriteOutputsHash(BufferWriter buffer)
+    private void WriteOutputsHash(BufferWriter buffer, SignatureHashType baseType)
     {
+        if (baseType == SignatureHashType.SIGHASH_NONE)
+        {
+            buffer.Write(new byte[32]);
+            return;
+        }
+
+        if (baseType == SignatureHashType.SIGHASH_SINGLE)
+        {
+            if (_idx >= _txBuilder.Outputs.Count)
+            {
+                buffer.Write(new byte[32]);
+                return;
+            }
+
+            var output = _txBuilder.Outputs[_idx];
+            var singleBuffer = new BufferWriter(8 + BufferWriter.GetChunkSize(output.LockingScript));
+            singleBuffer.WriteUInt64Le(output.Value);
+            singleBuffer.WriteChunk(output.LockingScript);
+
+            Span<byte> singleHash = stackalloc byte[32];
+            Hash.Sha256Sha256(singleBuffer.Bytes, singleHash);
+            buffer.Write(singleHash.ToArray());
+            return;
+        }
+
         var size = _txBuilder.Outputs.Count * 8 +
                    _txBuilder.Outputs.Select(x => BufferWriter.GetChunkSize(x.LockingScript)).Sum();
         var buf = new BufferWriter(size);

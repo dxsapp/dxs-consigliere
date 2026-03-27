@@ -4,7 +4,7 @@
 
 - Parent task: add a native BSV-profiled interpreter to reproduce current STAS/DSTAS script-valid truth locally
 - Branch: `codex/consigliere-vnext`
-- Current status: `blocked`
+- Current status: `in_progress`
 - Slice plan: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-wave/slices.md`
 - Launch prompt: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-wave/launch-prompt.md`
 - Architectural context:
@@ -49,9 +49,9 @@ Target outcome:
 | `I05-signature-engine` | `operator/protocol` | `in_progress` | `I03-vm-core`,`I04-opcode-surface` | crypto/signature tests | sighash, `CHECKSIG`, and `CHECKMULTISIG` work for repo-needed BSV profile |
 | `I06-input-evaluation` | `operator/protocol` | `in_progress` | `I05-signature-engine` | input-pair tests | unlocking + locking evaluation works against resolved prevouts |
 | `I07-transaction-api` | `operator/protocol` | `in_progress` | `I06-input-evaluation` | tx-level tests | stable transaction-level evaluation API returns deterministic results |
-| `I08-oracle-parity` | `operator/verification` | `blocked` | `I07-transaction-api` | parity suites | native interpreter matches current deterministic oracle on vendored truth fixtures |
-| `I09-negative-paths` | `operator/verification` | `todo` | `I08-oracle-parity` | negative suites | invalid STAS/DSTAS flows fail locally with deterministic reasons |
-| `I10-lifecycle-adoption` | `operator/verification` | `todo` | `I08-oracle-parity`,`I09-negative-paths` | lifecycle packs | conformance, protocol-owner, multisig, and lifecycle packs pass through native interpreter |
+| `I08-oracle-parity` | `operator/verification` | `in_progress` | `I07-transaction-api` | parity suites | native interpreter matches current deterministic oracle on vendored truth fixtures |
+| `I09-negative-paths` | `operator/verification` | `in_progress` | `I08-oracle-parity` | negative suites | invalid STAS/DSTAS flows fail locally with deterministic reasons |
+| `I10-lifecycle-adoption` | `operator/verification` | `in_progress` | `I08-oracle-parity`,`I09-negative-paths` | lifecycle packs | conformance, protocol-owner, multisig, and lifecycle packs pass through native interpreter |
 | `I11-public-api-and-docs` | `operator/protocol` | `todo` | `I10-lifecycle-adoption` | API/docs review | public evaluation API and usage docs are stable and discoverable |
 | `A1-interpreter-audit` | `operator/governance` | `todo` | `I11-public-api-and-docs` | audit note | audit states whether native interpreter is sufficient to demote oracle from primary truth anchor |
 
@@ -90,3 +90,8 @@ Stop downstream slices and open remediation before continuing when any of the fo
 | 2026-03-27 | `I05` | remediation | worktree | `BsvSignatureHashComputer` no longer reverses `NBitcoin` prevout hashes a second time; this removed a concrete preimage mismatch on `transfer_regular_valid` |
 | 2026-03-27 | `I04-I05` | remediation | worktree | `OP_BIN2NUM` parity was loosened to mirror SDK-style normalize-and-continue behavior and multisig op-count was raised from legacy `201` to repo BSV script limits |
 | 2026-03-27 | `I08` | blocker | local smoke | positive vendored DSTAS vectors still diverge by reaching executed `OP_RETURN` branches after the preimage/numeric fixes, which indicates remaining conditional-execution parity drift rather than missing baseline opcodes |
+| 2026-03-27 | `I07-I08` | remediation | worktree | public trace surface was added to native transaction evaluation results so conditional-execution parity could be localized without pushing DSTAS business semantics into the VM |
+| 2026-03-27 | `I08` | remediation | sdk parity trace | positive vendored vectors were shown to intentionally execute `OP_RETURN` under `allowOpReturn: true`; repo-native policy now mirrors that behavior and the previous `OpReturn` blocker is cleared |
+| 2026-03-27 | `I08-I10` | test | `tests/Dxs.Bsv.Tests/Dstas/Conformance/NativeInterpreterParityTests.cs` | native parity suites now cover vendored DSTAS conformance vectors and protocol-owner transactions that ship full prevout coverage |
+| 2026-03-27 | `I05` | implementation | worktree | repo-native forkid sighash support now covers `ALL/NONE/SINGLE` plus `ANYONECANPAY` variants in both evaluator and builder-side preimage generation |
+| 2026-03-27 | `I05` | test | `tests/Dxs.Bsv.Tests/ScriptEvaluation/BsvSignatureHashVariantsTests.cs` | native interpreter accepts expanded forkid variants and still rejects non-forkid signatures deterministically as failed script evaluation |

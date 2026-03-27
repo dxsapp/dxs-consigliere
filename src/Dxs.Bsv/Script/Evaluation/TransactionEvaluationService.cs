@@ -13,7 +13,12 @@ namespace Dxs.Bsv.ScriptEvaluation;
 
 public sealed class TransactionEvaluationService
 {
-    public TransactionEvaluationResult EvaluateTransaction(Models.Transaction transaction, IPrevoutResolver prevoutResolver, BsvScriptExecutionPolicy? policy = null)
+    public TransactionEvaluationResult EvaluateTransaction(
+        Models.Transaction transaction,
+        IPrevoutResolver prevoutResolver,
+        BsvScriptExecutionPolicy? policy = null,
+        bool enableTrace = false,
+        int traceLimit = 2048)
     {
         ArgumentNullException.ThrowIfNull(transaction);
         ArgumentNullException.ThrowIfNull(prevoutResolver);
@@ -35,11 +40,19 @@ public sealed class TransactionEvaluationService
             var checker = new BsvTransactionChecker(nativeTransaction, i, spentOutput);
             var context = new BsvScriptEvaluationContext
             {
-                ScriptVerify = policy.ScriptVerify
+                ScriptVerify = policy.ScriptVerify,
+                AllowOpReturn = policy.AllowOpReturn,
+                TraceEnabled = enableTrace,
+                TraceLimit = traceLimit
             };
 
             var success = context.VerifyScript(nativeTransaction.Inputs[i].ScriptSig, spentOutput.ScriptPubKey, checker);
-            results.Add(new ScriptEvaluationResult(i, success, context.Error.ToString(), context.ThrownException?.Message));
+            results.Add(new ScriptEvaluationResult(
+                i,
+                success,
+                context.Error.ToString(),
+                context.ThrownException?.Message,
+                enableTrace ? context.Trace.ToArray() : null));
         }
 
         return new TransactionEvaluationResult(results.All(x => x.Success), results);

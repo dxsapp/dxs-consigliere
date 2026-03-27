@@ -2,6 +2,7 @@
 // The fork is intentionally isolated under NBitcoinFork and tuned for repo-needed BSV script validation.
 
 ﻿using NBitcoin.Crypto;
+using NBitcoin.DataEncoders;
 #if HAS_SPAN
 using NBitcoin.Secp256k1;
 #endif
@@ -261,6 +262,7 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 				m_value = n;
 			}
 			private BigInteger m_value;
+			internal BigInteger value => m_value;
 
 			public CScriptNum(byte[] vch, bool fRequireMinimal)
 				: this(vch, fRequireMinimal, DefaultMaxNumSize)
@@ -496,6 +498,11 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 			ScriptVerify = NBitcoin.ScriptVerify.Standard;
 			Error = BsvScriptError.UnknownError;
 		}
+		public bool TraceEnabled { get; set; }
+		public int TraceLimit { get; set; } = 2048;
+		public string TracePhase { get; private set; } = "unlocking";
+		public IList<BsvScriptTraceStep> Trace { get; } = new List<BsvScriptTraceStep>();
+		public bool AllowOpReturn { get; set; }
 		public ScriptVerify ScriptVerify
 		{
 			get;
@@ -521,6 +528,8 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 				return SetError(BsvScriptError.SigPushOnly);
 
 			BsvScriptEvaluationContext evaluationCopy = null;
+			Trace.Clear();
+			TracePhase = "unlocking";
 
 			if (!EvalScript(scriptSig, checker, 0))
 				return false;
@@ -528,6 +537,7 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 			{
 				evaluationCopy = Clone();
 			}
+			TracePhase = "locking";
 			if (!EvalScript(scriptPubKey, checker, 0))
 				return false;
 
@@ -1024,6 +1034,7 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 							return SetError(BsvScriptError.MinimalData);
 
 						_stack.Push(opcode.PushData);
+						RecordTraceStep(opcode_pos, opcode, altstack);
 					}
 
 					//if(fExec && opcode.PushData != null)
@@ -1230,6 +1241,9 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 								}
 							case OpcodeType.OP_RETURN:
 								{
+									if (AllowOpReturn)
+										return SetSuccess(BsvScriptError.OK);
+
 									return SetError(BsvScriptError.OpReturn);
 								}
 							//
@@ -1574,22 +1588,24 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 									if (_stack.Count < 2)
 										return SetError(BsvScriptError.InvalidStackOperation);
 
-									var values = (byte[])_stack.Top(-2).Clone();
+									var value = new CScriptNum(_stack.Top(-2), fRequireMinimal);
 									var n = new CScriptNum(_stack.Top(-1), fRequireMinimal);
-									if (n < 0)
-										return SetError(BsvScriptError.InvalidNumberRange);
-
 									var shift = n.getint();
 									_stack.Pop();
 									_stack.Pop();
 
-									var shifted = shift >= values.Length * bits_per_byte
-										? new byte[values.Length]
-										: opcode.Code == OpcodeType.OP_LSHIFT
-											? LeftShift(values, shift)
-											: RightShift(values, shift);
+									var shiftLeft = opcode.Code == OpcodeType.OP_LSHIFT;
+									if (shift < 0)
+									{
+										shift = -shift;
+										shiftLeft = !shiftLeft;
+									}
 
-									_stack.Push(shifted);
+									var shifted = shiftLeft
+										? value.value << shift
+										: value.value >> shift;
+
+									_stack.Push(CScriptNum.serialize(shifted));
 									break;
 								}
 							case OpcodeType.OP_EQUAL:
@@ -1964,6 +1980,9 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 							default:
 								return SetError(BsvScriptError.BadOpCode);
 						}
+
+						if (fExec)
+							RecordTraceStep(opcode_pos, opcode, altstack);
 					}
 					// Size limits
 					if (_stack.Count + altstack.Count > 1000)
@@ -2514,12 +2533,21 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 				return false;
 			}
 
-			uint256 sighash = BsvSignatureHashComputer.Compute(
-				checker.Transaction,
-				checker.Index,
-				vchSig[^1],
-				checker.SpentOutput,
-				scriptCode);
+			uint256 sighash;
+			try
+			{
+				sighash = BsvSignatureHashComputer.Compute(
+					checker.Transaction,
+					checker.Index,
+					vchSig[^1],
+					checker.SpentOutput,
+					scriptCode);
+			}
+			catch (NotSupportedException)
+			{
+				Error = BsvScriptError.SigHashType;
+				return false;
+			}
 			_BsvSignedHashes.Add(new BsvSignedHash()
 			{
 				ScriptCode = scriptCode,
@@ -2559,6 +2587,24 @@ namespace Dxs.Bsv.ScriptEvaluation.NBitcoinFork
 		{
 			_stack = new ContextStack<byte[]>(other._stack);
 			ScriptVerify = other.ScriptVerify;
+		}
+
+		private void RecordTraceStep(uint opcodePosition, Op opcode, ContextStack<byte[]> altstack)
+		{
+			if (!TraceEnabled)
+				return;
+
+			var top = _stack.Count == 0 ? null : Encoders.Hex.EncodeData(_stack.Top(-1));
+			Trace.Add(new BsvScriptTraceStep(
+				TracePhase,
+				opcodePosition,
+				opcode.Code.ToString(),
+				_stack.Count,
+				top,
+				altstack.Count));
+
+			if (Trace.Count > TraceLimit)
+				Trace.RemoveAt(0);
 		}
 
 		public BsvScriptEvaluationContext Clone()
