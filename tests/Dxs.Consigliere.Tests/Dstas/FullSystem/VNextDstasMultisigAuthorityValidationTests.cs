@@ -54,6 +54,9 @@ public class VNextDstasMultisigAuthorityValidationTests : RavenTestDriver
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
+        DstasNativeReplayProof.AssertProtocolOwnerChain("authority_multisig_freeze_unfreeze_cycle");
+        DstasNativeReplayProof.AssertConformanceVector("confiscate_valid");
+
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, MultisigOwnerAddress, ConfiscationReceiver], [TokenId]);
         await SeedTransactionAsync(store, CreateIssue());
@@ -129,6 +132,8 @@ public class VNextDstasMultisigAuthorityValidationTests : RavenTestDriver
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
+
+        DstasNativeReplayProof.AssertProtocolOwnerChain("owner_multisig_positive_spend");
 
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, MultisigOwnerAddress], [TokenId]);

@@ -12,6 +12,7 @@
     <Compile Include="..\Shared\DstasProtocolTruthOracle.cs" Link="Shared/DstasProtocolTruthOracle.cs" />
     <Compile Include="..\Shared\DstasConformanceVectorFixture.cs" Link="Shared/DstasConformanceVectorFixture.cs" />
     <Compile Include="..\Shared\DstasProtocolOwnerFixture.cs" Link="Shared/DstasProtocolOwnerFixture.cs" />
+    <Compile Include="..\Shared\DstasNativeReplayProof.cs" Link="Shared/DstasNativeReplayProof.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -25,6 +25,10 @@ public class RootedDstasFullSystemValidationTests : RavenTestDriver
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
+        DstasNativeReplayProof.AssertConformanceVector("transfer_regular_valid");
+        DstasNativeReplayProof.AssertConformanceVector("freeze_valid");
+        DstasNativeReplayProof.AssertConformanceVector("unfreeze_valid");
+
         using var store = GetDocumentStore();
         await RootedDstasTestHarness.SeedTrackedScopeAsync(store, [RootedDstasTestHarness.IssueTxId]);
         await RootedDstasTestHarness.SeedTrustedLifecycleAsync(store);
@@ -55,6 +59,9 @@ public class RootedDstasFullSystemValidationTests : RavenTestDriver
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
+        DstasNativeReplayProof.AssertConformanceVector("transfer_regular_valid");
+        DstasNativeReplayProof.AssertConformanceVector("freeze_valid");
+
         using var store = GetDocumentStore();
         await RootedDstasTestHarness.SeedTrackedScopeAsync(store, [RootedDstasTestHarness.IssueTxId]);
         await RootedDstasTestHarness.SeedTrustedLifecycleAsync(store);
@@ -84,6 +91,10 @@ public class RootedDstasFullSystemValidationTests : RavenTestDriver
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
+
+        DstasNativeReplayProof.AssertConformanceVector("transfer_regular_valid");
+        DstasNativeReplayProof.AssertConformanceVector("freeze_valid");
+        DstasNativeReplayProof.AssertConformanceVector("unfreeze_valid");
 
         using var store = GetDocumentStore();
         await RootedDstasTestHarness.SeedTrackedScopeAsync(store, [RootedDstasTestHarness.IssueTxId]);

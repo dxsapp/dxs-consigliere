@@ -56,6 +56,10 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
+        DstasNativeReplayProof.AssertConformanceVector("transfer_regular_valid");
+        DstasNativeReplayProof.AssertConformanceVector("freeze_valid");
+        DstasNativeReplayProof.AssertConformanceVector("unfreeze_valid");
+
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, HolderAddress], [TokenId]);
         await SeedTransactionAsync(store, CreateDstasIssue());
@@ -120,6 +124,10 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
+        DstasNativeReplayProof.AssertConformanceVector("confiscate_valid");
+        DstasNativeReplayProof.AssertConformanceVector("confiscate_without_authority_rejected");
+        DstasNativeReplayProof.AssertConformanceVector("confiscate_without_bit2_rejected");
+
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, HolderAddress, ConfiscationReceiver], [TokenId]);
         await SeedTransactionAsync(store, CreateDstasIssue());
@@ -171,6 +179,8 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
+
+        DstasNativeReplayProof.AssertConformanceVector("swap_cancel_valid");
 
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, HolderAddress], [TokenId]);

@@ -2,7 +2,7 @@
 
 - Parent task: close the remaining native proof gap before re-running oracle demotion
 - Branch: `codex/consigliere-vnext`
-- Current status: `todo`
+- Current status: `done`
 - Slice plan: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-lifecycle-wave/slices.md`
 - Launch prompt: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-lifecycle-wave/launch-prompt.md`
 - Depends on:
@@ -32,11 +32,11 @@ Close the remaining native-interpreter proof gap by replaying broader DSTAS life
 
 | slice | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|
-| `L1-lifecycle-surface-inventory` | `operator/verification` | `todo` | - | inventory note in master evidence log | broader DSTAS lifecycle suites and native-proof gaps are mapped explicitly |
-| `L2-native-fullsystem-parity` | `operator/verification` | `todo` | `L1-lifecycle-surface-inventory` | focused `Dxs.Bsv.Tests` and `Dxs.Consigliere.Tests` lifecycle/native packs | broader DSTAS full-system flows replay through native interpreter without oracle-only escapes |
-| `L3-rooted-and-multisig-native-proof` | `operator/verification` | `todo` | `L2-native-fullsystem-parity` | focused rooted and multisig lifecycle packs | rooted token and multisig DSTAS flows have explicit native replay evidence |
-| `L4-minimal-protocol-support` | `operator/protocol` | `todo` | `L1-lifecycle-surface-inventory` | targeted protocol tests | only minimal protocol-core changes, if truly required, are landed to support existing lifecycle replay |
-| `A1-closeout-audit` | `operator/governance` | `todo` | `L2-native-fullsystem-parity`,`L3-rooted-and-multisig-native-proof`,`L4-minimal-protocol-support` | audit note + closeout | wave states whether the evidence is sufficient to reopen oracle demotion or what exact blind spots remain |
+| `L1-lifecycle-surface-inventory` | `operator/verification` | `done` | - | inventory note in master evidence log | broader DSTAS lifecycle suites and native-proof gaps are mapped explicitly |
+| `L2-native-fullsystem-parity` | `operator/verification` | `done` | `L1-lifecycle-surface-inventory` | focused `Dxs.Bsv.Tests` and `Dxs.Consigliere.Tests` lifecycle/native packs | broader DSTAS full-system flows replay through native interpreter without oracle-only escapes |
+| `L3-rooted-and-multisig-native-proof` | `operator/verification` | `done` | `L2-native-fullsystem-parity` | focused rooted and multisig lifecycle packs | rooted token and multisig DSTAS flows have explicit native replay evidence |
+| `L4-minimal-protocol-support` | `operator/protocol` | `not_opened` | `L1-lifecycle-surface-inventory` | targeted protocol tests | only minimal protocol-core changes, if truly required, are landed to support existing lifecycle replay |
+| `A1-closeout-audit` | `operator/governance` | `done` | `L2-native-fullsystem-parity`,`L3-rooted-and-multisig-native-proof`,`L4-minimal-protocol-support` | audit note + closeout | wave states whether the evidence is sufficient to reopen oracle demotion or what exact blind spots remain |
 
 ## Candidate Validation Surfaces
 
@@ -65,3 +65,10 @@ Stop and open remediation if:
 | date | slice | type | path_or_note | note |
 |---|---|---|---|---|
 | 2026-03-27 | kickoff | task-package | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-lifecycle-wave/master.md` | lifecycle proof wave opened to close the remaining oracle-demotion blocker |
+| 2026-03-27 | `L1` | inventory | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-lifecycle-wave/evidence/inventory.md` | broader lifecycle suites mapped as mixed native-covered surfaces with explicit remaining blind spots |
+| 2026-03-27 | `L2` | verification | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dstas/FullSystem/VNextDstasFullSystemValidationTests.cs` | broader full-system DSTAS suites now attach explicit native replay proof from vendored conformance vectors |
+| 2026-03-27 | `L3` | verification | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dstas/FullSystem/VNextDstasMultisigAuthorityValidationTests.cs` | multisig-oriented lifecycle suites now attach explicit native replay proof from protocol-owner chains and conformance vectors |
+| 2026-03-27 | `L3` | verification | `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dstas/RootedHistory/RootedDstasFullSystemValidationTests.cs` | rooted-history suites now attach explicit native replay proof for the trusted branch they expose |
+| 2026-03-27 | `L4` | status | `not_opened` | current native interpreter surface was sufficient; no protocol-core change was required |
+| 2026-03-27 | `A1` | audit | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-lifecycle-wave/audits/A1.md` | oracle demotion still blocked, but remaining blind spots are now narrow and explicit |
+| 2026-03-27 | `A1` | closeout | `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-lifecycle-wave/evidence/closeout.md` | lifecycle wave closed with validation and residuals recorded |
