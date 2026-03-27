@@ -1,6 +1,7 @@
 using Dxs.Common.Extensions;
 using Dxs.Consigliere.BackgroundTasks;
 using Dxs.Consigliere.BackgroundTasks.Blocks;
+using Dxs.Consigliere.BackgroundTasks.Realtime;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,5 +29,5 @@ public static class HostedTasksSetup
             .AddSingletonHostedService<TxObservationJournalMirrorBackgroundTask>()
             .AddSingletonHostedService<JungleBusSyncMissingDataBackgroundTask>()
             .AddSingletonHostedService<UnconfirmedTransactionsMonitor>()
-            .AddSingletonHostedService<JungleBusMempoolMonitor>();
+            .AddSingletonHostedService<RealtimeIngestBackgroundTask>();
 }

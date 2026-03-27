@@ -59,11 +59,11 @@ Current residual:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `BR1` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | - | code review + focused runtime tests | runtime has one explicit Bitails realtime ingest entrypoint instead of hard-coded JungleBus-only flow |
-| `BR2` | `external-chain-adapters` | `operator/integration` | `todo` | `BR1` | adapter-focused tests | Bitails adapter exposes the minimum runtime-consumable observable/client shape needed by orchestration |
-| `BR3` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `BR1`,`BR2` | startup/build/config review | hosted-task and DI wiring select Bitails realtime path coherently from source routing and transport config |
-| `BR4` | `verification-and-conformance` | `operator/verification` | `todo` | `BR1`,`BR2`,`BR3` | focused proof | runtime ingest tests prove Bitails realtime path reaches the existing tx/filter pipeline |
-| `A1` | `repo-governance` | `operator/governance` | `todo` | `BR4` | audit note | wave closeout states whether Bitails is now the practical default live ingest source and what residual JungleBus role remains |
+| `BR1` | `indexer-ingest-orchestration` | `operator/runtime` | `done` | - | code review + focused runtime tests | runtime has one explicit Bitails realtime ingest entrypoint instead of hard-coded JungleBus-only flow |
+| `BR2` | `external-chain-adapters` | `operator/integration` | `done` | `BR1` | adapter-focused tests | Bitails adapter exposes the minimum runtime-consumable observable/client shape needed by orchestration |
+| `BR3` | `service-bootstrap-and-ops` | `operator/platform` | `done` | `BR1`,`BR2` | startup/build/config review | hosted-task and DI wiring select Bitails realtime path coherently from source routing and transport config |
+| `BR4` | `verification-and-conformance` | `operator/verification` | `done` | `BR1`,`BR2`,`BR3` | focused proof | runtime ingest tests prove Bitails realtime path reaches the existing tx/filter pipeline |
+| `A1` | `repo-governance` | `operator/governance` | `done` | `BR4` | audit note | wave closeout states whether Bitails is now the practical default live ingest source and what residual JungleBus role remains |
 
 ## Bounded Design Rules
 
@@ -80,3 +80,19 @@ Current residual:
 - the ingest path still feeds the existing tx/filter pipeline
 - focused validation proves Bitails realtime ingress works for the bounded runtime surface
 - closeout states the remaining role of JungleBus after integration
+
+## Outcome
+
+- `RealtimeIngestBackgroundTask` is now the single runtime-owned realtime entrypoint.
+- routing for `realtime_ingest` now selects between Bitails, JungleBus, or node/ZMQ without inventing a second pipeline.
+- Bitails realtime scope derives managed-scope topics from tracked addresses and tracked tokens, then feeds the existing `ITxMessageBus` / `TransactionFilter` path.
+- startup bootstrap no longer blindly starts node mempool and block feeds when policy says Bitails or JungleBus owns those capabilities.
+
+## Validation Evidence
+
+- `dotnet test /Users/imighty/Code/dxs-consigliere/tests/Dxs.Bsv.Tests/Dxs.Bsv.Tests.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~BitailsRealtimeTopicCatalogTests|FullyQualifiedName~BitailsRealtimeTransportPlannerTests|FullyQualifiedName~BitailsProviderDiagnosticsTests|FullyQualifiedName~BitailsRealtimePayloadParserTests"`
+  - passed `10/10`
+- `dotnet test /Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dxs.Consigliere.Tests.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~SourceCapabilityRoutingTests|FullyQualifiedName~RealtimeBootstrapPlannerTests|FullyQualifiedName~BitailsRealtimeIngestRunnerTests|FullyQualifiedName~BitailsRealtimeSubscriptionScopeProviderTests|FullyQualifiedName~ConsigliereConfigBindingTests"`
+  - passed `20/20`
+- `dotnet build /Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Dxs.Consigliere.csproj -c Release -p:UseAppHost=false`
+  - succeeded after serial rerun; only existing `NU1903` warnings remain

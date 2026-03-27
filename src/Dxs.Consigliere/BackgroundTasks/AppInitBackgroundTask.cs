@@ -4,11 +4,14 @@ using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Bsv.Zmq;
 using Dxs.Common.BackgroundTasks;
+using Dxs.Consigliere.BackgroundTasks.Realtime;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
+using Dxs.Consigliere.Services.Impl;
+using Dxs.Infrastructure.Common;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,7 +28,9 @@ public class AppInitBackgroundTask(
     ITxMessageBus txMessageBus,
     IBlockMessageBus blockMessageBus,
     IDocumentStore store,
+    IOptions<ConsigliereSourcesConfig> sourcesConfig,
     IOptions<AppConfig> appConfig,
+    IExternalChainProviderCatalog providerCatalog,
     ILogger<AppInitBackgroundTask> logger
 ) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
@@ -43,11 +48,39 @@ public class AppInitBackgroundTask(
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
-        await zmqClient.Start(cancellationToken);
-        await Start(cancellationToken);
+        var bootstrapPlan = RealtimeBootstrapPlanner.Build(
+            SourceCapabilityRouting.Resolve(
+                ExternalChainCapability.RealtimeIngest,
+                sourcesConfig.Value,
+                _appConfig,
+                providerCatalog),
+            SourceCapabilityRouting.Resolve(
+                ExternalChainCapability.BlockBackfill,
+                sourcesConfig.Value,
+                _appConfig,
+                providerCatalog));
+
+        if (bootstrapPlan.NodeZmqTopics != ZmqSubscriptionTopics.None)
+        {
+            _logger.LogInformation(
+                "Starting node ZMQ bootstrap with topics {Topics}; realtime primary `{RealtimePrimary}`; block primary `{BlockPrimary}`",
+                bootstrapPlan.NodeZmqTopics,
+                bootstrapPlan.RealtimePrimarySource,
+                bootstrapPlan.BlockBackfillPrimarySource);
+            await zmqClient.Start(bootstrapPlan.NodeZmqTopics, cancellationToken);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Skipping node ZMQ bootstrap because realtime primary is `{RealtimePrimary}` and block primary is `{BlockPrimary}`",
+                bootstrapPlan.RealtimePrimarySource,
+                bootstrapPlan.BlockBackfillPrimarySource);
+        }
+
+        await Start(bootstrapPlan, cancellationToken);
     }
 
-    private async Task Start(CancellationToken cancellationToken)
+    private async Task Start(RealtimeBootstrapPlan bootstrapPlan, CancellationToken cancellationToken)
     {
         using var session = store.GetSession();
 
@@ -64,7 +97,7 @@ public class AppInitBackgroundTask(
             await session.SaveChangesAsync(cancellationToken);
         }
 
-        if (_appConfig.ScanMempoolOnStart)
+        if (_appConfig.ScanMempoolOnStart && bootstrapPlan.ScanMempoolOnStart)
         {
             _logger.LogDebug("Starting mempool scanning");
 
@@ -84,8 +117,12 @@ public class AppInitBackgroundTask(
 
             _logger.LogDebug("Scanned {Count} from mempool", txs.Count);
         }
+        else if (_appConfig.ScanMempoolOnStart)
+        {
+            _logger.LogInformation("Skipped node mempool scan on start because realtime ingest primary is `{Source}`", bootstrapPlan.RealtimePrimarySource);
+        }
 
-        if (_appConfig.BlockCountToScanOnStart > 0)
+        if (_appConfig.BlockCountToScanOnStart > 0 && bootstrapPlan.ReplayRecentBlocksOnStart)
         {
             var height = await rpcClient.GetBlockCount().EnsureSuccess();
 
@@ -101,6 +138,10 @@ public class AppInitBackgroundTask(
 
                 blockMessageBus.Post(new BlockMessage(hash, TxObservationSource.Node));
             }
+        }
+        else if (_appConfig.BlockCountToScanOnStart > 0)
+        {
+            _logger.LogInformation("Skipped node block replay on start because block backfill primary is `{Source}`", bootstrapPlan.BlockBackfillPrimarySource);
         }
 
         _logger.LogDebug("App successfully started");

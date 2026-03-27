@@ -13,11 +13,21 @@ public sealed record BitailsRealtimeTransportPlan(
 public sealed class BitailsRealtimeTransportPlanner : IBitailsRealtimeTransportPlanner
 {
     public BitailsRealtimeTransportPlan CreateWebSocketPlan(params BitailsRealtimeSubscriptionTarget[] targets)
-        => new(
+        => CreateWebSocketPlan(BitailsRealtimeTopicCatalog.DefaultWebSocketEndpoint, targets);
+
+    public BitailsRealtimeTransportPlan CreateWebSocketPlan(Uri endpoint, params BitailsRealtimeSubscriptionTarget[] targets)
+    {
+        ArgumentNullException.ThrowIfNull(endpoint);
+
+        if (!endpoint.IsAbsoluteUri)
+            throw new ArgumentException("Bitails websocket transport requires an absolute endpoint URI.", nameof(endpoint));
+
+        return new BitailsRealtimeTransportPlan(
             BitailsRealtimeTransportMode.WebSocket,
-            BitailsRealtimeTopicCatalog.DefaultWebSocketEndpoint,
+            endpoint,
             BitailsRealtimeTopicCatalog.GetTopics(targets ?? []).ToArray()
         );
+    }
 
     public BitailsRealtimeTransportPlan CreateZmqPlan(Uri endpoint, params BitailsRealtimeSubscriptionTarget[] targets)
     {

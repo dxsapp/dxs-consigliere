@@ -1,5 +1,7 @@
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Consigliere.BackgroundTasks.Blocks;
+using Dxs.Consigliere.BackgroundTasks.Realtime;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,6 +15,10 @@ public static class IndexerOrchestrationSetup
         => services
             .AddTransient<JungleBusBlockchainDataProvider>()
             .AddTransient<NodeBlockchainDataProvider>()
+            .AddTransient<BlockProcessExecutor>()
+            .AddSingleton<IBitailsRealtimeSubscriptionScopeProvider, BitailsRealtimeSubscriptionScopeProvider>()
+            .AddSingleton<BitailsRealtimeIngestRunner>()
+            .AddSingleton<JungleBusRealtimeIngestRunner>()
             .AddSingleton<ITrackedHistoryBackfillScheduler, TrackedHistoryBackfillScheduler>()
             .AddTransient<HistoricalAddressBackfillRunner>()
             .AddTransient<HistoricalTokenBackfillRunner>();

@@ -52,11 +52,19 @@ public class ZmqClient : IZmqClient
     }
 
     public Task Start(CancellationToken cancellationToken)
+        => Start(ZmqSubscriptionTopics.All, cancellationToken);
+
+    public Task Start(ZmqSubscriptionTopics topics, CancellationToken cancellationToken)
     {
-        Task.Run(() => SubscribeToRawTx(cancellationToken), cancellationToken);
-        Task.Run(() => SubscribeToRemovedFromMempoolBlock(cancellationToken), cancellationToken);
-        Task.Run(() => SubscribeToDiscardedFromMempool(cancellationToken), cancellationToken);
-        Task.Run(() => SubscribeToNewBlockConnected(cancellationToken), cancellationToken);
+        if (topics.HasFlag(ZmqSubscriptionTopics.Mempool))
+        {
+            Task.Run(() => SubscribeToRawTx(cancellationToken), cancellationToken);
+            Task.Run(() => SubscribeToRemovedFromMempoolBlock(cancellationToken), cancellationToken);
+            Task.Run(() => SubscribeToDiscardedFromMempool(cancellationToken), cancellationToken);
+        }
+
+        if (topics.HasFlag(ZmqSubscriptionTopics.Blocks))
+            Task.Run(() => SubscribeToNewBlockConnected(cancellationToken), cancellationToken);
 
         return Task.CompletedTask;
     }

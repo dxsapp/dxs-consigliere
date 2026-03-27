@@ -6,4 +6,5 @@ namespace Dxs.Bsv.Zmq;
 public interface IZmqClient
 {
     Task Start(CancellationToken cancellationToken);
+    Task Start(ZmqSubscriptionTopics topics, CancellationToken cancellationToken);
 }
