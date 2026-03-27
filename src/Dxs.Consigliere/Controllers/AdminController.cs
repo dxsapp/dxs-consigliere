@@ -14,7 +14,9 @@ using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Dto.Responses.History;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
+using Dxs.Consigliere.Setup;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -24,6 +26,7 @@ using Raven.Client.Documents.Linq;
 namespace Dxs.Consigliere.Controllers;
 
 [Route("api/admin")]
+[Authorize(Policy = AdminAuthDefaults.Policy)]
 public class AdminController(INetworkProvider networkProvider) : BaseController
 {
     [HttpGet("cache/status")]

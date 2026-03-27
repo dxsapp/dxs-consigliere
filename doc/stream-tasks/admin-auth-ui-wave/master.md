@@ -86,9 +86,9 @@ Use the simplest acceptable operator auth:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `AA1` | `public-api-and-realtime` | `operator/api` | `todo` | - | endpoint inventory | existing admin/ops API surface is mapped and missing endpoints are explicit |
-| `AA2` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `AA1` | auth integration tests + startup check | simple admin auth backend exists with config-bound cookie auth |
-| `AA3` | `repo-governance` | `operator/governance` | `todo` | `AA1`,`AA2` | docs review | Claude handoff package exists with product spec, API map, and frontend rules |
+| `AA1` | `public-api-and-realtime` | `operator/api` | `done` | - | endpoint inventory | existing admin/ops API surface is mapped and missing endpoints are explicit |
+| `AA2` | `service-bootstrap-and-ops` | `operator/platform` | `done` | `AA1` | auth integration tests + startup check | simple admin auth backend exists with config-bound cookie auth |
+| `AA3` | `repo-governance` | `operator/governance` | `done` | `AA1`,`AA2` | docs review | Claude handoff package exists with product spec, API map, and frontend rules |
 | `AA4` | `frontend app` | `Claude` | `not_opened` | `AA3` | frontend quality gates | operator admin shell is implemented against the documented API and stack rules |
 | `AA5` | `verification-and-conformance` | `operator/verification` | `not_opened` | `AA4` | focused end-to-end/manual QA | auth, tracked scope management, readiness, runtime, and rooted token visibility all work end-to-end |
 
@@ -97,6 +97,14 @@ Use the simplest acceptable operator auth:
 1. `/Users/imighty/Code/dxs-consigliere/doc/admin-ui/admin-ui-product-spec.md`
 2. `/Users/imighty/Code/dxs-consigliere/doc/admin-ui/admin-ui-api-map.md`
 3. `/Users/imighty/Code/dxs-consigliere/doc/admin-ui/admin-ui-stack-and-rules.md`
+
+## Current Backend Outputs
+
+- `GET /api/admin/auth/me`
+- `POST /api/admin/auth/login`
+- `POST /api/admin/auth/logout`
+- admin auth policy applied to `/api/admin/**` and `/api/ops/**`
+- config section bound from `Consigliere:AdminAuth`
 
 ## Definition of Done
 

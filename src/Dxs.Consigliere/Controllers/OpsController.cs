@@ -2,15 +2,18 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Consigliere.Setup;
 using Dxs.Common.Cache;
 using Dxs.Infrastructure.Common;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Controllers;
 
 [Route("api/ops")]
+[Authorize(Policy = AdminAuthDefaults.Policy)]
 public class OpsController(
     IOptions<ConsigliereSourcesConfig> sourcesConfig,
     IOptions<ConsigliereCacheConfig> cacheConfig,

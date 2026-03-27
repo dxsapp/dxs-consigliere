@@ -23,6 +23,8 @@ public static class CorePlatformSetup
             .Configure<AppConfig>(configuration)
             .Configure<NetworkConfig>(configuration);
 
+        services.AddConsigliereAdminAuth(configuration);
+
         services
             .AddOptions<ConsigliereSourcesConfig>()
             .Bind(configuration.GetSection("Consigliere:Sources"))

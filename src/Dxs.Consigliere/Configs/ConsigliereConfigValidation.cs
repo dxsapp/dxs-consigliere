@@ -252,3 +252,36 @@ public class ConsigliereCacheConfigValidation : IValidateOptions<ConsigliereCach
             : ValidateOptionsResult.Fail(errors);
     }
 }
+
+public class ConsigliereAdminAuthConfigValidation : IValidateOptions<ConsigliereAdminAuthConfig>
+{
+    public ValidateOptionsResult Validate(string name, ConsigliereAdminAuthConfig options)
+    {
+        if (!options.Enabled)
+            return ValidateOptionsResult.Success;
+
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(options.Username))
+            errors.Add("Consigliere:AdminAuth:Username must be set when admin auth is enabled.");
+
+        if (string.IsNullOrWhiteSpace(options.PasswordHash))
+        {
+            errors.Add("Consigliere:AdminAuth:PasswordHash must be set when admin auth is enabled.");
+        }
+        else if (!Setup.ConsigliereAdminPasswordHash.IsWellFormed(options.PasswordHash))
+        {
+            errors.Add("Consigliere:AdminAuth:PasswordHash must use the pbkdf2-sha256$iterations$salt$hash format.");
+        }
+
+        if (options.SessionTtlMinutes <= 0)
+            errors.Add("Consigliere:AdminAuth:SessionTtlMinutes must be greater than zero.");
+
+        if (string.IsNullOrWhiteSpace(options.CookieName))
+            errors.Add("Consigliere:AdminAuth:CookieName must be set when admin auth is enabled.");
+
+        return errors.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(errors);
+    }
+}

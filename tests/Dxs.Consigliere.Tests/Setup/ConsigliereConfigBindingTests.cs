@@ -10,7 +10,7 @@ namespace Dxs.Consigliere.Tests.Setup;
 public class ConsigliereConfigBindingTests
 {
     [Fact]
-    public void AddCorePlatformZoneServices_BindsSourcesAndStorageOptions()
+    public void AddCorePlatformZoneServices_BindsSourcesStorageCacheAndAdminAuthOptions()
     {
         var values = new Dictionary<string, string?>
         {
@@ -35,6 +35,11 @@ public class ConsigliereConfigBindingTests
             ["Consigliere:Cache:Backend"] = "memory",
             ["Consigliere:Cache:MaxEntries"] = "2048",
             ["Consigliere:Cache:SafetyTtlSeconds"] = "45",
+            ["Consigliere:AdminAuth:Enabled"] = "true",
+            ["Consigliere:AdminAuth:Username"] = "operator",
+            ["Consigliere:AdminAuth:PasswordHash"] = "pbkdf2-sha256$100000$MTIzNDU2Nzg5MGFiY2RlZg==$YnJmW6O0dN0Y6iT7d2hM4GgK4D6s6H6fN0j8gP3hNlg=",
+            ["Consigliere:AdminAuth:SessionTtlMinutes"] = "90",
+            ["Consigliere:AdminAuth:CookieName"] = "consigliere_admin",
             ["VNextRuntime:CutoverMode"] = "shadow_read"
         };
 
@@ -51,6 +56,7 @@ public class ConsigliereConfigBindingTests
         var sources = provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value;
         var storage = provider.GetRequiredService<IOptions<ConsigliereStorageConfig>>().Value;
         var cache = provider.GetRequiredService<IOptions<ConsigliereCacheConfig>>().Value;
+        var adminAuth = provider.GetRequiredService<IOptions<ConsigliereAdminAuthConfig>>().Value;
         var appConfig = provider.GetRequiredService<IOptions<AppConfig>>().Value;
 
         Assert.Equal("hybrid", sources.Routing.PreferredMode);
@@ -75,7 +81,35 @@ public class ConsigliereConfigBindingTests
         Assert.Equal("memory", cache.Backend);
         Assert.Equal(2048, cache.MaxEntries);
         Assert.Equal(45, cache.SafetyTtlSeconds);
+        Assert.True(adminAuth.Enabled);
+        Assert.Equal("operator", adminAuth.Username);
+        Assert.Equal(90, adminAuth.SessionTtlMinutes);
+        Assert.Equal("consigliere_admin", adminAuth.CookieName);
         Assert.Equal("shadow_read", appConfig.VNextRuntime.CutoverMode);
+    }
+
+    [Fact]
+    public void AddCorePlatformZoneServices_RejectsEnabledAdminAuthWithoutCredentials()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Network"] = "Mainnet",
+                ["Consigliere:AdminAuth:Enabled"] = "true",
+                ["Consigliere:AdminAuth:Username"] = "operator"
+            })
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddCorePlatformZoneServices(configuration);
+
+        using var provider = services.BuildServiceProvider();
+
+        var exception = Assert.Throws<OptionsValidationException>(() =>
+            provider.GetRequiredService<IOptions<ConsigliereAdminAuthConfig>>().Value);
+
+        Assert.Contains("PasswordHash", exception.Failures.Single());
     }
 
     [Fact]
