@@ -49,13 +49,12 @@ public class NativeInterpreterParityTests
             foreach (var fixture in chain.Transactions)
             {
                 var tx = Transaction.Parse(fixture.TxHex, Network.Mainnet);
-                if (fixture.Prevouts.Count != tx.Inputs.Count)
-                    continue;
-
-                var prevouts = fixture.Prevouts
+                var prevouts = DstasProtocolOwnerFixture.ResolvePrevouts(chain, fixture)
                     .OrderBy(x => x.InputIndex)
                     .Select(ToOutPoint)
                     .ToArray();
+
+                Assert.Equal(tx.Inputs.Count, prevouts.Length);
 
                 var result = _sut.EvaluateTransaction(tx, new DictionaryPrevoutResolver(prevouts));
 

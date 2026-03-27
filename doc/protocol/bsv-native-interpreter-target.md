@@ -51,9 +51,20 @@ Core contracts should live under a dedicated evaluation seam in `Dxs.Bsv`.
 Minimum contracts:
 - `IPrevoutResolver`
 - `BsvScriptExecutionPolicy`
+- `DictionaryPrevoutResolver`
 - `ScriptEvaluationResult`
+- `BsvScriptTraceStep`
 - `TransactionEvaluationResult`
 - `TransactionEvaluationService`
+
+Current entrypoints:
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/IPrevoutResolver.cs`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/DictionaryPrevoutResolver.cs`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/BsvScriptExecutionPolicy.cs`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/ScriptEvaluationResult.cs`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/BsvScriptTraceStep.cs`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/TransactionEvaluationResult.cs`
+- `/Users/imighty/Code/dxs-consigliere/src/Dxs.Bsv/Script/Evaluation/TransactionEvaluationService.cs`
 
 ## Policy Model
 
@@ -64,6 +75,16 @@ Policy model must explicitly define:
 - opcode enablement/disablement for the supported BSV profile
 - standard execution flags used by the repository truth model
 - any repo-specific execution defaults needed for deterministic parity
+
+Current proven policy surface:
+- `ScriptVerify = Mandatory | ForkId`
+- `AllowOpReturn = true` in repo-default parity mode
+- supported forkid sighash variants:
+  - `SIGHASH_ALL | FORKID`
+  - `SIGHASH_NONE | FORKID`
+  - `SIGHASH_SINGLE | FORKID`
+  - each of the above with `ANYONECANPAY`
+- non-forkid signatures are expected to fail script evaluation under repo-default policy
 
 The interpreter should evaluate through an explicit policy input rather than hidden global defaults.
 
@@ -88,6 +109,17 @@ Minimum debug data:
 
 Verbose step-by-step trace can remain a later extension.
 
+Current trace contract:
+- trace is opt-in through `TransactionEvaluationService.EvaluateTransaction(..., enableTrace: true, traceLimit: ...)`
+- per-input result may include `Trace`
+- each step contains:
+  - phase
+  - program counter
+  - opcode
+  - stack depth
+  - top-of-stack hex
+  - alt-stack depth
+
 ## Oracle Transition
 
 During parity adoption:
@@ -96,6 +128,32 @@ During parity adoption:
 - parity suites compare native interpreter truth against oracle truth
 
 After parity stabilizes, the oracle can be demoted from primary truth anchor to regression/backstop role.
+Current repository decision is tracked in `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/bsv-native-interpreter-followup-wave/audits/A1.md`.
+
+## Validation Packs
+
+Current required packs for native interpreter work:
+- `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Bsv.Tests/Dstas/Conformance/DstasProtocolTruthOracleTests.cs`
+- `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Bsv.Tests/Dstas/Conformance/DstasConformanceVectorsTests.cs`
+- `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Bsv.Tests/Dstas/Conformance/DstasProtocolOwnerFixturesTests.cs`
+- `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Bsv.Tests/Dstas/Conformance/NativeInterpreterParityTests.cs`
+- `/Users/imighty/Code/dxs-consigliere/tests/Dxs.Bsv.Tests/ScriptEvaluation/BsvSignatureHashVariantsTests.cs`
+
+## Proven Scope Today
+
+Today the repository proves native interpreter parity for:
+- vendored DSTAS conformance vectors
+- vendored protocol-owner chains, including deterministic completion of chain-local missing prevouts
+- repo-needed forkid sighash variants for native signature verification
+
+Not yet proven repository-wide today:
+- full DSTAS master lifecycle native replay
+- a broader audit-backed claim that native interpreter coverage fully replaces oracle primacy across all lifecycle and multisig packs
+
+Still out of scope unless opened by a later wave:
+- generic arbitrary BSV contract coverage
+- runtime hot-path adoption inside `Dxs.Consigliere`
+- any claim that business semantics moved into the interpreter
 
 ## Risks
 

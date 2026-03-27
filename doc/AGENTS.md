@@ -46,6 +46,7 @@
 | `src/Dxs.Consigliere/Dto/*` | API DTO | Request/Response для REST/SignalR |
 | `src/Dxs.Consigliere/Services/*` | Бизнес‑логика | UTXO, broadcast, доступ к данным, фильтры |
 | `src/Dxs.Bsv/*` | BSV primitives | RPC, ZMQ, транзакции, скрипты, токены |
+| `src/Dxs.Bsv/Script/Evaluation/*` | Native BSV interpreter surface | Library-facing execution API: prevout resolver, policy, transaction evaluation, optional trace |
 | `src/Dxs.Infrastructure/*` | Внешние клиенты | Bitails, WhatsOnChain, JungleBus, WebSocket |
 | `src/Dxs.Common/*` | Общие утилиты | BackgroundTasks, Cache, Dataflow, Exceptions |
 | `src/Dxs.Consigliere/appsettings.json` | Конфиг по умолчанию | Секции Serilog, RavenDb, BsvNodeApi, ZmqClient и др. |
@@ -88,6 +89,11 @@
 
 4) Публичный API (если есть)
 Основной публичный интерфейс — HTTP API + SignalR. Экспортов вида `package.json` нет.
+
+Дополнительно есть library-facing protocol API в `Dxs.Bsv`:
+- native interpreter surface: `src/Dxs.Bsv/Script/Evaluation/**`
+- usage doc: `/Users/imighty/Code/dxs-consigliere/doc/protocol/bsv-native-interpreter-usage.md`
+- target/status doc: `/Users/imighty/Code/dxs-consigliere/doc/protocol/bsv-native-interpreter-target.md`
 
 HTTP API (реализация в `src/Dxs.Consigliere/Controllers/*.cs`):
 - `POST /api/address/balance`

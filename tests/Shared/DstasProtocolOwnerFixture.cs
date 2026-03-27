@@ -1,5 +1,10 @@
 using System.Text.Json;
 
+using Dxs.Bsv;
+using Dxs.Bsv.Extensions;
+using Dxs.Bsv.Models;
+using Dxs.Bsv.Script;
+
 namespace Dxs.Tests.Shared;
 
 public static class DstasProtocolOwnerFixture
@@ -26,6 +31,57 @@ public static class DstasProtocolOwnerFixture
     public static DstasProtocolTransactionFixture LoadTransaction(string chainId, string label)
         => LoadChain(chainId).Transactions.FirstOrDefault(x => string.Equals(x.Label, label, StringComparison.Ordinal))
             ?? throw new InvalidOperationException($"Missing DSTAS protocol-owner transaction fixture: {chainId}/{label}");
+
+    public static IReadOnlyList<DstasProtocolPrevoutFixture> ResolvePrevouts(DstasProtocolChainFixture chain, DstasProtocolTransactionFixture fixture)
+    {
+        ArgumentNullException.ThrowIfNull(chain);
+        ArgumentNullException.ThrowIfNull(fixture);
+
+        var tx = Transaction.Parse(fixture.TxHex, Network.Mainnet);
+        var resolved = fixture.Prevouts.ToDictionary(x => x.InputIndex);
+        if (resolved.Count == tx.Inputs.Count)
+            return resolved.OrderBy(x => x.Key).Select(x => x.Value).ToArray();
+
+        var chainIndex = chain.Transactions.FindIndex(x => ReferenceEquals(x, fixture) || string.Equals(x.Label, fixture.Label, StringComparison.Ordinal));
+        if (chainIndex < 0)
+            throw new InvalidOperationException($"Fixture '{fixture.Label}' is not present in chain '{chain.Id}'.");
+
+        var priorTransactions = chain.Transactions
+            .Take(chainIndex)
+            .Select(x => (Fixture: x, Transaction: Transaction.Parse(x.TxHex, Network.Mainnet)))
+            .ToDictionary(x => x.Transaction.Id, x => x);
+
+        for (var i = 0; i < tx.Inputs.Count; i++)
+        {
+            if (resolved.ContainsKey(i))
+                continue;
+
+            var input = tx.Inputs[i];
+            if (!priorTransactions.TryGetValue(input.TxId, out var parent))
+                throw new InvalidOperationException(
+                    $"Missing protocol-owner prevout source for {chain.Id}/{fixture.Label} input {i}: parent tx '{input.TxId}' is not available in prior chain context.");
+
+            if (input.Vout >= parent.Transaction.Outputs.Count)
+                throw new InvalidOperationException(
+                    $"Missing protocol-owner prevout source for {chain.Id}/{fixture.Label} input {i}: output {input.Vout} is outside parent tx '{parent.Fixture.Label}'.");
+
+            var outPoint = new OutPoint(parent.Transaction, input.Vout);
+            resolved[i] = new DstasProtocolPrevoutFixture
+            {
+                Label = $"derived:{parent.Fixture.Label}:{input.Vout}",
+                InputIndex = i,
+                TxId = input.TxId,
+                Vout = (int)input.Vout,
+                LockingScriptHex = outPoint.ScriptPubKey.ToHexString(),
+                Satoshis = (long)outPoint.Satoshis
+            };
+        }
+
+        return resolved
+            .OrderBy(x => x.Key)
+            .Select(x => x.Value)
+            .ToArray();
+    }
 }
 
 public sealed class DstasProtocolOwnerFixturePayload
