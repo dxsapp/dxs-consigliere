@@ -55,7 +55,7 @@ public class VNextDstasMultisigAuthorityValidationTests : RavenTestDriver
             return;
 
         DstasNativeReplayProof.AssertProtocolOwnerChain("authority_multisig_freeze_unfreeze_cycle");
-        DstasNativeReplayProof.AssertConformanceVector("confiscate_valid");
+        DstasNativeReplayProof.AssertConformanceVector("confiscate_multisig_valid");
 
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, MultisigOwnerAddress, ConfiscationReceiver], [TokenId]);
@@ -134,6 +134,7 @@ public class VNextDstasMultisigAuthorityValidationTests : RavenTestDriver
             return;
 
         DstasNativeReplayProof.AssertProtocolOwnerChain("owner_multisig_positive_spend");
+        DstasNativeReplayProof.AssertConformanceVector("confiscate_multisig_insufficient_signatures_rejected");
 
         using var store = GetDocumentStore();
         await SeedTrackedScopeAsync(store, [IssuerAddress, MultisigOwnerAddress], [TokenId]);

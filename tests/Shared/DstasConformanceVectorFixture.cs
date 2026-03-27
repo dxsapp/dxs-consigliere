@@ -12,6 +12,8 @@ public static class DstasConformanceVectorFixture
     private static readonly IReadOnlyDictionary<string, DstasExpectedClassification> ExpectedById =
         new Dictionary<string, DstasExpectedClassification>(StringComparer.Ordinal)
         {
+            ["confiscate_multisig_insufficient_signatures_rejected"] = new(3, "confiscation", false),
+            ["confiscate_multisig_valid"] = new(3, "confiscation", false),
             ["transfer_regular_valid"] = new(1, null, false),
             ["freeze_valid"] = new(2, "freeze", false),
             ["frozen_owner_spend_rejected"] = new(1, null, false),
@@ -23,6 +25,7 @@ public static class DstasConformanceVectorFixture
             ["redeem_by_non_issuer_rejected"] = new(1, null, false),
             ["redeem_frozen_rejected"] = new(1, null, false),
             ["redeem_confiscation_spending_type_rejected"] = new(3, "confiscation", false),
+            ["swap_valid"] = new(1, "swap", false),
             ["swap_cancel_valid"] = new(4, "swap_cancel", false),
         };
 

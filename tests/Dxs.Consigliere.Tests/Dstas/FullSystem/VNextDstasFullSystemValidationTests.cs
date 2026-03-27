@@ -180,6 +180,7 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
             return;
 
+        DstasNativeReplayProof.AssertConformanceVector("swap_valid");
         DstasNativeReplayProof.AssertConformanceVector("swap_cancel_valid");
 
         using var store = GetDocumentStore();

@@ -12,7 +12,7 @@ public class DstasConformanceVectorsTests
     public void ConformanceVectors_AreParsableAndMeetBasicDstasAssumptions()
     {
         var vectors = DstasConformanceVectorFixture.LoadAll();
-        Assert.Equal(12, vectors.Count);
+        Assert.Equal(15, vectors.Count);
 
         foreach (var vector in vectors)
         {
@@ -23,8 +23,12 @@ public class DstasConformanceVectorsTests
             var stasPrevoutReader = LockingScriptReader.Read(vector.Prevouts[0].LockingScriptHex, Network.Mainnet);
             Assert.Equal(ScriptType.DSTAS, stasPrevoutReader.ScriptType);
 
-            var feePrevoutReader = LockingScriptReader.Read(vector.Prevouts[1].LockingScriptHex, Network.Mainnet);
-            Assert.Equal(ScriptType.P2PKH, feePrevoutReader.ScriptType);
+            var feePrevoutReaders = vector.Prevouts
+                .Skip(1)
+                .Select(x => LockingScriptReader.Read(x.LockingScriptHex, Network.Mainnet))
+                .ToList();
+
+            Assert.Contains(feePrevoutReaders, x => x.ScriptType == ScriptType.P2PKH);
 
             if (vector.ExpectedSuccess)
             {
@@ -68,11 +72,11 @@ public class DstasConformanceVectorsTests
     public void ConformanceVectors_PreserveRepresentativeDstasFlagsAndActions()
     {
         var vectors = DstasConformanceVectorFixture.LoadAll()
-            .Where(x => x.Id is "freeze_valid" or "unfreeze_valid" or "confiscate_valid" or "swap_cancel_valid")
+            .Where(x => x.Id is "freeze_valid" or "unfreeze_valid" or "confiscate_valid" or "confiscate_multisig_valid" or "swap_cancel_valid")
             .OrderBy(x => x.Id, StringComparer.Ordinal)
             .ToList();
 
-        Assert.Equal(4, vectors.Count);
+        Assert.Equal(5, vectors.Count);
 
         foreach (var vector in vectors)
         {
@@ -98,6 +102,13 @@ public class DstasConformanceVectorsTests
                     Assert.False(reader.Dstas!.Frozen);
                     Assert.Equal("empty", reader.Dstas.ActionType);
                     Assert.True(reader.Dstas.ConfiscationEnabled);
+                    break;
+                case "confiscate_multisig_valid":
+                    Assert.False(reader.Dstas!.Frozen);
+                    Assert.Equal("empty", reader.Dstas.ActionType);
+                    Assert.True(reader.Dstas.FreezeEnabled);
+                    Assert.True(reader.Dstas.ConfiscationEnabled);
+                    Assert.Equal(2, reader.Dstas.ServiceFields.Count);
                     break;
                 case "swap_cancel_valid":
                     Assert.Equal("swap", reader.Dstas!.ActionType);
