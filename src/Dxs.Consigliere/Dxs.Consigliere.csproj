@@ -36,4 +36,17 @@
       <ProjectReference Include="..\Dxs.Infrastructure\Dxs.Infrastructure.csproj" />
     </ItemGroup>
 
+    <PropertyGroup>
+      <AdminUiRoot>..\admin-ui</AdminUiRoot>
+      <SkipAdminUiBuild>false</SkipAdminUiBuild>
+    </PropertyGroup>
+
+    <Target Name="BuildAdminUiForPublish"
+            BeforeTargets="ComputeFilesToPublish"
+            Condition="'$(SkipAdminUiBuild)' != 'true' and Exists('$(AdminUiRoot)\package.json')">
+      <Message Importance="high" Text="Building admin UI bundle from $(AdminUiRoot)" />
+      <Exec Command="pnpm install --frozen-lockfile" WorkingDirectory="$(AdminUiRoot)" />
+      <Exec Command="pnpm build" WorkingDirectory="$(AdminUiRoot)" />
+    </Target>
+
 </Project>

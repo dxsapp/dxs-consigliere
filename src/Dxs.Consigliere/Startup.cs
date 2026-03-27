@@ -27,6 +27,7 @@ public class Startup(IConfiguration configuration)
             .AllowAnyHeader()
         );
 
+        app.UseDefaultFiles();
         app.UseStaticFiles();
         app.UseRouting();
 
@@ -46,6 +47,7 @@ public class Startup(IConfiguration configuration)
             endpoints.MapControllerRoute(
                 name: "default",
                 pattern: "{controller}/{action=Index}/{id?}");
+            endpoints.MapFallbackToFile("index.html");
         });
         app.UseSignalR();
 

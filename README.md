@@ -82,6 +82,51 @@ docker run -p 5000:5000 \
 
 Use Admin API to add addresses/tokens to watch after startup.
 
+### Docker Compose E2E Smoke
+
+For local end-to-end smoke testing, the repository now includes a root `compose.yml`.
+This stack is intentionally minimal:
+
+- `ravendb`
+- `consigliere`
+
+It is designed for admin-shell and API smoke testing, not for live chain ingest.
+The compose profile:
+
+- enables admin auth
+- disables background tasks that require node/ZMQ connectivity
+- uses RavenDB only
+
+Run:
+
+```bash
+docker compose up --build
+```
+
+Stop and clean it:
+
+```bash
+docker compose down -v
+```
+
+Endpoints:
+
+- Consigliere: `http://localhost:5000`
+- Swagger: `http://localhost:5000/swagger`
+- RavenDB Studio: `http://localhost:8080`
+
+Default admin credentials for compose smoke:
+
+- username: `admin`
+- password: `admin123!`
+
+Notes:
+
+- compose uses `ravendb/ravendb:7.1-latest`, which resolves to a native multi-arch RavenDB image on both `amd64` and `arm64`
+- the compose profile is intended for admin/API smoke and SPA validation, not live node/ZMQ ingest
+
+Deep-link SPA routes are expected to work in this mode because the admin bundle is published into `wwwroot` and ASP.NET serves `index.html` as fallback.
+
 ## 📦 Manual Setup
 
 > ⚠️ Consigliere was developed by **DXS** for internal operations. External deployment may require adjustments.

@@ -1,0 +1,33 @@
+services:
+  ravendb:
+    image: ravendb/ravendb:7.1-latest
+    container_name: consigliere-ravendb
+    restart: unless-stopped
+    environment:
+      RAVEN_License_Eula_Accepted: "true"
+      RAVEN_Setup_Mode: "None"
+      RAVEN_Security_UnsecuredAccessAllowed: "PrivateNetwork"
+      RAVEN_PublicServerUrl: "http://ravendb:8080"
+    ports:
+      - "8080:8080"
+    volumes:
+      - raven-data:/var/lib/ravendb/data
+
+  consigliere:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: consigliere-app
+    restart: unless-stopped
+    depends_on:
+      ravendb:
+        condition: service_healthy
+    environment:
+      DOTNET_ENVIRONMENT: DockerComposeE2E
+      ASPNETCORE_ENVIRONMENT: DockerComposeE2E
+      ASPNETCORE_HTTP_PORTS: "5000"
+    ports:
+      - "5000:5000"
+
+volumes:
+  raven-data:

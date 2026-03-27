@@ -1,0 +1,11 @@
+.git
+.github
+doc
+tests
+**/bin
+**/obj
+**/node_modules
+**/.DS_Store
+**/dist
+**/.vite
+tmp

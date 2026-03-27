@@ -66,3 +66,10 @@ nunit-*.xml
 package-lock.json
 launchSettings.json
 _ReSharper*/
+
+# Frontend (admin-ui)
+src/admin-ui/node_modules/
+src/admin-ui/dist/
+src/Dxs.Consigliere/wwwroot/
+src/admin-ui/.env.local
+src/admin-ui/.env.*.local
