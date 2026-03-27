@@ -45,6 +45,13 @@ It is not a consumer product, wallet UI, or universal explorer.
 7. inspect rooted token security state
 8. inspect provider/cache/storage runtime status
 
+## Explicit Non-Goals For v1
+
+- no UI for bulk history-upgrade endpoints
+- no multi-user admin management
+- no reverse-proxy auth mode in UI
+- no destructive purge UI for tracked entities
+
 ## Status-First UX Rules
 
 - use exact backend state strings; do not invent simplified frontend states
@@ -60,3 +67,27 @@ It is not a consumer product, wallet UI, or universal explorer.
 - delete/untrack is tombstone semantics, not destructive purge
 - config-managed tracked entities cannot be deleted from the shell and should surface `managed_by_config`
 - frontend should treat readiness/history/rooted status strings as authoritative and not collapse them into custom state machines
+- runtime screens should use `admin` endpoints for summary and `ops` endpoints for detail
+
+## Critical UX Decisions
+
+### Token Full-History Upgrade
+
+- `trustedRoots[]` is entered through one multiline textarea
+- one txid per line is the primary UX
+- normalize, deduplicate, and validate before submit
+- show parsed preview/count
+- require confirmation before submit
+
+### Mutation Feedback
+
+- server success => toast
+- server failure => toast
+- local form validation => inline field errors
+
+### Findings Rendering
+
+- severity values expected today: `error | warning`
+- `error` uses critical styling
+- `warning` uses warning styling
+- unknown future values fall back to neutral styling

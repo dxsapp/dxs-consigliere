@@ -1,5 +1,15 @@
 # Consigliere Admin UI API Map
 
+## Endpoint Selection Rules
+
+- prefer `/api/admin/*` when both `admin` and `ops` surfaces exist for the same domain
+- treat `/api/admin/*` as shell-facing summary endpoints
+- treat `/api/ops/*` as detailed runtime/diagnostic endpoints
+- for combined Runtime/Ops screens:
+  - use `admin` summary cards first
+  - use `ops` endpoints for drill-down panels and detailed tables
+- do not invent a frontend merge contract that hides this distinction
+
 ## Auth Endpoints
 
 ### `GET /api/admin/auth/me`
@@ -134,6 +144,15 @@ Current finding sources:
 - tracked status `failureReason`
 - rooted token `unknownRootFindings`
 
+Severity enum:
+- `error`
+- `warning`
+
+UI rules:
+- `error` => critical/danger styling
+- `warning` => warning styling
+- unknown future values => neutral fallback
+
 ### `GET /api/admin/dashboard/summary`
 Returns thin dashboard aggregate counts.
 
@@ -153,10 +172,10 @@ Response shape:
 - `failureCount`
 
 ### `GET /api/admin/cache/status`
-Use for cache panel and dashboard cache summary.
+Use for cache summary cards in Dashboard and Runtime/Ops overview.
 
 ### `GET /api/admin/storage/status`
-Use for storage panel.
+Use for storage summary cards in Dashboard and Runtime/Ops overview.
 
 ### `GET /api/admin/blockchain/sync-status`
 Use for dashboard sync card.
@@ -180,6 +199,14 @@ Important request fields:
 - `historyPolicy.mode`: `forward_only | full_history`
 - `tokenHistoryPolicy.trustedRoots[]` required for token `full_history`
 
+UI rules for `tokenHistoryPolicy.trustedRoots[]`:
+- use one multiline textarea
+- operator enters one root txid per line
+- frontend may also accept pasted comma/space-separated values, but normalize before submit
+- normalize to lowercase, trim whitespace, deduplicate
+- validate each item as `64` hex chars before submit
+- show parsed preview and count before confirmation
+
 ### `POST /api/admin/manage/address/{address}/history/full`
 Upgrade watched address to full history.
 Returns history status payload.
@@ -191,20 +218,34 @@ Request body:
 
 Returns history status payload.
 
+UI rules:
+- use multiline textarea input, not repeated add/remove controls
+- block submit when parsed root list is empty
+- block submit when any txid is invalid
+- show confirmation dialog before submit because this is a critical scope-changing action
+
 ### `POST /api/admin/manage/address/history/full`
 Bulk address full-history upgrade.
+
+UI note:
+- do not expose this in v1 admin UI
+- treat it as internal/operator fallback endpoint for now
 
 ### `POST /api/admin/manage/stas-token/history/full`
 Bulk token full-history upgrade.
 
+UI note:
+- do not expose this in v1 admin UI
+- treat it as internal/operator fallback endpoint for now
+
 ### `GET /api/ops/providers`
-Use for providers/sources panel.
+Use for detailed providers/sources panel.
 
 ### `GET /api/ops/cache`
-Use for runtime cache card/panel.
+Use for detailed runtime cache diagnostics, not for top-level dashboard summary.
 
 ### `GET /api/ops/storage`
-Use for runtime storage card/panel.
+Use for detailed runtime storage diagnostics, not for top-level dashboard summary.
 
 ## Supporting Public Readiness Endpoints
 
