@@ -23,4 +23,6 @@ public interface ITrackedEntityRegistrationStore
         IReadOnlyCollection<string> trustedRoots,
         CancellationToken cancellationToken = default
     );
+    Task<bool> UntrackAddressAsync(string address, CancellationToken cancellationToken = default);
+    Task<bool> UntrackTokenAsync(string tokenId, CancellationToken cancellationToken = default);
 }

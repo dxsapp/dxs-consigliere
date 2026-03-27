@@ -54,15 +54,9 @@ It is not a consumer product, wallet UI, or universal explorer.
 - destructive or scope-changing actions require confirmation
 - operator should not need Swagger or Raven for normal daily use
 
-## Known Backend Gaps For UI Phase
+## Backend Contract Notes For UI Phase
 
-These are not blockers for auth/docs wave, but they are current backend gaps for a full admin shell:
-
-- no tracked-address list endpoint yet
-- no tracked-token list endpoint yet
-- no remove/untrack endpoints yet
-- no dedicated findings feed endpoint yet
-- no aggregated dashboard endpoint yet
-
-Claude should not invent fake data contracts around these gaps.
-If the UI phase starts before those endpoints exist, it should keep these screens scaffolded behind explicit TODO boundaries.
+- tracked lists/details/remove/findings/dashboard endpoints now exist
+- delete/untrack is tombstone semantics, not destructive purge
+- config-managed tracked entities cannot be deleted from the shell and should surface `managed_by_config`
+- frontend should treat readiness/history/rooted status strings as authoritative and not collapse them into custom state machines

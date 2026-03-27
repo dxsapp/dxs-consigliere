@@ -60,6 +60,12 @@ public class TransactionFilter : ITransactionFilter
     public void ManageUtxoSetForToken(TokenId tokenId)
         => _watchSet.AddToken(tokenId);
 
+    public void UnmanageUtxoSetForAddress(Address address)
+        => _watchSet.RemoveAddress(address);
+
+    public void UnmanageUtxoSetForToken(TokenId tokenId)
+        => _watchSet.RemoveToken(tokenId);
+
     public int QueueLength() => _messageHandler.MessagesInQueue;
 
     #endregion

@@ -106,4 +106,74 @@ public class TrackedEntityRegistrationStoreIntegrationTests : RavenTestDriver
         Assert.False(status.HistorySecurity.BlockingUnknownRoot);
         Assert.Equal(tracked.HistorySecurity.TrustedRoots, status.HistorySecurity.TrustedRoots);
     }
+
+    [Fact]
+    public async Task UntrackAddressAsync_TombstonesDocsAndDeletesLegacyWatcher()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var registrationStore = new TrackedEntityRegistrationStore(store);
+        const string address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+
+        await registrationStore.RegisterAddressAsync(address, "Genesis");
+
+        Assert.True(await registrationStore.UntrackAddressAsync(address));
+
+        using var session = store.OpenAsyncSession();
+        var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address));
+        var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address));
+        var legacy = await session.LoadAsync<WatchingAddress>($"address/{address}");
+
+        Assert.NotNull(tracked);
+        Assert.NotNull(status);
+        Assert.Null(legacy);
+        Assert.False(tracked.Tracked);
+        Assert.False(status.Tracked);
+        Assert.True(tracked.IsTombstoned);
+        Assert.True(status.IsTombstoned);
+        Assert.Equal(TrackedEntityLifecycleStatus.Paused, tracked.LifecycleStatus);
+        Assert.Equal(TrackedEntityLifecycleStatus.Paused, status.LifecycleStatus);
+        Assert.False(tracked.Readable);
+        Assert.False(status.Authoritative);
+        Assert.NotNull(tracked.TombstonedAt);
+        Assert.Equal(tracked.TombstonedAt, status.TombstonedAt);
+    }
+
+    [Fact]
+    public async Task UntrackTokenAsync_TombstonesDocsAndDeletesLegacyWatcher()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var registrationStore = new TrackedEntityRegistrationStore(store);
+        const string tokenId = "3333333333333333333333333333333333333333333333333333333333333333";
+
+        await registrationStore.RegisterTokenAsync(tokenId, "ROOTED");
+
+        Assert.True(await registrationStore.UntrackTokenAsync(tokenId));
+
+        using var session = store.OpenAsyncSession();
+        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId));
+        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId));
+        var legacy = await session.Advanced.AsyncDocumentQuery<WatchingToken>()
+            .WhereEquals(nameof(WatchingToken.TokenId), tokenId)
+            .ToListAsync();
+
+        Assert.NotNull(tracked);
+        Assert.NotNull(status);
+        Assert.Empty(legacy);
+        Assert.False(tracked.Tracked);
+        Assert.False(status.Tracked);
+        Assert.True(tracked.IsTombstoned);
+        Assert.True(status.IsTombstoned);
+        Assert.Equal(TrackedEntityLifecycleStatus.Paused, tracked.LifecycleStatus);
+        Assert.Equal(TrackedEntityLifecycleStatus.Paused, status.LifecycleStatus);
+        Assert.False(tracked.Authoritative);
+        Assert.False(status.Readable);
+        Assert.NotNull(tracked.TombstonedAt);
+        Assert.Equal(tracked.TombstonedAt, status.TombstonedAt);
+    }
 }

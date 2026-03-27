@@ -196,6 +196,78 @@ public sealed class TrackedEntityRegistrationStore(
         return true;
     }
 
+    public async Task<bool> UntrackAddressAsync(string address, CancellationToken cancellationToken = default)
+    {
+        using var session = documentStore.GetSession();
+        var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), cancellationToken);
+        var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), cancellationToken);
+        if (tracked is null && status is null)
+            return false;
+
+        var legacy = await session.Query<WatchingAddress>()
+            .Where(x => x.Address == address)
+            .ToListAsync(cancellationToken);
+
+        var tombstonedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        if (tracked is not null)
+        {
+            ApplyUntrack(tracked, tombstonedAt);
+            tracked.SetUpdate();
+        }
+
+        if (status is not null)
+        {
+            ApplyUntrack(status, tombstonedAt);
+            status.SetUpdate();
+        }
+
+        foreach (var entry in legacy)
+            session.Delete(entry);
+
+        await session.SaveChangesAsync(cancellationToken);
+        var invalidationTags = cacheKeyFactory.GetTrackedAddressReadinessInvalidationTags([address]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> UntrackTokenAsync(string tokenId, CancellationToken cancellationToken = default)
+    {
+        using var session = documentStore.GetSession();
+        var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken);
+        var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken);
+        if (tracked is null && status is null)
+            return false;
+
+        var legacy = await session.Query<WatchingToken>()
+            .Where(x => x.TokenId == tokenId)
+            .ToListAsync(cancellationToken);
+
+        var tombstonedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        if (tracked is not null)
+        {
+            ApplyUntrack(tracked, tombstonedAt);
+            tracked.SetUpdate();
+        }
+
+        if (status is not null)
+        {
+            ApplyUntrack(status, tombstonedAt);
+            status.SetUpdate();
+        }
+
+        foreach (var entry in legacy)
+            session.Delete(entry);
+
+        await session.SaveChangesAsync(cancellationToken);
+        var invalidationTags = cacheKeyFactory.GetTrackedTokenReadinessInvalidationTags([tokenId]);
+        invalidationTelemetry.Record(invalidationTags);
+        await cacheInvalidationSink.InvalidateTagsAsync(invalidationTags, cancellationToken);
+        return true;
+    }
+
     private static void ApplyRegistration(
         TrackedAddressDocument document,
         string address,
@@ -336,5 +408,17 @@ public sealed class TrackedEntityRegistrationStore(
         state.RootedHistorySecure = state.TrustedRoots.Length == 0;
         state.BlockingUnknownRoot = false;
         return state;
+    }
+
+    private static void ApplyUntrack(TrackedEntityDocumentBase document, long tombstonedAt)
+    {
+        document.Tracked = false;
+        document.Readable = false;
+        document.Authoritative = false;
+        document.IsTombstoned = true;
+        document.TombstonedAt = tombstonedAt;
+        document.LifecycleStatus = TrackedEntityLifecycleStatus.Paused;
+        document.Progress = null;
+        document.LagBlocks = null;
     }
 }

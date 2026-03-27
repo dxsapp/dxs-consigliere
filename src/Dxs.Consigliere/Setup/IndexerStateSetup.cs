@@ -34,6 +34,7 @@ public static class IndexerStateSetup
             .AddSingleton<TokenProjectionRebuilder>()
             .AddSingleton<TxLifecycleProjectionReader>()
             .AddSingleton<TxLifecycleProjectionRebuilder>()
+            .AddSingleton<IAdminTrackingQueryService, AdminTrackingQueryService>()
             .AddSingleton<ITrackedEntityRegistrationStore, TrackedEntityRegistrationStore>()
             .AddSingleton<ITrackedEntityLifecycleOrchestrator, TrackedEntityLifecycleOrchestrator>()
             .AddSingleton<ITrackedEntityReadinessService, TrackedEntityReadinessService>()

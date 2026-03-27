@@ -69,10 +69,10 @@ These endpoints exist to remove Swagger/Raven dependence for normal daily operat
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `AB1` | `indexer-state-and-storage` | `operator/state` | `todo` | - | query/store tests | read-model and store seams exist for tracked lists, details, and untrack tombstoning |
-| `AB2` | `public-api-and-realtime` | `operator/api` | `todo` | `AB1` | controller tests | admin endpoints exist for lists, details, remove, findings, and dashboard summary |
-| `AB3` | `verification-and-conformance` | `operator/verification` | `todo` | `AB1`,`AB2` | focused tests | tracked admin surface is covered end-to-end at controller/service level |
-| `AB4` | `repo-governance` | `operator/governance` | `todo` | `AB2`,`AB3` | docs review | admin UI API map and wave ledger reflect the new contracts honestly |
+| `AB1` | `indexer-state-and-storage` | `operator/state` | `done` | - | query/store tests | read-model and store seams exist for tracked lists, details, and untrack tombstoning |
+| `AB2` | `public-api-and-realtime` | `operator/api` | `done` | `AB1` | controller tests | admin endpoints exist for lists, details, remove, findings, and dashboard summary |
+| `AB3` | `verification-and-conformance` | `operator/verification` | `done` | `AB1`,`AB2` | focused tests | tracked admin surface is covered end-to-end at controller/service level |
+| `AB4` | `repo-governance` | `operator/governance` | `done` | `AB2`,`AB3` | docs review | admin UI API map and wave ledger reflect the new contracts honestly |
 
 ## Definition of Done
 
@@ -80,3 +80,10 @@ These endpoints exist to remove Swagger/Raven dependence for normal daily operat
 - dashboard and findings have real backend endpoints
 - remove/untrack semantics are explicit and tested
 - Claude can build the shell without inventing missing backend behavior
+
+## Closeout Notes
+
+- Untrack is implemented as honest tombstone semantics plus runtime watch removal for DB-managed tracked entities.
+- Statically configured `TransactionFilterConfig` entities cannot be deleted through admin API and return `409 managed_by_config`.
+- Findings feed is sourced from persisted `FailureReason` and rooted-token `UnknownRootFindings`, not from log scraping.
+- Dashboard summary is a thin operator aggregate over tracked readiness/history state, not a second business domain model.

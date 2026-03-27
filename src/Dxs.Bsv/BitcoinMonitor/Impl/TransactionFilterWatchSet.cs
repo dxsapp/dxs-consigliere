@@ -19,10 +19,19 @@ internal sealed class TransactionFilterWatchSet
     public void AddAddress(Address address)
         => _watchingAddresses.TryAdd(address.Value, address);
 
+    public void RemoveAddress(Address address)
+        => _watchingAddresses.TryRemove(address.Value, out _);
+
     public void AddToken(TokenId tokenId)
     {
         _watchingTokens.TryAdd(tokenId.Value, tokenId);
         _watchingTokensRedeemAddresses.TryAdd(tokenId.RedeemAddress.Value, tokenId.RedeemAddress);
+    }
+
+    public void RemoveToken(TokenId tokenId)
+    {
+        _watchingTokens.TryRemove(tokenId.Value, out _);
+        _watchingTokensRedeemAddresses.TryRemove(tokenId.RedeemAddress.Value, out _);
     }
 
     public void SeedAddresses(IEnumerable<Address> addresses)
