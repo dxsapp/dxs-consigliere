@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Dxs.Bsv\Dxs.Bsv.csproj" />
+    <ProjectReference Include="..\..\src\Dxs.Infrastructure\Dxs.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

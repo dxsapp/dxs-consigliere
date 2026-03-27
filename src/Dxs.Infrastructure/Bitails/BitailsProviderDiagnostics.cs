@@ -12,9 +12,11 @@ public sealed class BitailsProviderDiagnostics : IExternalChainProviderDiagnosti
         ExternalChainProviderName.Bitails,
         [
             ExternalChainCapability.Broadcast,
+            ExternalChainCapability.RealtimeIngest,
             ExternalChainCapability.RawTxFetch,
             ExternalChainCapability.ValidationFetch,
-            ExternalChainCapability.HistoricalAddressScan
+            ExternalChainCapability.HistoricalAddressScan,
+            ExternalChainCapability.HistoricalTokenScan
         ],
         new ExternalChainRateLimitHint(
             RequestsPerMinute: 600,
