@@ -1,16 +1,15 @@
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Infrastructure.Bitails.Realtime;
-
-using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.BackgroundTasks.Realtime;
 
 public sealed class BitailsRealtimeSubscriptionScopeProvider(
     ITransactionStore transactionStore,
     IBitailsRealtimeTransportPlanner transportPlanner,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig
+    IAdminRuntimeSourcePolicyService runtimeSourcePolicyService
 ) : IBitailsRealtimeSubscriptionScopeProvider
 {
     public async Task<BitailsRealtimeSubscriptionScope> BuildAsync(CancellationToken cancellationToken = default)
@@ -36,8 +35,9 @@ public sealed class BitailsRealtimeSubscriptionScopeProvider(
         if (usesGlobalTransactions)
             targets.Add(new BitailsRealtimeSubscriptionTarget.AllTransactions());
 
-        var transportPlan = BuildTransportPlan(sourcesConfig.Value.Providers.Bitails, targets);
-        var signature = string.Join('|', transportPlan.Topics);
+        var effectiveSources = await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken);
+        var transportPlan = BuildTransportPlan(effectiveSources.Providers.Bitails, targets);
+        var signature = $"{transportPlan.Mode}:{transportPlan.Endpoint}|{string.Join('|', transportPlan.Topics)}";
 
         return new BitailsRealtimeSubscriptionScope(
             signature,

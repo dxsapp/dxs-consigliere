@@ -44,6 +44,8 @@ It is not a consumer product, wallet UI, or universal explorer.
 6. inspect readiness and history status
 7. inspect rooted token security state
 8. inspect provider/cache/storage runtime status
+9. inspect effective realtime source policy
+10. apply/reset narrow realtime policy override
 
 ## Explicit Non-Goals For v1
 
@@ -51,6 +53,8 @@ It is not a consumer product, wallet UI, or universal explorer.
 - no multi-user admin management
 - no reverse-proxy auth mode in UI
 - no destructive purge UI for tracked entities
+- no generic config editor
+- no provider URL/credentials editing from UI
 
 ## Status-First UX Rules
 
@@ -68,6 +72,7 @@ It is not a consumer product, wallet UI, or universal explorer.
 - config-managed tracked entities cannot be deleted from the shell and should surface `managed_by_config`
 - frontend should treat readiness/history/rooted status strings as authoritative and not collapse them into custom state machines
 - runtime screens should use `admin` endpoints for summary and `ops` endpoints for detail
+- runtime source policy is a narrow operator override layer, not static config editing
 
 ## Critical UX Decisions
 
@@ -84,6 +89,16 @@ It is not a consumer product, wallet UI, or universal explorer.
 - server success => toast
 - server failure => toast
 - local form validation => inline field errors
+
+### Runtime Sources Panel
+
+- show static vs override vs effective realtime policy side by side
+- allow override only for:
+  - `primaryRealtimeSource`
+  - `bitailsTransport`
+- show allowed options from backend, not hardcoded frontend enums
+- apply/reset actions require confirmation
+- when backend returns `restartRequired=true`, surface an explicit operator warning that restart is still needed for source-selection changes to fully take effect
 
 ### Findings Rendering
 

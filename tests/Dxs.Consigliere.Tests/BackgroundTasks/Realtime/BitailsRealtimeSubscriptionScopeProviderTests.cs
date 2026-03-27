@@ -4,9 +4,9 @@ using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Consigliere.BackgroundTasks.Realtime;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
+using Dxs.Consigliere.Dto.Responses.Admin;
 using Dxs.Infrastructure.Bitails.Realtime;
-
-using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Tests.BackgroundTasks.Realtime;
 
@@ -110,7 +110,7 @@ public class BitailsRealtimeSubscriptionScopeProviderTests
     }
 
     private static BitailsRealtimeSubscriptionScopeProvider CreateProvider(FakeTransactionStore store, ConsigliereSourcesConfig config)
-        => new(store, new BitailsRealtimeTransportPlanner(), Options.Create(config));
+        => new(store, new BitailsRealtimeTransportPlanner(), new FakeAdminRuntimeSourcePolicyService(config));
 
     private sealed class FakeTransactionStore(
         IReadOnlyCollection<Address> addresses,
@@ -130,5 +130,25 @@ public class BitailsRealtimeSubscriptionScopeProviderTests
         ) => throw new NotSupportedException();
 
         public Task<Transaction> TryRemoveTransaction(string id) => throw new NotSupportedException();
+    }
+
+    private sealed class FakeAdminRuntimeSourcePolicyService(ConsigliereSourcesConfig config)
+        : IAdminRuntimeSourcePolicyService
+    {
+        public Task<ConsigliereSourcesConfig> GetEffectiveSourcesConfigAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(config);
+
+        public Task<AdminRuntimeSourcesResponse> GetRuntimeSourcesAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AdminRealtimeSourcePolicyMutationResult> ApplyRealtimePolicyAsync(
+            string primaryRealtimeSource,
+            string bitailsTransport,
+            string updatedBy,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AdminRuntimeSourcesResponse> ResetRealtimePolicyAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 }

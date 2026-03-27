@@ -180,6 +180,69 @@ Use for storage summary cards in Dashboard and Runtime/Ops overview.
 ### `GET /api/admin/blockchain/sync-status`
 Use for dashboard sync card.
 
+## Runtime Sources Policy Endpoints
+
+### `GET /api/admin/runtime/sources`
+Returns the operator-facing realtime routing snapshot.
+
+Response shape:
+- `realtimePolicy.static`
+- `realtimePolicy.override`
+- `realtimePolicy.effective`
+- `realtimePolicy.overrideActive`
+- `realtimePolicy.restartRequired`
+- `realtimePolicy.allowedPrimarySources[]`
+- `realtimePolicy.allowedBitailsTransports[]`
+- `realtimePolicy.updatedAt`
+- `realtimePolicy.updatedBy`
+
+Realtime policy value shape:
+- `primaryRealtimeSource`
+- `fallbackSources[]`
+- `bitailsTransport`
+
+Semantics:
+- `static` = values from static config only
+- `override` = persisted operator override only, or `null` when none exists
+- `effective` = static config plus operator override
+- `restartRequired=true` means override persistence succeeded, but service restart is still required before runtime source selection is guaranteed to switch fully
+- this endpoint is the shell-facing source of truth for the Runtime Sources panel
+
+### `PUT /api/admin/runtime/sources/realtime-policy`
+Persists a narrow realtime override.
+
+Request:
+- `primaryRealtimeSource`
+- `bitailsTransport`
+
+Allowed values in v1:
+- `primaryRealtimeSource`: `bitails | junglebus | node`
+- `bitailsTransport`: `websocket | zmq`
+
+Responses:
+- `200` with the same payload shape as `GET /api/admin/runtime/sources`
+- `400 { code }` for invalid requests
+
+Current error codes:
+- `primary_realtime_source_required`
+- `invalid_primary_realtime_source`
+- `bitails_transport_required`
+- `invalid_bitails_transport`
+
+Semantics:
+- persists override outside static files
+- affects realtime policy only
+- does not edit provider URLs, credentials, or non-realtime capabilities
+- if requested values match static effective policy, backend resets the override instead of storing a no-op document
+
+### `DELETE /api/admin/runtime/sources/realtime-policy`
+Removes the persisted realtime override and returns the restored runtime-sources snapshot.
+
+Semantics:
+- resets back to static config
+- does not mutate static files
+- this is the only reset action exposed in v1 for runtime source policy
+
 ### `POST /api/admin/manage/address`
 Create/update watched address.
 Returns tracked address readiness payload.

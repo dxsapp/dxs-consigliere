@@ -145,6 +145,35 @@ export interface DashboardSummary {
   failureCount: number;
 }
 
+// ─── Runtime source policy ───────────────────────────────────────────────────
+
+export interface AdminRealtimeSourcePolicyValues {
+  primaryRealtimeSource: string;
+  fallbackSources: string[];
+  bitailsTransport: string;
+}
+
+export interface AdminRealtimeSourcePolicy {
+  static: AdminRealtimeSourcePolicyValues;
+  override: AdminRealtimeSourcePolicyValues | null;
+  effective: AdminRealtimeSourcePolicyValues;
+  overrideActive: boolean;
+  restartRequired: boolean;
+  allowedPrimarySources: string[];
+  allowedBitailsTransports: string[];
+  updatedAt: number | null;
+  updatedBy: string | null;
+}
+
+export interface AdminRuntimeSources {
+  realtimePolicy: AdminRealtimeSourcePolicy;
+}
+
+export interface AdminRealtimeSourcePolicyUpdateRequest {
+  primaryRealtimeSource: string;
+  bitailsTransport: string;
+}
+
 // ─── Manage ──────────────────────────────────────────────────────────────────
 
 export type HistoryPolicyMode = "forward_only" | "full_history";

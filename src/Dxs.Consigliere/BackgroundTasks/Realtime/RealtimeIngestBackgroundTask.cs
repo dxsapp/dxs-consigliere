@@ -1,5 +1,6 @@
 using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Infrastructure.Common;
 
@@ -11,7 +12,7 @@ namespace Dxs.Consigliere.BackgroundTasks.Realtime;
 public sealed class RealtimeIngestBackgroundTask(
     JungleBusRealtimeIngestRunner jungleBusRunner,
     BitailsRealtimeIngestRunner bitailsRunner,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IAdminRuntimeSourcePolicyService runtimeSourcePolicyService,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
     ILogger<RealtimeIngestBackgroundTask> logger
@@ -29,7 +30,7 @@ public sealed class RealtimeIngestBackgroundTask(
     {
         var route = SourceCapabilityRouting.Resolve(
             ExternalChainCapability.RealtimeIngest,
-            sourcesConfig.Value,
+            await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken),
             _appConfig,
             providerCatalog
         );

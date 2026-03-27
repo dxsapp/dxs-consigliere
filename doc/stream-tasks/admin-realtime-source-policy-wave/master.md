@@ -70,11 +70,11 @@ Keep the wave bounded:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `RS1` | `indexer-state-and-storage` | `operator/state` | `todo` | - | store tests | override document and storage/query contract exist |
-| `RS2` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `RS1` | routing tests | effective realtime routing reads the override layer |
-| `RS3` | `public-api-and-realtime` | `operator/api` | `todo` | `RS1`,`RS2` | controller tests | admin endpoints expose read/apply/reset contract |
-| `RS4` | `verification-and-conformance` | `operator/verification` | `todo` | `RS1`,`RS2`,`RS3` | focused proof | static vs override vs reset behavior is proved |
-| `RS5` | `repo-governance` | `operator/governance` | `todo` | `RS4` | docs review | admin UI/API docs reflect the new runtime sources panel and override semantics |
+| `RS1` | `indexer-state-and-storage` | `operator/state` | `done` | - | store tests | override document and storage/query contract exist |
+| `RS2` | `indexer-ingest-orchestration` | `operator/runtime` | `done` | `RS1` | routing tests | effective realtime routing reads the override layer |
+| `RS3` | `public-api-and-realtime` | `operator/api` | `done` | `RS1`,`RS2` | controller tests | admin endpoints expose read/apply/reset contract |
+| `RS4` | `verification-and-conformance` | `operator/verification` | `done` | `RS1`,`RS2`,`RS3` | focused proof | static vs override vs reset behavior is proved |
+| `RS5` | `repo-governance` | `operator/governance` | `done` | `RS4` | docs review | admin UI/API docs reflect the new runtime sources panel and override semantics |
 
 ## UX Shape
 
@@ -106,3 +106,10 @@ UX rules:
 - reset is supported
 - `SourceCapabilityRouting` consumes the override layer for `realtime_ingest`
 - docs and admin UI handoff contract are updated
+
+## Closeout Notes
+
+- Realtime source override is persisted in Raven as a narrow operator document, not written back into `appsettings`.
+- The override layer currently affects `realtime_ingest` selection and Bitails transport only.
+- Runtime source selection changes are not hot-reloaded in this wave; backend returns `restartRequired=true` while an override is active so the operator shell does not imply otherwise.
+- The admin shell exposes static vs override vs effective values explicitly to avoid hidden precedence rules.

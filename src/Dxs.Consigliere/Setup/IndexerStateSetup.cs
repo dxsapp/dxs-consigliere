@@ -3,6 +3,7 @@ using Dxs.Common.Cache;
 using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Data.Tracking;
 using Dxs.Consigliere.Data.Tokens;
 using Dxs.Consigliere.Data.Transactions;
@@ -34,6 +35,8 @@ public static class IndexerStateSetup
             .AddSingleton<TokenProjectionRebuilder>()
             .AddSingleton<TxLifecycleProjectionReader>()
             .AddSingleton<TxLifecycleProjectionRebuilder>()
+            .AddSingleton<IRealtimeSourcePolicyOverrideStore, RealtimeSourcePolicyOverrideStore>()
+            .AddSingleton<IAdminRuntimeSourcePolicyService, AdminRuntimeSourcePolicyService>()
             .AddSingleton<IAdminTrackingQueryService, AdminTrackingQueryService>()
             .AddSingleton<ITrackedEntityRegistrationStore, TrackedEntityRegistrationStore>()
             .AddSingleton<ITrackedEntityLifecycleOrchestrator, TrackedEntityLifecycleOrchestrator>()

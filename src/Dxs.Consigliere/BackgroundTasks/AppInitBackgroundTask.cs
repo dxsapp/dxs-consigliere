@@ -7,6 +7,7 @@ using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.BackgroundTasks.Realtime;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
@@ -28,7 +29,7 @@ public class AppInitBackgroundTask(
     ITxMessageBus txMessageBus,
     IBlockMessageBus blockMessageBus,
     IDocumentStore store,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IAdminRuntimeSourcePolicyService runtimeSourcePolicyService,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
     ILogger<AppInitBackgroundTask> logger
@@ -48,15 +49,16 @@ public class AppInitBackgroundTask(
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
+        var effectiveSources = await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var bootstrapPlan = RealtimeBootstrapPlanner.Build(
             SourceCapabilityRouting.Resolve(
                 ExternalChainCapability.RealtimeIngest,
-                sourcesConfig.Value,
+                effectiveSources,
                 _appConfig,
                 providerCatalog),
             SourceCapabilityRouting.Resolve(
                 ExternalChainCapability.BlockBackfill,
-                sourcesConfig.Value,
+                effectiveSources,
                 _appConfig,
                 providerCatalog));
 
