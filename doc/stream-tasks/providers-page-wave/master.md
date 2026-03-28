@@ -132,12 +132,12 @@ Supporting zones:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `PP1` | `indexer-state-and-storage` | `operator/state` | `todo` | - | store tests | provider override document and storage/query seam exist |
-| `PP2` | `service-bootstrap-and-ops` | `operator/runtime` | `todo` | `PP1` | routing tests | effective provider config feeds realtime and REST selection paths |
-| `PP3` | `public-api-and-realtime` | `operator/api` | `todo` | `PP1`,`PP2` | controller tests | `/api/admin/providers` read/apply/reset contract exists |
-| `PP4` | `frontend-admin-shell` | `operator/ui` | `todo` | `PP3` | frontend build + page QA | dedicated Providers page exists with catalog, defaults, config, and help links |
-| `PP5` | `verification-and-conformance` | `operator/verification` | `todo` | `PP2`,`PP3`,`PP4` | focused proof | static vs override vs reset vs required-fields behavior is covered |
-| `PP6` | `repo-governance` | `operator/governance` | `todo` | `PP5` | docs review | admin docs, onboarding docs, and wave ledger are updated honestly |
+| `PP1` | `indexer-state-and-storage` | `operator/state` | `done` | - | store tests | provider override document and storage/query seam exist |
+| `PP2` | `service-bootstrap-and-ops` | `operator/runtime` | `done` | `PP1` | routing tests | effective provider config feeds realtime and bounded REST selection paths |
+| `PP3` | `public-api-and-realtime` | `operator/api` | `done` | `PP1`,`PP2` | controller tests | `/api/admin/providers` read/apply/reset contract exists |
+| `PP4` | `frontend-admin-shell` | `operator/ui` | `done` | `PP3` | frontend build + page QA | dedicated Providers page exists with catalog, defaults, config, and help links |
+| `PP5` | `verification-and-conformance` | `operator/verification` | `done` | `PP2`,`PP3`,`PP4` | focused proof | static vs override vs reset vs required-fields behavior is covered |
+| `PP6` | `repo-governance` | `operator/governance` | `done` | `PP5` | docs review | admin docs, onboarding docs, and wave ledger are updated honestly |
 
 ## Hard Boundaries
 
@@ -158,3 +158,18 @@ Supporting zones:
 - ecosystem help links are present and clear
 - runtime diagnostics and provider onboarding are separated cleanly
 - no generic config editor was introduced
+
+## Validation Summary
+
+Validated during closeout:
+- `dotnet build /Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Dxs.Consigliere.csproj -c Release -p:UseAppHost=false`
+- `dotnet test /Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dxs.Consigliere.Tests.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~AdminProvidersControllerTests|FullyQualifiedName~AdminRuntimeControllerTests|FullyQualifiedName~AdminRuntimeSourcePolicyServiceTests|FullyQualifiedName~RealtimeSourcePolicyOverrideStoreIntegrationTests|FullyQualifiedName~BitailsRealtimeIngestRunnerTests"`
+- `cd /Users/imighty/Code/dxs-consigliere/src/admin-ui && pnpm typecheck`
+- `cd /Users/imighty/Code/dxs-consigliere/src/admin-ui && pnpm build`
+
+## Honest Residuals
+
+- provider configuration now covers realtime primary provider, REST primary provider, Bitails transport, and bounded provider connection fields only
+- `GET /api/admin/runtime/sources` remains as a compatibility/runtime-summary surface; `/providers` is the canonical onboarding and configuration page
+- historical address and token scan execution still remains Bitails-backed in runtime and is not exposed as a UI-switchable policy in this wave
+- persisted provider overrides require service restart before runtime selection changes are guaranteed to apply fully

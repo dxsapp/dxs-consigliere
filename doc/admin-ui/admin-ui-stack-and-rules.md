@@ -55,9 +55,11 @@ If they are not available, this file remains authoritative for the admin shell.
 - if an endpoint is missing, scaffold the route cleanly and leave a typed TODO seam instead of inventing fake API behavior
 - treat `/api/admin/*` as summary/shell endpoints and `/api/ops/*` as detailed runtime endpoints
 - do not expose bulk history-upgrade endpoints in v1 UI
-- do not turn runtime source controls into a generic provider-config editor
-- treat backend `allowedPrimarySources` and `allowedBitailsTransports` as authoritative option lists
-- when realtime policy payload says `restartRequired=true`, show that warning explicitly instead of implying hot-reload happened
+- keep `/providers` as the provider onboarding/configuration surface and `/runtime` as diagnostics
+- do not turn Providers into a generic provider-config editor
+- treat backend `allowedRealtimePrimaryProviders`, `allowedRestPrimaryProviders`, and `allowedBitailsTransports` as authoritative option lists
+- when provider config payload says `restartRequired=true`, show that warning explicitly instead of implying hot-reload happened
+- provider help links are product content, not decorative links; render them clearly
 
 ## Token Full-History UX Rules
 

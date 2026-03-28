@@ -13,6 +13,21 @@ public sealed class RealtimeSourcePolicyOverrideStore(IDocumentStore documentSto
         return await session.LoadAsync<RealtimeSourcePolicyOverrideDocument>(RealtimeSourcePolicyOverrideDocument.DocumentId, cancellationToken);
     }
 
+    public async Task<RealtimeSourcePolicyOverrideDocument> SaveAsync(
+        RealtimeSourcePolicyOverrideDocument document,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        using var session = documentStore.GetSession();
+        document.Id = RealtimeSourcePolicyOverrideDocument.DocumentId;
+        document.SetUpdate();
+
+        await session.StoreAsync(document, document.Id, cancellationToken);
+        await session.SaveChangesAsync(cancellationToken);
+        return document;
+    }
+
     public async Task<RealtimeSourcePolicyOverrideDocument> UpsertAsync(
         string primaryRealtimeSource,
         string bitailsTransport,

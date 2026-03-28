@@ -180,6 +180,128 @@ Use for storage summary cards in Dashboard and Runtime/Ops overview.
 ### `GET /api/admin/blockchain/sync-status`
 Use for dashboard sync card.
 
+## Providers Page Endpoints
+
+### `GET /api/admin/providers`
+Returns the operator-facing provider catalog and bounded provider configuration snapshot.
+
+Response shape:
+- `recommendations`
+  - `realtimePrimaryProvider`
+  - `restPrimaryProvider`
+- `config`
+  - `static`
+  - `override`
+  - `effective`
+  - `overrideActive`
+  - `restartRequired`
+  - `allowedRealtimePrimaryProviders[]`
+  - `allowedRestPrimaryProviders[]`
+  - `allowedBitailsTransports[]`
+  - `updatedAt`
+  - `updatedBy`
+- `providers[]`
+
+Provider-config value shape:
+- `realtimePrimaryProvider`
+- `restPrimaryProvider`
+- `bitailsTransport`
+- `bitails`
+  - `apiKey`
+  - `baseUrl`
+  - `websocketBaseUrl`
+  - `zmqTxUrl`
+  - `zmqBlockUrl`
+- `whatsonchain`
+  - `apiKey`
+  - `baseUrl`
+- `junglebus`
+  - `baseUrl`
+  - `mempoolSubscriptionId`
+  - `blockSubscriptionId`
+
+Provider catalog item shape:
+- `providerId`
+- `displayName`
+- `roles[]`
+- `supportedCapabilities[]`
+- `recommendedFor[]`
+- `activeFor[]`
+- `status`
+- `description`
+- `missingRequirements[]`
+- `helpLinks[]`
+
+Semantics:
+- `recommendations` are the product-level safe defaults:
+  - realtime = `bitails`
+  - REST = `whatsonchain`
+- `static` = values from static config only
+- `override` = persisted operator override only, or `null` when none exists
+- `effective` = static config plus operator override
+- `restartRequired=true` means override persistence succeeded, but service restart is still required before runtime source/client wiring is guaranteed to switch fully
+- this is the shell-facing source of truth for the dedicated `/providers` page
+
+### `PUT /api/admin/providers/config`
+Persists the bounded provider override.
+
+Request:
+- `realtimePrimaryProvider`
+- `restPrimaryProvider`
+- `bitailsTransport`
+- `bitails`
+  - `apiKey`
+  - `baseUrl`
+  - `websocketBaseUrl`
+  - `zmqTxUrl`
+  - `zmqBlockUrl`
+- `whatsonchain`
+  - `apiKey`
+  - `baseUrl`
+- `junglebus`
+  - `baseUrl`
+  - `mempoolSubscriptionId`
+  - `blockSubscriptionId`
+
+Allowed values in v1:
+- `realtimePrimaryProvider`: `bitails | junglebus | node`
+- `restPrimaryProvider`: `whatsonchain | bitails`
+- `bitailsTransport`: `websocket | zmq`
+
+Responses:
+- `200` with the same payload shape as `GET /api/admin/providers`
+- `400 { code }` for invalid requests
+
+Current error-code families:
+- required selector missing:
+  - `realtime_primary_provider_required`
+  - `rest_primary_provider_required`
+  - `bitails_transport_required`
+- invalid selector value:
+  - `invalid_realtime_primary_provider`
+  - `invalid_rest_primary_provider`
+  - `invalid_bitails_transport`
+- missing provider-specific requirements:
+  - `bitails_websocket_endpoint_required`
+  - `bitails_zmq_endpoint_required`
+  - `bitails_rest_base_url_required`
+  - `whatsonchain_base_url_required`
+  - `junglebus_mempool_subscription_id_required`
+
+Semantics:
+- persists override outside static files
+- this is a bounded provider-onboarding/configuration contract, not a generic config editor
+- request may include provider URLs and API keys for the bounded provider set shown on the page
+- if requested values match static effective policy, backend resets the override instead of storing a no-op document
+
+### `DELETE /api/admin/providers/config`
+Removes the persisted provider override and returns the restored providers snapshot.
+
+Semantics:
+- resets back to static config
+- does not mutate static files
+- restores the `/providers` page to product defaults plus static deployment config
+
 ## Runtime Sources Policy Endpoints
 
 ### `GET /api/admin/runtime/sources`
@@ -230,10 +352,10 @@ Current error codes:
 - `invalid_bitails_transport`
 
 Semantics:
-- persists override outside static files
+- compatibility surface only
+- delegates to the broader provider config service under the hood
 - affects realtime policy only
-- does not edit provider URLs, credentials, or non-realtime capabilities
-- if requested values match static effective policy, backend resets the override instead of storing a no-op document
+- does not expose the full provider configuration contract
 
 ### `DELETE /api/admin/runtime/sources/realtime-policy`
 Removes the persisted realtime override and returns the restored runtime-sources snapshot.
@@ -300,6 +422,8 @@ Bulk token full-history upgrade.
 UI note:
 - do not expose this in v1 admin UI
 - treat it as internal/operator fallback endpoint for now
+
+## Runtime/Ops Detail Endpoints
 
 ### `GET /api/ops/providers`
 Use for detailed providers/sources panel.

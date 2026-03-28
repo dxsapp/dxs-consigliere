@@ -7,14 +7,13 @@ using Dxs.Bsv.BitcoinMonitor.Impl;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Consigliere.BackgroundTasks.Realtime;
-using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.Bitails.Dto;
 using Dxs.Infrastructure.Bitails.Realtime;
+using Dxs.Infrastructure.Common;
 
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Tests.BackgroundTasks.Realtime;
 
@@ -44,9 +43,9 @@ public class BitailsRealtimeIngestRunnerTests
             realtimeClient,
             new FakeScopeProvider(watchedAddress.Value),
             new FakeBitailsRestApiClient(transaction.Id, Convert.FromHexString(SampleTransactionHex)),
+            new FakeProviderSettingsAccessor(),
             new TestNetworkProvider(),
             txMessageBus,
-            Options.Create(new ConsigliereSourcesConfig()),
             NullLogger<BitailsRealtimeIngestRunner>.Instance);
 
         using var cts = new CancellationTokenSource();
@@ -200,5 +199,29 @@ public class BitailsRealtimeIngestRunnerTests
     private sealed class TestNetworkProvider : INetworkProvider
     {
         public Network Network => Network.Mainnet;
+    }
+
+    private sealed class FakeProviderSettingsAccessor : IExternalChainProviderSettingsAccessor
+    {
+        public ValueTask<BitailsProviderRuntimeSettings> GetBitailsAsync(CancellationToken cancellationToken = default)
+            => ValueTask.FromResult(new BitailsProviderRuntimeSettings(
+                "https://api.bitails.io",
+                string.Empty,
+                Dxs.Consigliere.Configs.BitailsRealtimeTransportMode.Websocket,
+                "https://api.bitails.io/global",
+                string.Empty,
+                string.Empty));
+
+        public ValueTask<WhatsOnChainProviderRuntimeSettings> GetWhatsOnChainAsync(CancellationToken cancellationToken = default)
+            => ValueTask.FromResult(new WhatsOnChainProviderRuntimeSettings(
+                "https://api.whatsonchain.com/v1/bsv/main",
+                string.Empty));
+
+        public ValueTask<JungleBusProviderRuntimeSettings> GetJungleBusAsync(CancellationToken cancellationToken = default)
+            => ValueTask.FromResult(new JungleBusProviderRuntimeSettings(
+                "https://junglebus.gorillapool.io",
+                string.Empty,
+                string.Empty,
+                string.Empty));
     }
 }

@@ -30,9 +30,10 @@ It is not a consumer product, wallet UI, or universal explorer.
 4. Tracked Tokens
 5. Address Details
 6. Token Details
-7. Runtime / Ops
-8. Storage / Sources
-9. Findings / Recent Failures
+7. Providers
+8. Runtime / Ops
+9. Storage / Sources
+10. Findings / Recent Failures
 
 ## Must-Have Actions
 
@@ -43,9 +44,10 @@ It is not a consumer product, wallet UI, or universal explorer.
 5. upgrade token to full history with trusted roots
 6. inspect readiness and history status
 7. inspect rooted token security state
-8. inspect provider/cache/storage runtime status
-9. inspect effective realtime source policy
-10. apply/reset narrow realtime policy override
+8. inspect provider catalog and recommended defaults
+9. inspect effective provider setup
+10. apply/reset bounded provider overrides
+11. inspect provider/cache/storage runtime status
 
 ## Explicit Non-Goals For v1
 
@@ -54,7 +56,8 @@ It is not a consumer product, wallet UI, or universal explorer.
 - no reverse-proxy auth mode in UI
 - no destructive purge UI for tracked entities
 - no generic config editor
-- no provider URL/credentials editing from UI
+- no arbitrary capability-matrix editor
+- no provider billing or purchase flow inside the shell
 
 ## Status-First UX Rules
 
@@ -72,7 +75,9 @@ It is not a consumer product, wallet UI, or universal explorer.
 - config-managed tracked entities cannot be deleted from the shell and should surface `managed_by_config`
 - frontend should treat readiness/history/rooted status strings as authoritative and not collapse them into custom state machines
 - runtime screens should use `admin` endpoints for summary and `ops` endpoints for detail
-- runtime source policy is a narrow operator override layer, not static config editing
+- Providers page is the onboarding and provider-configuration surface
+- Runtime page remains diagnostics-first
+- provider configuration is a bounded operator override layer, not static config editing
 
 ## Critical UX Decisions
 
@@ -90,15 +95,32 @@ It is not a consumer product, wallet UI, or universal explorer.
 - server failure => toast
 - local form validation => inline field errors
 
-### Runtime Sources Panel
+### Providers Page
 
-- show static vs override vs effective realtime policy side by side
-- allow override only for:
-  - `primaryRealtimeSource`
+- show recommended defaults explicitly:
+  - realtime = `Bitails`
+  - REST = `WhatsOnChain`
+- show static vs override vs effective provider setup side by side
+- show provider catalog cards for:
+  - `Bitails`
+  - `WhatsOnChain`
+  - `JungleBus`
+  - `ZMQ / Node`
+- allow bounded override only for:
+  - `realtimePrimaryProvider`
+  - `restPrimaryProvider`
   - `bitailsTransport`
+  - provider-specific connection fields exposed by backend
 - show allowed options from backend, not hardcoded frontend enums
 - apply/reset actions require confirmation
-- when backend returns `restartRequired=true`, surface an explicit operator warning that restart is still needed for source-selection changes to fully take effect
+- when backend returns `restartRequired=true`, surface an explicit operator warning that restart is still needed before runtime source-selection changes apply fully
+- provider help links should be visible and treated as first-class onboarding guidance
+
+### Runtime Page
+
+- keep runtime diagnostics on `/runtime`
+- do not make Runtime the main provider-configuration surface
+- if runtime source summary remains visible there, treat it as compatibility/diagnostic context only
 
 ### Findings Rendering
 

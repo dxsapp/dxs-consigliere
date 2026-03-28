@@ -20,7 +20,7 @@ using RateLimiter;
 namespace Dxs.Infrastructure.WoC;
 
 // https://developers.whatsonchain.com/
-public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApiClient
+public class WhatsOnChainRestApiClient : IWhatsOnChainRestApiClient
 {
     private static class Internal
     {
@@ -45,17 +45,21 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
         }
     }
 
-    // https://developers.whatsonchain.com/#rate-limits
     private static readonly TimeLimiter RateLimiter = TimeLimiter.GetFromMaxCountByInterval(3, TimeSpan.FromSeconds(1));
-    private const string Network = "main";
+    private readonly HttpClient _client;
+    private readonly IExternalChainProviderSettingsAccessor _providerSettingsAccessor;
+
+    public WhatsOnChainRestApiClient(HttpClient client, IExternalChainProviderSettingsAccessor providerSettingsAccessor)
+    {
+        _client = client;
+        _providerSettingsAccessor = providerSettingsAccessor;
+    }
 
     public async Task<bool> IsBroadcastedAsync(string txId, CancellationToken token = default)
     {
         await RateLimiter;
-        var response = await client.GetAsync(
-            $"https://api.whatsonchain.com/v1/bsv/{Network}/tx/hash/{txId}",
-            HttpCompletionOption.ResponseHeadersRead, token
-        );
+        var request = await CreateRequestAsync(HttpMethod.Get, $"tx/hash/{txId}", token);
+        var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
 
         if (response.IsSuccessStatusCode)
             return true;
@@ -68,7 +72,8 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
     public async Task<string> GetTransactionRawOrNullAsync(string txId, CancellationToken token = default)
     {
         await RateLimiter;
-        var response = await client.GetAsync($"https://api.whatsonchain.com/v1/bsv/{Network}/tx/{txId}/hex", token);
+        var request = await CreateRequestAsync(HttpMethod.Get, $"tx/{txId}/hex", token);
+        var response = await _client.SendAsync(request, token);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
@@ -83,20 +88,21 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
     public async Task<IList<TransactionDetailsSlimDto>> GetTransactionsAsync(IEnumerable<string> txIds, CancellationToken token = default)
     {
         await RateLimiter;
-        var response = await client.PostOrThrowAsync<TransactionDetailsSlimDto[]>(
-            $"https://api.whatsonchain.com/v1/bsv/{Network}/txs/hex",
-            new { txids = txIds.ToHashSet() }, token
-        );
-
-        return response;
+        return await _client.PostOrThrowAsync<TransactionDetailsSlimDto[]>(
+            await BuildUrlAsync("txs/hex", token),
+            new { txids = txIds.ToHashSet() },
+            await BuildHeadersAsync(token),
+            token);
     }
 
     public async Task BroadcastAsync(string body, CancellationToken token = default)
     {
         await RateLimiter;
-        var res = await client.PostOrThrowAsync<object>($"https://api.whatsonchain.com/v1/bsv/{Network}/tx/raw",
-            new { txhex = body }, token
-        );
+        await _client.PostOrThrowAsync<object>(
+            await BuildUrlAsync("tx/raw", token),
+            new { txhex = body },
+            await BuildHeadersAsync(token),
+            token);
     }
 
     public async Task<Dictionary<string, decimal>> GetBalancesAsync(IEnumerable<string> addresses, CancellationToken token = default)
@@ -104,10 +110,11 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
         await RateLimiter;
         var addressSet = new HashSet<string>(addresses);
 
-        var result = await client.PostOrThrowAsync<IList<Internal.AddressBalanceDto>>(
-            $"https://api.whatsonchain.com/v1/bsv/{Network}/addresses/balance",
-            new { addresses = addressSet }, token
-        );
+        var result = await _client.PostOrThrowAsync<IList<Internal.AddressBalanceDto>>(
+            await BuildUrlAsync("addresses/balance", token),
+            new { addresses = addressSet },
+            await BuildHeadersAsync(token),
+            token);
 
         var balanceByAddress = result.ToDictionary(ab => ab.Address, ab => ab.Balance.Total);
         return addressSet.ToDictionary(a => a, a => balanceByAddress[a]);
@@ -116,10 +123,11 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
     public async Task<UnspentOutputDto[]> GetUtxosAsync(string address, int skip, int take, CancellationToken cancellationToken = default)
     {
         await RateLimiter;
-        var result = await client.GetOrThrowAsync<IList<UnspentOutputDto>>(
-            $"https://api.whatsonchain.com/v1/bsv/main/address/{address}/unspent",
-            cancellationToken
-        );
+        var result = await _client.GetOrThrowAsync<IList<UnspentOutputDto>>(
+            await BuildUrlAsync($"address/{address}/unspent", cancellationToken),
+            headers: await BuildHeadersAsync(cancellationToken),
+            validateModel: true,
+            token: cancellationToken);
 
         return result.Skip(skip)
             .Take(take)
@@ -129,7 +137,8 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
     public async Task<string[]> GetBlockPagesAsync(string hash, int number, CancellationToken token = default)
     {
         await RateLimiter;
-        var response = await client.GetAsync($"https://api.whatsonchain.com/v1/bsv/{Network}/block/hash/{hash}/page/{number}", token);
+        var request = await CreateRequestAsync(HttpMethod.Get, $"block/hash/{hash}/page/{number}", token);
+        var response = await _client.SendAsync(request, token);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
@@ -137,14 +146,14 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
         if (!response.IsSuccessStatusCode)
             throw await DetailedHttpRequestException.FromResponseAsync(response);
 
-        var txs = await response.ReadContentOrThrowAsync<string[]>(false, token);
-        return txs;
+        return await response.ReadContentOrThrowAsync<string[]>(false, token);
     }
 
     public async Task<BlockDto> GetBlockByHeightAsync(int height, CancellationToken token = default)
     {
         await RateLimiter;
-        var response = await client.GetAsync($"https://api.whatsonchain.com/v1/bsv/{Network}/block/height/{height}", token);
+        var request = await CreateRequestAsync(HttpMethod.Get, $"block/height/{height}", token);
+        var response = await _client.SendAsync(request, token);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
@@ -152,15 +161,14 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
         if (!response.IsSuccessStatusCode)
             throw await DetailedHttpRequestException.FromResponseAsync(response);
 
-        var block = await response.ReadContentOrThrowAsync<BlockDto>(false, token);
-        return block;
+        return await response.ReadContentOrThrowAsync<BlockDto>(false, token);
     }
 
     public async Task<TransactionDetailsDto> GetTransactionDetails(string transactionId, CancellationToken token = default)
     {
         await RateLimiter;
-
-        var response = await client.GetAsync($"https://api.whatsonchain.com/v1/bsv/main/tx/hash/{transactionId}", token);
+        var request = await CreateRequestAsync(HttpMethod.Get, $"tx/hash/{transactionId}", token);
+        var response = await _client.SendAsync(request, token);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
@@ -174,8 +182,8 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
     public async Task<TokenDetailsDto> GetTokenDetails(string tokenId, string symbol, CancellationToken token = default)
     {
         await RateLimiter;
-
-        var response = await client.GetAsync($"https://api.whatsonchain.com/v1/bsv/main/token/{tokenId}/{symbol}", token);
+        var request = await CreateRequestAsync(HttpMethod.Get, $"token/{tokenId}/{symbol}", token);
+        var response = await _client.SendAsync(request, token);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
@@ -189,8 +197,8 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
     public async Task<SpentTransactionOutput> GetSpentTransactionOutput(string transactionId, ulong vout, CancellationToken token = default)
     {
         await RateLimiter;
-
-        var response = await client.GetAsync($"https://api.whatsonchain.com/v1/bsv/main/tx/{transactionId}/{vout}/spent", token);
+        var request = await CreateRequestAsync(HttpMethod.Get, $"tx/{transactionId}/{vout}/spent", token);
+        var response = await _client.SendAsync(request, token);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
@@ -199,5 +207,39 @@ public class WhatsOnChainRestApiClient(HttpClient client) : IWhatsOnChainRestApi
             throw await DetailedHttpRequestException.FromResponseAsync(response);
 
         return await response.ReadContentOrThrowAsync<SpentTransactionOutput>(cancellationToken: token);
+    }
+
+    private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string relativePath, CancellationToken cancellationToken)
+    {
+        var request = new HttpRequestMessage(method, await BuildUrlAsync(relativePath, cancellationToken));
+        var headers = await BuildHeadersAsync(cancellationToken);
+        if (headers is not null)
+        {
+            foreach (var header in headers)
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        return request;
+    }
+
+    private async Task<string> BuildUrlAsync(string relativePath, CancellationToken cancellationToken)
+    {
+        var settings = await _providerSettingsAccessor.GetWhatsOnChainAsync(cancellationToken);
+        var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
+            ? "https://api.whatsonchain.com/v1/bsv/main"
+            : settings.BaseUrl.Trim().TrimEnd('/');
+        return $"{baseUrl}/{relativePath.TrimStart('/')}";
+    }
+
+    private async Task<Dictionary<string, string>> BuildHeadersAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _providerSettingsAccessor.GetWhatsOnChainAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(settings.ApiKey))
+            return null;
+
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Authorization"] = settings.ApiKey
+        };
     }
 }

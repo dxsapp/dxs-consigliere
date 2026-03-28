@@ -21,6 +21,12 @@ This decision is product-driven, not merely adapter-driven.
 The key requirement is:
 - managed-scope selective realtime ingest must be practical to operate dynamically
 
+The operator-facing admin shell should mirror this posture explicitly:
+- `/providers` is the onboarding and bounded configuration surface
+- `bitails` should appear as the recommended realtime default
+- `whatsonchain` should appear as the recommended REST default
+- `junglebus` and `zmq` should be positioned as advanced options, not the first-run path
+
 ## Why Bitails Is The Baseline
 
 `bitails` fits the product posture best because it aligns with selective managed scope.

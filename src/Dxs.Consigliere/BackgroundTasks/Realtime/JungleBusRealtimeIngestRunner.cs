@@ -3,14 +3,13 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Common.Extensions;
-using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.JungleBus;
 using Dxs.Infrastructure.JungleBus.Dto;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.BackgroundTasks.Realtime;
 
@@ -18,11 +17,10 @@ public sealed class JungleBusRealtimeIngestRunner(
     ITxMessageBus messageBus,
     IServiceProvider serviceProvider,
     INetworkProvider networkProvider,
-    IOptions<AppConfig> appConfig,
+    IAdminProviderConfigService providerConfigService,
     ILogger<JungleBusRealtimeIngestRunner> logger
 )
 {
-    private readonly AppConfig _appConfig = appConfig.Value;
     private readonly ILogger _logger = logger;
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -30,7 +28,11 @@ public sealed class JungleBusRealtimeIngestRunner(
         using var _ = serviceProvider.GetScopedService(out JungleBusWebsocketClient jungleBus);
         using var __ = _logger.BeginScope("JungleBusRealtimeIngest");
 
-        await jungleBus.StartSubscription(_appConfig.JungleBus.MempoolSubscriptionId);
+        var jungleBusSettings = await providerConfigService.GetEffectiveJungleBusAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(jungleBusSettings.MempoolSubscriptionId))
+            throw new InvalidOperationException("JungleBus realtime ingest requires a mempool subscription id.");
+
+        await jungleBus.StartSubscription(jungleBusSettings.MempoolSubscriptionId);
 
         var error = false;
 

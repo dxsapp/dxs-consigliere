@@ -174,6 +174,83 @@ export interface AdminRealtimeSourcePolicyUpdateRequest {
   bitailsTransport: string;
 }
 
+// ─── Providers page ──────────────────────────────────────────────────────────
+
+export interface AdminProviderHelpLink {
+  label: string;
+  url: string;
+}
+
+export interface AdminBitailsProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  websocketBaseUrl: string;
+  zmqTxUrl: string;
+  zmqBlockUrl: string;
+}
+
+export interface AdminRestProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+}
+
+export interface AdminJungleBusProviderConfig {
+  baseUrl: string;
+  mempoolSubscriptionId: string;
+  blockSubscriptionId: string;
+}
+
+export interface AdminProviderConfigValues {
+  realtimePrimaryProvider: string;
+  restPrimaryProvider: string;
+  bitailsTransport: string;
+  bitails: AdminBitailsProviderConfig;
+  whatsonchain: AdminRestProviderConfig;
+  junglebus: AdminJungleBusProviderConfig;
+}
+
+export interface AdminProviderCatalogItem {
+  providerId: string;
+  displayName: string;
+  roles: string[];
+  supportedCapabilities: string[];
+  recommendedFor: string[];
+  activeFor: string[];
+  status: string;
+  description: string;
+  missingRequirements: string[];
+  helpLinks: AdminProviderHelpLink[];
+}
+
+export interface AdminProvidersResponse {
+  recommendations: {
+    realtimePrimaryProvider: string;
+    restPrimaryProvider: string;
+  };
+  config: {
+    static: AdminProviderConfigValues;
+    override: AdminProviderConfigValues | null;
+    effective: AdminProviderConfigValues;
+    overrideActive: boolean;
+    restartRequired: boolean;
+    allowedRealtimePrimaryProviders: string[];
+    allowedRestPrimaryProviders: string[];
+    allowedBitailsTransports: string[];
+    updatedAt: number | null;
+    updatedBy: string | null;
+  };
+  providers: AdminProviderCatalogItem[];
+}
+
+export interface AdminProviderConfigUpdateRequest {
+  realtimePrimaryProvider: string;
+  restPrimaryProvider: string;
+  bitailsTransport: string;
+  bitails: AdminBitailsProviderConfig;
+  whatsonchain: AdminRestProviderConfig;
+  junglebus: AdminJungleBusProviderConfig;
+}
+
 // ─── Manage ──────────────────────────────────────────────────────────────────
 
 export type HistoryPolicyMode = "forward_only" | "full_history";

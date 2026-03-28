@@ -10,6 +10,8 @@ import type {
   DashboardSummary,
   AdminRuntimeSources,
   AdminRealtimeSourcePolicyUpdateRequest,
+  AdminProvidersResponse,
+  AdminProviderConfigUpdateRequest,
   AddressManageRequest,
   TokenManageRequest,
   TokenHistoryUpgradeRequest,
@@ -122,6 +124,14 @@ export const runtimeSourcesApi = {
     request<AdminRuntimeSources>("PUT", "/api/admin/runtime/sources/realtime-policy", body),
   resetRealtimePolicy: () =>
     request<AdminRuntimeSources>("DELETE", "/api/admin/runtime/sources/realtime-policy"),
+};
+
+export const providersApi = {
+  get: () => get<AdminProvidersResponse>("/api/admin/providers"),
+  updateConfig: (body: AdminProviderConfigUpdateRequest) =>
+    request<AdminProvidersResponse>("PUT", "/api/admin/providers/config", body),
+  resetConfig: () =>
+    request<AdminProvidersResponse>("DELETE", "/api/admin/providers/config"),
 };
 
 export const findingsApi = {

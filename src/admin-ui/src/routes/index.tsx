@@ -8,6 +8,7 @@ import { AddressesPage } from "@/pages/AddressesPage";
 import { AddressDetailPage } from "@/pages/AddressDetailPage";
 import { TokensPage } from "@/pages/TokensPage";
 import { TokenDetailPage } from "@/pages/TokenDetailPage";
+import { ProvidersPage } from "@/pages/ProvidersPage";
 import { RuntimePage } from "@/pages/RuntimePage";
 import { StoragePage } from "@/pages/StoragePage";
 import { FindingsPage } from "@/pages/FindingsPage";
@@ -18,6 +19,7 @@ import { tokenDetailStore } from "@/stores/token-detail.store";
 import { dashboardStore } from "@/stores/dashboard.store";
 import { findingsStore } from "@/stores/findings.store";
 import { opsStore } from "@/stores/ops.store";
+import { providersStore } from "@/stores/providers.store";
 
 // ─── Route hydration wrappers ─────────────────────────────────────────────────
 // Shell-level orchestration only. Pages read store state, they do not call APIs.
@@ -73,6 +75,13 @@ function RuntimeRoute() {
   return <RuntimePage />;
 }
 
+function ProvidersRoute() {
+  useEffect(() => {
+    void providersStore.ensureLoaded();
+  }, []);
+  return <ProvidersPage />;
+}
+
 function StorageRoute() {
   useEffect(() => {
     void opsStore.ensureLoaded();
@@ -100,6 +109,7 @@ export const router = createBrowserRouter([
       { path: "addresses/:address", element: <AddressDetailRoute /> },
       { path: "tokens", element: <TokensRoute /> },
       { path: "tokens/:tokenId", element: <TokenDetailRoute /> },
+      { path: "providers", element: <ProvidersRoute /> },
       { path: "runtime", element: <RuntimeRoute /> },
       { path: "storage", element: <StorageRoute /> },
       { path: "findings", element: <FindingsRoute /> },

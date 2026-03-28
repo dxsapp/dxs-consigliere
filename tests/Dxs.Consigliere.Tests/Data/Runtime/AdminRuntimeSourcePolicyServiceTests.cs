@@ -1,6 +1,7 @@
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.Runtime;
 using Dxs.Consigliere.Data.Runtime;
+using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Infrastructure.Common;
 
@@ -11,14 +12,16 @@ namespace Dxs.Consigliere.Tests.Data.Runtime;
 public class AdminRuntimeSourcePolicyServiceTests
 {
     [Fact]
-    public async Task GetEffectiveSourcesConfigAsync_AppliesOverrideOnlyToRealtimePolicy()
+    public async Task GetEffectiveSourcesConfigAsync_AppliesRealtimeAndRestOverrides()
     {
         var service = CreateService(
             CreateSourcesConfig(),
             new RealtimeSourcePolicyOverrideDocument
             {
                 PrimaryRealtimeSource = ExternalChainProviderName.Bitails,
-                BitailsTransport = BitailsRealtimeTransportMode.Zmq
+                RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                BitailsTransport = BitailsRealtimeTransportMode.Zmq,
+                WhatsonchainBaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
             });
 
         var effective = await service.GetEffectiveSourcesConfigAsync();
@@ -26,61 +29,131 @@ public class AdminRuntimeSourcePolicyServiceTests
         var realtime = SourceCapabilityRouting.Resolve(
             ExternalChainCapability.RealtimeIngest,
             effective,
-            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateAppConfig(),
             CreateCatalog());
-        var blockBackfill = SourceCapabilityRouting.Resolve(
-            ExternalChainCapability.BlockBackfill,
+        var rawTx = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.RawTxFetch,
             effective,
-            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateAppConfig(),
             CreateCatalog());
 
         Assert.Equal(ExternalChainProviderName.Bitails, realtime.PrimarySource);
         Assert.Equal(BitailsRealtimeTransportMode.Zmq, effective.Providers.Bitails.Connection.Transport);
-        Assert.Equal(SourceCapabilityRouting.NodeProvider, blockBackfill.PrimarySource);
+        Assert.Equal(ExternalChainProviderName.WhatsOnChain, rawTx.PrimarySource);
     }
 
     [Fact]
-    public async Task ApplyRealtimePolicyAsync_RejectsUnknownOrUnconfiguredValues()
+    public async Task ApplyProviderConfigAsync_RejectsUnconfiguredRealtimeAndRestSelections()
     {
         var service = CreateService(CreateSourcesConfig(), null);
+        var restConfig = CreateSourcesConfig();
+        restConfig.Providers.Whatsonchain.Connection.BaseUrl = string.Empty;
+        var serviceWithMissingRestBase = CreateService(restConfig, null);
 
-        var invalidPrimary = await service.ApplyRealtimePolicyAsync("whatsonchain", BitailsRealtimeTransportMode.Websocket, "admin");
-        var invalidTransport = await service.ApplyRealtimePolicyAsync("bitails", "pipes", "admin");
+        var invalidRealtime = await service.ApplyProviderConfigAsync(
+            new AdminProviderConfigUpdateRequest
+            {
+                RealtimePrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                BitailsTransport = BitailsRealtimeTransportMode.Websocket,
+                Whatsonchain = new AdminRestProviderConfigUpdateRequest
+                {
+                    BaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
+                }
+            },
+            "admin");
 
-        Assert.False(invalidPrimary.Success);
-        Assert.Equal("invalid_primary_realtime_source", invalidPrimary.ErrorCode);
-        Assert.False(invalidTransport.Success);
-        Assert.Equal("invalid_bitails_transport", invalidTransport.ErrorCode);
+        var invalidRest = await serviceWithMissingRestBase.ApplyProviderConfigAsync(
+            new AdminProviderConfigUpdateRequest
+            {
+                RealtimePrimaryProvider = ExternalChainProviderName.Bitails,
+                RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                BitailsTransport = BitailsRealtimeTransportMode.Websocket,
+                Whatsonchain = new AdminRestProviderConfigUpdateRequest()
+            },
+            "admin");
+
+        Assert.False(invalidRealtime.Success);
+        Assert.Equal("invalid_realtime_primary_provider", invalidRealtime.ErrorCode);
+        Assert.False(invalidRest.Success);
+        Assert.Equal("whatsonchain_base_url_required", invalidRest.ErrorCode);
     }
 
     [Fact]
-    public async Task ApplyRealtimePolicyAsync_ResetsOverrideWhenValuesMatchStaticPolicy()
+    public async Task ApplyProviderConfigAsync_ResetsOverrideWhenRequestedValuesMatchStaticConfiguration()
     {
         var store = new FakeRealtimeSourcePolicyOverrideStore();
         var service = CreateService(CreateSourcesConfig(), null, store);
 
-        var result = await service.ApplyRealtimePolicyAsync(
-            ExternalChainProviderName.JungleBus,
-            BitailsRealtimeTransportMode.Websocket,
+        var result = await service.ApplyProviderConfigAsync(
+            new AdminProviderConfigUpdateRequest
+            {
+                RealtimePrimaryProvider = ExternalChainProviderName.JungleBus,
+                RestPrimaryProvider = ExternalChainProviderName.Bitails,
+                BitailsTransport = BitailsRealtimeTransportMode.Websocket,
+                Bitails = new AdminBitailsProviderConfigUpdateRequest
+                {
+                    BaseUrl = "https://api.bitails.io",
+                    WebsocketBaseUrl = "https://socket.bitails.test/global",
+                    ZmqTxUrl = "tcp://127.0.0.1:28332",
+                    ZmqBlockUrl = "tcp://127.0.0.1:28333"
+                },
+                Junglebus = new AdminJungleBusProviderConfigUpdateRequest
+                {
+                    BaseUrl = "https://junglebus.gorillapool.io",
+                    MempoolSubscriptionId = "mempool-sub",
+                    BlockSubscriptionId = "block-sub"
+                },
+                Whatsonchain = new AdminRestProviderConfigUpdateRequest
+                {
+                    BaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
+                }
+            },
             "admin");
 
         Assert.True(result.Success);
         Assert.Equal(1, store.ResetCalls);
-        Assert.Equal(0, store.UpsertCalls);
+        Assert.Equal(0, store.SaveCalls);
     }
 
-    private static AdminRuntimeSourcePolicyService CreateService(
+    [Fact]
+    public async Task GetProvidersAsync_ReturnsRecommendedDefaultsAndCatalog()
+    {
+        var service = CreateService(CreateSourcesConfig(), null);
+
+        var result = await service.GetProvidersAsync();
+
+        Assert.Equal(ExternalChainProviderName.Bitails, result.Recommendations.RealtimePrimaryProvider);
+        Assert.Equal(ExternalChainProviderName.WhatsOnChain, result.Recommendations.RestPrimaryProvider);
+        Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.Bitails);
+        Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.WhatsOnChain);
+        Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus);
+        Assert.Contains(result.Providers, x => x.ProviderId == SourceCapabilityRouting.NodeProvider);
+    }
+
+    private static AdminProviderConfigService CreateService(
         ConsigliereSourcesConfig config,
         RealtimeSourcePolicyOverrideDocument currentOverride,
         FakeRealtimeSourcePolicyOverrideStore store = null)
     {
         store ??= new FakeRealtimeSourcePolicyOverrideStore(currentOverride);
-        return new AdminRuntimeSourcePolicyService(
+        return new AdminProviderConfigService(
             store,
             Options.Create(config),
-            Options.Create(new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } }),
+            Options.Create(CreateAppConfig()),
             CreateCatalog());
     }
+
+    private static AppConfig CreateAppConfig()
+        => new()
+        {
+            JungleBus = new JungleBusConfig
+            {
+                Enabled = true,
+                MempoolSubscriptionId = "mempool-sub",
+                BlockSubscriptionId = "block-sub"
+            }
+        };
 
     private static ConsigliereSourcesConfig CreateSourcesConfig()
         => new()
@@ -97,12 +170,20 @@ public class AdminRuntimeSourcePolicyServiceTests
                 Node =
                 {
                     Enabled = true,
-                    EnabledCapabilities = [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill, ExternalChainCapability.ValidationFetch]
+                    EnabledCapabilities = [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill, ExternalChainCapability.ValidationFetch],
+                    Connection =
+                    {
+                        ZmqTxUrl = "tcp://127.0.0.1:28332"
+                    }
                 },
                 JungleBus =
                 {
                     Enabled = true,
-                    EnabledCapabilities = [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill]
+                    EnabledCapabilities = [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill],
+                    Connection =
+                    {
+                        BaseUrl = "https://junglebus.gorillapool.io"
+                    }
                 },
                 Bitails =
                 {
@@ -112,7 +193,9 @@ public class AdminRuntimeSourcePolicyServiceTests
                         ExternalChainCapability.RealtimeIngest,
                         ExternalChainCapability.Broadcast,
                         ExternalChainCapability.RawTxFetch,
-                        ExternalChainCapability.ValidationFetch
+                        ExternalChainCapability.ValidationFetch,
+                        ExternalChainCapability.HistoricalAddressScan,
+                        ExternalChainCapability.HistoricalTokenScan
                     ],
                     Connection =
                     {
@@ -124,16 +207,46 @@ public class AdminRuntimeSourcePolicyServiceTests
                         },
                         Zmq = new BitailsZmqConnectionConfig
                         {
-                            TxUrl = "tcp://127.0.0.1:28332"
+                            TxUrl = "tcp://127.0.0.1:28332",
+                            BlockUrl = "tcp://127.0.0.1:28333"
                         }
+                    }
+                },
+                Whatsonchain =
+                {
+                    Enabled = true,
+                    EnabledCapabilities = [ExternalChainCapability.RawTxFetch, ExternalChainCapability.ValidationFetch],
+                    Connection =
+                    {
+                        BaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
                     }
                 }
             },
             Capabilities =
             {
+                RealtimeIngest = new RoutedCapabilityOverrideConfig
+                {
+                    Source = ExternalChainProviderName.JungleBus
+                },
+                RawTxFetch = new RoutedCapabilityOverrideConfig
+                {
+                    Source = ExternalChainProviderName.Bitails
+                },
+                ValidationFetch = new RoutedCapabilityOverrideConfig
+                {
+                    Source = ExternalChainProviderName.Bitails
+                },
                 BlockBackfill = new RoutedCapabilityOverrideConfig
                 {
                     Source = SourceCapabilityRouting.NodeProvider
+                },
+                HistoricalAddressScan = new RoutedCapabilityOverrideConfig
+                {
+                    Source = ExternalChainProviderName.Bitails
+                },
+                HistoricalTokenScan = new RoutedCapabilityOverrideConfig
+                {
+                    Source = ExternalChainProviderName.Bitails
                 }
             }
         };
@@ -146,7 +259,17 @@ public class AdminRuntimeSourcePolicyServiceTests
                     [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill]),
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.Bitails,
-                    [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.Broadcast, ExternalChainCapability.RawTxFetch, ExternalChainCapability.ValidationFetch])
+                    [
+                        ExternalChainCapability.RealtimeIngest,
+                        ExternalChainCapability.Broadcast,
+                        ExternalChainCapability.RawTxFetch,
+                        ExternalChainCapability.ValidationFetch,
+                        ExternalChainCapability.HistoricalAddressScan,
+                        ExternalChainCapability.HistoricalTokenScan
+                    ]),
+                new ExternalChainProviderDescriptor(
+                    ExternalChainProviderName.WhatsOnChain,
+                    [ExternalChainCapability.RawTxFetch, ExternalChainCapability.ValidationFetch])
             ]);
 
     private sealed class FakeRealtimeSourcePolicyOverrideStore(RealtimeSourcePolicyOverrideDocument current = null)
@@ -154,11 +277,21 @@ public class AdminRuntimeSourcePolicyServiceTests
     {
         private RealtimeSourcePolicyOverrideDocument _current = current;
 
-        public int UpsertCalls { get; private set; }
+        public int SaveCalls { get; private set; }
         public int ResetCalls { get; private set; }
 
         public Task<RealtimeSourcePolicyOverrideDocument> GetAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(_current);
+
+        public Task<RealtimeSourcePolicyOverrideDocument> SaveAsync(
+            RealtimeSourcePolicyOverrideDocument document,
+            CancellationToken cancellationToken = default)
+        {
+            SaveCalls++;
+            document.Id = RealtimeSourcePolicyOverrideDocument.DocumentId;
+            _current = document;
+            return Task.FromResult(_current);
+        }
 
         public Task<RealtimeSourcePolicyOverrideDocument> UpsertAsync(
             string primaryRealtimeSource,
@@ -166,7 +299,6 @@ public class AdminRuntimeSourcePolicyServiceTests
             string updatedBy,
             CancellationToken cancellationToken = default)
         {
-            UpsertCalls++;
             _current = new RealtimeSourcePolicyOverrideDocument
             {
                 Id = RealtimeSourcePolicyOverrideDocument.DocumentId,

@@ -1,13 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.WebSockets;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 
 using Dxs.Common.Extensions;
+using Dxs.Infrastructure.Common;
 using Dxs.Infrastructure.JungleBus.Dto;
 using Dxs.Infrastructure.Websocket;
 
@@ -21,6 +24,7 @@ namespace Dxs.Infrastructure.JungleBus;
 
 public class JungleBusWebsocketClient(
     HttpClient httpClient,
+    IExternalChainProviderSettingsAccessor providerSettingsAccessor,
     ILogger<JungleBusWebsocketClient> logger
 ) : BaseWebsocketClient<string>(logger)
 {
@@ -32,6 +36,9 @@ public class JungleBusWebsocketClient(
 
     private int _id;
     private string _subscription;
+    private Uri _socketUrl = new("wss://junglebus.gorillapool.io/connection/websocket");
+    private Uri _tokenUrl = new("https://junglebus.gorillapool.io/v1/user/subscription-token");
+    private string _apiKey;
     private int _height;
     private bool _isMempoolActive;
     private bool _isControlActive;
@@ -47,10 +54,13 @@ public class JungleBusWebsocketClient(
     public async Task StartSubscription(string subscription)
     {
         _subscription = subscription;
+        var settings = await providerSettingsAccessor.GetJungleBusAsync();
+        (_socketUrl, _tokenUrl) = BuildEndpoints(settings.BaseUrl);
+        _apiKey = settings.ApiKey;
 
         await base.Start();
 
-        var timer = new Timer(TimeSpan.FromSeconds(5));
+        var timer = new System.Timers.Timer(TimeSpan.FromSeconds(5));
         timer.Elapsed += (_, _) => Pong();
         timer.AutoReset = true;
         timer.Enabled = true;
@@ -89,7 +99,7 @@ public class JungleBusWebsocketClient(
     protected override void StopInternal() { }
 
     public override string Name => "JungleBus";
-    protected override Uri Url => new("wss://junglebus.gorillapool.io/connection/websocket");
+    protected override Uri Url => _socketUrl;
     protected override bool IsTextMessageConversionEnabled => true;
 
     public void SubscribeToMempool()
@@ -224,16 +234,20 @@ public class JungleBusWebsocketClient(
 
     private async Task<string> GetToken()
     {
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Content-Type"] = "application/json"
+        };
+        if (!string.IsNullOrWhiteSpace(_apiKey))
+            headers["Authorization"] = _apiKey;
+
         var response = await httpClient.PostOrThrowAsync<TokenDto>(
-            "https://junglebus.gorillapool.io/v1/user/subscription-token",
+            _tokenUrl.ToString(),
             new
             {
                 id = _subscription
             },
-            headers: new
-            {
-                ContentType = "application/json"
-            }
+            headers: headers
         );
 
         return response.Token;
@@ -254,4 +268,17 @@ public class JungleBusWebsocketClient(
     private string MempoolChannel => $"{SubscriptionChannel}:mempool";
     private string ControlMessageChannel => $"{SubscriptionChannel}:control";
     private string BlockChannel => $"{SubscriptionChannel}:{_height}";
+
+    private static (Uri socketUrl, Uri tokenUrl) BuildEndpoints(string baseUrl)
+    {
+        var raw = string.IsNullOrWhiteSpace(baseUrl)
+            ? "https://junglebus.gorillapool.io"
+            : baseUrl.Trim().TrimEnd('/');
+
+        var tokenUrl = new Uri($"{raw}/v1/user/subscription-token", UriKind.Absolute);
+        var socketBase = raw.Replace("https://", "wss://", StringComparison.OrdinalIgnoreCase)
+            .Replace("http://", "ws://", StringComparison.OrdinalIgnoreCase);
+        var socketUrl = new Uri($"{socketBase}/connection/websocket", UriKind.Absolute);
+        return (socketUrl, tokenUrl);
+    }
 }

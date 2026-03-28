@@ -18,6 +18,7 @@ import {
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import AccountBalanceWalletOutlinedIcon from "@mui/icons-material/AccountBalanceWalletOutlined";
 import TokenOutlinedIcon from "@mui/icons-material/TokenOutlined";
+import HubOutlinedIcon from "@mui/icons-material/HubOutlined";
 import MemoryOutlinedIcon from "@mui/icons-material/MemoryOutlined";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { label: "Dashboard", path: "/", icon: <DashboardOutlinedIcon fontSize="small" />, exact: true },
   { label: "Addresses", path: "/addresses", icon: <AccountBalanceWalletOutlinedIcon fontSize="small" /> },
   { label: "Tokens", path: "/tokens", icon: <TokenOutlinedIcon fontSize="small" /> },
+  { label: "Providers", path: "/providers", icon: <HubOutlinedIcon fontSize="small" /> },
   { label: "Runtime", path: "/runtime", icon: <MemoryOutlinedIcon fontSize="small" /> },
   { label: "Storage", path: "/storage", icon: <StorageOutlinedIcon fontSize="small" /> },
   { label: "Findings", path: "/findings", icon: <WarningAmberOutlinedIcon fontSize="small" /> },

@@ -9,9 +9,9 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.Bitails.Realtime;
+using Dxs.Infrastructure.Common;
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.BackgroundTasks.Realtime;
 
@@ -19,9 +19,9 @@ public sealed class BitailsRealtimeIngestRunner(
     IBitailsRealtimeIngestClient realtimeIngestClient,
     IBitailsRealtimeSubscriptionScopeProvider scopeProvider,
     IBitailsRestApiClient restApiClient,
+    IExternalChainProviderSettingsAccessor providerSettingsAccessor,
     INetworkProvider networkProvider,
     ITxMessageBus txMessageBus,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
     ILogger<BitailsRealtimeIngestRunner> logger
 )
 {
@@ -30,7 +30,6 @@ public sealed class BitailsRealtimeIngestRunner(
 
     private readonly ConcurrentDictionary<string, DateTimeOffset> _recentlySeen = new(StringComparer.OrdinalIgnoreCase);
     private readonly ILogger _logger = logger;
-    private readonly string _apiKey = sourcesConfig.Value.Providers.Bitails.Connection.ApiKey;
     private int _handledMessages;
 
     public async Task RunAsync(CancellationToken cancellationToken)
@@ -75,7 +74,8 @@ public sealed class BitailsRealtimeIngestRunner(
                         activeConnection = null;
                     }
 
-                    activeConnection = await realtimeIngestClient.ConnectAsync(scope.TransportPlan, _apiKey, cancellationToken);
+                    var bitailsSettings = await providerSettingsAccessor.GetBitailsAsync(cancellationToken);
+                    activeConnection = await realtimeIngestClient.ConnectAsync(scope.TransportPlan, bitailsSettings.ApiKey, cancellationToken);
                     activeSubscription = activeConnection.Transactions
                         .Subscribe(notification => _ = HandleNotificationAsync(notification, cancellationToken));
                     activeScope = scope;

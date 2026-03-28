@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -12,6 +13,7 @@ using Dxs.Common.Exceptions;
 using Dxs.Common.Extensions;
 using Dxs.Common.Utils;
 using Dxs.Infrastructure.Bitails.Dto;
+using Dxs.Infrastructure.Common;
 
 using Polly;
 
@@ -24,65 +26,66 @@ namespace Dxs.Infrastructure.Bitails;
 public class BitailsRestApiClient : IBitailsRestApiClient
 {
     private const int HistoryMaxCount = 5000;
-
-    private readonly HttpClient _client;
-
     private static readonly TimeLimiter RateLimiter = TimeLimiter.GetFromMaxCountByInterval(10, TimeSpan.FromSeconds(1));
-
-    public BitailsRestApiClient(HttpClient client)
-    {
-        _client = client;
-        _client.BaseAddress = new Uri("https://api.bitails.io/");
-        _client.Timeout = TimeSpan.FromSeconds(15);
-    }
+    private readonly HttpClient _client;
+    private readonly IExternalChainProviderSettingsAccessor _providerSettingsAccessor;
 
     public static IAsyncPolicy<HttpResponseMessage> HttpPolicy { get; } = Policy<HttpResponseMessage>
         .Handle<HttpRequestException>(e => e.InnerException is AuthenticationException or IOException)
         .RetryAsync(2);
 
+    public BitailsRestApiClient(HttpClient client, IExternalChainProviderSettingsAccessor providerSettingsAccessor)
+    {
+        _client = client;
+        _providerSettingsAccessor = providerSettingsAccessor;
+        _client.Timeout = TimeSpan.FromSeconds(15);
+    }
+
     public async Task<HistoryPage> GetHistoryPageAsync(string address, string pgKey, int limit, CancellationToken token)
     {
         await RateLimiter;
 
-        // Bitails has an issue if more than max limit is requested
         limit = Math.Min(limit, HistoryMaxCount);
-
         var query = new QueryBuilder
         {
             { "pgkey", pgKey },
             { "limit", limit }
         };
 
-        return await _client.GetOrThrowAsync<HistoryPage>($"address/{address}/history?{query}", token);
+        return await _client.GetOrThrowAsync<HistoryPage>(
+            await BuildUrlAsync($"address/{address}/history?{query}", token),
+            headers: await BuildHeadersAsync(token),
+            validateModel: true,
+            token: token);
     }
 
     public async Task<AddressDetailsDto> GetAddressDetailsAsync(string address, CancellationToken token = default)
     {
         await RateLimiter;
-
-        return await _client.GetOrThrowAsync<AddressDetailsDto>($"address/{address}/details", token);
+        return await _client.GetOrThrowAsync<AddressDetailsDto>(
+            await BuildUrlAsync($"address/{address}/details", token),
+            headers: await BuildHeadersAsync(token),
+            validateModel: true,
+            token: token);
     }
 
     public async Task<BroadcastResponseDto> Broadcast(string txHex, CancellationToken token = default)
     {
         await RateLimiter;
-
         return await _client.PostOrThrowAsync<BroadcastResponseDto>(
-            "tx/broadcast",
+            await BuildUrlAsync("tx/broadcast", token),
             new { raw = txHex },
-            token
-        );
+            await BuildHeadersAsync(token),
+            token);
     }
 
-    // https://api.bitails.io/swagger/static/index.html#/Transaction/ApiTransactionController_get
     public async Task<bool> IsBroadcastedAsync(string txId, CancellationToken token = default)
     {
         await RateLimiter;
 
-        var httpResponse = await _client.SendAsync(
-            new HttpRequestMessage(HttpMethod.Get, $"download/tx/{txId}"),
-            HttpCompletionOption.ResponseHeadersRead, token
-        );
+        var message = new HttpRequestMessage(HttpMethod.Get, await BuildUrlAsync($"download/tx/{txId}", token));
+        ApplyHeaders(message, await BuildHeadersAsync(token));
+        var httpResponse = await _client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token);
 
         return httpResponse switch
         {
@@ -96,38 +99,74 @@ public class BitailsRestApiClient : IBitailsRestApiClient
     {
         await RateLimiter;
 
-        var message = new HttpRequestMessage(HttpMethod.Get, $"download/tx/{txId}");
-        var httpResponse = await _client.SendAsync(
-            message,
-            HttpCompletionOption.ResponseHeadersRead,
-            token
-        );
+        var message = new HttpRequestMessage(HttpMethod.Get, await BuildUrlAsync($"download/tx/{txId}", token));
+        ApplyHeaders(message, await BuildHeadersAsync(token));
+        var httpResponse = await _client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token);
 
         return httpResponse switch
         {
             { StatusCode: HttpStatusCode.NotFound } => null,
-            _ => await httpResponse.Content.ReadAsByteArrayAsync(token) //..ReadContentOrThrowAsync<string>(cancellationToken: token),
+            _ => await httpResponse.Content.ReadAsByteArrayAsync(token)
         };
     }
 
     public async Task<TransactionDetailsDto> GetTransactionDetails(string txId, CancellationToken token = default)
     {
         await RateLimiter;
-
-        return await _client.GetOrThrowAsync<TransactionDetailsDto>($"tx/{txId}", token);
+        return await _client.GetOrThrowAsync<TransactionDetailsDto>(
+            await BuildUrlAsync($"tx/{txId}", token),
+            headers: await BuildHeadersAsync(token),
+            validateModel: true,
+            token: token);
     }
 
     public async Task<OutputDetailsDto> GetOutputDetails(string txId, int vout, CancellationToken token = default)
     {
         await RateLimiter;
-
-        return await _client.GetOrThrowAsync<OutputDetailsDto>($"tx/{txId}/output/{vout}", token);
+        return await _client.GetOrThrowAsync<OutputDetailsDto>(
+            await BuildUrlAsync($"tx/{txId}/output/{vout}", token),
+            headers: await BuildHeadersAsync(token),
+            validateModel: true,
+            token: token);
     }
 
     public async Task<TokenDetailsDto> GetTokenDetails(string tokenId, string symbol, CancellationToken token = default)
     {
         await RateLimiter;
+        return await _client.GetOrThrowAsync<TokenDetailsDto>(
+            await BuildUrlAsync($"token/{tokenId}/symbol/{symbol}", token),
+            headers: await BuildHeadersAsync(token),
+            validateModel: true,
+            token: token);
+    }
 
-        return await _client.GetOrThrowAsync<TokenDetailsDto>($"token/{tokenId}/symbol/{symbol}", token);
+    private async Task<string> BuildUrlAsync(string relativePath, CancellationToken cancellationToken)
+    {
+        var settings = await _providerSettingsAccessor.GetBitailsAsync(cancellationToken);
+        var baseUrl = string.IsNullOrWhiteSpace(settings.BaseUrl)
+            ? "https://api.bitails.io"
+            : settings.BaseUrl.Trim().TrimEnd('/');
+        return $"{baseUrl}/{relativePath.TrimStart('/')}";
+    }
+
+    private async Task<Dictionary<string, string>> BuildHeadersAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _providerSettingsAccessor.GetBitailsAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(settings.ApiKey))
+            return null;
+
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["apikey"] = settings.ApiKey
+        };
+    }
+
+    private static void ApplyHeaders(HttpRequestMessage request, IReadOnlyDictionary<string, string> headers)
+    {
+        if (headers is null)
+            return;
+
+        foreach (var header in headers)
+            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
     }
 }
