@@ -162,8 +162,30 @@ export class ProvidersStore {
       this.draft = null;
       return;
     }
-
-    this.draft = structuredClone(this.snapshot.config.effective);
+    const e = this.snapshot.config.effective;
+    // Use explicit field mapping instead of structuredClone to guard against
+    // backend returning null for nested provider objects.
+    this.draft = {
+      realtimePrimaryProvider: e.realtimePrimaryProvider ?? "",
+      restPrimaryProvider: e.restPrimaryProvider ?? "",
+      bitailsTransport: e.bitailsTransport ?? "",
+      bitails: {
+        apiKey: e.bitails?.apiKey ?? "",
+        baseUrl: e.bitails?.baseUrl ?? "",
+        websocketBaseUrl: e.bitails?.websocketBaseUrl ?? "",
+        zmqTxUrl: e.bitails?.zmqTxUrl ?? "",
+        zmqBlockUrl: e.bitails?.zmqBlockUrl ?? "",
+      },
+      whatsonchain: {
+        apiKey: e.whatsonchain?.apiKey ?? "",
+        baseUrl: e.whatsonchain?.baseUrl ?? "",
+      },
+      junglebus: {
+        baseUrl: e.junglebus?.baseUrl ?? "",
+        mempoolSubscriptionId: e.junglebus?.mempoolSubscriptionId ?? "",
+        blockSubscriptionId: e.junglebus?.blockSubscriptionId ?? "",
+      },
+    };
   }
 }
 

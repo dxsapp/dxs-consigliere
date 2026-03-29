@@ -8,8 +8,6 @@ import type {
   UntrackResult,
   Finding,
   DashboardSummary,
-  AdminRuntimeSources,
-  AdminRealtimeSourcePolicyUpdateRequest,
   AdminProvidersResponse,
   AdminProviderConfigUpdateRequest,
   AddressManageRequest,
@@ -116,14 +114,6 @@ export const dashboardApi = {
   syncStatus: () => get<unknown>("/api/admin/blockchain/sync-status"),
   cacheStatus: () => get<unknown>("/api/admin/cache/status"),
   storageStatus: () => get<unknown>("/api/admin/storage/status"),
-};
-
-export const runtimeSourcesApi = {
-  get: () => get<AdminRuntimeSources>("/api/admin/runtime/sources"),
-  updateRealtimePolicy: (body: AdminRealtimeSourcePolicyUpdateRequest) =>
-    request<AdminRuntimeSources>("PUT", "/api/admin/runtime/sources/realtime-policy", body),
-  resetRealtimePolicy: () =>
-    request<AdminRuntimeSources>("DELETE", "/api/admin/runtime/sources/realtime-policy"),
 };
 
 export const providersApi = {

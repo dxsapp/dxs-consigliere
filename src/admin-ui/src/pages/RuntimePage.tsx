@@ -65,7 +65,6 @@ export const RuntimePage = observer(function RuntimePage() {
           <JsonPanel title="Cache Status (admin)" data={store.adminCacheStatus} />
           <JsonPanel title="Providers (ops)" data={store.providers} />
           <JsonPanel title="Cache Detail (ops)" data={store.opsCache} />
-          <JsonPanel title="Storage Detail (ops)" data={store.opsStorage} />
         </Stack>
       )}
     </Box>

@@ -135,13 +135,43 @@ export const ProvidersPage = observer(function ProvidersPage() {
 
   const effectiveDiff = useMemo(() => {
     if (!config || !draft) return [];
+    const e = config.effective;
     const diffs: string[] = [];
-    if (draft.realtimePrimaryProvider !== config.effective.realtimePrimaryProvider)
-      diffs.push(`Realtime: ${config.effective.realtimePrimaryProvider} → ${draft.realtimePrimaryProvider}`);
-    if (draft.restPrimaryProvider !== config.effective.restPrimaryProvider)
-      diffs.push(`REST: ${config.effective.restPrimaryProvider} → ${draft.restPrimaryProvider}`);
-    if (draft.bitailsTransport !== config.effective.bitailsTransport)
-      diffs.push(`Bitails transport: ${config.effective.bitailsTransport} → ${draft.bitailsTransport}`);
+
+    // Selector fields — show from→to
+    if (draft.realtimePrimaryProvider !== e.realtimePrimaryProvider)
+      diffs.push(`Realtime: ${e.realtimePrimaryProvider} → ${draft.realtimePrimaryProvider}`);
+    if (draft.restPrimaryProvider !== e.restPrimaryProvider)
+      diffs.push(`REST: ${e.restPrimaryProvider} → ${draft.restPrimaryProvider}`);
+    if (draft.bitailsTransport !== e.bitailsTransport)
+      diffs.push(`Bitails transport: ${e.bitailsTransport} → ${draft.bitailsTransport}`);
+
+    // Bitails connection fields — show label only (no value leak for secrets)
+    if (draft.bitails.apiKey !== (e.bitails?.apiKey ?? ""))
+      diffs.push("Bitails API key: changed");
+    if (draft.bitails.baseUrl !== (e.bitails?.baseUrl ?? ""))
+      diffs.push(`Bitails REST URL: ${draft.bitails.baseUrl || "cleared"}`);
+    if (draft.bitails.websocketBaseUrl !== (e.bitails?.websocketBaseUrl ?? ""))
+      diffs.push(`Bitails WS URL: ${draft.bitails.websocketBaseUrl || "cleared"}`);
+    if (draft.bitails.zmqTxUrl !== (e.bitails?.zmqTxUrl ?? ""))
+      diffs.push(`Bitails ZMQ tx URL: ${draft.bitails.zmqTxUrl || "cleared"}`);
+    if (draft.bitails.zmqBlockUrl !== (e.bitails?.zmqBlockUrl ?? ""))
+      diffs.push(`Bitails ZMQ block URL: ${draft.bitails.zmqBlockUrl || "cleared"}`);
+
+    // WhatsOnChain fields
+    if (draft.whatsonchain.apiKey !== (e.whatsonchain?.apiKey ?? ""))
+      diffs.push("WhatsOnChain API key: changed");
+    if (draft.whatsonchain.baseUrl !== (e.whatsonchain?.baseUrl ?? ""))
+      diffs.push(`WhatsOnChain base URL: ${draft.whatsonchain.baseUrl || "cleared"}`);
+
+    // JungleBus fields
+    if (draft.junglebus.baseUrl !== (e.junglebus?.baseUrl ?? ""))
+      diffs.push(`JungleBus base URL: ${draft.junglebus.baseUrl || "cleared"}`);
+    if (draft.junglebus.mempoolSubscriptionId !== (e.junglebus?.mempoolSubscriptionId ?? ""))
+      diffs.push("JungleBus mempool subscription ID: changed");
+    if (draft.junglebus.blockSubscriptionId !== (e.junglebus?.blockSubscriptionId ?? ""))
+      diffs.push("JungleBus block subscription ID: changed");
+
     return diffs;
   }, [config, draft]);
 
@@ -350,12 +380,31 @@ export const ProvidersPage = observer(function ProvidersPage() {
                 </Stack>
               </CardContent>
               <CardActions sx={{ px: 3, pb: 3, pt: 0, display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-                <Button variant="contained" disabled={!store.hasDraftChanges || store.saving || store.resetting} onClick={() => setApplyOpen(true)}>
-                  {store.saving ? "Saving…" : "Apply configuration"}
-                </Button>
-                <Button variant="outlined" color="inherit" disabled={!config.overrideActive || store.saving || store.resetting} onClick={() => setResetOpen(true)}>
-                  {store.resetting ? "Resetting…" : "Reset to static"}
-                </Button>
+                <Tooltip title={!store.hasDraftChanges ? "No changes from current configuration" : ""}>
+                  <span>
+                    <Button
+                      variant="contained"
+                      disabled={!store.hasDraftChanges || store.saving || store.resetting}
+                      startIcon={store.saving ? <CircularProgress size={14} color="inherit" /> : undefined}
+                      onClick={() => setApplyOpen(true)}
+                    >
+                      {store.saving ? "Saving…" : "Apply configuration"}
+                    </Button>
+                  </span>
+                </Tooltip>
+                <Tooltip title={!config.overrideActive ? "No active override to reset" : ""}>
+                  <span>
+                    <Button
+                      variant="outlined"
+                      color="inherit"
+                      disabled={!config.overrideActive || store.saving || store.resetting}
+                      startIcon={store.resetting ? <CircularProgress size={14} color="inherit" /> : undefined}
+                      onClick={() => setResetOpen(true)}
+                    >
+                      {store.resetting ? "Resetting…" : "Reset to static"}
+                    </Button>
+                  </span>
+                </Tooltip>
               </CardActions>
             </Card>
           )}
