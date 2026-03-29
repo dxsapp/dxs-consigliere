@@ -98,8 +98,6 @@ public class TransactionFilter : ITransactionFilter
     {
         try
         {
-            await _txObservationSink.RecordAsync(message, _cts.Token);
-
             switch (message.MessageType)
             {
                 case TxMessage.Type.FoundInBlock:
@@ -140,7 +138,9 @@ public class TransactionFilter : ITransactionFilter
 
             _logger.LogDebug("{TransactionId} processed with status {Status:G}", transaction.Id, status);
 
-            var txMessage = new FilteredTransactionMessage(transaction, match.Addresses);
+            await _txObservationSink.RecordAsync(message, _cts.Token);
+
+            var txMessage = new FilteredTransactionMessage(transaction, match.Addresses, message);
 
             _filteredTransactionMessageBus.Post(txMessage);
         }

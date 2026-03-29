@@ -4,8 +4,21 @@ using Dxs.Bsv.Models;
 
 namespace Dxs.Bsv.BitcoinMonitor.Models;
 
-public readonly struct FilteredTransactionMessage(Transaction transaction, HashSet<string> addresses)
+public readonly struct FilteredTransactionMessage
 {
-    public Transaction Transaction { get; } = transaction;
-    public HashSet<string> Addresses { get; } = addresses;
+    public FilteredTransactionMessage(Transaction transaction, HashSet<string> addresses)
+        : this(transaction, addresses, default)
+    {
+    }
+
+    public FilteredTransactionMessage(Transaction transaction, HashSet<string> addresses, TxMessage sourceMessage)
+    {
+        Transaction = transaction;
+        Addresses = addresses;
+        SourceMessage = sourceMessage;
+    }
+
+    public Transaction Transaction { get; }
+    public HashSet<string> Addresses { get; }
+    public TxMessage SourceMessage { get; }
 }

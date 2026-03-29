@@ -16,7 +16,7 @@ using Microsoft.Extensions.Options;
 namespace Dxs.Consigliere.BackgroundTasks;
 
 public sealed class TxObservationJournalMirrorBackgroundTask(
-    ITxMessageBus txMessageBus,
+    IFilteredTransactionMessageBus filteredTransactionMessageBus,
     TxObservationJournalWriter journalWriter,
     IOptions<AppConfig> appConfig,
     ILogger<TxObservationJournalMirrorBackgroundTask> logger
@@ -24,16 +24,16 @@ public sealed class TxObservationJournalMirrorBackgroundTask(
 {
     private readonly CancellationTokenSource _cts = new();
     private IDisposable _txSubscription;
-    private IAgent<TxMessage> _messageHandler;
+    private IAgent<FilteredTransactionMessage> _messageHandler;
 
     public string Name => nameof(TxObservationJournalMirrorBackgroundTask);
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _messageHandler ??= Agent.Start<TxMessage>(HandleAsync, _cts);
-        _txSubscription ??= txMessageBus.Subscribe(
+        _messageHandler ??= Agent.Start<FilteredTransactionMessage>(HandleAsync, _cts);
+        _txSubscription ??= filteredTransactionMessageBus.Subscribe(
             message => _messageHandler.Post(message),
-            exception => logger.LogError(exception, "Failed to mirror tx message to observation journal")
+            exception => logger.LogError(exception, "Failed to mirror filtered tx message to observation journal")
         );
 
         return Task.CompletedTask;
@@ -55,21 +55,27 @@ public sealed class TxObservationJournalMirrorBackgroundTask(
         _cts.Dispose();
     }
 
-    private async Task HandleAsync(TxMessage message)
+    private async Task HandleAsync(FilteredTransactionMessage message)
     {
         try
         {
             if (VNextCutoverMode.IsJournalFirst(appConfig.Value.VNextRuntime.CutoverMode))
                 return;
 
-            await journalWriter.AppendAsync(message, _cts.Token);
+            if (string.IsNullOrWhiteSpace(message.SourceMessage.TxId))
+            {
+                logger.LogWarning("Skipping filtered tx journal mirror write because source observation metadata is missing");
+                return;
+            }
+
+            await journalWriter.AppendAsync(message.SourceMessage, _cts.Token);
         }
         catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
         }
         catch (Exception exception)
         {
-            logger.LogError(exception, "Failed to mirror tx message {TxId} from {Source}", message.TxId, message.Source);
+            logger.LogError(exception, "Failed to mirror filtered tx message {TxId} from {Source}", message.SourceMessage.TxId, message.SourceMessage.Source);
         }
     }
 }

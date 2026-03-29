@@ -20,16 +20,22 @@ public class TxObservationJournalMirrorBackgroundTaskTests
     [Fact]
     public async Task MirrorsMempoolAndBlockObservationsWithPayloadReferences()
     {
-        var txMessageBus = new TxMessageBus();
+        var filteredBus = new FilteredTransactionMessageBus();
         var journal = new FakeObservationJournal(expectedCount: 2);
         var payloadStore = new FakeRawTransactionPayloadStore();
-        var task = CreateTask(txMessageBus, journal, payloadStore);
+        var task = CreateTask(filteredBus, journal, payloadStore);
 
         await task.StartAsync(CancellationToken.None);
 
         var tx = Transaction.Parse(GetSampleTransactionHex(), Network.Mainnet);
-        txMessageBus.Post(TxMessage.AddedToMempool(tx, 1_710_000_000, TxObservationSource.Node));
-        txMessageBus.Post(TxMessage.FoundInBlock(tx, 1_710_000_100, TxObservationSource.JungleBus, "block-hash", 123, 4));
+        filteredBus.Post(new FilteredTransactionMessage(
+            tx,
+            [],
+            TxMessage.AddedToMempool(tx, 1_710_000_000, TxObservationSource.Node)));
+        filteredBus.Post(new FilteredTransactionMessage(
+            tx,
+            [],
+            TxMessage.FoundInBlock(tx, 1_710_000_100, TxObservationSource.JungleBus, "block-hash", 123, 4)));
 
         await journal.WaitForCountAsync(2);
 
@@ -53,36 +59,12 @@ public class TxObservationJournalMirrorBackgroundTaskTests
     }
 
     [Fact]
-    public async Task IgnoresIncludedInBlockRemovalButMirrorsOtherDrops()
-    {
-        var txMessageBus = new TxMessageBus();
-        var journal = new FakeObservationJournal(expectedCount: 1);
-        var task = CreateTask(txMessageBus, journal, new FakeRawTransactionPayloadStore());
-
-        await task.StartAsync(CancellationToken.None);
-
-        txMessageBus.Post(TxMessage.RemovedFromMempool("included", TxObservationSource.Node, RemoveFromMempoolReason.IncludedInBlock));
-        txMessageBus.Post(TxMessage.RemovedFromMempool("dropped", TxObservationSource.Node, RemoveFromMempoolReason.Reorg));
-
-        await journal.WaitForCountAsync(1);
-
-        var request = Assert.Single(journal.Requests);
-        Assert.Equal(TxObservationEventType.DroppedBySource, request.Observation.Observation.EventType);
-        Assert.Equal("dropped", request.Observation.Observation.TxId);
-        Assert.Equal(nameof(RemoveFromMempoolReason.Reorg), request.Observation.Observation.RemoveReason);
-        Assert.Equal($"node|{TxObservationEventType.DroppedBySource}|dropped", request.Fingerprint.Value);
-
-        await task.StopAsync(CancellationToken.None);
-        task.Dispose();
-    }
-
-    [Fact]
     public async Task SkipsMirrorWritesWhenJournalFirstModeIsEnabled()
     {
-        var txMessageBus = new TxMessageBus();
+        var filteredBus = new FilteredTransactionMessageBus();
         var journal = new FakeObservationJournal(expectedCount: 1);
         var task = CreateTask(
-            txMessageBus,
+            filteredBus,
             journal,
             new FakeRawTransactionPayloadStore(),
             cutoverMode: VNextCutoverMode.ShadowRead
@@ -91,7 +73,10 @@ public class TxObservationJournalMirrorBackgroundTaskTests
         await task.StartAsync(CancellationToken.None);
 
         var tx = Transaction.Parse(GetSampleTransactionHex(), Network.Mainnet);
-        txMessageBus.Post(TxMessage.AddedToMempool(tx, 1_710_000_000, TxObservationSource.Node));
+        filteredBus.Post(new FilteredTransactionMessage(
+            tx,
+            [],
+            TxMessage.AddedToMempool(tx, 1_710_000_000, TxObservationSource.Node)));
 
         await Task.Delay(250);
 
@@ -105,13 +90,13 @@ public class TxObservationJournalMirrorBackgroundTaskTests
         => "0100000001c6f4b6176d3f4d6c6d9e198ba89a4eb7a1b08e6a705cc8cf0f8f2f3e3bcedf1f000000006b4830450221009af2d63b8ef3ebf8c7a227327d8e1a89f5929087566bbb6d6f74a09a87e2375d022007f8cefa32f6d829bb3f8792dd11e5d8f1cb4e4f4f84f7a8d431fed0b8ff103a4121022b698a0f0a1f1fb43fb8f33c2d72cbe7f3f8d98ef1a304681140f64e5681970fffffffff02e8030000000000001976a91489abcdefabbaabbaabbaabbaabbaabbaabbaabba88ac0000000000000000066a040102030400000000";
 
     private static TxObservationJournalMirrorBackgroundTask CreateTask(
-        TxMessageBus txMessageBus,
+        FilteredTransactionMessageBus filteredBus,
         FakeObservationJournal journal,
         FakeRawTransactionPayloadStore payloadStore,
         string cutoverMode = VNextCutoverMode.Legacy
     )
         => new(
-            txMessageBus,
+            filteredBus,
             new TxObservationJournalWriter(
                 journal,
                 payloadStore,
