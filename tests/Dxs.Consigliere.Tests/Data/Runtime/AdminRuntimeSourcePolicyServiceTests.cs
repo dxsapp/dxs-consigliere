@@ -131,6 +131,7 @@ public class AdminRuntimeSourcePolicyServiceTests
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus);
         Assert.Contains(result.Providers, x => x.ProviderId == SourceCapabilityRouting.NodeProvider);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus && x.RecommendedFor.Contains("raw_tx_fetch"));
+        Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.Bitails && !x.MissingRequirements.Contains("bitails_api_key_required"));
     }
 
     private static AdminProviderConfigService CreateService(

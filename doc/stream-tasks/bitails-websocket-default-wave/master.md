@@ -45,12 +45,12 @@ Out of scope:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `BW1` | `repo-governance` | `operator/docs` | `todo` | - | docs review | docs describe Bitails websocket as default-on without overstating guarantees |
-| `BW2` | `platform-config-surface` | `operator/config` | `todo` | `BW1` | example review | config examples no longer imply Bitails API key is mandatory for websocket startup |
-| `BW3` | `public-api-and-realtime` | `operator/api` | `todo` | `BW1` | focused tests | provider catalog and missing-requirements semantics reflect optional-key websocket onboarding |
-| `BW4` | `frontend-admin-shell` | `operator/ui` | `todo` | `BW3` | frontend build | Providers page explains default-on Bitails websocket and optional key clearly |
-| `BW5` | `verification-and-conformance` | `operator/verification` | `todo` | `BW2`,`BW3`,`BW4` | focused proof | backend/frontend proof confirms the new onboarding posture |
-| `BW6` | `repo-governance` | `operator/governance` | `todo` | `BW5` | closeout docs | wave ledger and closeout state exactly what changed and what did not |
+| `BW1` | `repo-governance` | `operator/docs` | `done` | - | docs review | docs describe Bitails websocket as default-on without overstating guarantees |
+| `BW2` | `platform-config-surface` | `operator/config` | `done` | `BW1` | example review | config examples no longer imply Bitails API key is mandatory for websocket startup |
+| `BW3` | `public-api-and-realtime` | `operator/api` | `done` | `BW1` | focused tests | provider catalog and missing-requirements semantics reflect optional-key websocket onboarding |
+| `BW4` | `frontend-admin-shell` | `operator/ui` | `done` | `BW3` | frontend build | Providers page explains default-on Bitails websocket and optional key clearly |
+| `BW5` | `verification-and-conformance` | `operator/verification` | `done` | `BW2`,`BW3`,`BW4` | focused proof | backend/frontend proof confirms the new onboarding posture |
+| `BW6` | `repo-governance` | `operator/governance` | `done` | `BW5` | closeout docs | wave ledger and closeout state exactly what changed and what did not |
 
 ## Definition of Done
 
@@ -59,3 +59,16 @@ Out of scope:
 - admin UI explains the optional-key posture clearly
 - config examples do not contradict the new onboarding story
 - no false guarantee about unlimited websocket usage is introduced
+
+## Validation Summary
+
+- `pnpm typecheck`
+- `pnpm build`
+- `dotnet test /Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dxs.Consigliere.Tests.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~AdminProvidersControllerTests|FullyQualifiedName~AdminRuntimeSourcePolicyServiceTests"`
+- `dotnet build /Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Dxs.Consigliere.csproj -c Release -p:UseAppHost=false`
+
+## Residuals
+
+- This wave changes onboarding posture, examples, and provider-card semantics only.
+- Runtime routing defaults were not rewritten here.
+- No formal unlimited websocket SLA claim is made for Bitails.

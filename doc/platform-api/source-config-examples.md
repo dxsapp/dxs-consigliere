@@ -13,6 +13,7 @@ Admin-shell note:
 - the dedicated `/providers` page may persist a bounded operator override for realtime provider, REST provider, Bitails transport, and provider-specific connection fields
 - static examples here remain the deployment baseline; admin overrides do not rewrite these files
 - product messaging may recommend `JungleBus / GorillaPool` for practical raw transaction fetch even when `WhatsOnChain` remains the easy REST fallback default
+- for `Bitails websocket` onboarding, examples intentionally omit `connection.apiKey` unless the scenario is explicitly about paid or higher-limit provider usage
 
 The repository is AI-first, so the examples prefer:
 - stable key names
@@ -173,7 +174,6 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
           ],
           "connection": {
             "baseUrl": "https://api.bitails.io",
-            "apiKey": "replace-me",
             "transport": "websocket"
           }
         },
@@ -297,7 +297,6 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           ],
           "connection": {
             "baseUrl": "https://api.bitails.io",
-            "apiKey": "replace-me",
             "transport": "websocket"
           }
         },
@@ -380,7 +379,6 @@ Future config work should support a shape like:
   "bitails": {
     "connection": {
       "baseUrl": "https://api.bitails.io",
-      "apiKey": "replace-me",
       "transport": "websocket",
       "websocket": {
         "baseUrl": "wss://socket.bitails.io"
@@ -396,6 +394,7 @@ Future config work should support a shape like:
 
 Interpretation:
 - `transport = websocket` is the default provider-first realtime posture
+- `connection.apiKey` is optional for first-run websocket onboarding and becomes an upgrade field for paid or higher-limit usage
 - `transport = zmq` is a future advanced option for operators who want Bitails-backed node-adjacent subscriptions
 - `junglebus` remains an advanced/manual source choice, not the baseline managed realtime path
 

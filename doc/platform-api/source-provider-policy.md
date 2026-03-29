@@ -37,6 +37,9 @@ The intended model is:
 - avoid pretending that a broad external firehose is the default operational shape
 - keep the entry barrier low for self-hosted operators who do not want to run a full node on day one
 
+Official Bitails websocket examples are shown without an API key.
+`Consigliere` should therefore present Bitails websocket as the default first-run path with API key optional at start, while still treating a key as the paid or higher-limit upgrade path.
+
 ## Why JungleBus Is Advanced
 
 `junglebus` remains useful, but it is not the baseline source for managed realtime ingest.

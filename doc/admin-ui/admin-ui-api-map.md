@@ -238,6 +238,7 @@ Semantics:
   - realtime = `bitails`
   - REST = `whatsonchain`
   - raw tx = `junglebus`
+- for the default Bitails websocket onboarding path, `bitails.apiKey` is optional and should not be treated as a required field by the UI
 - `static` = values from static config only
 - `override` = persisted operator override only, or `null` when none exists
 - `effective` = static config plus operator override
@@ -269,6 +270,10 @@ Allowed values in v1:
 - `realtimePrimaryProvider`: `bitails | junglebus | node`
 - `restPrimaryProvider`: `whatsonchain | bitails`
 - `bitailsTransport`: `websocket | zmq`
+
+Request semantics:
+- `bitails.apiKey` stays optional when `bitailsTransport=websocket`
+- `bitails.apiKey` may still be supplied for paid or higher-limit provider usage
 
 Responses:
 - `200` with the same payload shape as `GET /api/admin/providers`

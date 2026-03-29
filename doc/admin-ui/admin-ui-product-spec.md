@@ -98,10 +98,11 @@ It is not a consumer product, wallet UI, or universal explorer.
 ### Providers Page
 
 - show recommended defaults explicitly:
-  - realtime = `Bitails`
+  - realtime = `Bitails websocket`
   - REST = `WhatsOnChain`
 - show recommended practical raw transaction source explicitly:
   - raw tx = `JungleBus / GorillaPool`
+- make it obvious that `Bitails` API key is optional for first-run websocket onboarding and becomes an upgrade field for paid or higher-limit usage
 - show static vs override vs effective provider setup side by side
 - show provider catalog cards for:
   - `Bitails`

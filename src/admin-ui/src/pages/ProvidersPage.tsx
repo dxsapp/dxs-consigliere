@@ -220,7 +220,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.25 }}>Recommended setup</Typography>
                       <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        Start with Bitails for managed realtime ingest, JungleBus / GorillaPool for practical raw transaction fetches, and WhatsOnChain as the easy REST fallback/onboarding path. ZMQ remains an advanced infrastructure option.
+                        Start with Bitails websocket for managed realtime ingest without requiring an API key on day one, use JungleBus / GorillaPool for practical raw transaction fetches, and keep WhatsOnChain as the easy REST fallback/onboarding path. ZMQ remains an advanced infrastructure option.
                       </Typography>
                     </Box>
                     <Chip size="small" label={config.overrideActive ? "Override Active" : "Static Only"} color={config.overrideActive ? "warning" : "default"} variant={config.overrideActive ? "filled" : "outlined"} />
@@ -341,6 +341,9 @@ export const ProvidersPage = observer(function ProvidersPage() {
                       <CardContent>
                         <Stack spacing={1.5}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Bitails</Typography>
+                          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                            Websocket is the default-on onboarding path. Leave the API key blank for first-run websocket use, then add one later if you need paid or higher-limit provider usage.
+                          </Typography>
                           <TextField size="small" label="API key" value={draft.bitails.apiKey} onChange={(e) => store.setBitailsField("apiKey", e.target.value)} />
                           <TextField size="small" label="REST base URL" value={draft.bitails.baseUrl} onChange={(e) => store.setBitailsField("baseUrl", e.target.value)} />
                           <TextField size="small" label="Websocket base URL" value={draft.bitails.websocketBaseUrl} onChange={(e) => store.setBitailsField("websocketBaseUrl", e.target.value)} />
