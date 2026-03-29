@@ -44,11 +44,11 @@ That means the docs and UI may recommend `JungleBus / GorillaPool` as the best p
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `RT1` | `repo-governance` | `operator/docs` | `todo` | - | docs inventory | all misleading raw-tx recommendations are located |
-| `RT2` | `platform-product-surface` | `operator/product` | `todo` | `RT1` | docs review | product wording is updated to position JungleBus raw-tx correctly |
-| `RT3` | `frontend-admin-shell` | `operator/ui` | `todo` | `RT2` | frontend build | Providers page copy and catalog wording reflect new positioning |
-| `RT4` | `public-api-and-realtime` | `operator/api` | `todo` | `RT2` | focused tests | optional bounded provider-catalog metadata update lands if needed |
-| `RT5` | `repo-governance` | `operator/governance` | `todo` | `RT3`,`RT4` | closeout docs | wave ledger and closeout reflect honest residuals |
+| `RT1` | `repo-governance` | `operator/docs` | `done` | - | docs inventory | all misleading raw-tx recommendations are located |
+| `RT2` | `platform-product-surface` | `operator/product` | `done` | `RT1` | docs review | product wording is updated to position JungleBus raw-tx correctly |
+| `RT3` | `frontend-admin-shell` | `operator/ui` | `done` | `RT2` | frontend build | Providers page copy and catalog wording reflect new positioning |
+| `RT4` | `public-api-and-realtime` | `operator/api` | `done` | `RT2` | focused tests | optional bounded provider-catalog metadata update lands if needed |
+| `RT5` | `repo-governance` | `operator/governance` | `done` | `RT3`,`RT4` | closeout docs | wave ledger and closeout reflect honest residuals |
 
 ## Recommended Scope
 
@@ -63,3 +63,17 @@ Only broaden into runtime default changes if there is an explicit product decisi
 - `Bitails` remains the clear realtime recommendation
 - `WhatsOnChain` remains positioned as simple REST fallback/onboarding
 - no unnecessary routing churn was introduced
+
+## Validation Summary
+
+Validated during closeout:
+- `cd /Users/imighty/Code/dxs-consigliere/src/admin-ui && pnpm typecheck && pnpm build`
+- `dotnet test /Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dxs.Consigliere.Tests.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~AdminProvidersControllerTests|FullyQualifiedName~AdminRuntimeSourcePolicyServiceTests"`
+- `dotnet build /Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Dxs.Consigliere.csproj -c Release -p:UseAppHost=false`
+
+## Honest Residuals
+
+- this wave updated product messaging and provider-catalog metadata only
+- `WhatsOnChain` remains the recommended REST default even though it is no longer presented as the preferred raw transaction source
+- runtime `raw_tx_fetch` routing defaults were not changed in this wave
+- no claim is made here about formal unlimited JungleBus SLA; the recommendation is based on practical product posture and operator experience

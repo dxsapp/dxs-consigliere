@@ -369,7 +369,7 @@ Likely internal roles:
 Strengths:
 - broad ecosystem familiarity
 - can be useful as an auxiliary assist source
-- wide rate limits are operationally attractive
+- easy REST fallback and onboarding path
 
 Weaknesses:
 - not the preferred core product dependency for authoritative managed state
@@ -380,6 +380,7 @@ Weaknesses:
 Likely internal roles:
 - optional assist lookup
 - degraded fallback
+- easy REST default
 
 ## Decision: Baseline Provider Policy
 
@@ -417,11 +418,15 @@ When operators choose `junglebus`, they are intentionally accepting a broader an
 ## Decision: WhatsOnChain Is REST-Only In Product Policy
 
 Even though `whatsonchain` stays in the provider schema, the product policy treats it as:
-- `raw_tx_fetch`
 - assist lookup
 - degraded fallback
+- easy REST onboarding default
 
 It is not part of the baseline realtime ingest strategy.
+
+For current product messaging:
+- `JungleBus / GorillaPool` is the recommended practical raw transaction fetch path
+- `whatsonchain` remains the simpler REST fallback and onboarding choice
 
 ## Decision: Future Bitails Transport Model Must Leave Room For ZMQ
 

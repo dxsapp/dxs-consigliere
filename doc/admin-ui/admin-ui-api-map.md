@@ -189,6 +189,7 @@ Response shape:
 - `recommendations`
   - `realtimePrimaryProvider`
   - `restPrimaryProvider`
+  - `rawTxFetchProvider`
 - `config`
   - `static`
   - `override`
@@ -236,6 +237,7 @@ Semantics:
 - `recommendations` are the product-level safe defaults:
   - realtime = `bitails`
   - REST = `whatsonchain`
+  - raw tx = `junglebus`
 - `static` = values from static config only
 - `override` = persisted operator override only, or `null` when none exists
 - `effective` = static config plus operator override

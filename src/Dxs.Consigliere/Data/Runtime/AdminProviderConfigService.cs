@@ -18,6 +18,7 @@ public sealed class AdminProviderConfigService(
 {
     private const string RecommendedRealtimeProvider = ExternalChainProviderName.Bitails;
     private const string RecommendedRestProvider = ExternalChainProviderName.WhatsOnChain;
+    private const string RecommendedRawTxProvider = ExternalChainProviderName.JungleBus;
 
     private static readonly string[] CandidateRealtimePrimarySources =
     [
@@ -62,7 +63,8 @@ public sealed class AdminProviderConfigService(
             Recommendations = new AdminProviderRecommendationsResponse
             {
                 RealtimePrimaryProvider = RecommendedRealtimeProvider,
-                RestPrimaryProvider = RecommendedRestProvider
+                RestPrimaryProvider = RecommendedRestProvider,
+                RawTxFetchProvider = RecommendedRawTxProvider
             },
             Config = new AdminProviderConfigResponse
             {
@@ -213,6 +215,7 @@ public sealed class AdminProviderConfigService(
             {
                 ExternalChainProviderName.Bitails => ["realtime"],
                 ExternalChainProviderName.WhatsOnChain => ["rest"],
+                ExternalChainProviderName.JungleBus => ["raw_tx_fetch"],
                 _ => []
             },
             ActiveFor = [.. activeFor],
@@ -225,9 +228,9 @@ public sealed class AdminProviderConfigService(
                         : "not_configured",
             Description = providerId switch
             {
-                ExternalChainProviderName.Bitails => "Recommended managed realtime provider. Supports websocket ingest, ZMQ mode, and provider-backed history/raw transaction access.",
-                ExternalChainProviderName.WhatsOnChain => "Recommended REST default for simple raw transaction and validation fetch flows.",
-                ExternalChainProviderName.JungleBus => "Advanced realtime provider for broader stream scenarios. Best for operators who already understand JungleBus subscription setup.",
+                ExternalChainProviderName.Bitails => "Recommended managed realtime provider. Supports websocket ingest, ZMQ mode, and provider-backed history access.",
+                ExternalChainProviderName.WhatsOnChain => "Recommended REST default for simple fallback and onboarding flows. Keep it as the easy starter path rather than the preferred raw transaction source.",
+                ExternalChainProviderName.JungleBus => "Recommended practical raw transaction source through GorillaPool transaction-get, while remaining an advanced realtime option for operators who already understand JungleBus subscription setup.",
                 _ => string.Empty
             },
             MissingRequirements = missing,

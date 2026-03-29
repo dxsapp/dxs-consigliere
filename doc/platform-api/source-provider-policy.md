@@ -25,6 +25,7 @@ The operator-facing admin shell should mirror this posture explicitly:
 - `/providers` is the onboarding and bounded configuration surface
 - `bitails` should appear as the recommended realtime default
 - `whatsonchain` should appear as the recommended REST default
+- `junglebus / gorillapool` should appear as the recommended practical raw transaction fetch path
 - `junglebus` and `zmq` should be positioned as advanced options, not the first-run path
 
 ## Why Bitails Is The Baseline
@@ -47,23 +48,31 @@ In the current product posture it should be treated as:
 
 It should not be treated as the default runtime-controlled dynamic subscription provider.
 
+It can still be the recommended practical `raw_tx_fetch` path when operators want a strong transaction-get provider without using `WhatsOnChain` as the primary raw transaction dependency.
+
 ## Why WhatsOnChain Stays REST-Only
 
 `whatsonchain` remains useful for:
-- raw transaction fetch
 - degraded fallback lookup
 - assist and fallback historical reads where acceptable
+- easy REST onboarding
 
 It is not part of the baseline realtime ingest strategy.
 
 The product should not model `whatsonchain` as if it were a first-class websocket or selective realtime source.
+
+In current product messaging, `whatsonchain` should be positioned as:
+- the simple REST default
+- an easy fallback and onboarding choice
+- not the preferred raw transaction source when `JungleBus / GorillaPool` is available
 
 ## Current Routing Posture
 
 The intended default posture is:
 - `bitails` for provider-first realtime ingest
 - `bitails` for provider-first historical address and token scans
-- `whatsonchain` as REST-only fallback
+- `junglebus / gorillapool` as the recommended practical raw transaction source
+- `whatsonchain` as REST-only fallback and onboarding default
 - `junglebus` as optional advanced realtime source
 - `node` as the strongest verification and authority path when present
 

@@ -11,6 +11,7 @@ public sealed class AdminProviderRecommendationsResponse
 {
     public string RealtimePrimaryProvider { get; set; }
     public string RestPrimaryProvider { get; set; }
+    public string RawTxFetchProvider { get; set; }
 }
 
 public sealed class AdminProviderConfigResponse

@@ -125,10 +125,12 @@ public class AdminRuntimeSourcePolicyServiceTests
 
         Assert.Equal(ExternalChainProviderName.Bitails, result.Recommendations.RealtimePrimaryProvider);
         Assert.Equal(ExternalChainProviderName.WhatsOnChain, result.Recommendations.RestPrimaryProvider);
+        Assert.Equal(ExternalChainProviderName.JungleBus, result.Recommendations.RawTxFetchProvider);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.Bitails);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.WhatsOnChain);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus);
         Assert.Contains(result.Providers, x => x.ProviderId == SourceCapabilityRouting.NodeProvider);
+        Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus && x.RecommendedFor.Contains("raw_tx_fetch"));
     }
 
     private static AdminProviderConfigService CreateService(

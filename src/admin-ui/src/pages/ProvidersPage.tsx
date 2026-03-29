@@ -183,7 +183,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
             Providers
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-            Ecosystem provider catalog, recommended defaults, and minimal operator configuration for realtime and REST.
+            Ecosystem provider catalog, recommended defaults, and minimal operator configuration for realtime, raw transaction fetch, and REST fallback.
           </Typography>
         </Box>
         <Tooltip title="Refresh">
@@ -220,7 +220,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.25 }}>Recommended setup</Typography>
                       <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                        Start with Bitails for managed realtime ingest and WhatsOnChain for simple REST/raw transaction fetches. JungleBus and ZMQ remain advanced options.
+                        Start with Bitails for managed realtime ingest, JungleBus / GorillaPool for practical raw transaction fetches, and WhatsOnChain as the easy REST fallback/onboarding path. ZMQ remains an advanced infrastructure option.
                       </Typography>
                     </Box>
                     <Chip size="small" label={config.overrideActive ? "Override Active" : "Static Only"} color={config.overrideActive ? "warning" : "default"} variant={config.overrideActive ? "filled" : "outlined"} />
@@ -228,6 +228,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
 
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     <Chip label={`Realtime: ${store.snapshot?.recommendations.realtimePrimaryProvider ?? "bitails"}`} color="primary" variant="outlined" />
+                    <Chip label={`Raw tx: ${store.snapshot?.recommendations.rawTxFetchProvider ?? "junglebus"}`} color="secondary" variant="outlined" />
                     <Chip label={`REST: ${store.snapshot?.recommendations.restPrimaryProvider ?? "whatsonchain"}`} color="primary" variant="outlined" />
                   </Box>
                 </Stack>

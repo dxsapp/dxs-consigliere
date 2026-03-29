@@ -12,6 +12,7 @@ These examples are intentionally explicit.
 Admin-shell note:
 - the dedicated `/providers` page may persist a bounded operator override for realtime provider, REST provider, Bitails transport, and provider-specific connection fields
 - static examples here remain the deployment baseline; admin overrides do not rewrite these files
+- product messaging may recommend `JungleBus / GorillaPool` for practical raw transaction fetch even when `WhatsOnChain` remains the easy REST fallback default
 
 The repository is AI-first, so the examples prefer:
 - stable key names

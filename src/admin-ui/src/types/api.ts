@@ -226,6 +226,7 @@ export interface AdminProvidersResponse {
   recommendations: {
     realtimePrimaryProvider: string;
     restPrimaryProvider: string;
+    rawTxFetchProvider: string;
   };
   config: {
     static: AdminProviderConfigValues;

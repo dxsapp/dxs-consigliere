@@ -100,6 +100,8 @@ It is not a consumer product, wallet UI, or universal explorer.
 - show recommended defaults explicitly:
   - realtime = `Bitails`
   - REST = `WhatsOnChain`
+- show recommended practical raw transaction source explicitly:
+  - raw tx = `JungleBus / GorillaPool`
 - show static vs override vs effective provider setup side by side
 - show provider catalog cards for:
   - `Bitails`
