@@ -32,18 +32,17 @@ public sealed class ProjectionCacheRuntimeStatusReader(
             .Select(x => x.Sequence)
             .FirstOrDefaultAsync(token: cancellationToken);
 
-        var addressCheckpointTask = session.LoadAsync<AddressProjectionCheckpointDocument>(AddressProjectionCheckpointDocument.DocumentId, cancellationToken);
-        var tokenCheckpointTask = session.LoadAsync<TokenProjectionCheckpointDocument>(TokenProjectionCheckpointDocument.DocumentId, cancellationToken);
-        var txCheckpointTask = session.LoadAsync<TxLifecycleProjectionCheckpointDocument>(TxLifecycleProjectionCheckpointDocument.DocumentId, cancellationToken);
-
-        await Task.WhenAll(addressCheckpointTask, tokenCheckpointTask, txCheckpointTask);
+        // Raven async session does not support overlapping async operations.
+        var addressCheckpoint = await session.LoadAsync<AddressProjectionCheckpointDocument>(AddressProjectionCheckpointDocument.DocumentId, cancellationToken);
+        var tokenCheckpoint = await session.LoadAsync<TokenProjectionCheckpointDocument>(TokenProjectionCheckpointDocument.DocumentId, cancellationToken);
+        var txCheckpoint = await session.LoadAsync<TxLifecycleProjectionCheckpointDocument>(TxLifecycleProjectionCheckpointDocument.DocumentId, cancellationToken);
 
         return new ProjectionCacheRuntimeStatusSnapshot(
             new ProjectionLagSnapshot(
                 journalTail,
-                BuildProjectionLag("address", journalTail, addressCheckpointTask.Result?.LastSequence ?? JournalSequence.Empty.Value),
-                BuildProjectionLag("token", journalTail, tokenCheckpointTask.Result?.LastSequence ?? JournalSequence.Empty.Value),
-                BuildProjectionLag("tx_lifecycle", journalTail, txCheckpointTask.Result?.LastSequence ?? JournalSequence.Empty.Value)),
+                BuildProjectionLag("address", journalTail, addressCheckpoint?.LastSequence ?? JournalSequence.Empty.Value),
+                BuildProjectionLag("token", journalTail, tokenCheckpoint?.LastSequence ?? JournalSequence.Empty.Value),
+                BuildProjectionLag("tx_lifecycle", journalTail, txCheckpoint?.LastSequence ?? JournalSequence.Empty.Value)),
             invalidationTelemetry.GetSnapshot(),
             backfillTelemetry.GetSnapshot());
     }

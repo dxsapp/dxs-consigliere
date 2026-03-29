@@ -15,6 +15,28 @@ namespace Dxs.Consigliere.Tests.Data.Cache;
 public class ProjectionCacheRuntimeStatusReaderTests : RavenTestDriver
 {
     [Fact]
+    public async Task GetSnapshotAsync_ReturnsEmptyLagSnapshotWhenCheckpointsAreMissing()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var invalidationTelemetry = new ProjectionCacheInvalidationTelemetry();
+        var backfillService = new AddressHistoryEnvelopeBackfillService(store);
+        var reader = new ProjectionCacheRuntimeStatusReader(store, invalidationTelemetry, backfillService);
+
+        var snapshot = await reader.GetSnapshotAsync();
+
+        Assert.Equal(0, snapshot.ProjectionLag.JournalTailSequence);
+        Assert.Equal(0, snapshot.ProjectionLag.Address.CheckpointSequence);
+        Assert.Equal(0, snapshot.ProjectionLag.Token.CheckpointSequence);
+        Assert.Equal(0, snapshot.ProjectionLag.TxLifecycle.CheckpointSequence);
+        Assert.Equal(0, snapshot.ProjectionLag.Address.Lag);
+        Assert.Equal(0, snapshot.ProjectionLag.Token.Lag);
+        Assert.Equal(0, snapshot.ProjectionLag.TxLifecycle.Lag);
+    }
+
+    [Fact]
     public async Task GetSnapshotAsync_ComposesLagInvalidationAndBackfillStatus()
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))

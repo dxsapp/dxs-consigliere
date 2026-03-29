@@ -18,6 +18,7 @@ using Dxs.Consigliere.Setup;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Raven.Client.Documents;
@@ -277,27 +278,39 @@ public class AdminController(INetworkProvider networkProvider) : BaseController
     [Produces(typeof(SyncStatusResponse))]
     public async Task<IActionResult> GetSyncState(
         [FromServices] IDocumentStore documentStore,
-        [FromServices] IRpcClient rpcClient
+        [FromServices] IRpcClient rpcClient,
+        [FromServices] ILogger<AdminController> logger
     )
     {
-        var top = await rpcClient.GetBlockCount().EnsureSuccess();
-        var topHash = await rpcClient.GetBlockHash(top).EnsureSuccess();
-
         using var session = documentStore.GetSession();
 
         var topKnownBlock = await session
             .Query<BlockProcessContext>()
             .Where(x => x.Height != 0)
             .OrderByDescending(x => x.Height)
-            .FirstAsync();
-        var isReorg = topKnownBlock != null && top == topKnownBlock.Height && topHash != topKnownBlock.Id;
-        var result = new SyncStatusResponse
-        {
-            Height = top,
-            IsSynced = topKnownBlock != null && !isReorg && top == topKnownBlock.Height,
-        };
+            .FirstOrDefaultAsync();
 
-        return Ok(result);
+        try
+        {
+            var top = await rpcClient.GetBlockCount().EnsureSuccess();
+            var topHash = await rpcClient.GetBlockHash(top).EnsureSuccess();
+            var isReorg = topKnownBlock != null && top == topKnownBlock.Height && topHash != topKnownBlock.Id;
+
+            return Ok(new SyncStatusResponse
+            {
+                Height = top,
+                IsSynced = topKnownBlock != null && !isReorg && top == topKnownBlock.Height,
+            });
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Unable to resolve node RPC sync status; returning unsynced snapshot");
+            return Ok(new SyncStatusResponse
+            {
+                Height = topKnownBlock?.Height ?? 0,
+                IsSynced = false
+            });
+        }
     }
 
     [HttpPost("manage/stas/backfill")]
