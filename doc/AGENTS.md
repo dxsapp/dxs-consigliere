@@ -13,7 +13,7 @@
   - .NET SDK 9.x (по `TargetFramework` = `net9.0` в `src/Dxs.*/*.csproj`).
   - RavenDB (URL и DB name в `src/Dxs.Consigliere/appsettings.json`).
   - BSV node с RPC + ZMQ (см. `BsvNodeApi` и `ZmqClient` в `src/Dxs.Consigliere/appsettings.json`).
-  - Опционально JungleBus subscription id (см. `JungleBus` в `src/Dxs.Consigliere/appsettings.json`).
+  - Опционально JungleBus subscription id через provider configuration в Raven/admin UI; legacy значения могут быть засеяны при первом запуске.
 - Install:
   - `dotnet restore Dxs.Consigliere.sln`
   - Результат в этой среде: restore успешен, но есть warning `NU1903` по `System.Text.Json 8.0.4`.

@@ -125,35 +125,49 @@ public class SourceCapabilityRoutingTests
     {
         return new ConsigliereSourcesConfig
         {
-            Routing =
+            Routing = new SourceRoutingConfig
             {
-                PreferredMode = "hybrid"
+                PreferredMode = "hybrid",
+                PrimarySource = null,
+                FallbackSources = [],
+                VerificationSource = null
             },
-            Providers =
+            Capabilities = new SourceCapabilitiesConfig
             {
-                Node =
+                Broadcast = new BroadcastCapabilityOverrideConfig(),
+                RealtimeIngest = new RoutedCapabilityOverrideConfig(),
+                BlockBackfill = new RoutedCapabilityOverrideConfig(),
+                RawTxFetch = new RoutedCapabilityOverrideConfig(),
+                ValidationFetch = new RoutedCapabilityOverrideConfig(),
+                HistoricalAddressScan = new RoutedCapabilityOverrideConfig(),
+                HistoricalTokenScan = new RoutedCapabilityOverrideConfig()
+            },
+            Providers = new SourceProvidersConfig
+            {
+                Node = new NodeSourceConfig
                 {
                     Enabled = true,
                     EnabledCapabilities = [ExternalChainCapability.BlockBackfill, ExternalChainCapability.ValidationFetch]
                 },
-                JungleBus =
+                JungleBus = new JungleBusSourceConfig
                 {
                     Enabled = true,
                     EnabledCapabilities = [ExternalChainCapability.BlockBackfill]
                 },
-                Bitails =
+                Bitails = new BitailsSourceConfig
                 {
                     Enabled = true,
-                    Connection =
+                    Connection = new BitailsSourceConnectionConfig
                     {
                         BaseUrl = "https://api.bitails.io",
-                        Websocket =
+                        Websocket = new BitailsWebsocketConnectionConfig
                         {
                             BaseUrl = "https://api.bitails.io/global"
                         }
                     },
                     EnabledCapabilities = [ExternalChainCapability.ValidationFetch]
-                }
+                },
+                Whatsonchain = new WhatsOnChainSourceConfig()
             }
         };
     }

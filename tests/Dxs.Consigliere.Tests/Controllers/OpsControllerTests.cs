@@ -2,6 +2,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Controllers;
 using Dxs.Consigliere.Data.Addresses;
 using Dxs.Consigliere.Data.Cache;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Common.Cache;
 using Dxs.Infrastructure.Common;
@@ -17,7 +18,7 @@ public class OpsControllerTests
     public async Task GetProviders_ReturnsProviderFirstStatusWithNestedCapabilities()
     {
         var controller = new OpsController(
-            Options.Create(new ConsigliereSourcesConfig
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
             {
                 Routing =
                 {
@@ -123,7 +124,7 @@ public class OpsControllerTests
     public async Task GetProjectionCache_ReturnsProjectionCacheMetrics()
     {
         var controller = new OpsController(
-            Options.Create(new ConsigliereSourcesConfig()),
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -158,7 +159,7 @@ public class OpsControllerTests
     public void GetStorage_ReturnsConfiguredButInactiveUnsupportedPayloadProvider()
     {
         var controller = new OpsController(
-            Options.Create(new ConsigliereSourcesConfig()),
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig
             {
@@ -249,5 +250,30 @@ public class OpsControllerTests
                         123,
                         DateTimeOffset.Parse("2026-03-26T18:01:00+00:00"),
                         DateTimeOffset.Parse("2026-03-26T18:01:05+00:00"))));
+    }
+
+    private sealed class FakeAdminProviderConfigService(ConsigliereSourcesConfig config)
+        : IAdminProviderConfigService
+    {
+        public Task<ConsigliereSourcesConfig> GetEffectiveSourcesConfigAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(config);
+
+        public Task<JungleBusProviderRuntimeSnapshot> GetEffectiveJungleBusAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new JungleBusProviderRuntimeSnapshot(
+                config.Providers.JungleBus.Connection.BaseUrl,
+                string.Empty,
+                string.Empty));
+
+        public Task<Dto.Responses.Admin.AdminProvidersResponse> GetProvidersAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AdminProviderConfigMutationResult> ApplyProviderConfigAsync(
+            Dto.Requests.AdminProviderConfigUpdateRequest request,
+            string updatedBy,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<Dto.Responses.Admin.AdminProvidersResponse> ResetProviderConfigAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 }

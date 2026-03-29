@@ -1,6 +1,7 @@
 #nullable enable
 
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -111,22 +112,23 @@ public static class VNextStartupDiagnostics
 
 public sealed class VNextStartupDiagnosticsHostedService(
     ILogger<VNextStartupDiagnosticsHostedService> logger,
-    IOptions<ConsigliereSourcesConfig> sources,
+    IAdminProviderConfigService providerConfigService,
     IOptions<ConsigliereStorageConfig> storage,
     IOptions<ConsigliereCacheConfig> cache,
     IOptions<AppConfig> appConfig
 ) : IHostedService
 {
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
     {
+        var sources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
         foreach (var line in VNextStartupDiagnostics.Describe(
-                     sources.Value,
+                     sources,
                      storage.Value,
                      cache.Value,
                      appConfig.Value.VNextRuntime.CutoverMode))
             logger.LogInformation("{StartupDiagnostic}", line);
 
-        return Task.CompletedTask;
+        return;
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;

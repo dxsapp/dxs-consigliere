@@ -3,6 +3,7 @@ using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Data.Models.Tracking.HistoryBackfill;
 using Dxs.Consigliere.Extensions;
@@ -21,7 +22,7 @@ public sealed class HistoricalAddressBackfillRunner(
     IBitailsRestApiClient bitailsRestApiClient,
     ITxMessageBus txMessageBus,
     INetworkProvider networkProvider,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IAdminProviderConfigService providerConfigService,
     IOptions<AppConfig> legacyConfig,
     IExternalChainProviderCatalog providerCatalog,
     ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
@@ -46,9 +47,10 @@ public sealed class HistoricalAddressBackfillRunner(
         if (job is null)
             return false;
 
+        var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var route = SourceCapabilityRouting.Resolve(
             ExternalChainCapability.HistoricalAddressScan,
-            sourcesConfig.Value,
+            effectiveSources,
             legacyConfig.Value,
             providerCatalog);
         var provider = SourceCapabilityRouting.SelectForAttempt(route, job.AttemptCount);

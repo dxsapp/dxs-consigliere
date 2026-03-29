@@ -7,6 +7,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Journal;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Notifications;
 using Dxs.Consigliere.Services;
@@ -28,7 +29,7 @@ public class BlockProcessExecutor(
     IPublisher publisher,
     IDocumentStore documentStore,
     IObservationJournalAppender<ObservationJournalEntry<BlockObservation>> blockObservationJournal,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IAdminProviderConfigService providerConfigService,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
     ILogger<BlockProcessExecutor> logger
@@ -125,9 +126,10 @@ public class BlockProcessExecutor(
             out NodeBlockchainDataProvider nodeBlockchainDataProvider
         );
 
+        var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var route = SourceCapabilityRouting.Resolve(
             ExternalChainCapability.BlockBackfill,
-            sourcesConfig.Value,
+            effectiveSources,
             appConfig.Value,
             providerCatalog
         );

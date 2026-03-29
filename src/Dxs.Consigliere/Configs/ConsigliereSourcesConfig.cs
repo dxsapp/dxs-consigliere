@@ -1,12 +1,13 @@
 using Microsoft.Extensions.Configuration;
+using Dxs.Infrastructure.Common;
 
 namespace Dxs.Consigliere.Configs;
 
 public class ConsigliereSourcesConfig
 {
-    public SourceProvidersConfig Providers { get; set; } = new();
-    public SourceRoutingConfig Routing { get; set; } = new();
-    public SourceCapabilitiesConfig Capabilities { get; set; } = new();
+    public SourceProvidersConfig Providers { get; set; } = SourceProvidersConfig.CreateDefaults();
+    public SourceRoutingConfig Routing { get; set; } = SourceRoutingConfig.CreateDefaults();
+    public SourceCapabilitiesConfig Capabilities { get; set; } = SourceCapabilitiesConfig.CreateDefaults();
 }
 
 public class SourceProvidersConfig
@@ -15,6 +16,72 @@ public class SourceProvidersConfig
     public JungleBusSourceConfig JungleBus { get; set; } = new();
     public BitailsSourceConfig Bitails { get; set; } = new();
     public WhatsOnChainSourceConfig Whatsonchain { get; set; } = new();
+
+    public static SourceProvidersConfig CreateDefaults()
+        => new()
+        {
+            Node = new NodeSourceConfig
+            {
+                Enabled = true,
+                EnabledCapabilities =
+                [
+                    ExternalChainCapability.Broadcast,
+                    ExternalChainCapability.RealtimeIngest,
+                    ExternalChainCapability.BlockBackfill,
+                    ExternalChainCapability.RawTxFetch,
+                    ExternalChainCapability.ValidationFetch
+                ]
+            },
+            JungleBus = new JungleBusSourceConfig
+            {
+                Enabled = true,
+                EnabledCapabilities =
+                [
+                    ExternalChainCapability.RealtimeIngest,
+                    ExternalChainCapability.BlockBackfill
+                ],
+                Connection = new JungleBusSourceConnectionConfig
+                {
+                    BaseUrl = "https://junglebus.gorillapool.io"
+                }
+            },
+            Bitails = new BitailsSourceConfig
+            {
+                Enabled = true,
+                EnabledCapabilities =
+                [
+                    ExternalChainCapability.Broadcast,
+                    ExternalChainCapability.RealtimeIngest,
+                    ExternalChainCapability.RawTxFetch,
+                    ExternalChainCapability.ValidationFetch,
+                    ExternalChainCapability.HistoricalAddressScan,
+                    ExternalChainCapability.HistoricalTokenScan
+                ],
+                Connection = new BitailsSourceConnectionConfig
+                {
+                    BaseUrl = "https://api.bitails.io",
+                    Transport = BitailsRealtimeTransportMode.Websocket,
+                    Websocket = new BitailsWebsocketConnectionConfig
+                    {
+                        BaseUrl = "https://api.bitails.io/global"
+                    }
+                }
+            },
+            Whatsonchain = new WhatsOnChainSourceConfig
+            {
+                Enabled = true,
+                EnabledCapabilities =
+                [
+                    ExternalChainCapability.RawTxFetch,
+                    ExternalChainCapability.ValidationFetch,
+                    ExternalChainCapability.BlockBackfill
+                ],
+                Connection = new HttpApiSourceConnectionConfig
+                {
+                    BaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
+                }
+            }
+        };
 }
 
 public class SourceRoutingConfig
@@ -23,6 +90,15 @@ public class SourceRoutingConfig
     public string PrimarySource { get; set; }
     public string[] FallbackSources { get; set; } = [];
     public string VerificationSource { get; set; }
+
+    public static SourceRoutingConfig CreateDefaults()
+        => new()
+        {
+            PreferredMode = "hybrid",
+            PrimarySource = ExternalChainProviderName.Bitails,
+            FallbackSources = [ExternalChainProviderName.JungleBus, "node"],
+            VerificationSource = "node"
+        };
 }
 
 public class SourceCapabilitiesConfig
@@ -46,6 +122,45 @@ public class SourceCapabilitiesConfig
 
     [ConfigurationKeyName("historical_token_scan")]
     public RoutedCapabilityOverrideConfig HistoricalTokenScan { get; set; } = new();
+
+    public static SourceCapabilitiesConfig CreateDefaults()
+        => new()
+        {
+            Broadcast = new BroadcastCapabilityOverrideConfig
+            {
+                Mode = "multi",
+                Sources = ["node", ExternalChainProviderName.Bitails]
+            },
+            RealtimeIngest = new RoutedCapabilityOverrideConfig
+            {
+                Source = ExternalChainProviderName.Bitails,
+                FallbackSources = [ExternalChainProviderName.JungleBus, "node"]
+            },
+            BlockBackfill = new RoutedCapabilityOverrideConfig
+            {
+                Source = ExternalChainProviderName.JungleBus,
+                FallbackSources = ["node"]
+            },
+            RawTxFetch = new RoutedCapabilityOverrideConfig
+            {
+                Source = ExternalChainProviderName.Bitails,
+                FallbackSources = [ExternalChainProviderName.WhatsOnChain]
+            },
+            ValidationFetch = new RoutedCapabilityOverrideConfig
+            {
+                Source = "node",
+                FallbackSources = [ExternalChainProviderName.Bitails]
+            },
+            HistoricalAddressScan = new RoutedCapabilityOverrideConfig
+            {
+                Source = ExternalChainProviderName.Bitails,
+                FallbackSources = [ExternalChainProviderName.WhatsOnChain]
+            },
+            HistoricalTokenScan = new RoutedCapabilityOverrideConfig
+            {
+                Source = ExternalChainProviderName.Bitails
+            }
+        };
 }
 
 public class BroadcastCapabilityOverrideConfig : RoutedCapabilityOverrideConfig

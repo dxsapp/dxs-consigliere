@@ -36,27 +36,37 @@ public sealed class AdminProviderConfigService(
     public async Task<ConsigliereSourcesConfig> GetEffectiveSourcesConfigAsync(CancellationToken cancellationToken = default)
     {
         var effective = CloneConfig(sourcesConfig.Value);
-        var currentOverride = await overrideStore.GetAsync(cancellationToken);
-        ApplyOverride(effective, currentOverride);
+        var persistedProviderConfig = await GetPersistedProviderConfigDocumentAsync(cancellationToken);
+        ApplyOverride(effective, persistedProviderConfig);
         return effective;
     }
 
     public async Task<JungleBusProviderRuntimeSnapshot> GetEffectiveJungleBusAsync(CancellationToken cancellationToken = default)
     {
-        var currentOverride = await overrideStore.GetAsync(cancellationToken);
-        var baseUrl = NormalizeOptional(currentOverride?.JungleBusBaseUrl) ?? NormalizeOptional(sourcesConfig.Value.Providers.JungleBus.Connection.BaseUrl);
-        var mempoolSubscriptionId = NormalizeOptional(currentOverride?.JungleBusMempoolSubscriptionId) ?? NormalizeOptional(appConfig.Value.JungleBus.MempoolSubscriptionId);
-        var blockSubscriptionId = NormalizeOptional(currentOverride?.JungleBusBlockSubscriptionId) ?? NormalizeOptional(appConfig.Value.JungleBus.BlockSubscriptionId);
+        var persistedProviderConfig = await GetPersistedProviderConfigDocumentAsync(cancellationToken);
+        var baseUrl = NormalizeOptional(persistedProviderConfig.JungleBusBaseUrl);
+        var mempoolSubscriptionId = NormalizeOptional(persistedProviderConfig.JungleBusMempoolSubscriptionId);
+        var blockSubscriptionId = NormalizeOptional(persistedProviderConfig.JungleBusBlockSubscriptionId);
         return new JungleBusProviderRuntimeSnapshot(baseUrl, mempoolSubscriptionId, blockSubscriptionId);
     }
 
     public async Task<AdminProvidersResponse> GetProvidersAsync(CancellationToken cancellationToken = default)
     {
         var staticConfig = CloneConfig(sourcesConfig.Value);
-        var effectiveConfig = await GetEffectiveSourcesConfigAsync(cancellationToken);
-        var currentOverride = await overrideStore.GetAsync(cancellationToken);
-        var effectiveJungleBus = await GetEffectiveJungleBusAsync(cancellationToken);
+        var persistedProviderConfig = await GetPersistedProviderConfigDocumentAsync(cancellationToken);
+        var effectiveConfig = CloneConfig(sourcesConfig.Value);
+        ApplyOverride(effectiveConfig, persistedProviderConfig);
+        var effectiveJungleBus = new JungleBusProviderRuntimeSnapshot(
+            NormalizeOptional(persistedProviderConfig.JungleBusBaseUrl),
+            NormalizeOptional(persistedProviderConfig.JungleBusMempoolSubscriptionId),
+            NormalizeOptional(persistedProviderConfig.JungleBusBlockSubscriptionId));
         var descriptors = providerCatalog.GetDescriptors().ToDictionary(x => x.Provider, StringComparer.OrdinalIgnoreCase);
+        var staticValues = BuildConfigValues(staticConfig, new JungleBusProviderRuntimeSnapshot(
+            NormalizeOptional(staticConfig.Providers.JungleBus.Connection.BaseUrl),
+            NormalizeOptional(appConfig.Value.JungleBus.MempoolSubscriptionId),
+            NormalizeOptional(appConfig.Value.JungleBus.BlockSubscriptionId)));
+        var persistedValues = BuildOverrideValues(persistedProviderConfig);
+        var overrideActive = !ConfigurationMatches(staticValues, persistedValues);
 
         return new AdminProvidersResponse
         {
@@ -68,16 +78,16 @@ public sealed class AdminProviderConfigService(
             },
             Config = new AdminProviderConfigResponse
             {
-                Static = BuildConfigValues(staticConfig, null),
-                Override = currentOverride is null ? null : BuildOverrideValues(currentOverride),
+                Static = staticValues,
+                Override = overrideActive ? persistedValues : null,
                 Effective = BuildConfigValues(effectiveConfig, effectiveJungleBus),
-                OverrideActive = currentOverride is not null,
-                RestartRequired = currentOverride is not null,
+                OverrideActive = overrideActive,
+                RestartRequired = overrideActive,
                 AllowedRealtimePrimaryProviders = GetAllowedRealtimePrimaryProviders(staticConfig),
                 AllowedRestPrimaryProviders = GetAllowedRestPrimaryProviders(staticConfig),
                 AllowedBitailsTransports = GetAllowedBitailsTransports(staticConfig),
-                UpdatedAt = currentOverride?.UpdatedAt ?? currentOverride?.CreatedAt,
-                UpdatedBy = currentOverride?.UpdatedBy
+                UpdatedAt = persistedProviderConfig.UpdatedAt ?? persistedProviderConfig.CreatedAt,
+                UpdatedBy = persistedProviderConfig.UpdatedBy
             },
             Providers = BuildCatalog(staticConfig, effectiveConfig, effectiveJungleBus, descriptors)
         };
@@ -135,7 +145,7 @@ public sealed class AdminProviderConfigService(
             UpdatedBy = updatedBy
         };
 
-        var validationError = ValidateRequestedConfiguration(normalized, staticConfig, appConfig.Value, allowedBitailsTransports);
+        var validationError = ValidateRequestedConfiguration(normalized, staticConfig, allowedBitailsTransports);
         if (validationError is not null)
             return new AdminProviderConfigMutationResult(false, validationError);
 
@@ -146,7 +156,7 @@ public sealed class AdminProviderConfigService(
         var requestedValues = BuildOverrideValues(normalized);
         if (ConfigurationMatches(staticValues, requestedValues))
         {
-            await overrideStore.ResetAsync(cancellationToken);
+            await overrideStore.SaveAsync(BuildDefaultProviderConfigDocument(updatedBy), cancellationToken);
             return new AdminProviderConfigMutationResult(true);
         }
 
@@ -156,8 +166,50 @@ public sealed class AdminProviderConfigService(
 
     public async Task<AdminProvidersResponse> ResetProviderConfigAsync(CancellationToken cancellationToken = default)
     {
-        await overrideStore.ResetAsync(cancellationToken);
+        await overrideStore.SaveAsync(BuildDefaultProviderConfigDocument("admin-reset"), cancellationToken);
         return await GetProvidersAsync(cancellationToken);
+    }
+
+    private async Task<RealtimeSourcePolicyOverrideDocument> GetPersistedProviderConfigDocumentAsync(CancellationToken cancellationToken)
+    {
+        var existing = await overrideStore.GetAsync(cancellationToken);
+        if (existing is not null)
+            return existing;
+
+        var seeded = BuildDefaultProviderConfigDocument("system-defaults");
+        await overrideStore.SaveAsync(seeded, cancellationToken);
+        return seeded;
+    }
+
+    private RealtimeSourcePolicyOverrideDocument BuildDefaultProviderConfigDocument(string updatedBy)
+        => new()
+        {
+            Id = RealtimeSourcePolicyOverrideDocument.DocumentId,
+            PrimaryRealtimeSource = Normalize(sourcesConfig.Value.Routing.PrimarySource) ?? RecommendedRealtimeProvider,
+            RestPrimaryProvider = Normalize(GetDefaultRestPrimaryProvider(sourcesConfig.Value)) ?? RecommendedRestProvider,
+            BitailsTransport = Normalize(sourcesConfig.Value.Providers.Bitails.Connection.Transport) ?? BitailsRealtimeTransportMode.Websocket,
+            BitailsApiKey = NormalizeOptional(sourcesConfig.Value.Providers.Bitails.Connection.ApiKey),
+            BitailsBaseUrl = NormalizeOptional(sourcesConfig.Value.Providers.Bitails.Connection.BaseUrl),
+            BitailsWebsocketBaseUrl = NormalizeOptional(sourcesConfig.Value.Providers.Bitails.Connection.Websocket.BaseUrl),
+            BitailsZmqTxUrl = NormalizeOptional(sourcesConfig.Value.Providers.Bitails.Connection.Zmq.TxUrl),
+            BitailsZmqBlockUrl = NormalizeOptional(sourcesConfig.Value.Providers.Bitails.Connection.Zmq.BlockUrl),
+            WhatsonchainApiKey = NormalizeOptional(sourcesConfig.Value.Providers.Whatsonchain.Connection.ApiKey),
+            WhatsonchainBaseUrl = NormalizeOptional(sourcesConfig.Value.Providers.Whatsonchain.Connection.BaseUrl),
+            JungleBusBaseUrl = NormalizeOptional(sourcesConfig.Value.Providers.JungleBus.Connection.BaseUrl),
+            JungleBusMempoolSubscriptionId = NormalizeOptional(appConfig.Value.JungleBus.MempoolSubscriptionId),
+            JungleBusBlockSubscriptionId = NormalizeOptional(appConfig.Value.JungleBus.BlockSubscriptionId),
+            UpdatedBy = updatedBy
+        };
+
+    private static string GetDefaultRestPrimaryProvider(ConsigliereSourcesConfig config)
+    {
+        if (string.Equals(config.Capabilities.RawTxFetch.Source, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(config.Capabilities.HistoricalAddressScan.Source, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase))
+        {
+            return ExternalChainProviderName.WhatsOnChain;
+        }
+
+        return RecommendedRestProvider;
     }
 
     private AdminProviderCatalogItemResponse[] BuildCatalog(
@@ -407,7 +459,6 @@ public sealed class AdminProviderConfigService(
     private static string ValidateRequestedConfiguration(
         RealtimeSourcePolicyOverrideDocument requested,
         ConsigliereSourcesConfig staticConfig,
-        AppConfig appConfig,
         string[] allowedBitailsTransports)
     {
         if (string.Equals(requested.PrimaryRealtimeSource, ExternalChainProviderName.Bitails, StringComparison.OrdinalIgnoreCase))
@@ -432,8 +483,7 @@ public sealed class AdminProviderConfigService(
         }
 
         if (string.Equals(requested.PrimaryRealtimeSource, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase) &&
-            string.IsNullOrWhiteSpace(requested.JungleBusMempoolSubscriptionId) &&
-            string.IsNullOrWhiteSpace(appConfig.JungleBus.MempoolSubscriptionId))
+            string.IsNullOrWhiteSpace(requested.JungleBusMempoolSubscriptionId))
         {
             return "junglebus_mempool_subscription_id_required";
         }

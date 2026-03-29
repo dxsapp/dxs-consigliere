@@ -27,7 +27,11 @@ public static class CorePlatformSetup
 
         services
             .AddOptions<ConsigliereSourcesConfig>()
-            .Bind(configuration.GetSection("Consigliere:Sources"))
+            .Configure(options =>
+            {
+                configuration.GetSection("Consigliere:Sources:Routing").Bind(options.Routing);
+                configuration.GetSection("Consigliere:Sources:Capabilities").Bind(options.Capabilities);
+            })
             .ValidateOnStart();
 
         services

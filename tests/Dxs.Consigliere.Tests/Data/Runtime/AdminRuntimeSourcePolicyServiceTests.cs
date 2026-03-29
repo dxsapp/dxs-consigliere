@@ -112,8 +112,8 @@ public class AdminRuntimeSourcePolicyServiceTests
             "admin");
 
         Assert.True(result.Success);
-        Assert.Equal(1, store.ResetCalls);
-        Assert.Equal(0, store.SaveCalls);
+        Assert.Equal(0, store.ResetCalls);
+        Assert.Equal(1, store.SaveCalls);
     }
 
     [Fact]

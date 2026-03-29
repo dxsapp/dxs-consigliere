@@ -1,5 +1,6 @@
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Cache;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Consigliere.Setup;
@@ -15,7 +16,7 @@ namespace Dxs.Consigliere.Controllers;
 [Route("api/ops")]
 [Authorize(Policy = AdminAuthDefaults.Policy)]
 public class OpsController(
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IAdminProviderConfigService providerConfigService,
     IOptions<ConsigliereCacheConfig> cacheConfig,
     IOptions<ConsigliereStorageConfig> storageConfig,
     IOptions<AppConfig> appConfig,
@@ -37,6 +38,7 @@ public class OpsController(
     [Produces(typeof(IReadOnlyCollection<ProviderStatusResponse>))]
     public async Task<IActionResult> GetProviders(CancellationToken cancellationToken)
     {
+        var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var descriptors = providerCatalog.GetDescriptors()
             .ToDictionary(x => x.Provider, StringComparer.OrdinalIgnoreCase);
         var healthByProvider = (await providerCatalog.GetHealthAsync(cancellationToken))
@@ -51,7 +53,7 @@ public class OpsController(
         };
 
         var result = providers
-            .Select(provider => BuildProviderStatus(provider, descriptors, healthByProvider))
+            .Select(provider => BuildProviderStatus(provider, effectiveSources, descriptors, healthByProvider))
             .ToArray();
 
         return Ok(result);
@@ -73,18 +75,19 @@ public class OpsController(
 
     private ProviderStatusResponse BuildProviderStatus(
         string provider,
+        ConsigliereSourcesConfig effectiveSources,
         IReadOnlyDictionary<string, ExternalChainProviderDescriptor> descriptors,
         IReadOnlyDictionary<string, ExternalChainProviderHealthSnapshot> healthByProvider
     )
     {
-        var config = GetProviderConfig(provider);
+        var config = GetProviderConfig(provider, effectiveSources);
         var health = healthByProvider.TryGetValue(provider, out var snapshot)
             ? snapshot
             : new ExternalChainProviderHealthSnapshot(provider, ExternalChainHealthState.Unknown);
 
         var capabilities = RoutedCapabilities.ToDictionary(
             capability => capability,
-            capability => BuildCapabilityStatus(provider, capability, config, health),
+            capability => BuildCapabilityStatus(provider, capability, config, health, effectiveSources),
             StringComparer.OrdinalIgnoreCase
         );
 
@@ -93,7 +96,7 @@ public class OpsController(
             Provider = provider,
             Enabled = config.Enabled,
             Configured = IsConfigured(provider, config),
-            Roles = BuildRoles(provider),
+            Roles = BuildRoles(provider, effectiveSources),
             Healthy = health.State == ExternalChainHealthState.Healthy,
             Degraded = health.State == ExternalChainHealthState.Degraded,
             LastErrorCode = health.Detail,
@@ -106,12 +109,13 @@ public class OpsController(
         string provider,
         string capability,
         SourceProviderConfig config,
-        ExternalChainProviderHealthSnapshot health
+        ExternalChainProviderHealthSnapshot health,
+        ConsigliereSourcesConfig effectiveSources
     )
     {
         var route = SourceCapabilityRouting.Resolve(
             capability,
-            sourcesConfig.Value,
+            effectiveSources,
             appConfig.Value,
             providerCatalog
         );
@@ -122,15 +126,15 @@ public class OpsController(
             Healthy = health.State == ExternalChainHealthState.Healthy,
             Degraded = health.State == ExternalChainHealthState.Degraded,
             LastErrorCode = health.Detail,
-            RateLimitState = BuildRateLimitState(provider, capability),
+            RateLimitState = BuildRateLimitState(provider, capability, effectiveSources),
             Active = string.Equals(route.PrimarySource, provider, StringComparison.OrdinalIgnoreCase)
         };
     }
 
-    private string[] BuildRoles(string provider)
+    private static string[] BuildRoles(string provider, ConsigliereSourcesConfig effectiveSources)
     {
         var roles = new List<string>();
-        var routing = sourcesConfig.Value.Routing;
+        var routing = effectiveSources.Routing;
 
         if (string.Equals(routing.PrimarySource, provider, StringComparison.OrdinalIgnoreCase))
             roles.Add("primary");
@@ -161,9 +165,9 @@ public class OpsController(
         };
     }
 
-    private RateLimitStateResponse BuildRateLimitState(string provider, string capability)
+    private RateLimitStateResponse BuildRateLimitState(string provider, string capability, ConsigliereSourcesConfig effectiveSources)
     {
-        var config = GetProviderConfig(provider);
+        var config = GetProviderConfig(provider, effectiveSources);
         if (config.RateLimits is null)
             return null;
 
@@ -184,13 +188,13 @@ public class OpsController(
         };
     }
 
-    private SourceProviderConfig GetProviderConfig(string provider)
+    private SourceProviderConfig GetProviderConfig(string provider, ConsigliereSourcesConfig effectiveSources)
         => provider.ToLowerInvariant() switch
         {
-            SourceCapabilityRouting.NodeProvider => sourcesConfig.Value.Providers.Node,
-            ExternalChainProviderName.JungleBus => sourcesConfig.Value.Providers.JungleBus,
-            ExternalChainProviderName.Bitails => sourcesConfig.Value.Providers.Bitails,
-            ExternalChainProviderName.WhatsOnChain => sourcesConfig.Value.Providers.Whatsonchain,
+            SourceCapabilityRouting.NodeProvider => effectiveSources.Providers.Node,
+            ExternalChainProviderName.JungleBus => effectiveSources.Providers.JungleBus,
+            ExternalChainProviderName.Bitails => effectiveSources.Providers.Bitails,
+            ExternalChainProviderName.WhatsOnChain => effectiveSources.Providers.Whatsonchain,
             _ => new SourceProviderConfig()
         };
 

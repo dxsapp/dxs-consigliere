@@ -2,6 +2,7 @@ using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
@@ -125,7 +126,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
             bitails.Object,
             txBus.Object,
             new TestNetworkProvider(),
-            Options.Create(new ConsigliereSourcesConfig
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
             {
                 Providers = new SourceProvidersConfig
                 {
@@ -183,7 +184,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
             bitails.Object,
             Mock.Of<ITxMessageBus>(MockBehavior.Strict),
             new TestNetworkProvider(),
-            Options.Create(new ConsigliereSourcesConfig
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
             {
                 Providers = new SourceProvidersConfig
                 {
@@ -241,7 +242,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
             bitails.Object,
             Mock.Of<ITxMessageBus>(MockBehavior.Strict),
             new TestNetworkProvider(),
-            Options.Create(new ConsigliereSourcesConfig
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
             {
                 Providers = new SourceProvidersConfig
                 {
@@ -309,7 +310,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
             bitails.Object,
             Mock.Of<ITxMessageBus>(MockBehavior.Strict),
             new TestNetworkProvider(),
-            Options.Create(new ConsigliereSourcesConfig
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
             {
                 Providers = new SourceProvidersConfig
                 {
@@ -391,6 +392,31 @@ public class TrackedHistorySyncTests : RavenTestDriver
     private sealed class TestNetworkProvider : INetworkProvider
     {
         public Dxs.Bsv.Network Network => Dxs.Bsv.Network.Mainnet;
+    }
+
+    private sealed class FakeAdminProviderConfigService(ConsigliereSourcesConfig config)
+        : IAdminProviderConfigService
+    {
+        public Task<ConsigliereSourcesConfig> GetEffectiveSourcesConfigAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(config);
+
+        public Task<JungleBusProviderRuntimeSnapshot> GetEffectiveJungleBusAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new JungleBusProviderRuntimeSnapshot(
+                config.Providers.JungleBus.Connection.BaseUrl,
+                string.Empty,
+                string.Empty));
+
+        public Task<Dxs.Consigliere.Dto.Responses.Admin.AdminProvidersResponse> GetProvidersAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AdminProviderConfigMutationResult> ApplyProviderConfigAsync(
+            Dxs.Consigliere.Dto.Requests.AdminProviderConfigUpdateRequest request,
+            string updatedBy,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<Dxs.Consigliere.Dto.Responses.Admin.AdminProvidersResponse> ResetProviderConfigAsync(CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
     }
 
 }

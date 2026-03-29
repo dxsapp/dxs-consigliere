@@ -6,6 +6,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Data.Models.Tracking.HistoryBackfill;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Data.Tokens;
 using Dxs.Consigliere.Extensions;
 using Dxs.Infrastructure.Bitails;
@@ -22,7 +23,7 @@ public sealed class HistoricalTokenBackfillRunner(
     IBitailsRestApiClient bitailsRestApiClient,
     ITxMessageBus txMessageBus,
     INetworkProvider networkProvider,
-    IOptions<ConsigliereSourcesConfig> sourcesConfig,
+    IAdminProviderConfigService providerConfigService,
     IOptions<AppConfig> legacyConfig,
     IExternalChainProviderCatalog providerCatalog,
     ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
@@ -47,9 +48,10 @@ public sealed class HistoricalTokenBackfillRunner(
         if (job is null)
             return false;
 
+        var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var route = SourceCapabilityRouting.Resolve(
             ExternalChainCapability.HistoricalTokenScan,
-            sourcesConfig.Value,
+            effectiveSources,
             legacyConfig.Value,
             providerCatalog);
         var provider = SourceCapabilityRouting.SelectForAttempt(route, job.AttemptCount);
