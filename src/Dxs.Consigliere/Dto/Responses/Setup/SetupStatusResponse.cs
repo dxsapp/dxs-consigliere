@@ -13,6 +13,7 @@ public sealed class SetupOptionsResponse
     public SetupStatusResponse Status { get; set; } = new();
     public SetupDefaultsResponse Defaults { get; set; } = new();
     public SetupAllowedOptionsResponse Allowed { get; set; } = new();
+    public SetupJungleBusBlockSyncDefaultsResponse BlockSync { get; set; } = new();
     public SetupProviderFormDefaultsResponse ProviderConfig { get; set; } = new();
 }
 
@@ -38,6 +39,12 @@ public sealed class SetupProviderFormDefaultsResponse
     public SetupRestProviderDefaultsResponse Whatsonchain { get; set; } = new();
     public SetupJungleBusProviderDefaultsResponse Junglebus { get; set; } = new();
     public SetupNodeProviderDefaultsResponse Node { get; set; } = new();
+}
+
+public sealed class SetupJungleBusBlockSyncDefaultsResponse
+{
+    public string BaseUrl { get; set; }
+    public string BlockSubscriptionId { get; set; }
 }
 
 public sealed class SetupBitailsProviderDefaultsResponse

@@ -20,7 +20,14 @@ import {
 import { setupStore } from "@/stores/setup.store";
 import { authStore } from "@/stores/auth.store";
 
-const STEPS = ["Admin access", "Raw transaction source", "REST fallback", "Realtime source", "Review"];
+const STEPS = [
+  "Admin access",
+  "Raw transaction source",
+  "JungleBus block sync",
+  "REST fallback",
+  "Realtime source",
+  "Review",
+];
 
 export const SetupPage = observer(function SetupPage() {
   const navigate = useNavigate();
@@ -41,23 +48,19 @@ export const SetupPage = observer(function SetupPage() {
       return Boolean(draft.admin.username && draft.admin.password && draft.admin.password === confirmPassword);
     }
     if (step === 1) {
-      if (!draft.providers.rawTxPrimaryProvider) return false;
-      if (draft.providers.rawTxPrimaryProvider === "junglebus") {
-        return Boolean(draft.providers.junglebus.baseUrl);
-      }
-      if (draft.providers.rawTxPrimaryProvider === "whatsonchain") {
-        return Boolean(draft.providers.whatsonchain.baseUrl);
-      }
-      return Boolean(draft.providers.bitails.baseUrl);
+      return Boolean(draft.providers.rawTxPrimaryProvider);
     }
     if (step === 2) {
+      return Boolean(draft.blockSync.baseUrl && draft.blockSync.blockSubscriptionId);
+    }
+    if (step === 3) {
       if (!draft.providers.restFallbackProvider) return false;
       if (draft.providers.restFallbackProvider === "whatsonchain") {
         return Boolean(draft.providers.whatsonchain.baseUrl);
       }
       return Boolean(draft.providers.bitails.baseUrl);
     }
-    if (step === 3) {
+    if (step === 4) {
       if (!draft.providers.realtimePrimaryProvider) return false;
       if (draft.providers.realtimePrimaryProvider === "bitails") {
         if (draft.providers.bitailsTransport === "zmq") {
@@ -65,7 +68,7 @@ export const SetupPage = observer(function SetupPage() {
         }
         return Boolean(draft.providers.bitails.websocketBaseUrl || draft.providers.bitails.baseUrl);
       }
-      return Boolean(draft.providers.junglebus.baseUrl && draft.providers.junglebus.mempoolSubscriptionId);
+      return Boolean(draft.providers.junglebus.mempoolSubscriptionId);
     }
     return true;
   }, [confirmPassword, draft, step]);
@@ -141,7 +144,9 @@ export const SetupPage = observer(function SetupPage() {
                       ))}
                     </TextField>
                     {draft.providers.rawTxPrimaryProvider === "junglebus" && (
-                      <TextField label="JungleBus base URL" value={draft.providers.junglebus.baseUrl} onChange={(e) => setupStore.setJunglebusField("baseUrl", e.target.value)} helperText="Default GorillaPool transaction-get endpoint path." />
+                      <Alert severity="info">
+                        JungleBus raw transaction fetch uses the block-sync URL configured in the next step.
+                      </Alert>
                     )}
                     {draft.providers.rawTxPrimaryProvider === "whatsonchain" && (
                       <TextField label="WhatsOnChain base URL" value={draft.providers.whatsonchain.baseUrl} onChange={(e) => setupStore.setWhatsonchainField("baseUrl", e.target.value)} helperText="Simple fallback path with well-known API surface." />
@@ -153,6 +158,30 @@ export const SetupPage = observer(function SetupPage() {
                 )}
 
                 {step === 2 && (
+                  <Stack spacing={2}>
+                    <Typography variant="h6">Configure JungleBus block sync</Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      Consigliere needs JungleBus block synchronization to keep block state aligned and avoid eventual drift. This path also supplies the JungleBus raw-tx endpoint.
+                    </Typography>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
+                      <TextField
+                        label="JungleBus base URL"
+                        value={draft.blockSync.baseUrl}
+                        onChange={(e) => setupStore.setBlockSyncField("baseUrl", e.target.value)}
+                      />
+                      <TextField
+                        label="Block subscription ID"
+                        value={draft.blockSync.blockSubscriptionId}
+                        onChange={(e) => setupStore.setBlockSyncField("blockSubscriptionId", e.target.value)}
+                      />
+                    </Box>
+                    <Alert severity="info">
+                      If you later choose JungleBus for realtime ingest, the realtime step will additionally ask for the mempool subscription ID.
+                    </Alert>
+                  </Stack>
+                )}
+
+                {step === 3 && (
                   <Stack spacing={2}>
                     <Typography variant="h6">Choose REST fallback</Typography>
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -177,7 +206,7 @@ export const SetupPage = observer(function SetupPage() {
                   </Stack>
                 )}
 
-                {step === 3 && (
+                {step === 4 && (
                   <Stack spacing={2}>
                     <Typography variant="h6">Choose realtime source</Typography>
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
@@ -214,21 +243,29 @@ export const SetupPage = observer(function SetupPage() {
 
                     {draft.providers.realtimePrimaryProvider === "junglebus" && (
                       <Stack spacing={2}>
-                        <TextField label="JungleBus base URL" value={draft.providers.junglebus.baseUrl} onChange={(e) => setupStore.setJunglebusField("baseUrl", e.target.value)} />
+                        <Alert severity="info">
+                          JungleBus realtime reuses the block-sync URL and only asks for the mempool subscription ID here.
+                        </Alert>
                         <TextField label="Mempool subscription ID" value={draft.providers.junglebus.mempoolSubscriptionId} onChange={(e) => setupStore.setJunglebusField("mempoolSubscriptionId", e.target.value)} />
-                        <TextField label="Block subscription ID" value={draft.providers.junglebus.blockSubscriptionId} onChange={(e) => setupStore.setJunglebusField("blockSubscriptionId", e.target.value)} />
+                        <TextField
+                          label="JungleBus block sync base URL"
+                          value={draft.blockSync.baseUrl}
+                          InputProps={{ readOnly: true }}
+                          helperText="Configured in the JungleBus block sync step."
+                        />
                       </Stack>
                     )}
                   </Stack>
                 )}
 
-                {step === 4 && (
+                {step === 5 && (
                   <Stack spacing={2}>
                     <Typography variant="h6">Review setup</Typography>
                     <Alert severity="info">The chosen provider configuration is persisted immediately. Runtime wiring applies fully after service restart.</Alert>
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
                       <Card variant="outlined"><CardContent><Typography variant="overline">Admin</Typography><Typography variant="body2">{draft.admin.enabled ? `Enabled (${draft.admin.username})` : "Disabled"}</Typography></CardContent></Card>
                       <Card variant="outlined"><CardContent><Typography variant="overline">Raw tx</Typography><Typography variant="body2">{draft.providers.rawTxPrimaryProvider}</Typography></CardContent></Card>
+                      <Card variant="outlined"><CardContent><Typography variant="overline">Block sync</Typography><Typography variant="body2">junglebus · {draft.blockSync.baseUrl || "not set"} · {draft.blockSync.blockSubscriptionId || "missing subscription"}</Typography></CardContent></Card>
                       <Card variant="outlined"><CardContent><Typography variant="overline">REST fallback</Typography><Typography variant="body2">{draft.providers.restFallbackProvider}</Typography></CardContent></Card>
                       <Card variant="outlined"><CardContent><Typography variant="overline">Realtime</Typography><Typography variant="body2">{draft.providers.realtimePrimaryProvider}{draft.providers.realtimePrimaryProvider === "bitails" ? ` · ${draft.providers.bitailsTransport}` : ""}</Typography></CardContent></Card>
                     </Box>

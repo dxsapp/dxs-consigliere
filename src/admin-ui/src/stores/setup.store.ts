@@ -81,6 +81,11 @@ export class SetupStore {
     this.draft.providers.rawTxPrimaryProvider = value;
   }
 
+  setBlockSyncField(field: keyof SetupCompleteRequest["blockSync"], value: string) {
+    if (!this.draft) return;
+    this.draft.blockSync[field] = value;
+  }
+
   setRestFallbackProvider(value: string) {
     if (!this.draft) return;
     this.draft.providers.restFallbackProvider = value;
@@ -125,18 +130,22 @@ export class SetupStore {
     try {
       const options = await setupApi.options();
       runInAction(() => {
-        this.options = options;
-        this.draft = {
-          admin: {
-            enabled: options.status.adminEnabled,
-            username: options.status.adminUsername ?? "",
-            password: "",
-          },
-          providers: {
-            rawTxPrimaryProvider: options.defaults.rawTxPrimaryProvider,
-            restFallbackProvider: options.defaults.restFallbackProvider,
-            realtimePrimaryProvider: options.defaults.realtimePrimaryProvider,
-            bitailsTransport: options.defaults.bitailsTransport,
+      this.options = options;
+      this.draft = {
+        admin: {
+          enabled: options.status.adminEnabled,
+          username: options.status.adminUsername ?? "",
+          password: "",
+        },
+        blockSync: {
+          baseUrl: options.blockSync.baseUrl ?? "",
+          blockSubscriptionId: options.blockSync.blockSubscriptionId ?? "",
+        },
+        providers: {
+          rawTxPrimaryProvider: options.defaults.rawTxPrimaryProvider,
+          restFallbackProvider: options.defaults.restFallbackProvider,
+          realtimePrimaryProvider: options.defaults.realtimePrimaryProvider,
+          bitailsTransport: options.defaults.bitailsTransport,
             bitails: {
               apiKey: options.providerConfig.bitails.apiKey ?? "",
               baseUrl: options.providerConfig.bitails.baseUrl ?? "",
@@ -149,7 +158,7 @@ export class SetupStore {
               baseUrl: options.providerConfig.whatsonchain.baseUrl ?? "",
             },
             junglebus: {
-              baseUrl: options.providerConfig.junglebus.baseUrl ?? "",
+              baseUrl: options.providerConfig.junglebus.baseUrl ?? options.blockSync.baseUrl ?? "",
               mempoolSubscriptionId: options.providerConfig.junglebus.mempoolSubscriptionId ?? "",
               blockSubscriptionId: options.providerConfig.junglebus.blockSubscriptionId ?? "",
             },

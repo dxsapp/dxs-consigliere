@@ -80,6 +80,9 @@ public class JungleBusSyncRequestProcessor(
         var request = await session.LoadAsync<SyncRequest>(requestId, cancellationToken);
         var txCount = 0;
         var stop = false;
+        var processedBlockHeight = request.FromHeight;
+        var processedBlockHash = string.Empty;
+        long? processedBlockTimestamp = null;
 
         await jungleBus.StartSubscription(request.SubscriptionId);
 
@@ -88,6 +91,9 @@ public class JungleBusSyncRequestProcessor(
             .Subscribe(x =>
                 {
                     txCount++;
+                    processedBlockHeight = x.BlockHeight;
+                    processedBlockHash = x.BlockHash ?? string.Empty;
+                    processedBlockTimestamp = x.BlockTime;
 
                     request.FromHeight = x.BlockHeight;
 
@@ -170,6 +176,33 @@ public class JungleBusSyncRequestProcessor(
         else
         {
             request.Finished = request.FromHeight >= request.ToHeight;
+        }
+
+        if (!string.IsNullOrWhiteSpace(processedBlockHash))
+        {
+            var blockContext = await session.LoadAsync<BlockProcessContext>(processedBlockHash, cancellationToken);
+            if (blockContext is null)
+            {
+                blockContext = new BlockProcessContext
+                {
+                    Id = processedBlockHash
+                };
+                await session.StoreAsync(blockContext, cancellationToken);
+            }
+
+            blockContext.Height = processedBlockHeight;
+            blockContext.Timestamp = processedBlockTimestamp ?? 0;
+            blockContext.TransactionsCount = txCount;
+            blockContext.ErrorsCount = 0;
+            blockContext.NextProcessAt = null;
+            blockContext.LastProcessAt = DateTime.UtcNow;
+            blockContext.Scheduled = false;
+            blockContext.Orphaned = false;
+
+            if (blockContext.Start <= 0)
+                blockContext.Start = 1;
+            if (blockContext.Finish <= 0)
+                blockContext.Finish = 1;
         }
 
         await session.SaveChangesAsync(cancellationToken);

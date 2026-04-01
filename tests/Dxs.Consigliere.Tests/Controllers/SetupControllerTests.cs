@@ -22,6 +22,11 @@ public class SetupControllerTests
                 Defaults = new SetupDefaultsResponse
                 {
                     RawTxPrimaryProvider = "junglebus"
+                },
+                BlockSync = new SetupJungleBusBlockSyncDefaultsResponse
+                {
+                    BaseUrl = "https://junglebus.gorillapool.io",
+                    BlockSubscriptionId = "block-sub"
                 }
             });
 
@@ -31,6 +36,7 @@ public class SetupControllerTests
         var ok = Assert.IsType<OkObjectResult>(result);
         var payload = Assert.IsType<SetupOptionsResponse>(ok.Value);
         Assert.Equal("junglebus", payload.Defaults.RawTxPrimaryProvider);
+        Assert.Equal("https://junglebus.gorillapool.io", payload.BlockSync.BaseUrl);
     }
 
     [Fact]

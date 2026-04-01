@@ -4,8 +4,11 @@ using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
+using Dxs.Consigliere.Services.Impl;
+using Dxs.Infrastructure.Common;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,7 +21,9 @@ public class ActualChainTipVerifyBackgroundTask(
     IDocumentStore store,
     IRpcClient rpcClient,
     IBlockMessageBus blockMessageBus,
+    IAdminRuntimeSourcePolicyService runtimeSourcePolicyService,
     IOptions<AppConfig> appConfig,
+    IExternalChainProviderCatalog providerCatalog,
     ILogger<ActualChainTipVerifyBackgroundTask> logger
 ) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
@@ -33,6 +38,23 @@ public class ActualChainTipVerifyBackgroundTask(
 
     private async Task VerifyChainTip(CancellationToken cancellationToken)
     {
+        var effectiveSources = await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken);
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.BlockBackfill,
+            effectiveSources,
+            appConfig.Value,
+            providerCatalog
+        );
+
+        if (!string.Equals(route.PrimarySource, SourceCapabilityRouting.NodeProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug(
+                "Skipping node chain-tip verification because block-backfill primary is `{Primary}`",
+                route.PrimarySource
+            );
+            return;
+        }
+
         using var session = store.GetSession();
         var hasNonSyncedBlocks = await session.Query<BlockProcessContext>()
             .Where(x => x.Height == 0)

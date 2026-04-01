@@ -273,6 +273,10 @@ export interface SetupOptions {
     realtimePrimaryProvider: string;
     bitailsTransport: string;
   };
+  blockSync: {
+    baseUrl: string;
+    blockSubscriptionId: string;
+  };
   allowed: {
     rawTxPrimaryProviders: string[];
     restFallbackProviders: string[];
@@ -295,6 +299,10 @@ export interface SetupCompleteRequest {
     enabled: boolean;
     username: string;
     password: string;
+  };
+  blockSync: {
+    baseUrl: string;
+    blockSubscriptionId: string;
   };
   providers: {
     rawTxPrimaryProvider: string;

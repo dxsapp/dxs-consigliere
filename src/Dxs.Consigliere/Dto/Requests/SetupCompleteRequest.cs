@@ -4,6 +4,7 @@ public sealed class SetupCompleteRequest
 {
     public SetupAdminAccessRequest Admin { get; set; } = new();
     public SetupProviderSelectionRequest Providers { get; set; } = new();
+    public SetupJungleBusBlockSyncRequest BlockSync { get; set; } = new();
 }
 
 public sealed class SetupAdminAccessRequest
@@ -29,4 +30,10 @@ public sealed class SetupNodeRealtimeConfigRequest
 {
     public string ZmqTxUrl { get; set; }
     public string ZmqBlockUrl { get; set; }
+}
+
+public sealed class SetupJungleBusBlockSyncRequest
+{
+    public string BaseUrl { get; set; }
+    public string BlockSubscriptionId { get; set; }
 }

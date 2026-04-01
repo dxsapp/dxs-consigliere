@@ -68,14 +68,14 @@ Supporting zones:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `JB1` | `repo-governance` | `operator/governance` | `todo` | - | docs review | block-sync capability contract is frozen |
-| `JB2` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `JB1` | focused runtime tests | block processing no longer requires node RPC as unconditional first step |
-| `JB3` | `external-chain-adapters` | `operator/integration` | `todo` | `JB2` | adapter tests | JungleBus-backed block-sync path has the config it actually needs |
-| `JB4` | `public-api-and-realtime` | `operator/api` | `todo` | `JB1`,`JB2`,`JB3` | setup API tests | setup contract explicitly includes JungleBus block-sync inputs |
-| `JB5` | `frontend-admin-shell` | `operator/ui` | `todo` | `JB4` | frontend build + smoke | wizard has an explicit JungleBus block-sync step or substep |
-| `JB6` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `JB2`,`JB4`,`JB5` | runtime diagnostics review | startup/runtime surfaces stop implying node is required for default block sync |
-| `JB7` | `verification-and-conformance` | `operator/verification` | `todo` | `JB2`,`JB3`,`JB4`,`JB5`,`JB6` | focused proof | invalid node RPC no longer poisons block sync and setup contract stays coherent |
-| `A1` | `repo-governance` | `operator/governance` | `todo` | `JB7` | audit | JungleBus-first block sync posture is closed honestly |
+| `JB1` | `repo-governance` | `operator/governance` | `done` | - | docs review | block-sync capability contract is frozen |
+| `JB2` | `indexer-ingest-orchestration` | `operator/runtime` | `done` | `JB1` | focused runtime tests | block processing no longer requires node RPC as unconditional first step |
+| `JB3` | `external-chain-adapters` | `operator/integration` | `done` | `JB2` | adapter tests | JungleBus-backed block-sync path has the config it actually needs |
+| `JB4` | `public-api-and-realtime` | `operator/api` | `done` | `JB1`,`JB2`,`JB3` | setup API tests | setup contract explicitly includes JungleBus block-sync inputs |
+| `JB5` | `frontend-admin-shell` | `operator/ui` | `done` | `JB4` | frontend build + smoke | wizard has an explicit JungleBus block-sync step or substep |
+| `JB6` | `service-bootstrap-and-ops` | `operator/platform` | `done` | `JB2`,`JB4`,`JB5` | runtime diagnostics review | startup/runtime surfaces stop implying node is required for default block sync |
+| `JB7` | `verification-and-conformance` | `operator/verification` | `done` | `JB2`,`JB3`,`JB4`,`JB5`,`JB6` | focused proof | invalid node RPC no longer poisons block sync and setup contract stays coherent |
+| `A1` | `repo-governance` | `operator/governance` | `done` | `JB7` | audit | JungleBus-first block sync posture is closed honestly |
 
 ## Expected File Targets
 

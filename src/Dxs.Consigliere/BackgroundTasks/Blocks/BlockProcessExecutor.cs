@@ -93,6 +93,33 @@ public class BlockProcessExecutor(
         CancellationToken cancellationToken
     )
     {
+        var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.BlockBackfill,
+            effectiveSources,
+            appConfig.Value,
+            providerCatalog
+        );
+        var selectedSource = SourceCapabilityRouting.SelectForAttempt(route, context.ErrorsCount);
+
+        if (!string.Equals(selectedSource, SourceCapabilityRouting.NodeProvider, StringComparison.OrdinalIgnoreCase))
+        {
+            if (context.Height <= 0)
+            {
+                logger.LogInformation(
+                    "Skipping legacy block process context `{BlockHash}` because block-backfill primary is `{Source}` and no block height is available",
+                    context.Id,
+                    selectedSource
+                );
+                context.NextProcessAt = null;
+                context.Messages.Add($"Skipped legacy node-sourced block context after block-backfill switched to `{selectedSource}`");
+                return;
+            }
+
+            context.TransactionsCount = await HandleValidBlock(context, route, selectedSource, cancellationToken);
+            return;
+        }
+
         var blockHeaderResponse = await rpcClient.GetBlockHeader(context.Id);
         var blockHeader = blockHeaderResponse.Result;
 
@@ -114,26 +141,21 @@ public class BlockProcessExecutor(
         context.Height = blockHeader.Height;
         context.Timestamp = blockHeader.Time;
 
-        await HandleValidBlock(context, cancellationToken);
-
-        context.TransactionsCount = blockHeader.TransactionsCount;
+        var transactionsCount = await HandleValidBlock(context, route, selectedSource, cancellationToken);
+        context.TransactionsCount = blockHeader.TransactionsCount == 0 ? transactionsCount : blockHeader.TransactionsCount;
     }
 
-    private async Task HandleValidBlock(BlockProcessContext context, CancellationToken cancellationToken)
+    private async Task<int> HandleValidBlock(
+        BlockProcessContext context,
+        SourceCapabilityRoute route,
+        string selectedSource,
+        CancellationToken cancellationToken
+    )
     {
         using var _ = serviceProvider.GetScopedServices(
             out JungleBusBlockchainDataProvider jungleBusBlockchainDataProvider,
             out NodeBlockchainDataProvider nodeBlockchainDataProvider
         );
-
-        var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
-        var route = SourceCapabilityRouting.Resolve(
-            ExternalChainCapability.BlockBackfill,
-            effectiveSources,
-            appConfig.Value,
-            providerCatalog
-        );
-        var selectedSource = SourceCapabilityRouting.SelectForAttempt(route, context.ErrorsCount);
 
         var dataProvider = string.Equals(selectedSource, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase)
             && jungleBusBlockchainDataProvider.Enabled
@@ -152,9 +174,10 @@ public class BlockProcessExecutor(
             route.VerificationSource
         );
 
-        await dataProvider.ProcessBlock(context, combined.Token);
+        var count = await dataProvider.ProcessBlock(context, combined.Token);
 
         logger.LogDebug("Handling block {@Context} finished", context);
+        return count;
     }
 
     private async Task HandleBlockNotFound(

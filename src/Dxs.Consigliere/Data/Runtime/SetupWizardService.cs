@@ -41,6 +41,11 @@ public sealed class SetupWizardService(
                 RealtimePrimaryProvider = providers.Recommendations.RealtimePrimaryProvider,
                 BitailsTransport = effective.BitailsTransport
             },
+            BlockSync = new SetupJungleBusBlockSyncDefaultsResponse
+            {
+                BaseUrl = effective.Junglebus.BaseUrl,
+                BlockSubscriptionId = effective.Junglebus.BlockSubscriptionId
+            },
             Allowed = new SetupAllowedOptionsResponse
             {
                 RawTxPrimaryProviders = providers.Config.AllowedRawTxPrimaryProviders,
@@ -99,6 +104,18 @@ public sealed class SetupWizardService(
                 throw new SetupWizardException("admin_password_required");
         }
 
+        var blockSync = request.BlockSync ?? new SetupJungleBusBlockSyncRequest();
+        if (string.IsNullOrWhiteSpace(blockSync.BaseUrl))
+            throw new SetupWizardException("junglebus_block_sync_base_url_required");
+        if (string.IsNullOrWhiteSpace(blockSync.BlockSubscriptionId))
+            throw new SetupWizardException("junglebus_block_subscription_id_required");
+
+        var jungleBus = request.Providers?.Junglebus ?? new AdminJungleBusProviderConfigUpdateRequest();
+        if (string.IsNullOrWhiteSpace(jungleBus.BaseUrl))
+            jungleBus.BaseUrl = blockSync.BaseUrl.Trim();
+        if (string.IsNullOrWhiteSpace(jungleBus.BlockSubscriptionId))
+            jungleBus.BlockSubscriptionId = blockSync.BlockSubscriptionId.Trim();
+
         var providerResult = await providerConfigService.ApplyProviderConfigAsync(
             new AdminProviderConfigUpdateRequest
             {
@@ -108,7 +125,7 @@ public sealed class SetupWizardService(
                 BitailsTransport = request.Providers?.BitailsTransport,
                 Bitails = request.Providers?.Bitails ?? new AdminBitailsProviderConfigUpdateRequest(),
                 Whatsonchain = request.Providers?.Whatsonchain ?? new AdminRestProviderConfigUpdateRequest(),
-                Junglebus = request.Providers?.Junglebus ?? new AdminJungleBusProviderConfigUpdateRequest()
+                Junglebus = jungleBus
             },
             admin.Enabled ? admin.Username?.Trim() ?? "setup" : "setup",
             cancellationToken);
