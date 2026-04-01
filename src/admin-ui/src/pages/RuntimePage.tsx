@@ -409,6 +409,9 @@ export const RuntimePage = observer(function RuntimePage() {
                               <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
                                 Last error: {item.lastError || "none"}
                               </Typography>
+                              <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                                Stop reason: {item.lastStopReason || "unavailable"} · fetched {formatCount(item.lastFetchCount)} · visited {formatCount(item.lastVisitedCount)} · depth {formatCount(item.lastTraversalDepth)}
+                              </Typography>
                             </Box>
                           </Box>
                         ))}

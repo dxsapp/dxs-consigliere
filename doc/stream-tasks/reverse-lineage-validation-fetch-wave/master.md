@@ -94,12 +94,12 @@ Supporting zones:
 
 | slice | zone lead | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `RL1` Contract Freeze | `repo-governance` | `operator/governance` | `todo` | - | docs review | reverse-lineage policy, limits, and stop conditions are frozen |
-| `RL2` JungleBus Throttled Fetcher | `external-chain-adapters` | `operator/integration` | `todo` | `RL1` | focused tests | JungleBus validation fetch path is rate-limited to 10 req/sec |
-| `RL3` Reverse Traversal Engine | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `RL1`,`RL2` | runtime tests | validation repair walks ancestry backward with visited/budget rules |
-| `RL4` Repair Integration | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `RL3` | integration tests | validation repair worker uses reverse-lineage acquisition for tx-level repair |
-| `RL5` Ops Visibility | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `RL4` | ops proof | stop reasons / budget exhaustion / rate-limit outcomes are observable |
-| `A1` Closeout Audit | `repo-governance` | `operator/governance` | `todo` | `RL5` | audit | reverse-lineage validation fetch is real and honestly bounded |
+| `RL1` Contract Freeze | `repo-governance` | `operator/governance` | `done` | - | docs review | reverse-lineage policy, limits, and stop conditions are frozen |
+| `RL2` JungleBus Throttled Fetcher | `external-chain-adapters` | `operator/integration` | `done` | `RL1` | focused tests | JungleBus validation fetch path is rate-limited to 10 req/sec |
+| `RL3` Reverse Traversal Engine | `indexer-ingest-orchestration` | `operator/runtime` | `done` | `RL1`,`RL2` | runtime tests | validation repair walks ancestry backward with visited/budget rules |
+| `RL4` Repair Integration | `indexer-ingest-orchestration` | `operator/runtime` | `done` | `RL3` | integration tests | validation repair worker uses reverse-lineage acquisition for tx-level repair |
+| `RL5` Ops Visibility | `service-bootstrap-and-ops` | `operator/platform` | `done` | `RL4` | ops proof | stop reasons / budget exhaustion / rate-limit outcomes are observable |
+| `A1` Closeout Audit | `repo-governance` | `operator/governance` | `done` | `RL5` | audit | reverse-lineage validation fetch is real and honestly bounded |
 
 ## Definition of Done
 
@@ -108,3 +108,9 @@ Supporting zones:
 - traversal is bounded by visited/depth/budget rules
 - provider failures do not incorrectly become illegal-root verdicts
 - operator can tell whether repair stopped due to root success, budget, or provider limits
+
+## Delivery Notes
+
+Closed bounded commits:
+- `4f04f3b` `docs(runtime): add reverse lineage validation fetch wave`
+- implementation closeout recorded in the wave audit and closeout artifacts for this package

@@ -1,3 +1,4 @@
+#nullable enable
 namespace Dxs.Consigliere.Services;
 
 public interface IValidationDependencyService
@@ -11,5 +12,9 @@ public interface IValidationDependencyService
 public sealed record ValidationDependencyResolutionResult(
     IReadOnlyList<string> FetchedDependencies,
     IReadOnlyList<string> RemainingDependencies,
-    string? LastError
+    string? LastError,
+    string? StopReason,
+    int FetchCount,
+    int VisitedCount,
+    int MaxTraversalDepth
 );

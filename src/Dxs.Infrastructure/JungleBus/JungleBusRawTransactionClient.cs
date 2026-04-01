@@ -5,10 +5,14 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
+using ComposableAsync;
+
 using Dxs.Common.Exceptions;
 using Dxs.Common.Extensions;
 using Dxs.Infrastructure.Common;
 using Dxs.Infrastructure.JungleBus.Dto;
+
+using RateLimiter;
 
 namespace Dxs.Infrastructure.JungleBus;
 
@@ -17,8 +21,12 @@ public sealed class JungleBusRawTransactionClient(
     IExternalChainProviderSettingsAccessor providerSettingsAccessor
 ) : IJungleBusRawTransactionClient
 {
+    private static readonly TimeLimiter ValidationFetchRateLimiter = TimeLimiter.GetFromMaxCountByInterval(10, TimeSpan.FromSeconds(1));
+
     public async Task<byte[]> GetTransactionRawOrNullAsync(string txId, CancellationToken cancellationToken = default)
     {
+        await ValidationFetchRateLimiter;
+
         var request = new HttpRequestMessage(
             HttpMethod.Get,
             await BuildUrlAsync($"v1/transaction/get/{txId}", cancellationToken));

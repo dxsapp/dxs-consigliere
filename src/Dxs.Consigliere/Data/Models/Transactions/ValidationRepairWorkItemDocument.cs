@@ -1,3 +1,4 @@
+#nullable enable
 using Dxs.Consigliere.Data.Models;
 
 namespace Dxs.Consigliere.Data.Models.Transactions;
@@ -5,7 +6,7 @@ namespace Dxs.Consigliere.Data.Models.Transactions;
 public sealed class ValidationRepairWorkItemDocument : AuditableEntity
 {
     public string EntityType { get; set; } = ValidationRepairEntityTypes.Transaction;
-    public string EntityId { get; set; }
+    public string EntityId { get; set; } = string.Empty;
     public string[] Reasons { get; set; } = [];
     public string[] MissingDependencies { get; set; } = [];
     public string State { get; set; } = ValidationRepairStates.Pending;
@@ -13,8 +14,12 @@ public sealed class ValidationRepairWorkItemDocument : AuditableEntity
     public long? LastAttemptAt { get; set; }
     public long? NextAttemptAt { get; set; }
     public long? LastResolvedAt { get; set; }
-    public string LastError { get; set; }
+    public string LastError { get; set; } = string.Empty;
     public string[] LastFetchedDependencies { get; set; } = [];
+    public string? LastStopReason { get; set; }
+    public int LastFetchCount { get; set; }
+    public int LastVisitedCount { get; set; }
+    public int LastTraversalDepth { get; set; }
 
     public override string GetId() => GetId(EntityId);
 
@@ -36,6 +41,10 @@ public sealed class ValidationRepairWorkItemDocument : AuditableEntity
         yield return nameof(LastResolvedAt);
         yield return nameof(LastError);
         yield return nameof(LastFetchedDependencies);
+        yield return nameof(LastStopReason);
+        yield return nameof(LastFetchCount);
+        yield return nameof(LastVisitedCount);
+        yield return nameof(LastTraversalDepth);
     }
 
     public override IEnumerable<string> UpdateableKeys()
@@ -54,6 +63,10 @@ public sealed class ValidationRepairWorkItemDocument : AuditableEntity
         yield return nameof(LastResolvedAt);
         yield return nameof(LastError);
         yield return nameof(LastFetchedDependencies);
+        yield return nameof(LastStopReason);
+        yield return nameof(LastFetchCount);
+        yield return nameof(LastVisitedCount);
+        yield return nameof(LastTraversalDepth);
     }
 
     public override IEnumerable<KeyValuePair<string, object>> ToEntries()
@@ -72,6 +85,10 @@ public sealed class ValidationRepairWorkItemDocument : AuditableEntity
         yield return new(nameof(LastResolvedAt), LastResolvedAt);
         yield return new(nameof(LastError), LastError);
         yield return new(nameof(LastFetchedDependencies), LastFetchedDependencies);
+        yield return new(nameof(LastStopReason), LastStopReason);
+        yield return new(nameof(LastFetchCount), LastFetchCount);
+        yield return new(nameof(LastVisitedCount), LastVisitedCount);
+        yield return new(nameof(LastTraversalDepth), LastTraversalDepth);
     }
 }
 
@@ -96,4 +113,16 @@ public static class ValidationRepairReasons
     public const string RootedHistorySync = "rooted_history_sync";
     public const string MissingParentRepair = "missing_parent_repair";
     public const string LateArrivalRepair = "late_arrival_repair";
+}
+
+public static class ValidationRepairStopReasons
+{
+    public const string TrustedRootReached = "trusted_root_reached";
+    public const string ValidIssueReached = "valid_issue_reached";
+    public const string IllegalRootFound = "illegal_root_found";
+    public const string AlreadyVisited = "already_visited";
+    public const string MissingDependency = "missing_dependency";
+    public const string BudgetExceeded = "budget_exceeded";
+    public const string ProviderRateLimited = "provider_rate_limited";
+    public const string ProviderError = "provider_error";
 }

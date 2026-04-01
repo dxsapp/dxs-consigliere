@@ -233,7 +233,11 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
           ]
         },
         "validation_fetch": {
-          "source": "node"
+          "source": "junglebus",
+          "fallbackSources": [
+            "bitails",
+            "whatsonchain"
+          ]
         },
         "historical_address_scan": {
           "source": "bitails"
@@ -345,8 +349,9 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           ]
         },
         "validation_fetch": {
-          "source": "bitails",
+          "source": "junglebus",
           "fallbackSources": [
+            "bitails",
             "whatsonchain"
           ]
         },

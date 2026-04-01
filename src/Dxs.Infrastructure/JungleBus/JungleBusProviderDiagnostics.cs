@@ -12,9 +12,14 @@ public sealed class JungleBusProviderDiagnostics : IExternalChainProviderDiagnos
         ExternalChainProviderName.JungleBus,
         [
             ExternalChainCapability.RawTxFetch,
+            ExternalChainCapability.ValidationFetch,
             ExternalChainCapability.RealtimeIngest,
             ExternalChainCapability.BlockBackfill
-        ]
+        ],
+        new ExternalChainRateLimitHint(
+            RequestsPerMinute: 600,
+            SourceHint: "reverse_lineage_validation_fetch_10_per_second"
+        )
     );
 
     public ValueTask<ExternalChainProviderHealthSnapshot> GetHealthAsync(CancellationToken cancellationToken = default)

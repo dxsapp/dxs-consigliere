@@ -463,6 +463,10 @@ export interface ValidationRepairItemResponse {
   nextAttemptAt: number | null;
   lastError: string | null;
   lastFetchedDependencies: string[];
+  lastStopReason: string | null;
+  lastFetchCount: number;
+  lastVisitedCount: number;
+  lastTraversalDepth: number;
 }
 
 export interface ValidationRepairStatusResponse {

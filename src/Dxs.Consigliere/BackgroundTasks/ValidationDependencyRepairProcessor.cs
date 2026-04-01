@@ -42,11 +42,11 @@ public sealed class ValidationDependencyRepairProcessor(
                     txId,
                     item.MissingDependencies,
                     "target_transaction_missing",
-                    cancellationToken);
+                    cancellationToken: cancellationToken);
             }
             else
             {
-                await workItemStore.MarkResolvedAsync(txId, cancellationToken);
+                await workItemStore.MarkResolvedAsync(txId, cancellationToken: cancellationToken);
             }
             return;
         }
@@ -59,7 +59,7 @@ public sealed class ValidationDependencyRepairProcessor(
 
         if (currentMissing.Length == 0)
         {
-            await workItemStore.MarkResolvedAsync(txId, cancellationToken);
+            await workItemStore.MarkResolvedAsync(txId, cancellationToken: cancellationToken);
             return;
         }
 
@@ -83,7 +83,18 @@ public sealed class ValidationDependencyRepairProcessor(
 
         if (refreshed is not null && remainingMissing.Length == 0)
         {
-            await workItemStore.MarkResolvedAsync(txId, cancellationToken);
+            var resolvedStopReason = resolution.StopReason;
+            if (string.IsNullOrWhiteSpace(resolvedStopReason))
+            {
+                resolvedStopReason = (refreshed.IllegalRoots?.Count ?? 0) > 0
+                    ? ValidationRepairStopReasons.IllegalRootFound
+                    : ValidationRepairStopReasons.ValidIssueReached;
+            }
+
+            await workItemStore.MarkResolvedAsync(
+                txId,
+                resolution with { StopReason = resolvedStopReason },
+                cancellationToken);
             return;
         }
 
@@ -99,6 +110,7 @@ public sealed class ValidationDependencyRepairProcessor(
             error,
             DateTimeOffset.UtcNow.AddSeconds(Math.Min(300, 15 * Math.Max(1, item.AttemptCount))),
             terminalFailure,
+            resolution,
             cancellationToken);
     }
 }

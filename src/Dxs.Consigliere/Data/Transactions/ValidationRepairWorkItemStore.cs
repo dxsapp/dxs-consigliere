@@ -1,5 +1,7 @@
+#nullable enable
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
+using Dxs.Consigliere.Services;
 
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
@@ -40,6 +42,10 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
         document.MissingDependencies = Normalize(missingDependencies);
         document.NextAttemptAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         document.LastResolvedAt = null;
+        document.LastStopReason = null;
+        document.LastFetchCount = 0;
+        document.LastVisitedCount = 0;
+        document.LastTraversalDepth = 0;
         document.SetUpdate();
 
         await session.StoreAsync(document, document.Id, cancellationToken);
@@ -64,9 +70,10 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
         document.MissingDependencies = Normalize(missingDependencies);
         document.AttemptCount += 1;
         document.LastAttemptAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        document.LastError = null;
+        document.LastError = string.Empty;
         document.NextAttemptAt = null;
         document.LastResolvedAt = null;
+        document.LastStopReason = null;
         document.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
@@ -75,6 +82,7 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
 
     public async Task<ValidationRepairWorkItemDocument?> MarkResolvedAsync(
         string txId,
+        ValidationDependencyResolutionResult? resolution = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
@@ -89,9 +97,10 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
 
         document.State = ValidationRepairStates.Resolved;
         document.MissingDependencies = [];
-        document.LastError = null;
+        document.LastError = string.Empty;
         document.NextAttemptAt = null;
         document.LastResolvedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        ApplyResolution(document, resolution);
         document.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
@@ -104,6 +113,7 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
         string lastError,
         DateTimeOffset nextAttemptAt,
         bool failed,
+        ValidationDependencyResolutionResult? resolution = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
@@ -125,6 +135,7 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
             ? nextAttemptAt.ToUnixTimeMilliseconds()
             : null;
         document.LastResolvedAt = null;
+        ApplyResolution(document, resolution);
         document.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
@@ -135,6 +146,7 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
         string txId,
         IReadOnlyCollection<string> missingDependencies,
         string lastError,
+        ValidationDependencyResolutionResult? resolution = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
@@ -152,6 +164,7 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
         document.LastError = string.IsNullOrWhiteSpace(lastError) ? "validation_repair_blocked" : lastError;
         document.NextAttemptAt = null;
         document.LastResolvedAt = null;
+        ApplyResolution(document, resolution);
         document.SetUpdate();
 
         await session.SaveChangesAsync(cancellationToken);
@@ -211,4 +224,22 @@ public sealed class ValidationRepairWorkItemStore(IDocumentStore documentStore) 
             .Distinct(StringComparer.Ordinal)
             .OrderBy(x => x, StringComparer.Ordinal)
             .ToArray();
+
+    private static void ApplyResolution(
+        ValidationRepairWorkItemDocument document,
+        ValidationDependencyResolutionResult? resolution)
+    {
+        if (resolution is null)
+            return;
+
+        document.LastFetchedDependencies = resolution.FetchedDependencies
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .ToArray();
+        document.LastStopReason = resolution.StopReason;
+        document.LastFetchCount = Math.Max(0, resolution.FetchCount);
+        document.LastVisitedCount = Math.Max(0, resolution.VisitedCount);
+        document.LastTraversalDepth = Math.Max(0, resolution.MaxTraversalDepth);
+    }
 }

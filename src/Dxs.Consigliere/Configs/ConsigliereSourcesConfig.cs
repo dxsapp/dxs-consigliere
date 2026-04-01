@@ -38,6 +38,7 @@ public class SourceProvidersConfig
                 EnabledCapabilities =
                 [
                     ExternalChainCapability.RawTxFetch,
+                    ExternalChainCapability.ValidationFetch,
                     ExternalChainCapability.RealtimeIngest,
                     ExternalChainCapability.BlockBackfill
                 ],
@@ -150,8 +151,8 @@ public class SourceCapabilitiesConfig
             },
             ValidationFetch = new RoutedCapabilityOverrideConfig
             {
-                Source = "node",
-                FallbackSources = [ExternalChainProviderName.Bitails]
+                Source = ExternalChainProviderName.JungleBus,
+                FallbackSources = [ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain]
             },
             HistoricalAddressScan = new RoutedCapabilityOverrideConfig
             {

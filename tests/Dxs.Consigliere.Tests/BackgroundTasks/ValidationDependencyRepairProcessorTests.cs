@@ -36,7 +36,14 @@ public class ValidationDependencyRepairProcessorTests : RavenTestDriver
 
         var metaStore = new FakeMetaTransactionStore(store, "tx-main", clearMissingOnUpdate: true);
         var coordinator = new FakeCoordinator();
-        var dependencyService = new FakeValidationDependencyService(["dep-a"], [], null);
+        var dependencyService = new FakeValidationDependencyService(
+            ["dep-a"],
+            [],
+            null,
+            ValidationRepairStopReasons.ValidIssueReached,
+            1,
+            2,
+            1);
         var sut = new ValidationDependencyRepairProcessor(store, workStore, dependencyService, metaStore, coordinator, NullLogger<ValidationDependencyRepairProcessor>.Instance);
 
         var processed = await sut.ProcessDueAsync();
@@ -45,6 +52,10 @@ public class ValidationDependencyRepairProcessorTests : RavenTestDriver
         Assert.Equal(1, processed);
         Assert.NotNull(saved);
         Assert.Equal(ValidationRepairStates.Resolved, saved!.State);
+        Assert.Equal(ValidationRepairStopReasons.ValidIssueReached, saved.LastStopReason);
+        Assert.Equal(1, saved.LastFetchCount);
+        Assert.Equal(2, saved.LastVisitedCount);
+        Assert.Equal(1, saved.LastTraversalDepth);
         Assert.Equal(["tx-main"], metaStore.UpdatedTxIds);
         Assert.Equal(["dep-a"], coordinator.ChangedTxIds);
     }
@@ -70,7 +81,14 @@ public class ValidationDependencyRepairProcessorTests : RavenTestDriver
 
         var metaStore = new FakeMetaTransactionStore(store, "tx-pending", clearMissingOnUpdate: false);
         var coordinator = new FakeCoordinator();
-        var dependencyService = new FakeValidationDependencyService(["dep-a"], ["dep-b"], "partial_dependency_resolution");
+        var dependencyService = new FakeValidationDependencyService(
+            ["dep-a"],
+            ["dep-b"],
+            "partial_dependency_resolution",
+            ValidationRepairStopReasons.MissingDependency,
+            1,
+            2,
+            1);
         var sut = new ValidationDependencyRepairProcessor(store, workStore, dependencyService, metaStore, coordinator, NullLogger<ValidationDependencyRepairProcessor>.Instance);
 
         await sut.ProcessDueAsync();
@@ -80,6 +98,10 @@ public class ValidationDependencyRepairProcessorTests : RavenTestDriver
         Assert.Equal(ValidationRepairStates.Pending, saved!.State);
         Assert.Equal(["dep-a", "dep-b"], saved.MissingDependencies);
         Assert.Equal("partial_dependency_resolution", saved.LastError);
+        Assert.Equal(1, saved.LastFetchCount);
+        Assert.Equal(2, saved.LastVisitedCount);
+        Assert.Equal(ValidationRepairStopReasons.MissingDependency, saved.LastStopReason);
+        Assert.Equal(1, saved.LastTraversalDepth);
         Assert.NotNull(saved.NextAttemptAt);
         Assert.Equal(["dep-a"], coordinator.ChangedTxIds);
     }
@@ -96,7 +118,14 @@ public class ValidationDependencyRepairProcessorTests : RavenTestDriver
 
         var metaStore = new FakeMetaTransactionStore(store, "tx-missing", clearMissingOnUpdate: false);
         var coordinator = new FakeCoordinator();
-        var dependencyService = new FakeValidationDependencyService([], ["dep-a"], "not_used");
+        var dependencyService = new FakeValidationDependencyService(
+            [],
+            ["dep-a"],
+            "not_used",
+            ValidationRepairStopReasons.MissingDependency,
+            0,
+            1,
+            1);
         var sut = new ValidationDependencyRepairProcessor(store, workStore, dependencyService, metaStore, coordinator, NullLogger<ValidationDependencyRepairProcessor>.Instance);
 
         await sut.ProcessDueAsync();
@@ -117,10 +146,21 @@ public class ValidationDependencyRepairProcessorTests : RavenTestDriver
     private sealed class FakeValidationDependencyService(
         IReadOnlyList<string> fetchedDependencies,
         IReadOnlyList<string> remainingDependencies,
-        string? lastError) : IValidationDependencyService
+        string? lastError,
+        string? stopReason,
+        int fetchCount,
+        int visitedCount,
+        int maxTraversalDepth) : IValidationDependencyService
     {
         public Task<ValidationDependencyResolutionResult> ResolveAsync(string entityId, IReadOnlyList<string> missingDependencies, CancellationToken cancellationToken = default)
-            => Task.FromResult(new ValidationDependencyResolutionResult(fetchedDependencies, remainingDependencies, lastError));
+            => Task.FromResult(new ValidationDependencyResolutionResult(
+                fetchedDependencies,
+                remainingDependencies,
+                lastError,
+                stopReason,
+                fetchCount,
+                visitedCount,
+                maxTraversalDepth));
     }
 
     private sealed class FakeCoordinator : IStasDependencyRevalidationCoordinator

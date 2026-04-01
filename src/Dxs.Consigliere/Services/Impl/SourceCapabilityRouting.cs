@@ -191,7 +191,9 @@ public static class SourceCapabilityRouting
                 ? ExternalChainProviderName.JungleBus
                 : NodeProvider,
             ExternalChainCapability.Broadcast => NodeProvider,
-            ExternalChainCapability.ValidationFetch => NodeProvider,
+            ExternalChainCapability.ValidationFetch => legacyConfig.JungleBus.Enabled
+                ? ExternalChainProviderName.JungleBus
+                : ExternalChainProviderName.Bitails,
             ExternalChainCapability.RawTxFetch => legacyConfig.JungleBus.Enabled
                 ? ExternalChainProviderName.JungleBus
                 : ExternalChainProviderName.WhatsOnChain,
@@ -208,7 +210,9 @@ public static class SourceCapabilityRouting
             ExternalChainCapability.RawTxFetch when legacyConfig.JungleBus.Enabled
                 => [ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.Bitails],
             ExternalChainCapability.RawTxFetch => [ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.Bitails],
-            ExternalChainCapability.ValidationFetch => [ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain],
+            ExternalChainCapability.ValidationFetch when legacyConfig.JungleBus.Enabled
+                => [ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain],
+            ExternalChainCapability.ValidationFetch => [ExternalChainProviderName.WhatsOnChain],
             ExternalChainCapability.HistoricalAddressScan => [],
             ExternalChainCapability.HistoricalTokenScan => [],
             _ => []

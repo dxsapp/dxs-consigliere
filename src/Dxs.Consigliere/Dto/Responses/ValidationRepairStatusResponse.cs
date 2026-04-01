@@ -1,3 +1,4 @@
+#nullable enable
 namespace Dxs.Consigliere.Dto.Responses;
 
 public sealed class ValidationRepairStatusResponse
@@ -15,9 +16,9 @@ public sealed class ValidationRepairStatusResponse
 
 public sealed class ValidationRepairItemResponse
 {
-    public string EntityType { get; set; }
-    public string EntityId { get; set; }
-    public string State { get; set; }
+    public string EntityType { get; set; } = string.Empty;
+    public string EntityId { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
     public string[] Reasons { get; set; } = [];
     public string[] MissingDependencies { get; set; } = [];
     public int AttemptCount { get; set; }
@@ -25,6 +26,10 @@ public sealed class ValidationRepairItemResponse
     public long? UpdatedAt { get; set; }
     public long? LastAttemptAt { get; set; }
     public long? NextAttemptAt { get; set; }
-    public string LastError { get; set; }
+    public string LastError { get; set; } = string.Empty;
     public string[] LastFetchedDependencies { get; set; } = [];
+    public string? LastStopReason { get; set; }
+    public int LastFetchCount { get; set; }
+    public int LastVisitedCount { get; set; }
+    public int LastTraversalDepth { get; set; }
 }

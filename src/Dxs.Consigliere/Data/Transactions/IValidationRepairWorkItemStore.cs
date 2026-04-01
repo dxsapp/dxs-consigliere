@@ -1,4 +1,6 @@
+#nullable enable
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Services;
 
 namespace Dxs.Consigliere.Data.Transactions;
 
@@ -17,6 +19,7 @@ public interface IValidationRepairWorkItemStore
 
     Task<ValidationRepairWorkItemDocument?> MarkResolvedAsync(
         string txId,
+        ValidationDependencyResolutionResult? resolution = null,
         CancellationToken cancellationToken = default);
 
     Task<ValidationRepairWorkItemDocument?> MarkRetryAsync(
@@ -25,11 +28,13 @@ public interface IValidationRepairWorkItemStore
         string lastError,
         DateTimeOffset nextAttemptAt,
         bool failed,
+        ValidationDependencyResolutionResult? resolution = null,
         CancellationToken cancellationToken = default);
     Task<ValidationRepairWorkItemDocument?> MarkBlockedAsync(
         string txId,
         IReadOnlyCollection<string> missingDependencies,
         string lastError,
+        ValidationDependencyResolutionResult? resolution = null,
         CancellationToken cancellationToken = default);
 
     Task<ValidationRepairWorkItemDocument?> LoadAsync(string txId, CancellationToken cancellationToken = default);

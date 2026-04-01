@@ -30,13 +30,13 @@ public sealed class ValidationDependencyRepairScheduler(
                 "transaction_not_found",
                 DateTimeOffset.UtcNow,
                 failed: true,
-                cancellationToken);
+                cancellationToken: cancellationToken);
             return null;
         }
 
         if (!transaction.IsStas)
         {
-            await workItemStore.MarkResolvedAsync(txId, cancellationToken);
+            await workItemStore.MarkResolvedAsync(txId, cancellationToken: cancellationToken);
             return null;
         }
 
@@ -50,7 +50,7 @@ public sealed class ValidationDependencyRepairScheduler(
 
         if (missingDependencies.Length == 0)
         {
-            await workItemStore.MarkResolvedAsync(txId, cancellationToken);
+            await workItemStore.MarkResolvedAsync(txId, cancellationToken: cancellationToken);
             return null;
         }
 
@@ -70,6 +70,6 @@ public sealed class ValidationDependencyRepairScheduler(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
-        await workItemStore.MarkResolvedAsync(txId, cancellationToken);
+        await workItemStore.MarkResolvedAsync(txId, cancellationToken: cancellationToken);
     }
 }

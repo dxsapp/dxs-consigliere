@@ -58,7 +58,11 @@ public sealed class ValidationRepairStatusReader(IDocumentStore documentStore) :
                 LastAttemptAt = x.LastAttemptAt,
                 NextAttemptAt = x.NextAttemptAt,
                 LastError = x.LastError,
-                LastFetchedDependencies = x.LastFetchedDependencies
+                LastFetchedDependencies = x.LastFetchedDependencies,
+                LastStopReason = x.LastStopReason,
+                LastFetchCount = x.LastFetchCount,
+                LastVisitedCount = x.LastVisitedCount,
+                LastTraversalDepth = x.LastTraversalDepth
             }).ToArray()
         };
     }

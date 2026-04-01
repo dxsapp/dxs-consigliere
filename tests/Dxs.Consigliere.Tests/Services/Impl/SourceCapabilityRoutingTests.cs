@@ -141,6 +141,25 @@ public class SourceCapabilityRoutingTests
     }
 
     [Fact]
+    public void Resolve_ValidationFetch_UsesLegacyJungleBusPrimary_WhenLegacyJungleBusIsEnabled()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        var legacyConfig = new AppConfig
+        {
+            JungleBus = new JungleBusConfig { Enabled = true }
+        };
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.ValidationFetch,
+            sourcesConfig,
+            legacyConfig,
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.JungleBus, route.PrimarySource);
+        Assert.Equal([ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain], route.FallbackSources);
+    }
+
+    [Fact]
     public void Resolve_HistoricalAddressScan_DoesNotAdvertiseLegacyFallbackProviders()
     {
         var sourcesConfig = CreateSourcesConfig();
@@ -232,7 +251,7 @@ public class SourceCapabilityRoutingTests
                 JungleBus = new JungleBusSourceConfig
                 {
                     Enabled = true,
-                    EnabledCapabilities = [ExternalChainCapability.BlockBackfill, ExternalChainCapability.RawTxFetch]
+                    EnabledCapabilities = [ExternalChainCapability.BlockBackfill, ExternalChainCapability.RawTxFetch, ExternalChainCapability.ValidationFetch]
                 },
                 Bitails = new BitailsSourceConfig
                 {
@@ -261,7 +280,7 @@ public class SourceCapabilityRoutingTests
             [
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.JungleBus,
-                    [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill, ExternalChainCapability.RawTxFetch]),
+                    [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill, ExternalChainCapability.RawTxFetch, ExternalChainCapability.ValidationFetch]),
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.Bitails,
                     [

@@ -1,5 +1,6 @@
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Transactions;
+using Dxs.Consigliere.Services;
 using Dxs.Tests.Shared;
 using Raven.TestDriver;
 
@@ -53,10 +54,30 @@ public class ValidationRepairWorkItemStoreIntegrationTests : RavenTestDriver
         Assert.Equal("target_transaction_missing", blocked.LastError);
         Assert.Null(blocked.NextAttemptAt);
 
-        var resolved = await sut.MarkResolvedAsync("tx-2");
+        var resolution = new ValidationDependencyResolutionResult(
+            ["dep-1"],
+            [],
+            "validation_finished",
+            ValidationRepairStopReasons.ValidIssueReached,
+            1,
+            2,
+            1);
+
+        var retryWithResolution = await sut.MarkRetryAsync("tx-2", ["dep-1", "dep-2"], "still_missing", DateTimeOffset.UtcNow.AddMinutes(1), failed: false, resolution);
+        Assert.NotNull(retryWithResolution);
+        Assert.Equal(ValidationRepairStopReasons.ValidIssueReached, retryWithResolution!.LastStopReason);
+        Assert.Equal(1, retryWithResolution.LastFetchCount);
+        Assert.Equal(2, retryWithResolution.LastVisitedCount);
+        Assert.Equal(1, retryWithResolution.LastTraversalDepth);
+
+        var resolved = await sut.MarkResolvedAsync("tx-2", resolution);
         Assert.NotNull(resolved);
         Assert.Equal(ValidationRepairStates.Resolved, resolved!.State);
         Assert.Empty(resolved.MissingDependencies);
         Assert.Null(resolved.LastError);
+        Assert.Equal(ValidationRepairStopReasons.ValidIssueReached, resolved.LastStopReason);
+        Assert.Equal(1, resolved.LastFetchCount);
+        Assert.Equal(2, resolved.LastVisitedCount);
+        Assert.Equal(1, resolved.LastTraversalDepth);
     }
 }
