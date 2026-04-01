@@ -4,6 +4,9 @@
 
 This document defines the security model for tracked token history in `Consigliere`.
 
+Related terminology is defined in:
+- `doc/platform-api/root-semantics-glossary.md`
+
 It exists because token history has a stronger attack surface than address history:
 - token history cannot trust arbitrary discovered ancestry
 - external providers must not become the canonical source of token truth

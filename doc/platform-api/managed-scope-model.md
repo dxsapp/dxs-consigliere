@@ -8,6 +8,9 @@ That only works if indexing is selective.
 
 The service does not promise full-network indexing. It promises high-quality state and realtime for explicitly managed scope.
 
+Root terminology used by this model is defined in:
+- `doc/platform-api/root-semantics-glossary.md`
+
 ## Scope Objects
 
 ## Decision: v1 Primary Managed Units
