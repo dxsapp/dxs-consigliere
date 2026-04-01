@@ -15,6 +15,7 @@ public static class IndexerOrchestrationSetup
         => services
             .AddTransient<JungleBusBlockchainDataProvider>()
             .AddTransient<NodeBlockchainDataProvider>()
+            .AddSingleton<IRawTransactionFetchService, RawTransactionFetchService>()
             .AddTransient<BlockProcessExecutor>()
             .AddSingleton<IBitailsRealtimeSubscriptionScopeProvider, BitailsRealtimeSubscriptionScopeProvider>()
             .AddSingleton<BitailsRealtimeIngestRunner>()

@@ -121,6 +121,25 @@ public class SourceCapabilityRoutingTests
         Assert.Empty(route.FallbackSources);
     }
 
+    [Fact]
+    public void Resolve_RawTxFetch_UsesLegacyJungleBusPrimary_WhenLegacyJungleBusIsEnabled()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        var legacyConfig = new AppConfig
+        {
+            JungleBus = new JungleBusConfig { Enabled = true }
+        };
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.RawTxFetch,
+            sourcesConfig,
+            legacyConfig,
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.JungleBus, route.PrimarySource);
+        Assert.Equal([ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.Bitails], route.FallbackSources);
+    }
+
     private static ConsigliereSourcesConfig CreateSourcesConfig()
     {
         return new ConsigliereSourcesConfig
@@ -152,7 +171,7 @@ public class SourceCapabilityRoutingTests
                 JungleBus = new JungleBusSourceConfig
                 {
                     Enabled = true,
-                    EnabledCapabilities = [ExternalChainCapability.BlockBackfill]
+                    EnabledCapabilities = [ExternalChainCapability.BlockBackfill, ExternalChainCapability.RawTxFetch]
                 },
                 Bitails = new BitailsSourceConfig
                 {
@@ -165,9 +184,13 @@ public class SourceCapabilityRoutingTests
                             BaseUrl = "https://api.bitails.io/global"
                         }
                     },
-                    EnabledCapabilities = [ExternalChainCapability.ValidationFetch]
+                    EnabledCapabilities = [ExternalChainCapability.ValidationFetch, ExternalChainCapability.RawTxFetch]
                 },
-                Whatsonchain = new WhatsOnChainSourceConfig()
+                Whatsonchain = new WhatsOnChainSourceConfig
+                {
+                    Enabled = true,
+                    EnabledCapabilities = [ExternalChainCapability.RawTxFetch]
+                }
             }
         };
     }
@@ -177,7 +200,7 @@ public class SourceCapabilityRoutingTests
             [
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.JungleBus,
-                    [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill]),
+                    [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill, ExternalChainCapability.RawTxFetch]),
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.Bitails,
                     [
@@ -185,7 +208,10 @@ public class SourceCapabilityRoutingTests
                         ExternalChainCapability.RealtimeIngest,
                         ExternalChainCapability.RawTxFetch,
                         ExternalChainCapability.ValidationFetch
-                    ])
+                    ]),
+                new ExternalChainProviderDescriptor(
+                    ExternalChainProviderName.WhatsOnChain,
+                    [ExternalChainCapability.RawTxFetch])
             ]);
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)

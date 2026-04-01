@@ -20,6 +20,7 @@ namespace Dxs.Consigliere.Services.Impl;
 public sealed class HistoricalAddressBackfillRunner(
     IDocumentStore documentStore,
     IBitailsRestApiClient bitailsRestApiClient,
+    IRawTransactionFetchService rawTransactionFetchService,
     ITxMessageBus txMessageBus,
     INetworkProvider networkProvider,
     IAdminProviderConfigService providerConfigService,
@@ -87,11 +88,11 @@ public sealed class HistoricalAddressBackfillRunner(
             {
                 scanned += 1;
                 var details = await bitailsRestApiClient.GetTransactionDetails(entry.TxId, cancellationToken);
-                var raw = await bitailsRestApiClient.GetTransactionRawOrNullAsync(entry.TxId, cancellationToken);
-                if (raw is null)
+                var raw = await rawTransactionFetchService.TryGetAsync(entry.TxId, cancellationToken);
+                if (raw?.Raw is not { Length: > 0 } txRaw)
                     continue;
 
-                var transaction = Transaction.Parse(raw, networkProvider.Network);
+                var transaction = Transaction.Parse(txRaw, networkProvider.Network);
                 txMessageBus.Post(TxMessage.FoundInBlock(
                     transaction,
                     details.Timestamp,

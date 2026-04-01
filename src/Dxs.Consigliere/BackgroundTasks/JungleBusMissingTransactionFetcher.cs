@@ -9,9 +9,6 @@ using Dxs.Common.Extensions;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
-using Dxs.Infrastructure.JungleBus.Dto;
-
-using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Logging;
 
 using Raven.Client.Documents;
@@ -20,8 +17,8 @@ namespace Dxs.Consigliere.BackgroundTasks;
 
 public class JungleBusMissingTransactionFetcher(
     IDocumentStore documentStore,
-    IHttpClientFactory httpClientFactory,
     ITransactionStore transactionStore,
+    IRawTransactionFetchService rawTransactionFetchService,
     INetworkProvider networkProvider,
     ILogger<JungleBusMissingTransactionFetcher> logger
 ) : IJungleBusMissingTransactionFetcher
@@ -89,17 +86,19 @@ public class JungleBusMissingTransactionFetcher(
     {
         try
         {
-            var transactionDto = await GetTransaction(transactionId);
-            var txRaw = Convert.FromBase64String(transactionDto.TransactionBase64);
+            var transactionResult = await rawTransactionFetchService.TryGetAsync(transactionId);
+            if (transactionResult?.Raw is not { Length: > 0 } txRaw)
+                return false;
+
             var transaction = Transaction.Parse(txRaw, networkProvider.Network);
 
             await transactionStore.SaveTransaction(
                 transaction,
-                transactionDto.BlockTime,
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 null,
-                transactionDto.BlockHash,
-                transactionDto.BlockHeight,
-                transactionDto.BlockIndex
+                null,
+                null,
+                null
             );
 
             return true;
@@ -110,14 +109,5 @@ public class JungleBusMissingTransactionFetcher(
 
             return false;
         }
-    }
-
-    private async Task<PubTransactionDto> GetTransaction(string txId)
-    {
-        var query = $"https://junglebus.gorillapool.io/v1/transaction/get/{txId}";
-
-        var httpClient = httpClientFactory.CreateClient();
-
-        return await httpClient.GetOrThrowAsync<PubTransactionDto>(query);
     }
 }

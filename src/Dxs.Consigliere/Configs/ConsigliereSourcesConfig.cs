@@ -73,6 +73,7 @@ public class SourceProvidersConfig
                 Enabled = true,
                 EnabledCapabilities =
                 [
+                    ExternalChainCapability.Broadcast,
                     ExternalChainCapability.RawTxFetch,
                     ExternalChainCapability.ValidationFetch,
                     ExternalChainCapability.BlockBackfill
@@ -130,7 +131,7 @@ public class SourceCapabilitiesConfig
             Broadcast = new BroadcastCapabilityOverrideConfig
             {
                 Mode = "multi",
-                Sources = ["node", ExternalChainProviderName.Bitails]
+                Sources = ["node", ExternalChainProviderName.Bitails, ExternalChainProviderName.WhatsOnChain]
             },
             RealtimeIngest = new RoutedCapabilityOverrideConfig
             {
@@ -144,8 +145,8 @@ public class SourceCapabilitiesConfig
             },
             RawTxFetch = new RoutedCapabilityOverrideConfig
             {
-                Source = ExternalChainProviderName.Bitails,
-                FallbackSources = [ExternalChainProviderName.WhatsOnChain]
+                Source = ExternalChainProviderName.JungleBus,
+                FallbackSources = [ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.Bitails]
             },
             ValidationFetch = new RoutedCapabilityOverrideConfig
             {

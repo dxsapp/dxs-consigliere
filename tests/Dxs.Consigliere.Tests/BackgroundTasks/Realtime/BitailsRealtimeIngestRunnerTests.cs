@@ -42,7 +42,7 @@ public class BitailsRealtimeIngestRunnerTests
         var runner = new BitailsRealtimeIngestRunner(
             realtimeClient,
             new FakeScopeProvider(watchedAddress.Value),
-            new FakeBitailsRestApiClient(transaction.Id, Convert.FromHexString(SampleTransactionHex)),
+            new FakeRawTransactionFetchService(transaction.Id, Convert.FromHexString(SampleTransactionHex)),
             new FakeProviderSettingsAccessor(),
             new TestNetworkProvider(),
             txMessageBus,
@@ -122,18 +122,16 @@ public class BitailsRealtimeIngestRunnerTests
         }
     }
 
-    private sealed class FakeBitailsRestApiClient(string txId, byte[] raw) : IBitailsRestApiClient
+    private sealed class FakeRawTransactionFetchService(string txId, byte[] raw) : IRawTransactionFetchService
     {
-        public Task<byte[]> GetTransactionRawOrNullAsync(string requestedTxId, CancellationToken token = default)
-            => Task.FromResult(string.Equals(requestedTxId, txId, StringComparison.OrdinalIgnoreCase) ? raw : null);
+        public Task<RawTransactionFetchResult> GetAsync(string requestedTxId, CancellationToken cancellationToken = default)
+            => TryGetAsync(requestedTxId, cancellationToken);
 
-        public Task<HistoryPage> GetHistoryPageAsync(string address, string pgKey, int limit, CancellationToken token) => throw new NotSupportedException();
-        public Task<AddressDetailsDto> GetAddressDetailsAsync(string address, CancellationToken token = default) => throw new NotSupportedException();
-        public Task<BroadcastResponseDto> Broadcast(string txHex, CancellationToken token) => throw new NotSupportedException();
-        public Task<bool> IsBroadcastedAsync(string txId, CancellationToken token = default) => throw new NotSupportedException();
-        public Task<TransactionDetailsDto> GetTransactionDetails(string txId, CancellationToken token = default) => throw new NotSupportedException();
-        public Task<OutputDetailsDto> GetOutputDetails(string txId, int vout, CancellationToken token = default) => throw new NotSupportedException();
-        public Task<TokenDetailsDto> GetTokenDetails(string tokenId, string symbol, CancellationToken token = default) => throw new NotSupportedException();
+        public Task<RawTransactionFetchResult> TryGetAsync(string requestedTxId, CancellationToken cancellationToken = default)
+            => Task.FromResult(
+                string.Equals(requestedTxId, txId, StringComparison.OrdinalIgnoreCase)
+                    ? new RawTransactionFetchResult(ExternalChainProviderName.Bitails, raw)
+                    : null);
     }
 
     private sealed class RecordingObservationSink : ITxObservationSink

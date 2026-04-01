@@ -20,6 +20,8 @@ public static class ExternalChainAdaptersSetup
             .AddSingleton<IWhatsOnChainRestApiClient, WhatsOnChainRestApiClient>()
             .AddHttpClient<IWhatsOnChainRestApiClient, WhatsOnChainRestApiClient>().Services
             .AddSingleton<IExternalChainProviderDiagnostics, WhatsOnChainProviderDiagnostics>()
+            .AddTransient<IJungleBusRawTransactionClient, JungleBusRawTransactionClient>()
+            .AddHttpClient<IJungleBusRawTransactionClient, JungleBusRawTransactionClient>().Services
             .AddTransient<JungleBusWebsocketClient>()
             .AddHttpClient<JungleBusWebsocketClient>().Services
             .AddSingleton<IExternalChainProviderDiagnostics, JungleBusProviderDiagnostics>()

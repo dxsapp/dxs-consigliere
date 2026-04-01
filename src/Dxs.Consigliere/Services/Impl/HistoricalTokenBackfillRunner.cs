@@ -21,6 +21,7 @@ namespace Dxs.Consigliere.Services.Impl;
 public sealed class HistoricalTokenBackfillRunner(
     IDocumentStore documentStore,
     IBitailsRestApiClient bitailsRestApiClient,
+    IRawTransactionFetchService rawTransactionFetchService,
     ITxMessageBus txMessageBus,
     INetworkProvider networkProvider,
     IAdminProviderConfigService providerConfigService,
@@ -207,11 +208,11 @@ public sealed class HistoricalTokenBackfillRunner(
     )
     {
         var details = await bitailsRestApiClient.GetTransactionDetails(txId, cancellationToken);
-        var raw = await bitailsRestApiClient.GetTransactionRawOrNullAsync(txId, cancellationToken);
-        if (raw is null)
+        var raw = await rawTransactionFetchService.TryGetAsync(txId, cancellationToken);
+        if (raw?.Raw is not { Length: > 0 } txRaw)
             throw new InvalidOperationException($"Trusted root transaction `{txId}` was not found.");
 
-        var transaction = Transaction.Parse(raw, networkProvider.Network);
+        var transaction = Transaction.Parse(txRaw, networkProvider.Network);
         txMessageBus.Post(TxMessage.FoundInBlock(
             transaction,
             details.Timestamp,
@@ -265,11 +266,11 @@ public sealed class HistoricalTokenBackfillRunner(
         {
             scanned += 1;
             var details = await bitailsRestApiClient.GetTransactionDetails(entry.TxId, cancellationToken);
-            var raw = await bitailsRestApiClient.GetTransactionRawOrNullAsync(entry.TxId, cancellationToken);
-            if (raw is null)
+            var raw = await rawTransactionFetchService.TryGetAsync(entry.TxId, cancellationToken);
+            if (raw?.Raw is not { Length: > 0 } txRaw)
                 continue;
 
-            var transaction = Transaction.Parse(raw, networkProvider.Network);
+            var transaction = Transaction.Parse(txRaw, networkProvider.Network);
             txMessageBus.Post(TxMessage.FoundInBlock(
                 transaction,
                 details.Timestamp,

@@ -18,7 +18,7 @@ namespace Dxs.Consigliere.BackgroundTasks.Realtime;
 public sealed class BitailsRealtimeIngestRunner(
     IBitailsRealtimeIngestClient realtimeIngestClient,
     IBitailsRealtimeSubscriptionScopeProvider scopeProvider,
-    IBitailsRestApiClient restApiClient,
+    IRawTransactionFetchService rawTransactionFetchService,
     IExternalChainProviderSettingsAccessor providerSettingsAccessor,
     INetworkProvider networkProvider,
     ITxMessageBus txMessageBus,
@@ -107,15 +107,15 @@ public sealed class BitailsRealtimeIngestRunner(
 
         try
         {
-            var raw = await restApiClient.GetTransactionRawOrNullAsync(notification.TxId, cancellationToken);
-            if (raw is null || raw.Length == 0)
+            var raw = await rawTransactionFetchService.TryGetAsync(notification.TxId, cancellationToken);
+            if (raw?.Raw is not { Length: > 0 } txRaw)
             {
                 _recentlySeen.TryRemove(notification.TxId, out _);
                 _logger.LogDebug("Bitails realtime tx {TxId} was announced on {Topic} but raw payload was unavailable", notification.TxId, notification.Topic);
                 return;
             }
 
-            var transaction = Transaction.Parse(raw, networkProvider.Network);
+            var transaction = Transaction.Parse(txRaw, networkProvider.Network);
             txMessageBus.Post(TxMessage.AddedToMempool(
                 transaction,
                 notification.ObservedAt.ToUnixTimeSeconds(),

@@ -124,6 +124,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
         var runner = new HistoricalAddressBackfillRunner(
             store,
             bitails.Object,
+            new NullRawTransactionFetchService(),
             txBus.Object,
             new TestNetworkProvider(),
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
@@ -182,6 +183,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
         var runner = new HistoricalAddressBackfillRunner(
             store,
             bitails.Object,
+            new NullRawTransactionFetchService(),
             Mock.Of<ITxMessageBus>(MockBehavior.Strict),
             new TestNetworkProvider(),
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
@@ -240,6 +242,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
         var runner = new HistoricalTokenBackfillRunner(
             store,
             bitails.Object,
+            new NullRawTransactionFetchService(),
             Mock.Of<ITxMessageBus>(MockBehavior.Strict),
             new TestNetworkProvider(),
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
@@ -308,6 +311,7 @@ public class TrackedHistorySyncTests : RavenTestDriver
         var runner = new HistoricalTokenBackfillRunner(
             store,
             bitails.Object,
+            new NullRawTransactionFetchService(),
             Mock.Of<ITxMessageBus>(MockBehavior.Strict),
             new TestNetworkProvider(),
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
@@ -392,6 +396,15 @@ public class TrackedHistorySyncTests : RavenTestDriver
     private sealed class TestNetworkProvider : INetworkProvider
     {
         public Dxs.Bsv.Network Network => Dxs.Bsv.Network.Mainnet;
+    }
+
+    private sealed class NullRawTransactionFetchService : IRawTransactionFetchService
+    {
+        public Task<RawTransactionFetchResult> GetAsync(string txId, CancellationToken cancellationToken = default)
+            => TryGetAsync(txId, cancellationToken);
+
+        public Task<RawTransactionFetchResult> TryGetAsync(string txId, CancellationToken cancellationToken = default)
+            => Task.FromResult<RawTransactionFetchResult>(null);
     }
 
     private sealed class FakeAdminProviderConfigService(ConsigliereSourcesConfig config)
