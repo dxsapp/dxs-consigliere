@@ -19,6 +19,92 @@ export interface ApiError {
   entityId?: string;
 }
 
+// ─── Shared read models ──────────────────────────────────────────────────────
+
+export interface BalanceDto {
+  address: string;
+  tokenId: string | null;
+  satoshis: number;
+}
+
+export interface UtxoDto {
+  id: string;
+  txId: string;
+  vout: number;
+  address: string;
+  tokenId: string | null;
+  satoshis: number;
+  scriptPubKey: string;
+  scriptType: string;
+}
+
+export interface GetUtxoSetResponse {
+  utxoSet: UtxoDto[];
+}
+
+export interface AddressStateResponse {
+  address: string;
+  balances: BalanceDto[];
+  utxoSet: UtxoDto[];
+}
+
+export interface AddressHistoryItem {
+  address: string;
+  tokenId: string | null;
+  txId: string;
+  timestamp: number;
+  height: number;
+  validStasTx: boolean;
+  spentSatoshis: number;
+  receivedSatoshis: number;
+  balanceSatoshis: number;
+  txFeeSatoshis: number;
+  note: string | null;
+  fromAddresses: string[];
+  toAddresses: string[];
+}
+
+export interface AddressHistoryResponse {
+  history: AddressHistoryItem[];
+  totalCount: number;
+  historyStatus: TrackedHistoryStatus;
+}
+
+export interface TokenStateResponse {
+  tokenId: string;
+  protocolType: string | null;
+  protocolVersion: string | null;
+  issuanceKnown: boolean;
+  validationStatus: string | null;
+  issuer: string | null;
+  redeemAddress: string | null;
+  totalKnownSupply: number | null;
+  burnedSatoshis: number | null;
+  lastIndexedHeight: number | null;
+}
+
+export interface TokenHistoryItem {
+  tokenId: string;
+  txId: string;
+  timestamp: number;
+  height: number;
+  receivedSatoshis: number;
+  spentSatoshis: number;
+  balanceDeltaSatoshis: number;
+  isIssue: boolean;
+  isRedeem: boolean;
+  validationStatus: string;
+  protocolType: string;
+  confirmedBlockHash: string;
+}
+
+export interface TokenHistoryResponse {
+  tokenId: string;
+  history: TokenHistoryItem[];
+  totalCount: number;
+  historyStatus: TrackedHistoryStatus;
+}
+
 // ─── Readiness / history ─────────────────────────────────────────────────────
 
 export interface TrackedHistoryCoverage {
@@ -84,6 +170,15 @@ export interface TrackedAddressListItem {
 }
 
 export interface TrackedAddressDetail extends TrackedAddressListItem {
+  balanceSatoshis?: number | null;
+  tokenBalanceSatoshis?: number | null;
+  tokenBalanceCount?: number | null;
+  utxoCount?: number | null;
+  transactionCount?: number | null;
+  firstTransactionAt?: number | null;
+  firstTransactionHeight?: number | null;
+  lastTransactionAt?: number | null;
+  lastTransactionHeight?: number | null;
   [key: string]: unknown;
 }
 
@@ -102,6 +197,22 @@ export interface TrackedTokenListItem {
 }
 
 export interface TrackedTokenDetail extends TrackedTokenListItem {
+  protocolType?: string | null;
+  protocolVersion?: string | null;
+  issuanceKnown?: boolean | null;
+  validationStatus?: string | null;
+  issuer?: string | null;
+  redeemAddress?: string | null;
+  totalKnownSupply?: number | null;
+  burnedSatoshis?: number | null;
+  lastIndexedHeight?: number | null;
+  holderCount?: number | null;
+  utxoCount?: number | null;
+  transactionCount?: number | null;
+  firstTransactionAt?: number | null;
+  firstTransactionHeight?: number | null;
+  lastTransactionAt?: number | null;
+  lastTransactionHeight?: number | null;
   [key: string]: unknown;
 }
 
@@ -246,6 +357,47 @@ export interface AdminProvidersResponse {
   providers: AdminProviderCatalogItem[];
 }
 
+export interface ProviderCapabilityStatusResponse {
+  enabled: boolean;
+  healthy: boolean;
+  degraded: boolean;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorCode: string | null;
+  rateLimitState: RateLimitStateResponse | null;
+  active: boolean;
+  lagBlocks?: number | null;
+  observedHeight?: number | null;
+  observedAt?: string | null;
+  lastSyncRequestAt?: string | null;
+}
+
+export interface RateLimitStateResponse {
+  limited: boolean;
+  remaining: number | null;
+  resetAt: string | null;
+  scope: string | null;
+  sourceHint: string | null;
+}
+
+export interface ProviderStatusResponse {
+  provider: string;
+  enabled: boolean;
+  configured: boolean;
+  roles: string[];
+  healthy: boolean;
+  degraded: boolean;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorCode: string | null;
+  rateLimitState: RateLimitStateResponse | null;
+  capabilities: Record<string, ProviderCapabilityStatusResponse>;
+  observedHeight?: number | null;
+  lagBlocks?: number | null;
+  observedAt?: string | null;
+  lastControlMessageAt?: string | null;
+}
+
 export interface AdminProviderConfigUpdateRequest {
   realtimePrimaryProvider: string;
   rawTxPrimaryProvider: string;
@@ -317,6 +469,11 @@ export interface SetupCompleteRequest {
       zmqBlockUrl: string;
     };
   };
+}
+
+export interface SyncStatusResponse {
+  height: number;
+  isSynced: boolean;
 }
 
 // ─── Manage ──────────────────────────────────────────────────────────────────

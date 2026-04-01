@@ -33,6 +33,16 @@ function formatDate(value: number | null | undefined): string {
   );
 }
 
+function formatCount(value: number | null | undefined): string {
+  if (value == null) return "unavailable";
+  return new Intl.NumberFormat("en-GB").format(value);
+}
+
+function formatSatoshis(value: number | null | undefined): string {
+  if (value == null) return "unavailable";
+  return `${new Intl.NumberFormat("en-GB").format(value)} sat`;
+}
+
 const KNOWN_KEYS = new Set([
   "address",
   "name",
@@ -74,6 +84,7 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
   const store = addressDetailStore;
 
   const current = store.current?.address === address ? store.current : null;
+  const summary = store.summary;
   const loading =
     store.isLoading ||
     (!current && store.loadState !== "error" && store.loadState !== "not_found");
@@ -252,6 +263,59 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
               </Typography>
             </InfoRow>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Operational summary */}
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent sx={{ py: 2 }}>
+          <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
+            Operational summary
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <InfoRow label="BSV balance">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatSatoshis(current.balanceSatoshis ?? summary?.bsvBalanceSatoshis ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="UTXO count">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatCount(current.utxoCount ?? summary?.utxoCount ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Transaction count">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatCount(current.transactionCount ?? summary?.transactionCount ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="First activity">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatDate(current.firstTransactionAt ?? summary?.firstActivityAt ?? null)}
+              {current.firstTransactionHeight ?? summary?.firstActivityHeight ?? null != null
+                ? ` · height ${current.firstTransactionHeight ?? summary?.firstActivityHeight}`
+                : ""}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Last activity">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatDate(current.lastTransactionAt ?? summary?.lastActivityAt ?? null)}
+              {current.lastTransactionHeight ?? summary?.lastActivityHeight ?? null != null
+                ? ` · height ${current.lastTransactionHeight ?? summary?.lastActivityHeight}`
+                : ""}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="History readiness">
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              <ReadinessChip readiness={current.readiness.history?.historyReadiness ?? summary?.historyReadiness ?? "unavailable"} />
+            </Box>
+          </InfoRow>
+          <InfoRow label="Token balance snapshot">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              {current.tokenBalanceSatoshis != null || current.tokenBalanceCount != null
+                ? `${formatCount(current.tokenBalanceCount)} entries · ${formatSatoshis(current.tokenBalanceSatoshis)}`
+                : "unavailable"}
+            </Typography>
+          </InfoRow>
         </CardContent>
       </Card>
 

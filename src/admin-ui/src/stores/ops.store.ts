@@ -1,14 +1,16 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { opsApi, dashboardApi } from "@/api/client";
+import type { ProviderStatusResponse, SyncStatusResponse } from "@/types/api";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
 export class OpsStore {
-  providers: unknown = null;
+  providers: ProviderStatusResponse[] | null = null;
   opsCache: unknown = null;
   opsStorage: unknown = null;
   adminCacheStatus: unknown = null;
   adminStorageStatus: unknown = null;
+  syncStatus: SyncStatusResponse | null = null;
 
   loadState: LoadState = "idle";
   refreshing = false;
@@ -46,13 +48,14 @@ export class OpsStore {
       }
     });
     try {
-      const [providers, opsCache, opsStorage, adminCacheStatus, adminStorageStatus] =
+      const [providers, opsCache, opsStorage, adminCacheStatus, adminStorageStatus, syncStatus] =
         await Promise.all([
           opsApi.providers().catch(() => null),
           opsApi.cache().catch(() => null),
           opsApi.storage().catch(() => null),
           dashboardApi.cacheStatus().catch(() => null),
           dashboardApi.storageStatus().catch(() => null),
+          dashboardApi.syncStatus().catch(() => null),
         ]);
       runInAction(() => {
         this.providers = providers;
@@ -60,6 +63,7 @@ export class OpsStore {
         this.opsStorage = opsStorage;
         this.adminCacheStatus = adminCacheStatus;
         this.adminStorageStatus = adminStorageStatus;
+        this.syncStatus = syncStatus;
         this.loadState = "success";
         this.loaded = true;
         this.inFlight = false;

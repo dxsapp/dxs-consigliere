@@ -16,6 +16,14 @@ import type {
   AddressManageRequest,
   TokenManageRequest,
   TokenHistoryUpgradeRequest,
+  AddressStateResponse,
+  AddressHistoryResponse,
+  BalanceDto,
+  GetUtxoSetResponse,
+  TokenStateResponse,
+  TokenHistoryResponse,
+  SyncStatusResponse,
+  ProviderStatusResponse,
 } from "@/types/api";
 
 // ─── Error model ─────────────────────────────────────────────────────────────
@@ -65,6 +73,20 @@ const get = <T>(path: string) => request<T>("GET", path);
 const post = <T>(path: string, body?: unknown) => request<T>("POST", path, body);
 const del = <T>(path: string) => request<T>("DELETE", path);
 
+function toQueryString(params: Record<string, string | number | boolean | (string | number | boolean)[] | null | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) {
+      for (const item of value) search.append(key, String(item));
+      continue;
+    }
+    search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `?${query}` : "";
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
@@ -90,6 +112,42 @@ export const addressApi = {
     get<TrackedAddressDetail>(`/api/admin/tracked/address/${encodeURIComponent(address)}`),
   untrack: (address: string) =>
     del<UntrackResult>(`/api/admin/tracked/address/${encodeURIComponent(address)}`),
+  state: (address: string, tokenIds: string[] = []) =>
+    get<AddressStateResponse>(
+      `/api/address/${encodeURIComponent(address)}/state${toQueryString({ tokenIds })}`,
+    ),
+  balances: (address: string, tokenIds: string[] = []) =>
+    get<BalanceDto[]>(
+      `/api/address/${encodeURIComponent(address)}/balances${toQueryString({ tokenIds })}`,
+    ),
+  utxos: (address: string, tokenId?: string | null, satoshis?: number | null) =>
+    get<GetUtxoSetResponse>(
+      `/api/address/${encodeURIComponent(address)}/utxos${toQueryString({
+        tokenId: tokenId ?? undefined,
+        satoshis: satoshis ?? undefined,
+      })}`,
+    ),
+  history: (
+    address: string,
+    options: {
+      tokenIds?: string[];
+      desc?: boolean;
+      skipZeroBalance?: boolean;
+      acceptPartialHistory?: boolean;
+      skip?: number;
+      take?: number;
+    } = {},
+  ) =>
+    get<AddressHistoryResponse>(
+      `/api/address/${encodeURIComponent(address)}/history${toQueryString({
+        tokenIds: options.tokenIds ?? [],
+        desc: options.desc ?? true,
+        skipZeroBalance: options.skipZeroBalance ?? false,
+        acceptPartialHistory: options.acceptPartialHistory ?? true,
+        skip: options.skip ?? 0,
+        take: options.take ?? 1,
+      })}`,
+    ),
   manage: (body: AddressManageRequest) =>
     post<TrackedAddressDetail>("/api/admin/manage/address", body),
   upgradeHistory: (address: string) =>
@@ -107,6 +165,29 @@ export const tokenApi = {
     get<TrackedTokenDetail>(`/api/admin/tracked/token/${encodeURIComponent(tokenId)}`),
   untrack: (tokenId: string) =>
     del<UntrackResult>(`/api/admin/tracked/token/${encodeURIComponent(tokenId)}`),
+  state: (tokenId: string) =>
+    get<TokenStateResponse>(`/api/token/${encodeURIComponent(tokenId)}/state`),
+  balances: (tokenId: string) =>
+    get<BalanceDto[]>(`/api/token/${encodeURIComponent(tokenId)}/balances`),
+  utxos: (tokenId: string) =>
+    get<GetUtxoSetResponse>(`/api/token/${encodeURIComponent(tokenId)}/utxos`),
+  history: (
+    tokenId: string,
+    options: {
+      skip?: number;
+      take?: number;
+      desc?: boolean;
+      acceptPartialHistory?: boolean;
+    } = {},
+  ) =>
+    get<TokenHistoryResponse>(
+      `/api/token/${encodeURIComponent(tokenId)}/history${toQueryString({
+        skip: options.skip ?? 0,
+        take: options.take ?? 1,
+        desc: options.desc ?? true,
+        acceptPartialHistory: options.acceptPartialHistory ?? true,
+      })}`,
+    ),
   manage: (body: TokenManageRequest) =>
     post<TrackedTokenDetail>("/api/admin/manage/stas-token", body),
   upgradeHistory: (tokenId: string, body: TokenHistoryUpgradeRequest) =>
@@ -120,7 +201,7 @@ export const tokenApi = {
 
 export const dashboardApi = {
   summary: () => get<DashboardSummary>("/api/admin/dashboard/summary"),
-  syncStatus: () => get<unknown>("/api/admin/blockchain/sync-status"),
+  syncStatus: () => get<SyncStatusResponse>("/api/admin/blockchain/sync-status"),
   cacheStatus: () => get<unknown>("/api/admin/cache/status"),
   storageStatus: () => get<unknown>("/api/admin/storage/status"),
 };
@@ -140,7 +221,7 @@ export const findingsApi = {
 // ─── Ops (detail/diagnostic) ─────────────────────────────────────────────────
 
 export const opsApi = {
-  providers: () => get<unknown>("/api/ops/providers"),
+  providers: () => get<ProviderStatusResponse[]>("/api/ops/providers"),
   cache: () => get<unknown>("/api/ops/cache"),
   storage: () => get<unknown>("/api/ops/storage"),
 };

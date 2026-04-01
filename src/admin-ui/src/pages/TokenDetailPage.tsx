@@ -38,6 +38,16 @@ function formatDate(value: number | null | undefined): string {
   );
 }
 
+function formatCount(value: number | null | undefined): string {
+  if (value == null) return "unavailable";
+  return new Intl.NumberFormat("en-GB").format(value);
+}
+
+function formatSatoshis(value: number | null | undefined): string {
+  if (value == null) return "unavailable";
+  return `${new Intl.NumberFormat("en-GB").format(value)} sat`;
+}
+
 const KNOWN_KEYS = new Set([
   "tokenId",
   "symbol",
@@ -138,6 +148,7 @@ export const TokenDetailPage = observer(function TokenDetailPage() {
   const store = tokenDetailStore;
 
   const current = store.current?.tokenId === tokenId ? store.current : null;
+  const summary = store.summary;
   const loading =
     store.isLoading ||
     (!current && store.loadState !== "error" && store.loadState !== "not_found");
@@ -308,6 +319,86 @@ export const TokenDetailPage = observer(function TokenDetailPage() {
               </Typography>
             </InfoRow>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Operational summary */}
+      <Card variant="outlined" sx={{ mb: 2 }}>
+        <CardContent sx={{ py: 2 }}>
+          <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
+            Operational summary
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <InfoRow label="Protocol">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {current.protocolType ?? summary?.protocolType ?? "unavailable"}
+              {current.protocolVersion ?? summary?.protocolVersion ? ` · ${current.protocolVersion ?? summary?.protocolVersion}` : ""}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Validation">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {current.validationStatus ?? summary?.validationStatus ?? "unavailable"}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Issuer">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem", wordBreak: "break-all" }}>
+              {current.issuer ?? summary?.issuer ?? "unavailable"}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Redeem address">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem", wordBreak: "break-all" }}>
+              {current.redeemAddress ?? summary?.redeemAddress ?? "unavailable"}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Total known supply">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatSatoshis(current.totalKnownSupply ?? summary?.totalKnownSupply ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Burned satoshis">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatSatoshis(current.burnedSatoshis ?? summary?.burnedSatoshis ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Last indexed height">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatCount(current.lastIndexedHeight ?? summary?.lastIndexedHeight ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Holder count">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatCount(summary?.holderCount ?? current.holderCount ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="UTXO count">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatCount(current.utxoCount ?? summary?.utxoCount ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Transaction count">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatCount(current.transactionCount ?? summary?.transactionCount ?? null)}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="First activity">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatDate(current.firstTransactionAt ?? summary?.firstActivityAt ?? null)}
+              {((current.firstTransactionHeight ?? summary?.firstActivityHeight) != null)
+                ? ` · height ${current.firstTransactionHeight ?? summary?.firstActivityHeight}`
+                : ""}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="Last activity">
+            <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.82rem" }}>
+              {formatDate(current.lastTransactionAt ?? summary?.lastActivityAt ?? null)}
+              {((current.lastTransactionHeight ?? summary?.lastActivityHeight) != null)
+                ? ` · height ${current.lastTransactionHeight ?? summary?.lastActivityHeight}`
+                : ""}
+            </Typography>
+          </InfoRow>
+          <InfoRow label="History readiness">
+            <ReadinessChip readiness={current.readiness.history?.historyReadiness ?? summary?.historyReadiness ?? "unavailable"} />
+          </InfoRow>
         </CardContent>
       </Card>
 

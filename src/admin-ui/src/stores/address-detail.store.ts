@@ -1,13 +1,33 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { addressApi, ApiResponseError } from "@/api/client";
-import type { TrackedAddressDetail } from "@/types/api";
+import type {
+  AddressHistoryResponse,
+  AddressStateResponse,
+  TrackedAddressDetail,
+} from "@/types/api";
 
 type LoadState = "idle" | "loading" | "success" | "error" | "not_found";
 
+export interface AddressOpsSummary {
+  bsvBalanceSatoshis: number | null;
+  trackedTokenBalanceCount: number | null;
+  trackedTokenBalanceSatoshis: number | null;
+  utxoCount: number | null;
+  transactionCount: number | null;
+  firstActivityAt: number | null;
+  firstActivityHeight: number | null;
+  lastActivityAt: number | null;
+  lastActivityHeight: number | null;
+  historyReadiness: string | null;
+}
+
 export class AddressDetailStore {
   current: TrackedAddressDetail | null = null;
+  summary: AddressOpsSummary | null = null;
   loadState: LoadState = "idle";
+  summaryLoadState: LoadState = "idle";
   error: string | null = null;
+  summaryError: string | null = null;
   managedByConfig = false;
 
   private loadedId: string | null = null;
@@ -67,6 +87,8 @@ export class AddressDetailStore {
       this.loadState = "loading";
       this.error = null;
       this.managedByConfig = false;
+      this.summaryLoadState = "loading";
+      this.summaryError = null;
     });
     try {
       const detail = await addressApi.detail(address);
@@ -74,20 +96,79 @@ export class AddressDetailStore {
         this.current = detail;
         this.loadState = "success";
         this.loadedId = address;
-        this.inFlightId = null;
       });
+      await this.loadSummary(address);
     } catch (err) {
       runInAction(() => {
-        this.inFlightId = null;
         if (err instanceof ApiResponseError && err.status === 404) {
           this.loadState = "not_found";
         } else {
           this.loadState = "error";
           this.error = "Failed to load address details.";
         }
+        this.summaryLoadState = "error";
+        this.summaryError = "Failed to load address summary.";
+        this.inFlightId = null;
       });
     }
+  }
+
+  private async loadSummary(address: string) {
+    const [stateResult, historyAscResult, historyDescResult] = await Promise.allSettled([
+      addressApi.state(address),
+      addressApi.history(address, { desc: false, take: 1, acceptPartialHistory: true }),
+      addressApi.history(address, { desc: true, take: 1, acceptPartialHistory: true }),
+    ]);
+
+    const state = settledValue<AddressStateResponse>(stateResult);
+    const historyAsc = settledValue<AddressHistoryResponse>(historyAscResult);
+    const historyDesc = settledValue<AddressHistoryResponse>(historyDescResult);
+
+    if (!state && !historyAsc && !historyDesc) {
+      runInAction(() => {
+        this.summary = null;
+        this.summaryLoadState = "error";
+        this.summaryError = "Failed to load address summary.";
+        this.inFlightId = null;
+      });
+      return;
+    }
+
+    const balances = state?.balances ?? [];
+    const bsvBalanceSatoshis = balances
+      .filter((balance) => !balance.tokenId)
+      .reduce((sum, balance) => sum + balance.satoshis, 0);
+    const tokenBalanceEntries = balances.filter((balance) => Boolean(balance.tokenId));
+    const tokenBalanceSatoshis = tokenBalanceEntries.reduce((sum, balance) => sum + balance.satoshis, 0);
+    const utxoCount = state?.utxoSet?.length ?? null;
+    const transactionCount = historyDesc?.totalCount ?? historyAsc?.totalCount ?? null;
+    const firstHistoryItem = historyAsc?.history?.[0] ?? null;
+    const lastHistoryItem = historyDesc?.history?.[0] ?? null;
+
+    runInAction(() => {
+      this.summary = {
+        bsvBalanceSatoshis,
+        trackedTokenBalanceCount: tokenBalanceEntries.length,
+        trackedTokenBalanceSatoshis: tokenBalanceSatoshis,
+        utxoCount,
+        transactionCount,
+        firstActivityAt: firstHistoryItem?.timestamp ?? null,
+        firstActivityHeight: firstHistoryItem?.height ?? null,
+        lastActivityAt: lastHistoryItem?.timestamp ?? null,
+        lastActivityHeight: lastHistoryItem?.height ?? null,
+        historyReadiness:
+          historyDesc?.historyStatus?.historyReadiness ??
+          historyAsc?.historyStatus?.historyReadiness ??
+          null,
+      };
+      this.summaryLoadState = "success";
+      this.inFlightId = null;
+    });
   }
 }
 
 export const addressDetailStore = new AddressDetailStore();
+
+function settledValue<T>(result: PromiseSettledResult<T>): T | null {
+  return result.status === "fulfilled" ? result.value : null;
+}
