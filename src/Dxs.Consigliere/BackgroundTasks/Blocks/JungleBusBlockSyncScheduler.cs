@@ -10,10 +10,10 @@ public sealed class JungleBusBlockSyncScheduler(
     ILogger<JungleBusBlockSyncScheduler> logger
 ) : IJungleBusBlockSyncScheduler
 {
-    public async Task ScheduleUpToHeightAsync(int observedHeight, string subscriptionId, CancellationToken cancellationToken)
+    public async Task<JungleBusBlockSyncScheduleResult> ScheduleUpToHeightAsync(int observedHeight, string subscriptionId, CancellationToken cancellationToken)
     {
         if (observedHeight <= 0 || string.IsNullOrWhiteSpace(subscriptionId))
-            return;
+            return new JungleBusBlockSyncScheduleResult(false, observedHeight, null, null);
 
         using var session = documentStore.GetSession();
 
@@ -23,7 +23,7 @@ public sealed class JungleBusBlockSyncScheduler(
             .ToListAsync(cancellationToken);
 
         if (unfinishedRequests.Any(x => x.FromHeight <= observedHeight && x.ToHeight >= observedHeight))
-            return;
+            return new JungleBusBlockSyncScheduleResult(false, observedHeight, null, null);
 
         var highestKnownBlock = await session.Query<BlockProcessContext>()
             .Where(x => x.Height != 0)
@@ -39,7 +39,7 @@ public sealed class JungleBusBlockSyncScheduler(
             ? observedHeight
             : Math.Max(highestKnownBlock, highestRequestedBlock) + 1;
         if (fromHeight > observedHeight)
-            return;
+            return new JungleBusBlockSyncScheduleResult(false, observedHeight, null, null);
 
         var request = new SyncRequest
         {
@@ -58,5 +58,6 @@ public sealed class JungleBusBlockSyncScheduler(
 
         await session.StoreAsync(request, cancellationToken);
         await session.SaveChangesAsync(cancellationToken);
+        return new JungleBusBlockSyncScheduleResult(true, observedHeight, fromHeight, observedHeight);
     }
 }

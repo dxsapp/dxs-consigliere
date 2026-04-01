@@ -15,6 +15,7 @@ namespace Dxs.Consigliere.BackgroundTasks.Blocks;
 public sealed class JungleBusBlockSyncMonitorBackgroundTask(
     IServiceProvider serviceProvider,
     IJungleBusBlockSyncScheduler scheduler,
+    IJungleBusBlockSyncHealthStore healthStore,
     IAdminRuntimeSourcePolicyService runtimeSourcePolicyService,
     IAdminProviderConfigService providerConfigService,
     IExternalChainProviderSettingsAccessor providerSettingsAccessor,
@@ -58,8 +59,10 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
         Exception failure = null;
 
         using var controlSubscription = websocketClient.ControlMessages.Subscribe(
-            message =>
+            async message =>
             {
+                await healthStore.TouchControlMessageAsync(jungleBus.BlockSubscriptionId, message, cancellationToken);
+
                 if (message.Block <= 0)
                     return;
 
@@ -71,11 +74,13 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
                     await gate.WaitAsync(cancellationToken);
                     try
                     {
-                        await scheduler.ScheduleUpToHeightAsync(message.Block, jungleBus.BlockSubscriptionId, cancellationToken);
+                        var result = await scheduler.ScheduleUpToHeightAsync(message.Block, jungleBus.BlockSubscriptionId, cancellationToken);
+                        await healthStore.TouchScheduledAsync(jungleBus.BlockSubscriptionId, result, cancellationToken);
                     }
                     catch (Exception exception)
                     {
                         _logger.LogError(exception, "Failed to schedule JungleBus block sync for height {Height}", message.Block);
+                        await healthStore.RecordErrorAsync(exception.Message, cancellationToken);
                     }
                     finally
                     {
@@ -83,7 +88,11 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
                     }
                 }, cancellationToken);
             },
-            exception => failure = exception
+            async exception =>
+            {
+                failure = exception;
+                await healthStore.RecordErrorAsync(exception.Message, cancellationToken);
+            }
         );
 
         websocketClient.SubscribeToControlMessages();

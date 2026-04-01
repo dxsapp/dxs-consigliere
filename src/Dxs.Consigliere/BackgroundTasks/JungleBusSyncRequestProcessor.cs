@@ -4,6 +4,7 @@ using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Common.Extensions;
 using Dxs.Consigliere.Data.Models;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.JungleBus;
@@ -19,6 +20,7 @@ public class JungleBusSyncRequestProcessor(
     IDocumentStore store,
     ITxMessageBus txMessageBus,
     ITransactionFilter transactionFilter,
+    IJungleBusBlockSyncHealthStore healthStore,
     IServiceProvider serviceProvider,
     INetworkProvider networkProvider,
     ILogger<JungleBusSyncRequestProcessor> logger
@@ -65,6 +67,7 @@ public class JungleBusSyncRequestProcessor(
 
                 request.StartAt = DateTime.UtcNow.AddMinutes(2);
                 await session2.SaveChangesAsync(cancellationToken);
+                await healthStore.RecordErrorAsync(ex.Message, cancellationToken);
             }
         }
 
@@ -135,6 +138,7 @@ public class JungleBusSyncRequestProcessor(
                 e =>
                 {
                     _logger.LogError(e, "JungleBus error: {Count}", txCount);
+                    var recordErrorTask = healthStore.RecordErrorAsync(e.Message, cancellationToken);
                 },
                 cancellationToken
             )
@@ -206,5 +210,6 @@ public class JungleBusSyncRequestProcessor(
         }
 
         await session.SaveChangesAsync(cancellationToken);
+        await healthStore.TouchProcessedAsync(requestId, processedBlockHeight > 0 ? processedBlockHeight : null, cancellationToken);
     }
 }

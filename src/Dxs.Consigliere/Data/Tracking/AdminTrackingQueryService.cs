@@ -1,4 +1,8 @@
 using Dxs.Consigliere.Data.Models.Tracking;
+using Dxs.Consigliere.Data.Models.Addresses;
+using Dxs.Consigliere.Data.Models.Tokens;
+using Dxs.Consigliere.Data.Addresses;
+using Dxs.Consigliere.Data.Tokens;
 using Dxs.Consigliere.Dto.Responses.Admin;
 using Dxs.Consigliere.Extensions;
 
@@ -7,7 +11,9 @@ using Raven.Client.Documents.Session;
 
 namespace Dxs.Consigliere.Data.Tracking;
 
-public sealed class AdminTrackingQueryService(IDocumentStore documentStore) : IAdminTrackingQueryService
+public sealed class AdminTrackingQueryService(
+    IDocumentStore documentStore,
+    TokenProjectionReader tokenProjectionReader) : IAdminTrackingQueryService
 {
     public async Task<AdminTrackedAddressResponse[]> GetTrackedAddressesAsync(
         bool includeTombstoned = false,
@@ -46,9 +52,12 @@ public sealed class AdminTrackingQueryService(IDocumentStore documentStore) : IA
         using var session = documentStore.GetNoCacheNoTrackingSession();
         var tracked = await session.LoadAsync<TrackedAddressDocument>(TrackedAddressDocument.GetId(address), cancellationToken);
         var status = await session.LoadAsync<TrackedAddressStatusDocument>(TrackedAddressStatusDocument.GetId(address), cancellationToken);
+        var summary = tracked is null
+            ? null
+            : await BuildAddressSummaryAsync(address, cancellationToken);
         return tracked is null
             ? null
-            : BuildAddressResponse(tracked, status);
+            : BuildAddressResponse(tracked, status, summary);
     }
 
     public async Task<AdminTrackedTokenResponse> GetTrackedTokenAsync(string tokenId, CancellationToken cancellationToken = default)
@@ -56,9 +65,12 @@ public sealed class AdminTrackingQueryService(IDocumentStore documentStore) : IA
         using var session = documentStore.GetNoCacheNoTrackingSession();
         var tracked = await session.LoadAsync<TrackedTokenDocument>(TrackedTokenDocument.GetId(tokenId), cancellationToken);
         var status = await session.LoadAsync<TrackedTokenStatusDocument>(TrackedTokenStatusDocument.GetId(tokenId), cancellationToken);
+        var summary = tracked is null
+            ? null
+            : await BuildTokenSummaryAsync(tokenId, cancellationToken);
         return tracked is null
             ? null
-            : BuildTokenResponse(tracked, status);
+            : BuildTokenResponse(tracked, status, summary);
     }
 
     public async Task<AdminFindingResponse[]> GetFindingsAsync(int take = 100, CancellationToken cancellationToken = default)
@@ -144,7 +156,135 @@ public sealed class AdminTrackingQueryService(IDocumentStore documentStore) : IA
         };
     }
 
-    private static AdminTrackedAddressResponse BuildAddressResponse(TrackedAddressDocument tracked, TrackedAddressStatusDocument status)
+    private async Task<AdminTrackedAddressSummaryResponse> BuildAddressSummaryAsync(
+        string address,
+        CancellationToken cancellationToken)
+    {
+        using var session = documentStore.GetNoCacheNoTrackingSession();
+
+        var bsvBalance = await session.LoadAsync<AddressBalanceProjectionDocument>(
+            AddressBalanceProjectionDocument.GetId(address, null),
+            cancellationToken);
+
+        var tokenBalances = await session.Query<AddressBalanceProjectionDocument>()
+            .Where(x => x.Address == address && x.TokenId != null)
+            .OrderBy(x => x.TokenId)
+            .Select(x => new AdminTrackedTokenBalanceSummaryResponse
+            {
+                TokenId = x.TokenId,
+                Satoshis = x.Satoshis
+            })
+            .ToListAsync(cancellationToken);
+
+        var bsvUtxoCount = await session.Query<AddressUtxoProjectionDocument>()
+            .Where(x => x.Address == address && x.TokenId == null)
+            .CountAsync(cancellationToken);
+        var tokenUtxoCount = await session.Query<AddressUtxoProjectionDocument>()
+            .Where(x => x.Address == address && x.TokenId != null)
+            .CountAsync(cancellationToken);
+
+        var applicationQuery = session.Query<AddressProjectionAppliedTransactionDocument>()
+            .Where(x => x.Credits.Any(y => y.Address == address) || x.Debits.Any(y => y.Address == address));
+
+        var transactionCount = await applicationQuery.CountAsync(cancellationToken);
+        var first = await applicationQuery
+            .OrderBy(x => x.Timestamp)
+            .ThenBy(x => x.TxId)
+            .Select(x => new ActivitySnapshot
+            {
+                Timestamp = x.Timestamp,
+                Height = x.Height,
+                LastSequence = x.LastSequence
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var last = await applicationQuery
+            .OrderByDescending(x => x.Timestamp)
+            .ThenByDescending(x => x.TxId)
+            .Select(x => new ActivitySnapshot
+            {
+                Timestamp = x.Timestamp,
+                Height = x.Height,
+                LastSequence = x.LastSequence
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new AdminTrackedAddressSummaryResponse
+        {
+            CurrentBsvBalanceSatoshis = bsvBalance?.Satoshis ?? 0,
+            TotalUtxoCount = bsvUtxoCount + tokenUtxoCount,
+            BsvUtxoCount = bsvUtxoCount,
+            TokenUtxoCount = tokenUtxoCount,
+            TransactionCount = transactionCount,
+            FirstTransactionAt = first?.Timestamp,
+            FirstTransactionBlockHeight = first?.Height,
+            LastTransactionAt = last?.Timestamp,
+            LastTransactionBlockHeight = last?.Height,
+            LastProjectionSequence = Math.Max(bsvBalance?.LastSequence ?? 0L, last?.LastSequence ?? 0L),
+            TokenBalances = [.. tokenBalances]
+        };
+    }
+
+    private async Task<AdminTrackedTokenSummaryResponse> BuildTokenSummaryAsync(
+        string tokenId,
+        CancellationToken cancellationToken)
+    {
+        using var session = documentStore.GetNoCacheNoTrackingSession();
+
+        var state = await tokenProjectionReader.LoadStateAsync(tokenId, cancellationToken);
+        var holderCount = await session.Query<AddressBalanceProjectionDocument>()
+            .Where(x => x.TokenId == tokenId)
+            .CountAsync(cancellationToken);
+        var utxoCount = await session.Query<AddressUtxoProjectionDocument>()
+            .Where(x => x.TokenId == tokenId)
+            .CountAsync(cancellationToken);
+
+        var historyQuery = session.Query<TokenHistoryProjectionDocument>()
+            .Where(x => x.TokenId == tokenId);
+        var transactionCount = await historyQuery.CountAsync(cancellationToken);
+        var first = await historyQuery
+            .OrderBy(x => x.Timestamp)
+            .ThenBy(x => x.TxId)
+            .Select(x => new ActivitySnapshot
+            {
+                Timestamp = x.Timestamp,
+                Height = x.Height,
+                LastSequence = x.LastSequence
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+        var last = await historyQuery
+            .OrderByDescending(x => x.Timestamp)
+            .ThenByDescending(x => x.TxId)
+            .Select(x => new ActivitySnapshot
+            {
+                Timestamp = x.Timestamp,
+                Height = x.Height,
+                LastSequence = x.LastSequence
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return new AdminTrackedTokenSummaryResponse
+        {
+            ProtocolType = state?.ProtocolType,
+            ValidationStatus = state?.ValidationStatus,
+            Issuer = state?.Issuer,
+            RedeemAddress = state?.RedeemAddress,
+            LocalKnownSupplySatoshis = state?.TotalKnownSupply,
+            BurnedSatoshis = state?.BurnedSatoshis,
+            HolderCount = holderCount,
+            UtxoCount = utxoCount,
+            TransactionCount = transactionCount,
+            FirstTransactionAt = first?.Timestamp,
+            FirstTransactionBlockHeight = first?.Height,
+            LastTransactionAt = last?.Timestamp,
+            LastTransactionBlockHeight = last?.Height,
+            LastProjectionSequence = state?.LastSequence ?? last?.LastSequence
+        };
+    }
+
+    private static AdminTrackedAddressResponse BuildAddressResponse(
+        TrackedAddressDocument tracked,
+        TrackedAddressStatusDocument status,
+        AdminTrackedAddressSummaryResponse summary = null)
     {
         var source = (TrackedEntityDocumentBase)status ?? tracked;
         return new AdminTrackedAddressResponse
@@ -157,11 +297,15 @@ public sealed class AdminTrackingQueryService(IDocumentStore documentStore) : IA
             UpdatedAt = status?.UpdatedAt ?? tracked.UpdatedAt,
             FailureReason = status?.FailureReason,
             IntegritySafe = status?.IntegritySafe,
-            Readiness = TrackedEntityReadinessMapper.Map(source)
+            Readiness = TrackedEntityReadinessMapper.Map(source),
+            Summary = summary
         };
     }
 
-    private static AdminTrackedTokenResponse BuildTokenResponse(TrackedTokenDocument tracked, TrackedTokenStatusDocument status)
+    private static AdminTrackedTokenResponse BuildTokenResponse(
+        TrackedTokenDocument tracked,
+        TrackedTokenStatusDocument status,
+        AdminTrackedTokenSummaryResponse summary = null)
     {
         var source = (TrackedEntityDocumentBase)status ?? tracked;
         return new AdminTrackedTokenResponse
@@ -174,7 +318,15 @@ public sealed class AdminTrackingQueryService(IDocumentStore documentStore) : IA
             UpdatedAt = status?.UpdatedAt ?? tracked.UpdatedAt,
             FailureReason = status?.FailureReason,
             IntegritySafe = status?.IntegritySafe,
-            Readiness = TrackedEntityReadinessMapper.Map(source)
+            Readiness = TrackedEntityReadinessMapper.Map(source),
+            Summary = summary
         };
+    }
+
+    private sealed class ActivitySnapshot
+    {
+        public long? Timestamp { get; set; }
+        public int? Height { get; set; }
+        public long? LastSequence { get; set; }
     }
 }

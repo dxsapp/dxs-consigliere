@@ -152,6 +152,12 @@ It is not a consumer product, wallet UI, or universal explorer.
 - keep runtime diagnostics on `/runtime`
 - do not make Runtime the main provider-configuration surface
 - if runtime source summary remains visible there, treat it as compatibility/diagnostic context only
+- show JungleBus block-sync health explicitly:
+  - observed JungleBus height
+  - highest known local indexed height
+  - lag blocks
+  - last control/scheduled/processed timestamps
+  - last error or unavailable reason
 
 ### Findings Rendering
 
@@ -159,3 +165,23 @@ It is not a consumer product, wallet UI, or universal explorer.
 - `error` uses critical styling
 - `warning` uses warning styling
 - unknown future values fall back to neutral styling
+
+### Entity Detail Surfaces
+
+- address detail page should expose operator-facing local-state counters:
+  - BSV balance
+  - token balance snapshot
+  - UTXO counts
+  - transaction count
+  - first/last activity
+  - latest projection sequence
+- token detail page should expose operator-facing local-state counters:
+  - protocol + validation
+  - issuer + redeem address
+  - local known supply + burned satoshis
+  - holder count
+  - UTXO count
+  - transaction count
+  - first/last activity
+  - latest projection sequence
+- rooted-history/trusted-roots/unknown-root status should still come from readiness/history, not from a second derived frontend state machine

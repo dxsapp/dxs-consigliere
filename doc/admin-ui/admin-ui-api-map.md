@@ -159,6 +159,18 @@ Returns tracked-address details aggregate.
 Important semantics:
 - returns `404 { code: "not_tracked", entityId }` when the address is absent
 - returns full readiness/history payload nested inside the tracked-address response
+- response now also includes `summary` for operator-facing detail cards:
+  - `currentBsvBalanceSatoshis`
+  - `totalUtxoCount`
+  - `bsvUtxoCount`
+  - `tokenUtxoCount`
+  - `transactionCount`
+  - `firstTransactionAt`
+  - `firstTransactionBlockHeight`
+  - `lastTransactionAt`
+  - `lastTransactionBlockHeight`
+  - `lastProjectionSequence`
+  - `tokenBalances[] { tokenId, satoshis }`
 
 ### `GET /api/admin/tracked/token/{tokenId}`
 Returns tracked-token details aggregate.
@@ -166,6 +178,21 @@ Returns tracked-token details aggregate.
 Important semantics:
 - returns `404 { code: "not_tracked", entityId }` when the token is absent
 - returns rooted token history fields via nested readiness/history payload
+- response now also includes `summary` for operator-facing detail cards:
+  - `protocolType`
+  - `validationStatus`
+  - `issuer`
+  - `redeemAddress`
+  - `localKnownSupplySatoshis`
+  - `burnedSatoshis`
+  - `holderCount`
+  - `utxoCount`
+  - `transactionCount`
+  - `firstTransactionAt`
+  - `firstTransactionBlockHeight`
+  - `lastTransactionAt`
+  - `lastTransactionBlockHeight`
+  - `lastProjectionSequence`
 
 ### `DELETE /api/admin/tracked/address/{address}`
 Untracks a DB-managed address.
@@ -513,6 +540,33 @@ UI note:
 
 ### `GET /api/ops/providers`
 Use for detailed providers/sources panel.
+
+### `GET /api/ops/junglebus/block-sync`
+Use for JungleBus block-sync health and lag diagnostics on `/runtime`.
+
+Response shape:
+- `primary`
+- `configured`
+- `healthy`
+- `degraded`
+- `unavailableReason`
+- `baseUrl`
+- `blockSubscriptionIdConfigured`
+- `lastObservedBlockHeight`
+- `highestKnownLocalBlockHeight`
+- `lagBlocks`
+- `lastControlMessageAt`
+- `lastControlCode`
+- `lastControlStatus`
+- `lastControlMessage`
+- `lastScheduledAt`
+- `lastScheduledFromHeight`
+- `lastScheduledToHeight`
+- `lastProcessedAt`
+- `lastProcessedBlockHeight`
+- `lastRequestId`
+- `lastError`
+- `lastErrorAt`
 
 ### `GET /api/ops/cache`
 Use for detailed runtime cache diagnostics, not for top-level dashboard summary.

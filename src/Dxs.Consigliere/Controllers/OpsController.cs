@@ -17,6 +17,7 @@ namespace Dxs.Consigliere.Controllers;
 [Authorize(Policy = AdminAuthDefaults.Policy)]
 public class OpsController(
     IAdminProviderConfigService providerConfigService,
+    IJungleBusBlockSyncHealthReader jungleBusBlockSyncHealthReader,
     IOptions<ConsigliereCacheConfig> cacheConfig,
     IOptions<ConsigliereStorageConfig> storageConfig,
     IOptions<AppConfig> appConfig,
@@ -72,6 +73,11 @@ public class OpsController(
     [Produces(typeof(StorageStatusResponse))]
     public IActionResult GetStorage()
         => Ok(StorageStatusResponseFactory.Build(storageConfig.Value));
+
+    [HttpGet("junglebus/block-sync")]
+    [Produces(typeof(JungleBusBlockSyncStatusResponse))]
+    public async Task<IActionResult> GetJungleBusBlockSync(CancellationToken cancellationToken = default)
+        => Ok(await jungleBusBlockSyncHealthReader.GetSnapshotAsync(cancellationToken));
 
     private ProviderStatusResponse BuildProviderStatus(
         string provider,

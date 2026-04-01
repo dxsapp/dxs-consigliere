@@ -90,13 +90,13 @@ Primary zones:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `PH1` | `repo-governance` | `operator/governance` | `todo` | - | docs review | ops surface contract and metrics are frozen |
-| `PH2` | `indexer-state-and-storage` | `operator/state` | `todo` | `PH1` | query tests | address/token operational summary read models exist |
-| `PH3` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `PH1` | runtime tests | JungleBus block-sync health/lag read model exists |
-| `PH4` | `public-api-and-realtime` | `operator/api` | `todo` | `PH2`,`PH3` | controller tests | admin endpoints expose the new summaries clearly |
-| `PH5` | `frontend-admin-shell` | `operator/ui` | `todo` | `PH4` | frontend build + page QA | runtime/address/token surfaces render the new ops summaries well |
-| `PH6` | `verification-and-conformance` | `operator/verification` | `todo` | `PH2`,`PH3`,`PH4`,`PH5` | focused proof | sample operator questions can be answered from the UI/API |
-| `A1` | `repo-governance` | `operator/governance` | `todo` | `PH6` | audit | missing ops visibility is closed honestly |
+| `PH1` | `repo-governance` | `operator/governance` | `completed` | - | docs review | ops surface contract and metrics are frozen |
+| `PH2` | `indexer-state-and-storage` | `operator/state` | `completed` | `PH1` | query tests | address/token operational summary read models exist |
+| `PH3` | `indexer-ingest-orchestration` | `operator/runtime` | `completed` | `PH1` | runtime tests | JungleBus block-sync health/lag read model exists |
+| `PH4` | `public-api-and-realtime` | `operator/api` | `completed` | `PH2`,`PH3` | controller tests | admin endpoints expose the new summaries clearly |
+| `PH5` | `frontend-admin-shell` | `operator/ui` | `completed` | `PH4` | frontend build + page QA | runtime/address/token surfaces render the new ops summaries well |
+| `PH6` | `verification-and-conformance` | `operator/verification` | `completed` | `PH2`,`PH3`,`PH4`,`PH5` | focused proof | sample operator questions can be answered from the UI/API |
+| `A1` | `repo-governance` | `operator/governance` | `completed` | `PH6` | audit | missing ops visibility is closed honestly |
 
 ## Expected File Targets
 

@@ -70,6 +70,7 @@ public class OpsControllerTests
                     }
                 }
             }),
+            new FakeJungleBusBlockSyncHealthReader(),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -125,6 +126,7 @@ public class OpsControllerTests
     {
         var controller = new OpsController(
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
+            new FakeJungleBusBlockSyncHealthReader(),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -160,6 +162,7 @@ public class OpsControllerTests
     {
         var controller = new OpsController(
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
+            new FakeJungleBusBlockSyncHealthReader(),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig
             {
@@ -191,6 +194,32 @@ public class OpsControllerTests
         Assert.Equal("provider_not_implemented", Assert.Single(payload.RawTransactionPayloads.Notes));
         Assert.Equal("/var/lib/consigliere/payloads", payload.RawTransactionPayloads.Location.RootPath);
         Assert.True(payload.RawTransactionPayloads.Location.ShardByTxId);
+    }
+
+    [Fact]
+    public async Task GetJungleBusBlockSync_ReturnsStructuredHealthSnapshot()
+    {
+        var controller = new OpsController(
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
+            new FakeJungleBusBlockSyncHealthReader(),
+            Options.Create(new ConsigliereCacheConfig()),
+            Options.Create(new ConsigliereStorageConfig()),
+            Options.Create(new AppConfig()),
+            new FakeProviderCatalog([]),
+            new FakeProjectionReadCacheTelemetry(),
+            new FakeProjectionCacheRuntimeStatusReader());
+
+        var result = await controller.GetJungleBusBlockSync();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<JungleBusBlockSyncStatusResponse>(ok.Value);
+        Assert.True(payload.Primary);
+        Assert.True(payload.Configured);
+        Assert.True(payload.Healthy);
+        Assert.Equal(155, payload.LastObservedBlockHeight);
+        Assert.Equal(151, payload.HighestKnownLocalBlockHeight);
+        Assert.Equal(4, payload.LagBlocks);
+        Assert.Equal("sub-1", payload.LastRequestId);
     }
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)
@@ -250,6 +279,26 @@ public class OpsControllerTests
                         123,
                         DateTimeOffset.Parse("2026-03-26T18:01:00+00:00"),
                         DateTimeOffset.Parse("2026-03-26T18:01:05+00:00"))));
+    }
+
+    private sealed class FakeJungleBusBlockSyncHealthReader : IJungleBusBlockSyncHealthReader
+    {
+        public Task<JungleBusBlockSyncStatusResponse> GetSnapshotAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new JungleBusBlockSyncStatusResponse
+            {
+                Primary = true,
+                Configured = true,
+                Healthy = true,
+                Degraded = false,
+                BaseUrl = "https://junglebus.gorillapool.io",
+                BlockSubscriptionIdConfigured = true,
+                LastObservedBlockHeight = 155,
+                HighestKnownLocalBlockHeight = 151,
+                LagBlocks = 4,
+                LastControlStatus = "ok",
+                LastControlCode = 200,
+                LastRequestId = "sub-1"
+            });
     }
 
     private sealed class FakeAdminProviderConfigService(ConsigliereSourcesConfig config)

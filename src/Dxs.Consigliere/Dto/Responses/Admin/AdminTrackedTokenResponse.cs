@@ -13,4 +13,5 @@ public sealed class AdminTrackedTokenResponse
     public string FailureReason { get; set; }
     public bool? IntegritySafe { get; set; }
     public TrackedEntityReadinessResponse Readiness { get; set; }
+    public AdminTrackedTokenSummaryResponse Summary { get; set; }
 }

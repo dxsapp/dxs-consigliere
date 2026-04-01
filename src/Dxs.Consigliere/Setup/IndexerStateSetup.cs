@@ -28,6 +28,8 @@ public static class IndexerStateSetup
             .AddSingleton<IAddressHistoryEnvelopeBackfillService, AddressHistoryEnvelopeBackfillService>()
             .AddSingleton<IAddressHistoryEnvelopeBackfillTelemetry>(sp => (IAddressHistoryEnvelopeBackfillTelemetry)sp.GetRequiredService<IAddressHistoryEnvelopeBackfillService>())
             .AddSingleton<IProjectionCacheRuntimeStatusReader, ProjectionCacheRuntimeStatusReader>()
+            .AddSingleton<IJungleBusBlockSyncHealthStore, JungleBusBlockSyncHealthStore>()
+            .AddSingleton<IJungleBusBlockSyncHealthReader, JungleBusBlockSyncHealthReader>()
             .AddSingleton<AddressProjectionReader>()
             .AddSingleton<AddressHistoryProjectionReader>()
             .AddSingleton<AddressProjectionRebuilder>()
