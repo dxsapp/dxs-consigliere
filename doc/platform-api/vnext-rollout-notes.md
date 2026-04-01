@@ -120,3 +120,27 @@ docker build -t dxs-consigliere:vnext /Users/imighty/Code/dxs-consigliere
 
 - `OnTransactionDeleted` remains a compatibility stream during the final migration packaging wave.
 - Projection-backed address history currently materializes address-scoped applied transactions and shapes rows in-memory; this is acceptable for managed selective scope, but not a claim of explorer-grade history economics.
+
+## Backlog Follow-Up
+
+The current JungleBus-first assurance surface is intentionally diagnostics-first and non-blocking for rollout.
+Two useful follow-ups remain in backlog:
+
+1. Secondary chain-tip cross-check
+- goal: allow `assuranceMode = cross_checked` instead of `single_source`
+- candidate sources:
+  - node RPC
+  - alternate external chain-tip source
+- priority: medium
+
+2. Assurance-driven remediation
+- goal: react to:
+  - `stalled_control_flow`
+  - `stalled_local_progress`
+- likely shapes:
+  - explicit operator alerts
+  - reconnect/restart hints
+  - bounded repair or backfill triggers
+- priority: medium
+
+These are useful but not required for the current JungleBus-first rollout shape.
