@@ -187,7 +187,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
             Advanced provider settings
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-            Ecosystem provider catalog, current capability wiring, and advanced operator edits after first-run setup.
+            Ecosystem provider catalog, current capability wiring, and advanced operator edits after first-run setup. Providers supply blockchain data; Consigliere still performs local STAS/DSTAS validation and rooted-history decisions.
           </Typography>
         </Box>
         <Tooltip title="Refresh">
@@ -318,7 +318,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.25 }}>Configure providers</Typography>
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                      Advanced edits only. First-run setup now lives in the setup wizard; use this screen for post-onboarding provider changes.
+                      Advanced edits only. First-run setup now lives in the setup wizard; use this screen for post-onboarding provider changes. These settings control upstream data acquisition, not external token-validation authority.
                     </Typography>
                   </Box>
 
@@ -351,7 +351,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
                         <Stack spacing={1.5}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Bitails</Typography>
                           <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                            Websocket is the default-on onboarding path. Leave the API key blank for first-run websocket use, then add one later if you need paid or higher-limit provider usage.
+                            Websocket is the default-on onboarding path. Leave the API key blank for first-run websocket use, then add one later if you need paid or higher-limit provider usage. Bitails supplies live chain data; Consigliere still decides STAS/DSTAS legality locally.
                           </Typography>
                           <TextField size="small" label="API key" value={draft.bitails.apiKey} onChange={(e) => store.setBitailsField("apiKey", e.target.value)} />
                           <TextField size="small" label="REST base URL" value={draft.bitails.baseUrl} onChange={(e) => store.setBitailsField("baseUrl", e.target.value)} />
@@ -414,7 +414,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
                       startIcon={store.resetting ? <CircularProgress size={14} color="inherit" /> : undefined}
                       onClick={() => setResetOpen(true)}
                     >
-                      {store.resetting ? "Resetting…" : "Reset to static"}
+                      {store.resetting ? "Resetting…" : "Reset to defaults"}
                     </Button>
                   </span>
                 </Tooltip>
@@ -427,7 +427,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
       <ConfirmDialog
         open={applyOpen}
         title="Apply provider configuration"
-        body="The provider override will be persisted outside static configuration. Runtime source changes require a restart before all background tasks and client wiring use the new setup."
+        body="The saved provider configuration will be persisted in the operator store. These changes affect upstream data acquisition only; Consigliere still performs local token validation. Runtime source changes require a restart before all background tasks and client wiring use the new setup."
         confirmLabel="Apply"
         onCancel={() => setApplyOpen(false)}
         onConfirm={() => {
@@ -439,7 +439,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
       <ConfirmDialog
         open={resetOpen}
         title="Reset provider configuration"
-        body="The persisted provider override will be removed. Effective provider selection will return to static configuration on the next refresh and restart cycle."
+        body="The saved provider configuration will be reset to the system defaults. Effective provider selection will return to the default setup on the next refresh and restart cycle."
         confirmLabel="Reset"
         onCancel={() => setResetOpen(false)}
         onConfirm={() => {

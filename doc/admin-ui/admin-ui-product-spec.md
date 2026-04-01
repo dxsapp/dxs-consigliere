@@ -131,6 +131,7 @@ It is not a consumer product, wallet UI, or universal explorer.
   - REST fallback = `WhatsOnChain`
   - raw tx = `JungleBus / GorillaPool`
 - make it obvious that `Bitails` API key is optional for first-run websocket onboarding and becomes an upgrade field for paid or higher-limit usage
+- make it explicit that providers supply blockchain data while `Consigliere` still performs local `(D)STAS` validation and rooted-history decisions
 - show provider catalog cards for:
   - `Bitails`
   - `WhatsOnChain`
@@ -146,6 +147,8 @@ It is not a consumer product, wallet UI, or universal explorer.
 - apply/reset actions require confirmation
 - when backend returns `restartRequired=true`, surface an explicit operator warning that restart is still needed before runtime source-selection changes apply fully
 - provider help links should be visible and treated as first-class onboarding guidance
+- do not present `validation_fetch` as a generic REST knob; if surfaced, it must be described as lineage-dependency acquisition for local validation
+- do not present historical token scan as generic explorer history; it remains rooted-history support for trusted-root-bounded token truth
 
 ### Runtime Page
 

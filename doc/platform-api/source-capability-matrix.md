@@ -224,36 +224,45 @@ The minimal set of routing-sensitive capabilities in `v1` is:
 - `block_backfill`
 - `raw_tx_fetch`
 - `validation_fetch`
+- `historical_address_scan`
+- `historical_token_scan`
 
-These are the first capabilities expected to benefit materially from explicit overrides because their SLA, correctness, and economics profiles are meaningfully different.
+These are the capabilities whose SLA, correctness, or economics profile may require explicit routing policy.
 
-## Decision: `validation_fetch` Is a Broad Truth-Critical Capability
+They do not all have the same product posture:
+- `realtime_ingest`, `block_backfill`, and `raw_tx_fetch` are clear operator-facing choices
+- `validation_fetch` is a truth-critical support capability for local validation
+- `historical_address_scan` and `historical_token_scan` must be described honestly according to their actual runtime implementation
 
-`validation_fetch` is intentionally defined broadly in `v1`.
+## Decision: `validation_fetch` Supports Local Validation Authority
 
-It is not limited only to `(D)STAS` Back-to-Genesis lineage fetches.
+`validation_fetch` exists to support `Consigliere`'s local authoritative `(D)STAS` validation engine.
+
+It is not external validation authority.
 
 Meaning:
-- any fetch whose main purpose is to protect or restore truth-critical correctness belongs to this capability class
+- this capability acquires lineage-critical dependency data required for local validation
+- the validation verdict still belongs to `Consigliere`
+- upstream providers are data suppliers, not token-truth engines
 
 Key examples:
-- `(D)STAS` Back-to-Genesis validation
-- token lineage recovery
-- authoritative re-checks after suspicious or disputed state transitions
-- integrity-sensitive recovery after reorg or source disagreement
+- `(D)STAS` Back-to-Genesis dependency acquisition
+- token lineage dependency repair
+- authoritative local re-checks after suspicious or disputed state transitions
+- integrity-sensitive dependency recovery after reorg or source disagreement
 
-This keeps the routing model focused on why the fetch exists, not only on one protocol-specific use case.
+This keeps the routing model focused on why the fetch exists while preserving local validation authority.
 
-## Decision: `verification_source` Is a First-Class Role in v1
+## Decision: `verification_source` Is A Data-Verification Role, Not Validation Authority
 
 `verification_source` is a first-class source role in `v1`.
 
 It answers a different question from primary or fallback routing:
 - not "who answers if the main source is unavailable?"
-- but "who is trusted when truth must be confirmed?"
+- but "who is trusted to supply comparison or dependency data when truth must be confirmed locally?"
 
 Meaning:
-- verification is about correctness arbitration
+- verification is about correctness support and arbitration inputs
 - fallback is about availability
 
 The same physical source may serve as:

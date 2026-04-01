@@ -13,6 +13,7 @@ Admin-shell note:
 - the dedicated `/providers` page may persist a bounded operator override for realtime provider, REST provider, Bitails transport, and provider-specific connection fields
 - static examples here remain the deployment baseline; admin overrides do not rewrite these files
 - product messaging may recommend `JungleBus / GorillaPool` for practical raw transaction fetch even when `WhatsOnChain` remains the easy REST fallback default
+- `validation_fetch` examples describe dependency acquisition for local `(D)STAS` validation, not external validation authority
 - for `Bitails websocket` onboarding, examples intentionally omit `connection.apiKey` unless the scenario is explicitly about paid or higher-limit provider usage
 
 The repository is AI-first, so the examples prefer:
@@ -253,7 +254,7 @@ Notes:
 - provider-first realtime ingest through `bitails`
 - `junglebus` kept as an advanced fallback stream rather than the default managed-mode source
 - cheaper lookup elasticity through `bitails` and `whatsonchain`
-- truth-critical validation anchored to `node`
+- truth-critical validation dependency acquisition anchored to `node`, while the final `(D)STAS` verdict remains local to `Consigliere`
 
 ## Example 3: Provider-Only Setup Without A Node
 

@@ -115,7 +115,7 @@ Supporting zone:
 
 | wave | zone lead | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `LC1` Capability Contract Cleanup | `repo-governance` | `operator/governance` | `todo` | - | docs review | docs, config naming, and operator wording distinguish `raw_tx_fetch`, `validation_fetch`, and rooted-history semantics correctly |
+| `LC1` Capability Contract Cleanup | `repo-governance` | `operator/governance` | `done` | - | docs review + frontend build | docs, config naming, and operator wording distinguish `raw_tx_fetch`, `validation_fetch`, and rooted-history semantics correctly |
 | `LC2` Raw Tx Convergence | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `LC1` | focused runtime tests | all raw-transaction consumers route through one internal raw-tx contract |
 | `LC3` Validation Capability Convergence | `indexer-state-and-storage` | `operator/state` | `todo` | `LC1`,`LC2` | validation tests + API proof | local `(D)STAS` validation semantics, dependency acquisition, and public wording are aligned |
 | `LC4` Historical Scan Truthfulness | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `LC1` | docs + runtime proof | historical scans are either honestly scoped as v1-specific or routed consistently |
@@ -140,4 +140,3 @@ Supporting zone:
 - historical scan semantics are honest
 - broadcast semantics match product policy
 - dead legacy that contradicts the model is removed
-

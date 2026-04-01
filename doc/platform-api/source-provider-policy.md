@@ -22,11 +22,17 @@ The key requirement is:
 - managed-scope selective realtime ingest must be practical to operate dynamically
 
 The operator-facing admin shell should mirror this posture explicitly:
-- `/providers` is the onboarding and bounded configuration surface
+- `/providers` is the advanced provider settings and provider-docs surface after first-run setup
 - `bitails` should appear as the recommended realtime default
+- `junglebus / gorillapool` should appear as the default block-sync path
 - `whatsonchain` should appear as the recommended REST default
 - `junglebus / gorillapool` should appear as the recommended practical raw transaction fetch path
 - `junglebus` and `zmq` should be positioned as advanced options, not the first-run path
+
+Important authority rule:
+- providers supply chain data
+- `Consigliere` supplies authoritative local `(D)STAS` validation and rooted token truth
+- no provider should be described as if it validates `(D)STAS` for the service
 
 ## Why Bitails Is The Baseline
 
@@ -73,11 +79,18 @@ In current product messaging, `whatsonchain` should be positioned as:
 
 The intended default posture is:
 - `bitails` for provider-first realtime ingest
+- `junglebus / gorillapool` for block sync
 - `bitails` for provider-first historical address and token scans
 - `junglebus / gorillapool` as the recommended practical raw transaction source
+- `validation_fetch` as local-validation dependency acquisition rather than an external truth provider
 - `whatsonchain` as REST-only fallback and onboarding default
 - `junglebus` as optional advanced realtime source
-- `node` as the strongest verification and authority path when present
+- `node` as the strongest advanced verification and authority-assist path when present
+
+Current historical-scan posture:
+- `historical_address_scan` is still Bitails-backed in `v1`
+- `historical_token_scan` is still Bitails-backed in `v1`
+- rooted token truth remains local to `Consigliere`, even when history is fetched from external providers
 
 ## Future Bitails Transport Contract
 

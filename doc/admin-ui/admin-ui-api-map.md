@@ -85,6 +85,8 @@ Semantics:
   - raw transaction source
   - REST fallback
   - realtime source
+- setup intentionally does not expose `validation_fetch` as a normal first-run provider choice
+- `validation_fetch` remains an advanced support capability for local `(D)STAS` validation dependency acquisition
 - default recommendations are:
   - raw tx = `junglebus`
   - REST fallback = `whatsonchain`
@@ -116,6 +118,17 @@ Responses:
 - `409` with `{ code: "setup_already_completed" }` when bootstrap has already been finalized
 
 ## Existing Operator Endpoints
+
+## Provider Contract Note
+
+Provider configuration and setup choices are about upstream data acquisition.
+
+They do not transfer `(D)STAS` validation authority out of `Consigliere`.
+
+Important distinctions:
+- `raw_tx_fetch` = how the service acquires raw transaction hex
+- `validation_fetch` = how the service acquires lineage-critical dependency data for local validation
+- rooted token truth still comes from `Consigliere`'s local lineage-aware model and trusted-root policy
 
 ## Admin Tracking Endpoints
 
