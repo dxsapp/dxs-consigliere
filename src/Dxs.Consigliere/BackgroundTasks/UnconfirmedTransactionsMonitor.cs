@@ -2,14 +2,12 @@ using ComposableAsync;
 
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
-using Dxs.Bsv.Rpc.Models;
-using Dxs.Bsv.Rpc.Services;
 using Dxs.Common.BackgroundTasks;
 using Dxs.Common.Time;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
-using Dxs.Infrastructure.Bitails;
+using Dxs.Consigliere.Services;
 using Dxs.Infrastructure.WoC;
 using Dxs.Infrastructure.WoC.Dto;
 
@@ -22,18 +20,11 @@ using Raven.Client.Documents.Linq;
 
 namespace Dxs.Consigliere.BackgroundTasks;
 
-public class DisappearedFromChain
-{
-    public string Id { get; set; }
-    public string TxId { get; set; }
-}
-
 public class UnconfirmedTransactionsMonitor(
     IServiceProvider serviceProvider,
     IWhatsOnChainRestApiClient wocClient,
-    IBitailsRestApiClient bitailsRestApi,
     IBlockMessageBus blockMessageBus,
-    IRpcClient rpcClient,
+    IBroadcastService broadcastService,
     IOptions<AppConfig> appConfig,
     ILogger<UnconfirmedTransactionsMonitor> logger
 ) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
@@ -145,45 +136,31 @@ public class UnconfirmedTransactionsMonitor(
             {
                 _logger.LogDebug("Missing Txs {@MissingTxIds}", missingTxs);
 
-                using var session2 = store.GetSession();
-                var datas = await session2
+                using var readSession = store.GetSession();
+                var datas = await readSession
                     .LoadAsync<TransactionHexData>(missingTxs.Select(TransactionHexData.GetId), cancellationToken);
 
                 foreach (var data in datas)
                 {
+                    if (data.Value is null)
+                        continue;
+
                     try
                     {
-                        var response = await rpcClient.SendRawTransaction(data.Value.Hex).EnsureSuccess();
-
-                        _logger.LogDebug("Transaction re-broadcasted to Node: {TxId}: {@Response}", data.Value.TxId, response);
-                    }
-                    catch (Exception nodeException)
-                    {
-                        if (nodeException.Message.Contains("Transaction already in the mempool", StringComparison.InvariantCultureIgnoreCase))
+                        var result = await broadcastService.Broadcast(data.Value.Hex);
+                        if (result.Success)
                         {
-                            try
-                            {
-                                await bitailsRestApi.Broadcast(data.Value.Hex, CancellationToken.None);
-                            }
-                            catch (Exception exception)
-                            {
-                                _logger.LogError(exception, "Error broadcasting transaction to bitails {TxId}", data.Value.TxId);
-                            }
+                            _logger.LogDebug("Transaction re-broadcasted: {TxId}: {@Attempts}", data.Value.TxId, result.Attempts);
+                            continue;
                         }
 
-                        _logger.LogDebug("Failed re-broadcast to Node: {TxId}: {Error}", data.Value.TxId, nodeException.Message);
-
-                        await session2.StoreAsync(
-                            new DisappearedFromChain
-                            {
-                                TxId = data.Value.TxId,
-                            },
-                            cancellationToken
-                        );
+                        _logger.LogDebug("Failed re-broadcast: {TxId}: {Message}", data.Value.TxId, result.Message);
+                    }
+                    catch (Exception exception)
+                    {
+                        _logger.LogDebug("Failed re-broadcast: {TxId}: {Error}", data.Value.TxId, exception.Message);
                     }
                 }
-
-                await session2.SaveChangesAsync(cancellationToken);
             }
 
             _logger.LogDebug("Processed {Count} txs, {Remain} more", txIds.Count, txs.Count - processedTxs);
@@ -206,101 +183,5 @@ public class UnconfirmedTransactionsMonitor(
             _logger.LogDebug("Total transactions was not in mempool {Count}", totalMissingTxs);
 
         _logger.LogDebug("Finished");
-    }
-
-    private async Task SyncDisappeared(CancellationToken cancellationToken)
-    {
-        var store = serviceProvider.GetRequiredService<IDocumentStore>();
-
-        using var session = store.GetSession();
-
-        var gones = await session
-            .Query<DisappearedFromChain>()
-            .ToListAsync(token: cancellationToken);
-        var txIds = gones.Select(x => x.TxId);
-
-        var txs = await session
-            .Query<MetaTransaction>()
-            .Where(x => x.Id.In(txIds))
-            .OrderBy(x => x.Timestamp)
-            .ToListAsync(token: cancellationToken);
-
-        var datas = await session
-            .LoadAsync<TransactionHexData>(txs.Select(x => TransactionHexData.GetId(x.Id)), cancellationToken);
-
-        foreach (var data in datas)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                return;
-
-            var gone = gones.First(x => x.TxId == data.Value.TxId);
-
-            try
-            {
-                var broadcasted = await bitailsRestApi.IsBroadcastedAsync(data.Value.TxId, cancellationToken);
-
-                if (broadcasted)
-                {
-                    _logger.LogDebug("Found on Bitails: {TxId}", data.Value.TxId);
-                    session.Delete(gone);
-                    continue;
-                }
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, "Failed to get tx from Bitails");
-            }
-
-            try
-            {
-                var response = await rpcClient.SendRawTransaction(data.Value.Hex).EnsureSuccess();
-
-                _logger.LogDebug("Transaction re-broadcasted to Node: {TxId}: {@Response}", data.Value.TxId, response);
-
-                session.Delete(gone);
-            }
-            catch (Exception nodeException)
-            {
-                if (nodeException.Message == "Request failed: (code: -27, message: Transaction already in the mempool)"
-                    || nodeException.Message == "Request failed: (code: -26, message: 257: txn-already-known)")
-                {
-                    session.Delete(gone);
-                }
-
-                _logger.LogDebug("Failed re-broadcast to Node: {TxId}: {Error}", data.Value.TxId, nodeException.Message);
-
-                var tx = txs.First(x => x.Id == data.Value.TxId);
-
-                foreach (var input in tx.Inputs)
-                {
-                    if (gones.All(x => x.TxId != input.TxId))
-                    {
-                        await session.StoreAsync(new DisappearedFromChain { TxId = input.TxId }, cancellationToken);
-                    }
-                }
-
-                continue;
-
-                try
-                {
-                    await wocClient.BroadcastAsync(data.Value.Hex, cancellationToken);
-                    session.Delete(gone);
-
-                    _logger.LogDebug("Transaction re-broadcasted to WoC: {TxId}", data.Value.TxId);
-                }
-                catch (Exception wocException)
-                {
-                    if (wocException.Message ==
-                        "Response code validation failed POST https://api.whatsonchain.com/v1/bsv/main/tx/raw\nResponse: BadRequest \"unexpected response code 500: Transaction already in the mempool\"")
-                    {
-                        session.Delete(gone);
-                    }
-
-                    _logger.LogDebug("Failed re-broadcast to Woc: {TxId}: {Error}", data.Value.TxId, wocException.Message);
-                }
-            }
-        }
-
-        await session.SaveChangesAsync(cancellationToken);
     }
 }

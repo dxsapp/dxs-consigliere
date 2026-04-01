@@ -127,10 +127,11 @@ HTTP API (реализация в `src/Dxs.Consigliere/Controllers/*.cs`):
 - `POST /api/tx/broadcast/{raw}`
   - Вход: raw tx hex в path.
   - Выход: `Broadcast` (см. `src/Dxs.Consigliere/Data/Models/Broadcast.cs`).
-  - Побочные эффекты: broadcast через node RPC + запись в RavenDB.
+  - Побочные эффекты: отправка во все настроенные broadcast-capable providers + запись результата и attempts в RavenDB.
 - `GET /api/tx/stas/validate/{id}`
   - Вход: txid (64 hex).
   - Выход: `ValidateStasResponse`.
+  - Семантика: verdict строится из локальной lineage-aware проекции `Consigliere`, а не из внешнего provider verdict.
   - Ошибки: 400 malformed; 404 если tx не найден; 418 если tx не STAS.
 - `POST /api/admin/manage/address`
   - Вход: `WatchAddressRequest` (`Address`, `Name`).

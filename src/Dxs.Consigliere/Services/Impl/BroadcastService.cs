@@ -86,6 +86,19 @@ public class BroadcastService(
     private async Task<BroadcastProviderAttempt[]> BroadcastToConfiguredProvidersAsync(Transaction transaction)
     {
         var targets = await ResolveBroadcastTargetsAsync();
+        if (targets.Length == 0)
+        {
+            return
+            [
+                new BroadcastProviderAttempt
+                {
+                    Provider = "none",
+                    Success = false,
+                    Message = "no_broadcast_provider_configured"
+                }
+            ];
+        }
+
         var tasks = targets.Select(provider => BroadcastWithRetryAsync(provider, transaction)).ToArray();
         return await Task.WhenAll(tasks);
     }
@@ -189,7 +202,14 @@ public class BroadcastService(
         var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync();
         var requestedTargets = effectiveSources.Capabilities.Broadcast.Sources;
         if (requestedTargets is null || requestedTargets.Length == 0)
-            requestedTargets = [SourceCapabilityRouting.NodeProvider];
+        {
+            requestedTargets =
+            [
+                SourceCapabilityRouting.NodeProvider,
+                ExternalChainProviderName.Bitails,
+                ExternalChainProviderName.WhatsOnChain
+            ];
+        }
 
         var descriptors = providerCatalog.GetDescriptors()
             .ToDictionary(x => x.Provider, StringComparer.OrdinalIgnoreCase);

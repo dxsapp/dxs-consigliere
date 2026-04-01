@@ -116,12 +116,12 @@ Supporting zone:
 | wave | zone lead | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
 | `LC1` Capability Contract Cleanup | `repo-governance` | `operator/governance` | `done` | - | docs review + frontend build | docs, config naming, and operator wording distinguish `raw_tx_fetch`, `validation_fetch`, and rooted-history semantics correctly |
-| `LC2` Raw Tx Convergence | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `LC1` | focused runtime tests | all raw-transaction consumers route through one internal raw-tx contract |
-| `LC3` Validation Capability Convergence | `indexer-state-and-storage` | `operator/state` | `todo` | `LC1`,`LC2` | validation tests + API proof | local `(D)STAS` validation semantics, dependency acquisition, and public wording are aligned |
-| `LC4` Historical Scan Truthfulness | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `LC1` | docs + runtime proof | historical scans are either honestly scoped as v1-specific or routed consistently |
-| `LC5` Broadcast Multi-Target | `public-api-and-realtime` | `operator/api` | `todo` | `LC1` | controller/service tests | broadcast uses multi-target `any_success` semantics and exposes attempt truth honestly |
-| `LC6` Dead Legacy Removal | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `LC2`,`LC3`,`LC4`,`LC5` | build + diff hygiene | stale config fields, stale docs, and bypass wiring that contradict the canonical model are removed |
-| `A1` Program Closeout Audit | `repo-governance` | `operator/governance` | `todo` | `LC6` | audit | one coherent capability-first model exists across docs, code, runtime, and admin UI |
+| `LC2` Raw Tx Convergence | `indexer-ingest-orchestration` | `operator/runtime` | `done` | `LC1` | focused runtime tests | all raw-transaction consumers route through one internal raw-tx contract |
+| `LC3` Validation Capability Convergence | `indexer-state-and-storage` | `operator/state` | `done` | `LC1`,`LC2` | validation tests + API proof | local `(D)STAS` validation semantics, dependency acquisition, and public wording are aligned |
+| `LC4` Historical Scan Truthfulness | `service-bootstrap-and-ops` | `operator/platform` | `done` | `LC1` | docs + runtime proof | historical scans are honestly scoped as Bitails-backed rooted/runtime-specific v1 flows |
+| `LC5` Broadcast Multi-Target | `public-api-and-realtime` | `operator/api` | `done` | `LC1` | controller/service tests | broadcast uses multi-target `any_success` semantics and exposes attempt truth honestly |
+| `LC6` Dead Legacy Removal | `service-bootstrap-and-ops` | `operator/platform` | `done` | `LC2`,`LC3`,`LC4`,`LC5` | build + diff hygiene | stale config fields, stale docs, and bypass wiring that contradict the canonical model are removed |
+| `A1` Program Closeout Audit | `repo-governance` | `operator/governance` | `done` | `LC6` | audit | one coherent capability-first model exists across docs, code, runtime, and admin UI |
 
 ## Hard Boundaries
 
@@ -140,3 +140,13 @@ Supporting zone:
 - historical scan semantics are honest
 - broadcast semantics match product policy
 - dead legacy that contradicts the model is removed
+
+## Delivery Notes
+
+Closed bounded commits:
+- `cf75372` `docs(product): add legacy convergence program`
+- `89e4e4a` `docs(product): align capability contract wording`
+- `b2ee0e4` `feat(runtime): converge raw transaction fetching`
+- `b77870f` `feat(api): broadcast to all configured providers`
+- `f614373` `feat(validation): align local stas verdict semantics`
+- `2c55564` `feat(runtime): make historical scans truthful in v1`

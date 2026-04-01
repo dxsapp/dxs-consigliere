@@ -104,6 +104,45 @@ public class BroadcastServiceTests : RavenTestDriver
         utxoCache.Verify(x => x.MarkUsed(It.IsAny<OutPoint>(), false), Times.Never);
     }
 
+    [Fact]
+    public async Task Broadcast_FailsClearly_WhenNoBroadcastProviderIsConfigured()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var service = CreateService(
+            store,
+            new ConsigliereSourcesConfig
+            {
+                Providers =
+                {
+                    Node = { Enabled = false, EnabledCapabilities = [] },
+                    Bitails = { Enabled = false, EnabledCapabilities = [] },
+                    Whatsonchain = { Enabled = false, EnabledCapabilities = [] }
+                },
+                Capabilities =
+                {
+                    Broadcast = new BroadcastCapabilityOverrideConfig
+                    {
+                        Mode = "multi",
+                        Sources = []
+                    }
+                }
+            },
+            Mock.Of<IBitcoindService>(MockBehavior.Strict),
+            Mock.Of<IBitailsRestApiClient>(MockBehavior.Strict),
+            Mock.Of<IWhatsOnChainRestApiClient>(MockBehavior.Strict),
+            Mock.Of<IUtxoCache>(MockBehavior.Strict));
+
+        var result = await service.Broadcast(SampleTransactionHex);
+
+        Assert.False(result.Success);
+        Assert.Single(result.Attempts);
+        Assert.Equal("none", result.Attempts[0].Provider);
+        Assert.Equal("no_broadcast_provider_configured", result.Attempts[0].Message);
+    }
+
     private static BroadcastService CreateService(
         Raven.Client.Documents.IDocumentStore store,
         ConsigliereSourcesConfig config,
