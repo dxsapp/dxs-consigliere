@@ -18,6 +18,7 @@ namespace Dxs.Consigliere.Controllers;
 public class OpsController(
     IAdminProviderConfigService providerConfigService,
     IJungleBusBlockSyncHealthReader jungleBusBlockSyncHealthReader,
+    IJungleBusChainTipAssuranceReader jungleBusChainTipAssuranceReader,
     IOptions<ConsigliereCacheConfig> cacheConfig,
     IOptions<ConsigliereStorageConfig> storageConfig,
     IOptions<AppConfig> appConfig,
@@ -78,6 +79,11 @@ public class OpsController(
     [Produces(typeof(JungleBusBlockSyncStatusResponse))]
     public async Task<IActionResult> GetJungleBusBlockSync(CancellationToken cancellationToken = default)
         => Ok(await jungleBusBlockSyncHealthReader.GetSnapshotAsync(cancellationToken));
+
+    [HttpGet("junglebus/chain-tip-assurance")]
+    [Produces(typeof(JungleBusChainTipAssuranceResponse))]
+    public async Task<IActionResult> GetJungleBusChainTipAssurance(CancellationToken cancellationToken = default)
+        => Ok(await jungleBusChainTipAssuranceReader.GetSnapshotAsync(cancellationToken));
 
     private ProviderStatusResponse BuildProviderStatus(
         string provider,

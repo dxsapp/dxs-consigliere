@@ -158,6 +158,15 @@ It is not a consumer product, wallet UI, or universal explorer.
   - lag blocks
   - last control/scheduled/processed timestamps
   - last error or unavailable reason
+- show JungleBus chain-tip assurance as a separate card from raw lag:
+  - `state`
+  - `assuranceMode`
+  - single-source warning
+  - control-flow stalled flag
+  - local-progress stalled flag
+  - last observed movement
+  - last local progress
+- do not imply full external confirmation when the backend reports `assuranceMode=single_source`
 
 ### Findings Rendering
 

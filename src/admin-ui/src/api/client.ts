@@ -24,6 +24,8 @@ import type {
   TokenHistoryResponse,
   SyncStatusResponse,
   ProviderStatusResponse,
+  JungleBusBlockSyncStatusResponse,
+  JungleBusChainTipAssuranceResponse,
 } from "@/types/api";
 
 // ─── Error model ─────────────────────────────────────────────────────────────
@@ -224,4 +226,6 @@ export const opsApi = {
   providers: () => get<ProviderStatusResponse[]>("/api/ops/providers"),
   cache: () => get<unknown>("/api/ops/cache"),
   storage: () => get<unknown>("/api/ops/storage"),
+  jungleBusBlockSync: () => get<JungleBusBlockSyncStatusResponse>("/api/ops/junglebus/block-sync"),
+  jungleBusChainTipAssurance: () => get<JungleBusChainTipAssuranceResponse>("/api/ops/junglebus/chain-tip-assurance"),
 };

@@ -1,6 +1,11 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { opsApi, dashboardApi } from "@/api/client";
-import type { ProviderStatusResponse, SyncStatusResponse } from "@/types/api";
+import type {
+  JungleBusBlockSyncStatusResponse,
+  JungleBusChainTipAssuranceResponse,
+  ProviderStatusResponse,
+  SyncStatusResponse,
+} from "@/types/api";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
@@ -11,6 +16,8 @@ export class OpsStore {
   adminCacheStatus: unknown = null;
   adminStorageStatus: unknown = null;
   syncStatus: SyncStatusResponse | null = null;
+  jungleBusBlockSync: JungleBusBlockSyncStatusResponse | null = null;
+  jungleBusChainTipAssurance: JungleBusChainTipAssuranceResponse | null = null;
 
   loadState: LoadState = "idle";
   refreshing = false;
@@ -48,7 +55,7 @@ export class OpsStore {
       }
     });
     try {
-      const [providers, opsCache, opsStorage, adminCacheStatus, adminStorageStatus, syncStatus] =
+      const [providers, opsCache, opsStorage, adminCacheStatus, adminStorageStatus, syncStatus, jungleBusBlockSync, jungleBusChainTipAssurance] =
         await Promise.all([
           opsApi.providers().catch(() => null),
           opsApi.cache().catch(() => null),
@@ -56,6 +63,8 @@ export class OpsStore {
           dashboardApi.cacheStatus().catch(() => null),
           dashboardApi.storageStatus().catch(() => null),
           dashboardApi.syncStatus().catch(() => null),
+          opsApi.jungleBusBlockSync().catch(() => null),
+          opsApi.jungleBusChainTipAssurance().catch(() => null),
         ]);
       runInAction(() => {
         this.providers = providers;
@@ -64,6 +73,8 @@ export class OpsStore {
         this.adminCacheStatus = adminCacheStatus;
         this.adminStorageStatus = adminStorageStatus;
         this.syncStatus = syncStatus;
+        this.jungleBusBlockSync = jungleBusBlockSync;
+        this.jungleBusChainTipAssurance = jungleBusChainTipAssurance;
         this.loadState = "success";
         this.loaded = true;
         this.inFlight = false;

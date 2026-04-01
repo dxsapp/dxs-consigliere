@@ -568,6 +568,53 @@ Response shape:
 - `lastError`
 - `lastErrorAt`
 
+### `GET /api/ops/junglebus/chain-tip-assurance`
+Use for JungleBus-first chain-tip assurance on `/runtime`.
+
+Response shape:
+- `primary`
+- `configured`
+- `state`
+- `assuranceMode`
+- `singleSourceAssurance`
+- `secondaryCrossCheckAvailable`
+- `controlFlowStalled`
+- `localProgressStalled`
+- `unavailableReason`
+- `note`
+- `lastObservedBlockHeight`
+- `highestKnownLocalBlockHeight`
+- `lagBlocks`
+- `lastObservedMovementAt`
+- `lastObservedMovementHeight`
+- `lastLocalProgressAt`
+- `lastLocalProgressHeight`
+- `lastControlMessageAt`
+- `lastScheduledAt`
+- `lastProcessedAt`
+- `lastError`
+- `lastErrorAt`
+- `controlFlowStaleAfterSeconds`
+- `localProgressStaleAfterSeconds`
+
+Current `state` values:
+- `healthy`
+- `catching_up`
+- `stalled_control_flow`
+- `stalled_local_progress`
+- `unavailable`
+
+Current `assuranceMode` values:
+- `single_source`
+- `cross_checked`
+- `unavailable`
+
+UI rules:
+- do not collapse `state` and `assuranceMode` into one frontend enum
+- `single_source` must remain explicit when JungleBus is primary and no secondary tip cross-check exists
+- `stalled_control_flow` means JungleBus control messages stopped moving
+- `stalled_local_progress` means JungleBus still moves but local indexed height stopped progressing
+
 ### `GET /api/ops/cache`
 Use for detailed runtime cache diagnostics, not for top-level dashboard summary.
 

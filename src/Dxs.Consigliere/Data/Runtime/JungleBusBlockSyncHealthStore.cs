@@ -29,7 +29,15 @@ public sealed class JungleBusBlockSyncHealthStore(IDocumentStore documentStore) 
         document.LastControlMessage = message.Message;
 
         if (message.Block > 0)
+        {
+            if (!document.LastObservedBlockHeight.HasValue || message.Block > document.LastObservedBlockHeight.Value)
+            {
+                document.LastObservedMovementAt = document.LastControlMessageAt;
+                document.LastObservedMovementHeight = message.Block;
+            }
+
             document.LastObservedBlockHeight = message.Block;
+        }
         if (message.TransactionCount > 0)
             document.LastObservedBlockTimestamp = document.LastControlMessageAt;
 
@@ -72,7 +80,15 @@ public sealed class JungleBusBlockSyncHealthStore(IDocumentStore documentStore) 
         document.LastProcessedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         document.LastRequestId = requestId;
         if (processedBlockHeight.HasValue)
+        {
+            if (!document.LastProcessedBlockHeight.HasValue || processedBlockHeight.Value > document.LastProcessedBlockHeight.Value)
+            {
+                document.LastLocalProgressAt = document.LastProcessedAt;
+                document.LastLocalProgressHeight = processedBlockHeight.Value;
+            }
+
             document.LastProcessedBlockHeight = processedBlockHeight.Value;
+        }
 
         document.SetUpdate();
         await session.StoreAsync(document, document.Id, cancellationToken);

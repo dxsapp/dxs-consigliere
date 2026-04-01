@@ -398,6 +398,58 @@ export interface ProviderStatusResponse {
   lastControlMessageAt?: string | null;
 }
 
+export interface JungleBusBlockSyncStatusResponse {
+  primary: boolean;
+  configured: boolean;
+  healthy: boolean;
+  degraded: boolean;
+  unavailableReason: string | null;
+  baseUrl: string | null;
+  blockSubscriptionIdConfigured: boolean;
+  lastObservedBlockHeight: number | null;
+  highestKnownLocalBlockHeight: number | null;
+  lagBlocks: number | null;
+  lastControlMessageAt: number | null;
+  lastControlCode: number | null;
+  lastControlStatus: string | null;
+  lastControlMessage: string | null;
+  lastScheduledAt: number | null;
+  lastScheduledFromHeight: number | null;
+  lastScheduledToHeight: number | null;
+  lastProcessedAt: number | null;
+  lastProcessedBlockHeight: number | null;
+  lastRequestId: string | null;
+  lastError: string | null;
+  lastErrorAt: number | null;
+}
+
+export interface JungleBusChainTipAssuranceResponse {
+  primary: boolean;
+  configured: boolean;
+  state: "healthy" | "catching_up" | "stalled_control_flow" | "stalled_local_progress" | "unavailable" | (string & {});
+  assuranceMode: "single_source" | "cross_checked" | "unavailable" | (string & {});
+  singleSourceAssurance: boolean;
+  secondaryCrossCheckAvailable: boolean;
+  controlFlowStalled: boolean;
+  localProgressStalled: boolean;
+  unavailableReason: string | null;
+  note: string | null;
+  lastObservedBlockHeight: number | null;
+  highestKnownLocalBlockHeight: number | null;
+  lagBlocks: number | null;
+  lastObservedMovementAt: number | null;
+  lastObservedMovementHeight: number | null;
+  lastLocalProgressAt: number | null;
+  lastLocalProgressHeight: number | null;
+  lastControlMessageAt: number | null;
+  lastScheduledAt: number | null;
+  lastProcessedAt: number | null;
+  lastError: string | null;
+  lastErrorAt: number | null;
+  controlFlowStaleAfterSeconds: number;
+  localProgressStaleAfterSeconds: number;
+}
+
 export interface AdminProviderConfigUpdateRequest {
   realtimePrimaryProvider: string;
   rawTxPrimaryProvider: string;

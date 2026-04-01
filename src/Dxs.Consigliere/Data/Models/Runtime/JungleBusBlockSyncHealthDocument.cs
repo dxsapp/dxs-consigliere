@@ -9,6 +9,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
     public string SubscriptionId { get; set; }
     public int? LastObservedBlockHeight { get; set; }
     public long? LastObservedBlockTimestamp { get; set; }
+    public long? LastObservedMovementAt { get; set; }
+    public int? LastObservedMovementHeight { get; set; }
     public long? LastControlMessageAt { get; set; }
     public int? LastControlCode { get; set; }
     public string LastControlStatus { get; set; }
@@ -18,6 +20,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
     public int? LastScheduledToHeight { get; set; }
     public long? LastProcessedAt { get; set; }
     public int? LastProcessedBlockHeight { get; set; }
+    public long? LastLocalProgressAt { get; set; }
+    public int? LastLocalProgressHeight { get; set; }
     public string LastRequestId { get; set; }
     public long? LastErrorAt { get; set; }
     public string LastError { get; set; }
@@ -32,6 +36,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
         yield return nameof(SubscriptionId);
         yield return nameof(LastObservedBlockHeight);
         yield return nameof(LastObservedBlockTimestamp);
+        yield return nameof(LastObservedMovementAt);
+        yield return nameof(LastObservedMovementHeight);
         yield return nameof(LastControlMessageAt);
         yield return nameof(LastControlCode);
         yield return nameof(LastControlStatus);
@@ -41,6 +47,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
         yield return nameof(LastScheduledToHeight);
         yield return nameof(LastProcessedAt);
         yield return nameof(LastProcessedBlockHeight);
+        yield return nameof(LastLocalProgressAt);
+        yield return nameof(LastLocalProgressHeight);
         yield return nameof(LastRequestId);
         yield return nameof(LastErrorAt);
         yield return nameof(LastError);
@@ -54,6 +62,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
         yield return nameof(SubscriptionId);
         yield return nameof(LastObservedBlockHeight);
         yield return nameof(LastObservedBlockTimestamp);
+        yield return nameof(LastObservedMovementAt);
+        yield return nameof(LastObservedMovementHeight);
         yield return nameof(LastControlMessageAt);
         yield return nameof(LastControlCode);
         yield return nameof(LastControlStatus);
@@ -63,6 +73,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
         yield return nameof(LastScheduledToHeight);
         yield return nameof(LastProcessedAt);
         yield return nameof(LastProcessedBlockHeight);
+        yield return nameof(LastLocalProgressAt);
+        yield return nameof(LastLocalProgressHeight);
         yield return nameof(LastRequestId);
         yield return nameof(LastErrorAt);
         yield return nameof(LastError);
@@ -76,6 +88,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
         yield return new KeyValuePair<string, object>(nameof(SubscriptionId), SubscriptionId);
         yield return new KeyValuePair<string, object>(nameof(LastObservedBlockHeight), LastObservedBlockHeight);
         yield return new KeyValuePair<string, object>(nameof(LastObservedBlockTimestamp), LastObservedBlockTimestamp);
+        yield return new KeyValuePair<string, object>(nameof(LastObservedMovementAt), LastObservedMovementAt);
+        yield return new KeyValuePair<string, object>(nameof(LastObservedMovementHeight), LastObservedMovementHeight);
         yield return new KeyValuePair<string, object>(nameof(LastControlMessageAt), LastControlMessageAt);
         yield return new KeyValuePair<string, object>(nameof(LastControlCode), LastControlCode);
         yield return new KeyValuePair<string, object>(nameof(LastControlStatus), LastControlStatus);
@@ -85,6 +99,8 @@ public sealed class JungleBusBlockSyncHealthDocument : AuditableEntity
         yield return new KeyValuePair<string, object>(nameof(LastScheduledToHeight), LastScheduledToHeight);
         yield return new KeyValuePair<string, object>(nameof(LastProcessedAt), LastProcessedAt);
         yield return new KeyValuePair<string, object>(nameof(LastProcessedBlockHeight), LastProcessedBlockHeight);
+        yield return new KeyValuePair<string, object>(nameof(LastLocalProgressAt), LastLocalProgressAt);
+        yield return new KeyValuePair<string, object>(nameof(LastLocalProgressHeight), LastLocalProgressHeight);
         yield return new KeyValuePair<string, object>(nameof(LastRequestId), LastRequestId);
         yield return new KeyValuePair<string, object>(nameof(LastErrorAt), LastErrorAt);
         yield return new KeyValuePair<string, object>(nameof(LastError), LastError);

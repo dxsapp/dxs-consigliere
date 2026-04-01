@@ -71,6 +71,7 @@ public class OpsControllerTests
                 }
             }),
             new FakeJungleBusBlockSyncHealthReader(),
+            new FakeJungleBusChainTipAssuranceReader(),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -127,6 +128,7 @@ public class OpsControllerTests
         var controller = new OpsController(
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
+            new FakeJungleBusChainTipAssuranceReader(),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -163,6 +165,7 @@ public class OpsControllerTests
         var controller = new OpsController(
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
+            new FakeJungleBusChainTipAssuranceReader(),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig
             {
@@ -202,6 +205,7 @@ public class OpsControllerTests
         var controller = new OpsController(
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
+            new FakeJungleBusChainTipAssuranceReader(),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig()),
             Options.Create(new AppConfig()),
@@ -220,6 +224,33 @@ public class OpsControllerTests
         Assert.Equal(151, payload.HighestKnownLocalBlockHeight);
         Assert.Equal(4, payload.LagBlocks);
         Assert.Equal("sub-1", payload.LastRequestId);
+    }
+
+    [Fact]
+    public async Task GetJungleBusChainTipAssurance_ReturnsAssuranceSnapshot()
+    {
+        var controller = new OpsController(
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
+            new FakeJungleBusBlockSyncHealthReader(),
+            new FakeJungleBusChainTipAssuranceReader(),
+            Options.Create(new ConsigliereCacheConfig()),
+            Options.Create(new ConsigliereStorageConfig()),
+            Options.Create(new AppConfig()),
+            new FakeProviderCatalog([]),
+            new FakeProjectionReadCacheTelemetry(),
+            new FakeProjectionCacheRuntimeStatusReader());
+
+        var result = await controller.GetJungleBusChainTipAssurance();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<JungleBusChainTipAssuranceResponse>(ok.Value);
+        Assert.Equal("catching_up", payload.State);
+        Assert.Equal("single_source", payload.AssuranceMode);
+        Assert.True(payload.SingleSourceAssurance);
+        Assert.False(payload.SecondaryCrossCheckAvailable);
+        Assert.False(payload.ControlFlowStalled);
+        Assert.False(payload.LocalProgressStalled);
+        Assert.Equal(4, payload.LagBlocks);
     }
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)
@@ -298,6 +329,30 @@ public class OpsControllerTests
                 LastControlStatus = "ok",
                 LastControlCode = 200,
                 LastRequestId = "sub-1"
+            });
+    }
+
+    private sealed class FakeJungleBusChainTipAssuranceReader : IJungleBusChainTipAssuranceReader
+    {
+        public Task<JungleBusChainTipAssuranceResponse> GetSnapshotAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new JungleBusChainTipAssuranceResponse
+            {
+                Primary = true,
+                Configured = true,
+                State = "catching_up",
+                AssuranceMode = "single_source",
+                SingleSourceAssurance = true,
+                SecondaryCrossCheckAvailable = false,
+                ControlFlowStalled = false,
+                LocalProgressStalled = false,
+                LastObservedBlockHeight = 155,
+                HighestKnownLocalBlockHeight = 151,
+                LagBlocks = 4,
+                LastObservedMovementAt = DateTimeOffset.Parse("2026-04-01T10:10:00+00:00").ToUnixTimeMilliseconds(),
+                LastLocalProgressAt = DateTimeOffset.Parse("2026-04-01T10:09:30+00:00").ToUnixTimeMilliseconds(),
+                LastControlMessageAt = DateTimeOffset.Parse("2026-04-01T10:10:05+00:00").ToUnixTimeMilliseconds(),
+                ControlFlowStaleAfterSeconds = 120,
+                LocalProgressStaleAfterSeconds = 180
             });
     }
 

@@ -30,6 +30,7 @@ public static class IndexerStateSetup
             .AddSingleton<IProjectionCacheRuntimeStatusReader, ProjectionCacheRuntimeStatusReader>()
             .AddSingleton<IJungleBusBlockSyncHealthStore, JungleBusBlockSyncHealthStore>()
             .AddSingleton<IJungleBusBlockSyncHealthReader, JungleBusBlockSyncHealthReader>()
+            .AddSingleton<IJungleBusChainTipAssuranceReader, JungleBusChainTipAssuranceReader>()
             .AddSingleton<AddressProjectionReader>()
             .AddSingleton<AddressHistoryProjectionReader>()
             .AddSingleton<AddressProjectionRebuilder>()

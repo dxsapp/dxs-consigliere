@@ -17,9 +17,9 @@ import {
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { JsonPanel } from "@/components/JsonPanel";
 import { opsStore } from "@/stores/ops.store";
-import type { ProviderStatusResponse } from "@/types/api";
+import type { JungleBusChainTipAssuranceResponse, ProviderStatusResponse } from "@/types/api";
 
-function formatDateTime(value: string | null | undefined): string {
+function formatDateTime(value: string | number | null | undefined): string {
   if (!value) return "unavailable";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "unavailable";
@@ -52,7 +52,6 @@ function StatusRow({ label, value }: { label: string; value: React.ReactNode }) 
 }
 
 function ProviderStatusCard({ provider }: { provider: ProviderStatusResponse }) {
-  const isJungleBus = provider.provider === "junglebus";
   const activeCapabilities = Object.entries(provider.capabilities ?? {}).filter(([, cap]) => cap.active);
 
   return (
@@ -60,7 +59,7 @@ function ProviderStatusCard({ provider }: { provider: ProviderStatusResponse }) 
       variant="outlined"
       sx={{
         borderRadius: 3,
-        ...(isJungleBus ? { borderColor: "primary.main", boxShadow: "0 0 0 1px rgba(107, 127, 255, 0.15)" } : {}),
+        ...(provider.provider === "junglebus" ? { borderColor: "primary.main", boxShadow: "0 0 0 1px rgba(107, 127, 255, 0.15)" } : {}),
       }}
     >
       <CardContent sx={{ p: 3 }}>
@@ -109,30 +108,6 @@ function ProviderStatusCard({ provider }: { provider: ProviderStatusResponse }) 
             label="Rate limit"
             value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatMaybeRateLimit(provider.rateLimitState)}</Typography>}
           />
-          {isJungleBus && (
-            <>
-              <StatusRow
-                label="Local indexed height"
-                value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(opsStore.syncStatus?.height ?? null)}</Typography>}
-              />
-              <StatusRow
-                label="Observed JungleBus height"
-                value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(provider.observedHeight ?? null)}</Typography>}
-              />
-              <StatusRow
-                label="Lag"
-                value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(provider.lagBlocks ?? null)}</Typography>}
-              />
-              <StatusRow
-                label="Observed at"
-                value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(provider.observedAt)}</Typography>}
-              />
-              <StatusRow
-                label="Last control"
-                value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(provider.lastControlMessageAt)}</Typography>}
-              />
-            </>
-          )}
 
           {activeCapabilities.length > 0 && (
             <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
@@ -147,11 +122,29 @@ function ProviderStatusCard({ provider }: { provider: ProviderStatusResponse }) 
   );
 }
 
+function getAssuranceChip(response: JungleBusChainTipAssuranceResponse | null) {
+  switch (response?.state) {
+    case "healthy":
+      return { label: "healthy", color: "success" as const };
+    case "catching_up":
+      return { label: "catching up", color: "info" as const };
+    case "stalled_control_flow":
+      return { label: "stalled control flow", color: "error" as const };
+    case "stalled_local_progress":
+      return { label: "stalled local progress", color: "warning" as const };
+    default:
+      return { label: "unavailable", color: "default" as const };
+  }
+}
+
 export const RuntimePage = observer(function RuntimePage() {
   const store = opsStore;
 
   const jungleBus = store.providers?.find((provider) => provider.provider === "junglebus") ?? null;
   const activeProviders = store.providers ?? [];
+  const jungleBusBlockSync = store.jungleBusBlockSync;
+  const jungleBusAssurance = store.jungleBusChainTipAssurance;
+  const assuranceChip = getAssuranceChip(jungleBusAssurance);
 
   return (
     <Box>
@@ -207,36 +200,36 @@ export const RuntimePage = observer(function RuntimePage() {
                       JungleBus block sync
                     </Typography>
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                      Health card for the block sync path. Lag is shown when the backend surfaces it; otherwise the card stays honest and marks it unavailable.
+                      Operational lag and scheduler health for the JungleBus-backed block sync path.
                     </Typography>
                   </Box>
                   <Chip
                     size="small"
-                    label={jungleBus?.degraded ? "degraded" : jungleBus?.healthy ? "healthy" : "unavailable"}
-                    color={jungleBus?.degraded ? "warning" : jungleBus?.healthy ? "success" : "default"}
-                    variant={jungleBus?.degraded || jungleBus?.healthy ? "filled" : "outlined"}
+                    label={jungleBusBlockSync?.degraded ? "degraded" : jungleBusBlockSync?.healthy ? "healthy" : "unavailable"}
+                    color={jungleBusBlockSync?.degraded ? "warning" : jungleBusBlockSync?.healthy ? "success" : "default"}
+                    variant={jungleBusBlockSync?.degraded || jungleBusBlockSync?.healthy ? "filled" : "outlined"}
                   />
                 </Box>
 
-                {jungleBus ? (
+                {jungleBusBlockSync ? (
                   <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
                     <Box>
-                      <StatusRow label="Enabled" value={<Typography variant="body2">{jungleBus.enabled ? "Yes" : "No"}</Typography>} />
-                      <StatusRow label="Configured" value={<Typography variant="body2">{jungleBus.configured ? "Yes" : "No"}</Typography>} />
-                      <StatusRow label="Last success" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBus.lastSuccessAt)}</Typography>} />
-                      <StatusRow label="Last error" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBus.lastErrorAt)}</Typography>} />
-                      <StatusRow label="Last error code" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{jungleBus.lastErrorCode || "unavailable"}</Typography>} />
+                      <StatusRow label="Primary" value={<Typography variant="body2">{jungleBusBlockSync.primary ? "Yes" : "No"}</Typography>} />
+                      <StatusRow label="Configured" value={<Typography variant="body2">{jungleBusBlockSync.configured ? "Yes" : "No"}</Typography>} />
+                      <StatusRow label="Unavailable reason" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{jungleBusBlockSync.unavailableReason || "none"}</Typography>} />
+                      <StatusRow label="Base URL" value={<Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>{jungleBusBlockSync.baseUrl || "unavailable"}</Typography>} />
+                      <StatusRow label="Last error" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{jungleBusBlockSync.lastError || "unavailable"}</Typography>} />
                     </Box>
                     <Box>
-                      <StatusRow label="Local indexed height" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(store.syncStatus?.height ?? null)}</Typography>} />
-                      <StatusRow label="Observed JungleBus height" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBus.observedHeight ?? null)}</Typography>} />
-                      <StatusRow label="Lag" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBus.lagBlocks ?? null)}</Typography>} />
-                      <StatusRow label="Observed at" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBus.observedAt)}</Typography>} />
-                      <StatusRow label="Last control" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBus.lastControlMessageAt)}</Typography>} />
+                      <StatusRow label="Local indexed height" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBusBlockSync.highestKnownLocalBlockHeight ?? store.syncStatus?.height ?? null)}</Typography>} />
+                      <StatusRow label="Observed JungleBus height" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBusBlockSync.lastObservedBlockHeight ?? null)}</Typography>} />
+                      <StatusRow label="Lag" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBusBlockSync.lagBlocks ?? null)}</Typography>} />
+                      <StatusRow label="Last control" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBusBlockSync.lastControlMessageAt)}</Typography>} />
+                      <StatusRow label="Last processed" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBusBlockSync.lastProcessedAt)}</Typography>} />
                     </Box>
                   </Box>
                 ) : (
-                  <Alert severity="warning">JungleBus provider status is unavailable.</Alert>
+                  <Alert severity="warning">JungleBus block-sync status is unavailable.</Alert>
                 )}
 
                 {jungleBus?.rateLimitState && (
@@ -247,6 +240,73 @@ export const RuntimePage = observer(function RuntimePage() {
                     <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
                       {formatMaybeRateLimit(jungleBus.rateLimitState)}
                     </Typography>
+                  </Alert>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.25 }}>
+                      JungleBus chain-tip assurance
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      Distinguishes plain lag from confidence in the JungleBus-first tip signal. Single-source assurance is surfaced explicitly when no secondary cross-check exists.
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={assuranceChip.label}
+                    color={assuranceChip.color}
+                    variant={assuranceChip.color === "default" ? "outlined" : "filled"}
+                  />
+                </Box>
+
+                {jungleBusAssurance ? (
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
+                    <Box>
+                      <StatusRow label="Assurance mode" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{jungleBusAssurance.assuranceMode}</Typography>} />
+                      <StatusRow label="Single-source" value={<Typography variant="body2">{jungleBusAssurance.singleSourceAssurance ? "Yes" : "No"}</Typography>} />
+                      <StatusRow label="Secondary cross-check" value={<Typography variant="body2">{jungleBusAssurance.secondaryCrossCheckAvailable ? "Available" : "Unavailable"}</Typography>} />
+                      <StatusRow label="Control stalled" value={<Typography variant="body2">{jungleBusAssurance.controlFlowStalled ? "Yes" : "No"}</Typography>} />
+                      <StatusRow label="Local progress stalled" value={<Typography variant="body2">{jungleBusAssurance.localProgressStalled ? "Yes" : "No"}</Typography>} />
+                    </Box>
+                    <Box>
+                      <StatusRow label="Last observed movement" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBusAssurance.lastObservedMovementAt)}</Typography>} />
+                      <StatusRow label="Observed movement height" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBusAssurance.lastObservedMovementHeight)}</Typography>} />
+                      <StatusRow label="Last local progress" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(jungleBusAssurance.lastLocalProgressAt)}</Typography>} />
+                      <StatusRow label="Local progress height" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBusAssurance.lastLocalProgressHeight)}</Typography>} />
+                      <StatusRow label="Lag" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(jungleBusAssurance.lagBlocks)}</Typography>} />
+                    </Box>
+                  </Box>
+                ) : (
+                  <Alert severity="warning">JungleBus chain-tip assurance is unavailable.</Alert>
+                )}
+
+                {jungleBusAssurance?.singleSourceAssurance && (
+                  <Alert severity="warning">
+                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>
+                      Single-source assurance
+                    </Typography>
+                    <Typography variant="body2">
+                      {jungleBusAssurance.note || "No secondary chain-tip cross-check is active in JungleBus-first mode."}
+                    </Typography>
+                  </Alert>
+                )}
+
+                {jungleBusAssurance?.state === "stalled_control_flow" && (
+                  <Alert severity="error">
+                    Control flow looks stale. No fresh JungleBus control message has arrived within the configured assurance window.
+                  </Alert>
+                )}
+
+                {jungleBusAssurance?.state === "stalled_local_progress" && (
+                  <Alert severity="warning">
+                    JungleBus tip is still moving, but local indexed progress has stalled beyond the configured local-progress window.
                   </Alert>
                 )}
               </Stack>

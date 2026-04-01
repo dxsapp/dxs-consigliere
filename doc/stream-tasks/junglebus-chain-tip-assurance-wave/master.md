@@ -52,13 +52,17 @@ Out of scope:
 - is the local index catching up, stalled, or drifting?
 - do we currently have only single-source assurance, or a secondary cross-check?
 
-### Core operator states
-- `healthy`
-- `catching_up`
-- `stalled_control_flow`
-- `stalled_local_progress`
-- `degraded_single_source`
-- `unavailable`
+### Core operator state model
+- `state`
+  - `healthy`
+  - `catching_up`
+  - `stalled_control_flow`
+  - `stalled_local_progress`
+  - `unavailable`
+- `assuranceMode`
+  - `single_source`
+  - `cross_checked`
+  - `unavailable`
 
 ### Secondary assurance model
 - in JungleBus-first mode, if node verification is absent, UI must say that assurance is single-source, not pretend full external confirmation exists
@@ -78,13 +82,13 @@ Primary zones:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `JA1` | `repo-governance` | `operator/governance` | `todo` | - | docs review | assurance contract and states are frozen |
-| `JA2` | `indexer-state-and-storage` | `operator/state` | `todo` | `JA1` | query tests | persisted/read-only assurance snapshot exists |
-| `JA3` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `JA1`,`JA2` | runtime tests | JungleBus runtime updates assurance fields honestly |
-| `JA4` | `public-api-and-realtime` | `operator/api` | `todo` | `JA2`,`JA3` | controller tests | ops endpoint exposes assurance payload clearly |
-| `JA5` | `frontend-admin-shell` | `operator/ui` | `todo` | `JA4` | frontend build + page QA | runtime page shows assurance state clearly |
-| `JA6` | `verification-and-conformance` | `operator/verification` | `todo` | `JA2`,`JA3`,`JA4`,`JA5` | focused proof | stale/control/local-progress scenarios are covered |
-| `A1` | `repo-governance` | `operator/governance` | `todo` | `JA6` | audit | JungleBus-first assurance gap is closed honestly |
+| `JA1` | `repo-governance` | `operator/governance` | `completed` | - | docs review | assurance contract and states are frozen |
+| `JA2` | `indexer-state-and-storage` | `operator/state` | `completed` | `JA1` | query tests | persisted/read-only assurance snapshot exists |
+| `JA3` | `indexer-ingest-orchestration` | `operator/runtime` | `completed` | `JA1`,`JA2` | runtime tests | JungleBus runtime updates assurance fields honestly |
+| `JA4` | `public-api-and-realtime` | `operator/api` | `completed` | `JA2`,`JA3` | controller tests | ops endpoint exposes assurance payload clearly |
+| `JA5` | `frontend-admin-shell` | `operator/ui` | `completed` | `JA4` | frontend build + page QA | runtime page shows assurance state clearly |
+| `JA6` | `verification-and-conformance` | `operator/verification` | `completed` | `JA2`,`JA3`,`JA4`,`JA5` | focused proof | stale/control/local-progress scenarios are covered |
+| `A1` | `repo-governance` | `operator/governance` | `completed` | `JA6` | audit | JungleBus-first assurance gap is closed honestly |
 
 ## Expected File Targets
 
@@ -119,5 +123,5 @@ Docs:
 - runtime exposes a dedicated JungleBus chain-tip assurance payload
 - UI distinguishes lag from assurance confidence
 - stalled control flow and stalled local progress are explicit states
-- JungleBus-first mode is marked as single-source assurance when no secondary verification exists
-- operators can tell whether the index is healthy, catching up, or stale without reading logs
+- JungleBus-first mode is marked as `assuranceMode=single_source` when no secondary verification exists
+- operators can tell whether the index is healthy, catching up, stale, or unavailable without reading logs
