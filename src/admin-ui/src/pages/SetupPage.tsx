@@ -261,7 +261,7 @@ export const SetupPage = observer(function SetupPage() {
                 {step === 5 && (
                   <Stack spacing={2}>
                     <Typography variant="h6">Review setup</Typography>
-                    <Alert severity="info">The chosen provider configuration is persisted immediately. Runtime wiring applies fully after service restart.</Alert>
+                    <Alert severity="info">The chosen provider configuration is persisted immediately. Bitails websocket and JungleBus paths apply live; only advanced node or ZMQ runtime wiring still requires restart.</Alert>
                     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
                       <Card variant="outlined"><CardContent><Typography variant="overline">Admin</Typography><Typography variant="body2">{draft.admin.enabled ? `Enabled (${draft.admin.username})` : "Disabled"}</Typography></CardContent></Card>
                       <Card variant="outlined"><CardContent><Typography variant="overline">Raw tx</Typography><Typography variant="body2">{draft.providers.rawTxPrimaryProvider}</Typography></CardContent></Card>

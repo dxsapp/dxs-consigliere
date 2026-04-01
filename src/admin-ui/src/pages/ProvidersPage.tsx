@@ -252,9 +252,9 @@ export const ProvidersPage = observer(function ProvidersPage() {
 
                   {config.restartRequired && (
                     <Alert severity="warning" icon={<WarningAmberOutlinedIcon />}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>Service restart required</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>Advanced infrastructure restart required</Typography>
                       <Typography variant="body2">
-                        Saved provider changes are persisted immediately, but runtime source selection and client wiring apply fully only after restart.
+                        Saved provider changes are applied live for the normal Bitails websocket and JungleBus paths. Restart is still required only for advanced node or ZMQ-backed runtime wiring.
                       </Typography>
                     </Alert>
                   )}

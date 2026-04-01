@@ -95,4 +95,4 @@ Current residual:
 - `dotnet test /Users/imighty/Code/dxs-consigliere/tests/Dxs.Consigliere.Tests/Dxs.Consigliere.Tests.csproj -c Release -p:UseAppHost=false --filter "FullyQualifiedName~SourceCapabilityRoutingTests|FullyQualifiedName~RealtimeBootstrapPlannerTests|FullyQualifiedName~BitailsRealtimeIngestRunnerTests|FullyQualifiedName~BitailsRealtimeSubscriptionScopeProviderTests|FullyQualifiedName~ConsigliereConfigBindingTests"`
   - passed `20/20`
 - `dotnet build /Users/imighty/Code/dxs-consigliere/src/Dxs.Consigliere/Dxs.Consigliere.csproj -c Release -p:UseAppHost=false`
-  - succeeded after serial rerun; only existing `NU1903` warnings remain
+  - succeeded after serial rerun; dependency warning on `System.Text.Json 8.0.4` was later removed by a direct package override in `Dxs.Infrastructure`

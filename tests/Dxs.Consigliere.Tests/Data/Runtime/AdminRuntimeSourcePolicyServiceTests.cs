@@ -137,6 +137,42 @@ public class AdminRuntimeSourcePolicyServiceTests
         Assert.Contains(result.Providers, x => x.ProviderId == SourceCapabilityRouting.NodeProvider);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus && x.RecommendedFor.Contains("raw_tx_fetch"));
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.Bitails && !x.MissingRequirements.Contains("bitails_api_key_required"));
+        Assert.False(result.Config.RestartRequired);
+    }
+
+    [Fact]
+    public async Task GetProvidersAsync_RequiresRestart_ForAdvancedNodeOrZmqRuntimeSelections()
+    {
+        var serviceWithNode = CreateService(
+            CreateSourcesConfig(),
+            new RealtimeSourcePolicyOverrideDocument
+            {
+                PrimaryRealtimeSource = SourceCapabilityRouting.NodeProvider,
+                RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
+                RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                BitailsTransport = BitailsRealtimeTransportMode.Websocket,
+                WhatsonchainBaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
+            });
+
+        var serviceWithBitailsZmq = CreateService(
+            CreateSourcesConfig(),
+            new RealtimeSourcePolicyOverrideDocument
+            {
+                PrimaryRealtimeSource = ExternalChainProviderName.Bitails,
+                RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
+                RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                BitailsTransport = BitailsRealtimeTransportMode.Zmq,
+                BitailsBaseUrl = "https://api.bitails.io",
+                BitailsZmqTxUrl = "tcp://127.0.0.1:28332",
+                BitailsZmqBlockUrl = "tcp://127.0.0.1:28333",
+                WhatsonchainBaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
+            });
+
+        var nodeResult = await serviceWithNode.GetProvidersAsync();
+        var bitailsZmqResult = await serviceWithBitailsZmq.GetProvidersAsync();
+
+        Assert.True(nodeResult.Config.RestartRequired);
+        Assert.True(bitailsZmqResult.Config.RestartRequired);
     }
 
     private static AdminProviderConfigService CreateService(

@@ -17,6 +17,7 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
     IJungleBusBlockSyncScheduler scheduler,
     IAdminRuntimeSourcePolicyService runtimeSourcePolicyService,
     IAdminProviderConfigService providerConfigService,
+    IExternalChainProviderSettingsAccessor providerSettingsAccessor,
     IOptions<AppConfig> appConfig,
     IExternalChainProviderCatalog providerCatalog,
     ILogger<JungleBusBlockSyncMonitorBackgroundTask> logger
@@ -24,26 +25,17 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
 {
     private readonly ILogger _logger = logger;
 
-    protected override TimeSpan Period => Timeout.InfiniteTimeSpan;
+    protected override TimeSpan Period => TimeSpan.FromSeconds(2);
     protected override TimeSpan WaitTimeOnError => TimeSpan.FromSeconds(10);
     public override string Name => nameof(JungleBusBlockSyncMonitorBackgroundTask);
 
     protected override async Task RunAsync(CancellationToken cancellationToken)
     {
-        var effectiveSources = await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken);
-        var route = SourceCapabilityRouting.Resolve(
-            ExternalChainCapability.BlockBackfill,
-            effectiveSources,
-            appConfig.Value,
-            providerCatalog
-        );
+        var route = await ResolveRouteAsync(cancellationToken);
 
         if (!string.Equals(route.PrimarySource, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogInformation(
-                "Skipping JungleBus block-sync monitor because block-backfill primary is `{Primary}`",
-                route.PrimarySource
-            );
+            _logger.LogDebug("JungleBus block-sync monitor idle because block-backfill primary is `{Primary}`", route.PrimarySource);
             return;
         }
 
@@ -61,6 +53,7 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
         using var __ = _logger.BeginScope("JungleBusBlockSyncMonitor");
 
         await websocketClient.StartSubscription(jungleBus.BlockSubscriptionId);
+        var signature = await BuildSignatureAsync(route, cancellationToken);
 
         Exception failure = null;
 
@@ -103,7 +96,38 @@ public sealed class JungleBusBlockSyncMonitorBackgroundTask(
             if (!websocketClient.IsRunning)
                 throw new InvalidOperationException("JungleBus block-sync websocket stopped unexpectedly");
 
+            var currentRoute = await ResolveRouteAsync(cancellationToken);
+            var currentSignature = await BuildSignatureAsync(currentRoute, cancellationToken);
+            if (!string.Equals(signature, currentSignature, StringComparison.Ordinal))
+            {
+                _logger.LogInformation(
+                    "JungleBus block-sync configuration changed from `{OldSignature}` to `{NewSignature}`; recycling runtime task",
+                    signature,
+                    currentSignature
+                );
+                return;
+            }
+
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
         }
+    }
+
+    private async Task<SourceCapabilityRoute> ResolveRouteAsync(CancellationToken cancellationToken)
+        => SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.BlockBackfill,
+            await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken),
+            appConfig.Value,
+            providerCatalog
+        );
+
+    private async Task<string> BuildSignatureAsync(SourceCapabilityRoute route, CancellationToken cancellationToken)
+    {
+        var jungleBus = await providerSettingsAccessor.GetJungleBusAsync(cancellationToken);
+        return string.Join("|",
+            route.PrimarySource,
+            string.Join(",", route.FallbackSources),
+            jungleBus.BaseUrl ?? string.Empty,
+            jungleBus.ApiKey ?? string.Empty,
+            jungleBus.BlockSubscriptionId ?? string.Empty);
     }
 }

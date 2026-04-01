@@ -67,6 +67,7 @@ public sealed class AdminProviderConfigService(
             NormalizeOptional(persistedProviderConfig.JungleBusBaseUrl),
             NormalizeOptional(persistedProviderConfig.JungleBusMempoolSubscriptionId),
             NormalizeOptional(persistedProviderConfig.JungleBusBlockSubscriptionId));
+        var effectiveValues = BuildConfigValues(effectiveConfig, effectiveJungleBus);
         var descriptors = providerCatalog.GetDescriptors().ToDictionary(x => x.Provider, StringComparer.OrdinalIgnoreCase);
         var staticValues = BuildConfigValues(staticConfig, new JungleBusProviderRuntimeSnapshot(
             NormalizeOptional(staticConfig.Providers.JungleBus.Connection.BaseUrl),
@@ -87,9 +88,9 @@ public sealed class AdminProviderConfigService(
             {
                 Static = staticValues,
                 Override = overrideActive ? persistedValues : null,
-                Effective = BuildConfigValues(effectiveConfig, effectiveJungleBus),
+                Effective = effectiveValues,
                 OverrideActive = overrideActive,
-                RestartRequired = overrideActive,
+                RestartRequired = RequiresRestart(effectiveValues),
                 AllowedRealtimePrimaryProviders = GetAllowedRealtimePrimaryProviders(staticConfig),
                 AllowedRawTxPrimaryProviders = GetAllowedRawTxPrimaryProviders(staticConfig),
                 AllowedRestPrimaryProviders = GetAllowedRestPrimaryProviders(staticConfig),
@@ -99,6 +100,15 @@ public sealed class AdminProviderConfigService(
             },
             Providers = BuildCatalog(staticConfig, effectiveConfig, effectiveJungleBus, descriptors)
         };
+    }
+
+    private static bool RequiresRestart(AdminProviderConfigValuesResponse effectiveValues)
+    {
+        if (string.Equals(effectiveValues.RealtimePrimaryProvider, SourceCapabilityRouting.NodeProvider, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return string.Equals(effectiveValues.RealtimePrimaryProvider, ExternalChainProviderName.Bitails, StringComparison.OrdinalIgnoreCase)
+               && string.Equals(effectiveValues.BitailsTransport, BitailsRealtimeTransportMode.Zmq, StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<AdminProviderConfigMutationResult> ApplyProviderConfigAsync(

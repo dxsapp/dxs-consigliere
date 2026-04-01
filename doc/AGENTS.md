@@ -16,7 +16,7 @@
   - Опционально JungleBus subscription id через provider configuration в Raven/admin UI; legacy значения могут быть засеяны при первом запуске.
 - Install:
   - `dotnet restore Dxs.Consigliere.sln`
-  - Результат в этой среде: restore успешен, но есть warning `NU1903` по `System.Text.Json 8.0.4`.
+  - Результат в этой среде: restore успешен.
 - Build:
   - `dotnet build Dxs.Consigliere.sln -c Release`
   - В этой среде команда таймаутилась (60s). См. секцию 12.
@@ -269,6 +269,6 @@ Happy‑path потоки:
   - `dotnet build Dxs.Consigliere.sln -c Release` — таймаут (60s).
   - `dotnet test Dxs.Consigliere.sln -c Release` — `MSB1025` + `SocketException (13): Permission denied`.
 - Restore warning:
-  - `NU1903` для `System.Text.Json 8.0.4` при `dotnet restore`.
+  - известных `NU1903` по `System.Text.Json 8.0.4` больше нет после прямого override в `Dxs.Infrastructure`.
 - Документация:
   - Нет отдельного `docs/` или CONTRIBUTING; подробные инструкции только в `README.md`.
