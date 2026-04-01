@@ -9,6 +9,7 @@ public class Broadcast : AuditableEntity
     public string Code { get; set; }
     public string Message { get; set; }
     public string BatchId { get; set; }
+    public BroadcastProviderAttempt[] Attempts { get; set; } = [];
 
     public override string GetId() => $"broadcast/{TxId}/{CreatedAt}";
 
@@ -24,6 +25,7 @@ public class Broadcast : AuditableEntity
         yield return nameof(Code);
         yield return nameof(Message);
         yield return nameof(BatchId);
+        yield return nameof(Attempts);
     }
 
     public override IEnumerable<string> UpdateableKeys()
@@ -34,6 +36,7 @@ public class Broadcast : AuditableEntity
         yield return nameof(Success);
         yield return nameof(Code);
         yield return nameof(Message);
+        yield return nameof(Attempts);
     }
 
     public override IEnumerable<KeyValuePair<string, object>> ToEntries()
@@ -46,5 +49,14 @@ public class Broadcast : AuditableEntity
         yield return new KeyValuePair<string, object>(nameof(Code), Code);
         yield return new KeyValuePair<string, object>(nameof(Message), Message);
         yield return new KeyValuePair<string, object>(nameof(BatchId), BatchId);
+        yield return new KeyValuePair<string, object>(nameof(Attempts), Attempts);
     }
+}
+
+public class BroadcastProviderAttempt
+{
+    public string Provider { get; set; }
+    public bool Success { get; set; }
+    public string Code { get; set; }
+    public string Message { get; set; }
 }
