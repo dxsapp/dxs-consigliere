@@ -24,7 +24,7 @@ public class StasDependencyRevalidationCoordinatorIntegrationTests : RavenTestDr
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var txStore = new Mock<IMetaTransactionStore>();
-        var sut = new StasDependencyRevalidationCoordinator(store, txStore.Object, NullLogger.Instance);
+        var sut = new StasDependencyRevalidationCoordinator(dependencyStore, store, txStore.Object, NullLogger.Instance);
 
         await SeedMetaTransactionAsync(store, new MetaTransaction
         {
@@ -52,7 +52,7 @@ public class StasDependencyRevalidationCoordinatorIntegrationTests : RavenTestDr
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var txStore = new Mock<IMetaTransactionStore>();
-        var sut = new StasDependencyRevalidationCoordinator(store, txStore.Object, NullLogger.Instance);
+        var sut = new StasDependencyRevalidationCoordinator(dependencyStore, store, txStore.Object, NullLogger.Instance);
 
         await dependencyStore.UpsertAsync(TokenValidationDependencySnapshot.Create("parent-tx", [], []));
         await dependencyStore.UpsertAsync(TokenValidationDependencySnapshot.Create("child-a", ["parent-tx"], []));

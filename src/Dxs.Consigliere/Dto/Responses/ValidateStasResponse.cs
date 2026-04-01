@@ -14,5 +14,7 @@ public record ValidateStasResponse(
     string[] IllegalRoots,
     string ValidationStatus,
     bool B2GResolved,
-    string[] MissingDependencies
+    string[] MissingDependencies,
+    string? ValidationRepairState,
+    long? ValidationRepairUpdatedAt
 );

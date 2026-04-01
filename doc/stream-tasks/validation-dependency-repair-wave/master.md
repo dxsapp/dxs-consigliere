@@ -87,13 +87,13 @@ Supporting zone:
 
 | slice | zone lead | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `VR1` Contract Freeze | `repo-governance` | `operator/governance` | `todo` | - | docs review | validation dependency contract, terminology, and scenario coverage are frozen |
-| `VR2` Durable Repair Work | `indexer-state-and-storage` | `operator/state` | `todo` | `VR1` | store tests | repair work items, states, and dedupe semantics are persisted |
-| `VR3` Repair Worker | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `VR1`,`VR2` | runtime tests | scheduler/worker fetches dependencies and retries sanely |
-| `VR4` Targeted Revalidation | `indexer-state-and-storage` | `operator/state` | `todo` | `VR2`,`VR3` | projection tests | acquired dependencies trigger affected tx/token revalidation |
-| `VR5` API Integration | `public-api-and-realtime` | `operator/api` | `todo` | `VR3`,`VR4` | API tests | public validation flow integrates with repair subsystem without changing local authority model |
-| `VR6` Ops Surface | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `VR3`,`VR4` | ops tests + UI proof | unresolved/running/failed validation repair state is visible to operators |
-| `A1` Closeout Audit | `repo-governance` | `operator/governance` | `todo` | `VR6` | audit | `validation_fetch` is a real subsystem rather than only a semantic contract |
+| `VR1` Contract Freeze | `repo-governance` | `operator/governance` | `done` | - | docs review | validation dependency contract, terminology, and scenario coverage are frozen |
+| `VR2` Durable Repair Work | `indexer-state-and-storage` | `operator/state` | `done` | `VR1` | store tests | repair work items, states, and dedupe semantics are persisted |
+| `VR3` Repair Worker | `indexer-ingest-orchestration` | `operator/runtime` | `done` | `VR1`,`VR2` | runtime tests | scheduler/worker fetches dependencies and retries sanely |
+| `VR4` Targeted Revalidation | `indexer-state-and-storage` | `operator/state` | `done` | `VR2`,`VR3` | projection tests | acquired dependencies trigger affected tx/token revalidation |
+| `VR5` API Integration | `public-api-and-realtime` | `operator/api` | `done` | `VR3`,`VR4` | API tests | public validation flow integrates with repair subsystem without changing local authority model |
+| `VR6` Ops Surface | `service-bootstrap-and-ops` | `operator/platform` | `done` | `VR3`,`VR4` | ops tests + UI proof | unresolved/running/failed validation repair state is visible to operators |
+| `A1` Closeout Audit | `repo-governance` | `operator/governance` | `done` | `VR6` | audit | `validation_fetch` is a real subsystem rather than only a semantic contract |
 
 ## Hard Boundaries
 

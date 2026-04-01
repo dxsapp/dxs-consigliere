@@ -1,5 +1,6 @@
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Consigliere.BackgroundTasks;
 using Dxs.Consigliere.BackgroundTasks.Blocks;
 using Dxs.Consigliere.BackgroundTasks.Realtime;
 
@@ -16,6 +17,11 @@ public static class IndexerOrchestrationSetup
             .AddTransient<JungleBusBlockchainDataProvider>()
             .AddTransient<NodeBlockchainDataProvider>()
             .AddSingleton<IRawTransactionFetchService, RawTransactionFetchService>()
+            .AddSingleton<IUpstreamTransactionAcquisitionService, UpstreamTransactionAcquisitionService>()
+            .AddSingleton<IValidationDependencyService, ValidationDependencyService>()
+            .AddSingleton<IValidationDependencyRepairScheduler, ValidationDependencyRepairScheduler>()
+            .AddSingleton<IValidationDependencyRepairProcessor, ValidationDependencyRepairProcessor>()
+            .AddSingleton<IStasDependencyRevalidationCoordinator, StasDependencyRevalidationCoordinator>()
             .AddTransient<BlockProcessExecutor>()
             .AddSingleton<IBitailsRealtimeSubscriptionScopeProvider, BitailsRealtimeSubscriptionScopeProvider>()
             .AddSingleton<BitailsRealtimeIngestRunner>()

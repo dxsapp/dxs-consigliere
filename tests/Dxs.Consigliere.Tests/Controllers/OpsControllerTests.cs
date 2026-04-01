@@ -72,6 +72,7 @@ public class OpsControllerTests
             }),
             new FakeJungleBusBlockSyncHealthReader(),
             new FakeJungleBusChainTipAssuranceReader(),
+            new FakeValidationRepairStatusReader(),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -129,6 +130,7 @@ public class OpsControllerTests
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
             new FakeJungleBusChainTipAssuranceReader(),
+            new FakeValidationRepairStatusReader(),
             Options.Create(new ConsigliereCacheConfig
             {
                 Enabled = true,
@@ -166,6 +168,7 @@ public class OpsControllerTests
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
             new FakeJungleBusChainTipAssuranceReader(),
+            new FakeValidationRepairStatusReader(),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig
             {
@@ -206,6 +209,7 @@ public class OpsControllerTests
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
             new FakeJungleBusChainTipAssuranceReader(),
+            new FakeValidationRepairStatusReader(),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig()),
             Options.Create(new AppConfig()),
@@ -233,6 +237,7 @@ public class OpsControllerTests
             new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
             new FakeJungleBusBlockSyncHealthReader(),
             new FakeJungleBusChainTipAssuranceReader(),
+            new FakeValidationRepairStatusReader(),
             Options.Create(new ConsigliereCacheConfig()),
             Options.Create(new ConsigliereStorageConfig()),
             Options.Create(new AppConfig()),
@@ -251,6 +256,34 @@ public class OpsControllerTests
         Assert.False(payload.ControlFlowStalled);
         Assert.False(payload.LocalProgressStalled);
         Assert.Equal(4, payload.LagBlocks);
+    }
+
+    [Fact]
+    public async Task GetValidationRepairs_ReturnsRepairSnapshot()
+    {
+        var controller = new OpsController(
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig()),
+            new FakeJungleBusBlockSyncHealthReader(),
+            new FakeJungleBusChainTipAssuranceReader(),
+            new FakeValidationRepairStatusReader(),
+            Options.Create(new ConsigliereCacheConfig()),
+            Options.Create(new ConsigliereStorageConfig()),
+            Options.Create(new AppConfig()),
+            new FakeProviderCatalog([]),
+            new FakeProjectionReadCacheTelemetry(),
+            new FakeProjectionCacheRuntimeStatusReader());
+
+        var result = await controller.GetValidationRepairs();
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<ValidationRepairStatusResponse>(ok.Value);
+        Assert.Equal(3, payload.TotalCount);
+        Assert.Equal(1, payload.PendingCount);
+        Assert.Equal(1, payload.RunningCount);
+        Assert.Equal(1, payload.FailedCount);
+        Assert.Equal(120, payload.OldestUnresolvedAgeSeconds);
+        Assert.Single(payload.Items);
+        Assert.Equal("public_validate", payload.Items[0].Reasons[0]);
     }
 
     private sealed class FakeProviderCatalog(IReadOnlyCollection<ExternalChainProviderDescriptor> descriptors)
@@ -353,6 +386,40 @@ public class OpsControllerTests
                 LastControlMessageAt = DateTimeOffset.Parse("2026-04-01T10:10:05+00:00").ToUnixTimeMilliseconds(),
                 ControlFlowStaleAfterSeconds = 120,
                 LocalProgressStaleAfterSeconds = 180
+            });
+    }
+
+    private sealed class FakeValidationRepairStatusReader : IValidationRepairStatusReader
+    {
+        public Task<ValidationRepairStatusResponse> GetSnapshotAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new ValidationRepairStatusResponse
+            {
+                TotalCount = 3,
+                PendingCount = 1,
+                RunningCount = 1,
+                FailedCount = 1,
+                BlockedCount = 0,
+                ResolvedCount = 5,
+                OldestUnresolvedCreatedAt = DateTimeOffset.Parse("2026-04-01T10:00:00+00:00").ToUnixTimeMilliseconds(),
+                OldestUnresolvedAgeSeconds = 120,
+                Items =
+                [
+                    new ValidationRepairItemResponse
+                    {
+                        EntityType = "transaction",
+                        EntityId = new string('a', 64),
+                        State = "pending",
+                        Reasons = ["public_validate"],
+                        MissingDependencies = ["missing-parent"],
+                        AttemptCount = 2,
+                        CreatedAt = DateTimeOffset.Parse("2026-04-01T10:00:00+00:00").ToUnixTimeMilliseconds(),
+                        UpdatedAt = DateTimeOffset.Parse("2026-04-01T10:01:00+00:00").ToUnixTimeMilliseconds(),
+                        LastAttemptAt = DateTimeOffset.Parse("2026-04-01T10:01:00+00:00").ToUnixTimeMilliseconds(),
+                        NextAttemptAt = DateTimeOffset.Parse("2026-04-01T10:02:00+00:00").ToUnixTimeMilliseconds(),
+                        LastError = "dependencies_still_missing",
+                        LastFetchedDependencies = []
+                    }
+                ]
             });
     }
 

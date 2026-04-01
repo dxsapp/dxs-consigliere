@@ -450,6 +450,33 @@ export interface JungleBusChainTipAssuranceResponse {
   localProgressStaleAfterSeconds: number;
 }
 
+export interface ValidationRepairItemResponse {
+  entityType: string;
+  entityId: string;
+  state: string;
+  reasons: string[];
+  missingDependencies: string[];
+  attemptCount: number;
+  createdAt: number;
+  updatedAt: number | null;
+  lastAttemptAt: number | null;
+  nextAttemptAt: number | null;
+  lastError: string | null;
+  lastFetchedDependencies: string[];
+}
+
+export interface ValidationRepairStatusResponse {
+  totalCount: number;
+  pendingCount: number;
+  runningCount: number;
+  failedCount: number;
+  blockedCount: number;
+  resolvedCount: number;
+  oldestUnresolvedCreatedAt: number | null;
+  oldestUnresolvedAgeSeconds: number | null;
+  items: ValidationRepairItemResponse[];
+}
+
 export interface AdminProviderConfigUpdateRequest {
   realtimePrimaryProvider: string;
   rawTxPrimaryProvider: string;

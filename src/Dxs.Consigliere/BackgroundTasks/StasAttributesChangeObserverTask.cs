@@ -3,6 +3,7 @@ using System.Threading.Tasks.Dataflow;
 
 using Dxs.Common.BackgroundTasks;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Services;
 
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,8 @@ namespace Dxs.Consigliere.BackgroundTasks;
 
 public class StasAttributesChangeObserverTask(
     IDocumentStore store,
-    IMetaTransactionStore transactionStore,
+    IStasDependencyRevalidationCoordinator coordinator,
+    IValidationDependencyRepairScheduler validationRepairScheduler,
     IOptions<AppConfig> appConfig,
     ILogger<StasAttributesChangeObserverTask> logger
 ) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
@@ -23,7 +25,6 @@ public class StasAttributesChangeObserverTask(
     private static readonly TimeSpan LogPeriod = TimeSpan.FromMinutes(1);
 
     private readonly ILogger _logger = logger;
-    private readonly StasDependencyRevalidationCoordinator _coordinator = new(store, transactionStore, logger);
 
     private int _processedChanges;
 
@@ -69,9 +70,15 @@ public class StasAttributesChangeObserverTask(
         try
         {
             if (change.Type == DocumentChangeTypes.Delete)
-                await _coordinator.HandleTransactionDeletedAsync(change.Id);
+            {
+                await coordinator.HandleTransactionDeletedAsync(change.Id);
+                await validationRepairScheduler.CancelTransactionAsync(change.Id);
+            }
             else
-                await _coordinator.HandleTransactionChangedAsync(change.Id);
+            {
+                await coordinator.HandleTransactionChangedAsync(change.Id);
+                await validationRepairScheduler.ScheduleTransactionAsync(change.Id, ValidationRepairReasons.LateArrivalRepair);
+            }
         }
         catch (Exception exception)
         {

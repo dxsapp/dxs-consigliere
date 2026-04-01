@@ -26,7 +26,7 @@ public class StasDependencyRevalidationCascadeIntegrationTests : RavenTestDriver
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var replayingStore = new ReplayingMetaTransactionStore();
-        var coordinator = new StasDependencyRevalidationCoordinator(store, replayingStore, NullLogger.Instance);
+        var coordinator = new StasDependencyRevalidationCoordinator(dependencyStore, store, replayingStore, NullLogger.Instance);
         replayingStore.AttachCoordinator(coordinator);
 
         await SeedMetaTransactionAsync(store, "root");
@@ -50,7 +50,7 @@ public class StasDependencyRevalidationCascadeIntegrationTests : RavenTestDriver
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var replayingStore = new ReplayingMetaTransactionStore();
-        var coordinator = new StasDependencyRevalidationCoordinator(store, replayingStore, NullLogger.Instance);
+        var coordinator = new StasDependencyRevalidationCoordinator(dependencyStore, store, replayingStore, NullLogger.Instance);
         replayingStore.AttachCoordinator(coordinator);
 
         await SeedMetaTransactionAsync(store, "child");
@@ -103,7 +103,7 @@ public class StasDependencyRevalidationCascadeIntegrationTests : RavenTestDriver
             Transaction transaction,
             long timestamp,
             string firstOutToRedeem,
-            string? blockHash = null,
+            string blockHash = null,
             int? blockHeight = null,
             int? indexInBlock = null
         ) => Task.FromResult(TransactionProcessStatus.NotModified);

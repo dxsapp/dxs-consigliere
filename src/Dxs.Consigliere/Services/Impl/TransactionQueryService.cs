@@ -16,7 +16,8 @@ namespace Dxs.Consigliere.Services.Impl;
 public class TransactionQueryService(
     IDocumentStore store,
     TxLifecycleProjectionReader txLifecycleProjectionReader,
-    TxLifecycleProjectionRebuilder txLifecycleProjectionRebuilder
+    TxLifecycleProjectionRebuilder txLifecycleProjectionRebuilder,
+    Dxs.Consigliere.BackgroundTasks.IValidationDependencyRepairScheduler? validationDependencyRepairScheduler = null
 ) : ITransactionQueryService
 {
     private const int MaxBatchCount = 1000;
@@ -182,6 +183,11 @@ public class TransactionQueryService(
         var b2gResolved = metaTransaction.IsIssue
             || (metaTransaction.AllStasInputsKnown && missingDependencies.Length == 0);
         var askLater = string.Equals(validationStatus, TokenProjectionValidationStatus.Unknown, StringComparison.Ordinal);
+        var repairWork = validationDependencyRepairScheduler is null
+            ? null
+            : askLater && missingDependencies.Length > 0
+                ? await validationDependencyRepairScheduler.ScheduleTransactionAsync(metaTransaction.Id, ValidationRepairReasons.PublicValidate, cancellationToken)
+                : await validationDependencyRepairScheduler.GetScheduledTransactionAsync(metaTransaction.Id, cancellationToken);
 
         return new ValidateStasResponse(
             askLater,
@@ -197,7 +203,9 @@ public class TransactionQueryService(
             metaTransaction.IllegalRoots.ToArray(),
             validationStatus,
             b2gResolved,
-            missingDependencies
+            missingDependencies,
+            repairWork?.State,
+            repairWork?.UpdatedAt ?? repairWork?.CreatedAt
         );
     }
 

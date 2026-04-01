@@ -19,6 +19,7 @@ public class OpsController(
     IAdminProviderConfigService providerConfigService,
     IJungleBusBlockSyncHealthReader jungleBusBlockSyncHealthReader,
     IJungleBusChainTipAssuranceReader jungleBusChainTipAssuranceReader,
+    IValidationRepairStatusReader validationRepairStatusReader,
     IOptions<ConsigliereCacheConfig> cacheConfig,
     IOptions<ConsigliereStorageConfig> storageConfig,
     IOptions<AppConfig> appConfig,
@@ -84,6 +85,11 @@ public class OpsController(
     [Produces(typeof(JungleBusChainTipAssuranceResponse))]
     public async Task<IActionResult> GetJungleBusChainTipAssurance(CancellationToken cancellationToken = default)
         => Ok(await jungleBusChainTipAssuranceReader.GetSnapshotAsync(cancellationToken));
+
+    [HttpGet("validation/repairs")]
+    [Produces(typeof(ValidationRepairStatusResponse))]
+    public async Task<IActionResult> GetValidationRepairs(CancellationToken cancellationToken = default)
+        => Ok(await validationRepairStatusReader.GetSnapshotAsync(cancellationToken));
 
     private ProviderStatusResponse BuildProviderStatus(
         string provider,

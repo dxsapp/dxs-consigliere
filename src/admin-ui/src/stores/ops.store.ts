@@ -5,6 +5,7 @@ import type {
   JungleBusChainTipAssuranceResponse,
   ProviderStatusResponse,
   SyncStatusResponse,
+  ValidationRepairStatusResponse,
 } from "@/types/api";
 
 type LoadState = "idle" | "loading" | "success" | "error";
@@ -18,6 +19,7 @@ export class OpsStore {
   syncStatus: SyncStatusResponse | null = null;
   jungleBusBlockSync: JungleBusBlockSyncStatusResponse | null = null;
   jungleBusChainTipAssurance: JungleBusChainTipAssuranceResponse | null = null;
+  validationRepairs: ValidationRepairStatusResponse | null = null;
 
   loadState: LoadState = "idle";
   refreshing = false;
@@ -55,7 +57,7 @@ export class OpsStore {
       }
     });
     try {
-      const [providers, opsCache, opsStorage, adminCacheStatus, adminStorageStatus, syncStatus, jungleBusBlockSync, jungleBusChainTipAssurance] =
+      const [providers, opsCache, opsStorage, adminCacheStatus, adminStorageStatus, syncStatus, jungleBusBlockSync, jungleBusChainTipAssurance, validationRepairs] =
         await Promise.all([
           opsApi.providers().catch(() => null),
           opsApi.cache().catch(() => null),
@@ -65,6 +67,7 @@ export class OpsStore {
           dashboardApi.syncStatus().catch(() => null),
           opsApi.jungleBusBlockSync().catch(() => null),
           opsApi.jungleBusChainTipAssurance().catch(() => null),
+          opsApi.validationRepairs().catch(() => null),
         ]);
       runInAction(() => {
         this.providers = providers;
@@ -75,6 +78,7 @@ export class OpsStore {
         this.syncStatus = syncStatus;
         this.jungleBusBlockSync = jungleBusBlockSync;
         this.jungleBusChainTipAssurance = jungleBusChainTipAssurance;
+        this.validationRepairs = validationRepairs;
         this.loadState = "success";
         this.loaded = true;
         this.inFlight = false;

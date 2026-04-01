@@ -26,6 +26,7 @@ import type {
   ProviderStatusResponse,
   JungleBusBlockSyncStatusResponse,
   JungleBusChainTipAssuranceResponse,
+  ValidationRepairStatusResponse,
 } from "@/types/api";
 
 // ─── Error model ─────────────────────────────────────────────────────────────
@@ -228,4 +229,5 @@ export const opsApi = {
   storage: () => get<unknown>("/api/ops/storage"),
   jungleBusBlockSync: () => get<JungleBusBlockSyncStatusResponse>("/api/ops/junglebus/block-sync"),
   jungleBusChainTipAssurance: () => get<JungleBusChainTipAssuranceResponse>("/api/ops/junglebus/chain-tip-assurance"),
+  validationRepairs: () => get<ValidationRepairStatusResponse>("/api/ops/validation/repairs"),
 };

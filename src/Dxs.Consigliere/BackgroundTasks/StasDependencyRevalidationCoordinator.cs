@@ -9,13 +9,12 @@ using Raven.Client.Documents;
 namespace Dxs.Consigliere.BackgroundTasks;
 
 public sealed class StasDependencyRevalidationCoordinator(
+    ITokenValidationDependencyStore dependencyStore,
     IDocumentStore documentStore,
     IMetaTransactionStore transactionStore,
     ILogger logger
-)
+) : IStasDependencyRevalidationCoordinator
 {
-    private readonly ITokenValidationDependencyStore _dependencyStore = new TokenValidationDependencyStore(documentStore);
-
     public async Task HandleTransactionChangedAsync(string txId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
@@ -29,9 +28,9 @@ public sealed class StasDependencyRevalidationCoordinator(
             return;
         }
 
-        await _dependencyStore.UpsertAsync(transaction, cancellationToken);
+        await dependencyStore.UpsertAsync(transaction, cancellationToken);
 
-        var dependents = await _dependencyStore.LoadDirectDependentsAsync(txId, cancellationToken);
+        var dependents = await dependencyStore.LoadDirectDependentsAsync(txId, cancellationToken);
         if (dependents.Count == 0)
             return;
 
@@ -49,8 +48,8 @@ public sealed class StasDependencyRevalidationCoordinator(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
 
-        var dependents = await _dependencyStore.LoadDirectDependentsAsync(txId, cancellationToken);
-        await _dependencyStore.RemoveAsync(txId, cancellationToken);
+        var dependents = await dependencyStore.LoadDirectDependentsAsync(txId, cancellationToken);
+        await dependencyStore.RemoveAsync(txId, cancellationToken);
 
         if (dependents.Count == 0)
             return;

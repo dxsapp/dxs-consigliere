@@ -79,7 +79,9 @@ public class TransactionControllerValidateStasTests
             [],
             "valid",
             true,
-            []
+            [],
+            "pending",
+            1711965600000
         );
 
         var queryService = new Mock<ITransactionQueryService>();
@@ -103,5 +105,7 @@ public class TransactionControllerValidateStasTests
         Assert.Equal("valid", payload.ValidationStatus);
         Assert.True(payload.B2GResolved);
         Assert.Empty(payload.MissingDependencies);
+        Assert.Equal("pending", payload.ValidationRepairState);
+        Assert.Equal(1711965600000, payload.ValidationRepairUpdatedAt);
     }
 }

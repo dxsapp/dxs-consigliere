@@ -28,6 +28,7 @@ public static class HostedTasksSetup
             .AddSingletonHostedService<TrackedHistoryBackfillBackgroundTask>()
             .AddSingletonHostedService<StasAttributesMissingTransactions>()
             .AddSingletonHostedService<StasAttributesChangeObserverTask>()
+            .AddSingletonHostedService<ValidationDependencyRepairBackgroundTask>()
             .AddSingletonHostedService<TxObservationJournalMirrorBackgroundTask>()
             .AddSingletonHostedService<JungleBusSyncMissingDataBackgroundTask>()
             .AddSingletonHostedService<UnconfirmedTransactionsMonitor>()

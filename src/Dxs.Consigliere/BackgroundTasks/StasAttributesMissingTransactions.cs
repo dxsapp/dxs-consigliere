@@ -14,13 +14,13 @@ namespace Dxs.Consigliere.BackgroundTasks;
 
 public class StasAttributesMissingTransactions(
     IDocumentStore store,
-    IMetaTransactionStore transactionStore,
+    IStasDependencyRevalidationCoordinator coordinator,
+    IValidationDependencyRepairScheduler validationRepairScheduler,
     IOptions<AppConfig> appConfig,
     ILogger<StasAttributesMissingTransactions> logger
 ) : PeriodicTask(appConfig.Value.BackgroundTasks, logger)
 {
     private readonly ILogger _logger = logger;
-    private readonly StasDependencyRevalidationCoordinator _coordinator = new(store, transactionStore, logger);
 
     protected override TimeSpan Period => TimeSpan.FromSeconds(30);
     protected override TimeSpan WaitTimeOnError => TimeSpan.FromSeconds(30);
@@ -46,6 +46,9 @@ public class StasAttributesMissingTransactions(
         _logger.LogWarning("Found {Count} transaction with unresolved STAS dependencies", stasTransactions.Count);
 
         foreach (var id in stasTransactions)
-            await _coordinator.HandleTransactionChangedAsync(id, cancellationToken);
+        {
+            await validationRepairScheduler.ScheduleTransactionAsync(id, ValidationRepairReasons.MissingParentRepair, cancellationToken);
+            await coordinator.HandleTransactionChangedAsync(id, cancellationToken);
+        }
     }
 }

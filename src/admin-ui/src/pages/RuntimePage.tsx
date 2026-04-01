@@ -17,7 +17,11 @@ import {
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { JsonPanel } from "@/components/JsonPanel";
 import { opsStore } from "@/stores/ops.store";
-import type { JungleBusChainTipAssuranceResponse, ProviderStatusResponse } from "@/types/api";
+import type {
+  JungleBusChainTipAssuranceResponse,
+  ProviderStatusResponse,
+  ValidationRepairStatusResponse,
+} from "@/types/api";
 
 function formatDateTime(value: string | number | null | undefined): string {
   if (!value) return "unavailable";
@@ -137,6 +141,17 @@ function getAssuranceChip(response: JungleBusChainTipAssuranceResponse | null) {
   }
 }
 
+function getValidationRepairChip(response: ValidationRepairStatusResponse | null) {
+  if (!response) return { label: "unavailable", color: "default" as const };
+  if (response.blockedCount > 0 || response.failedCount > 0) {
+    return { label: "degraded", color: "warning" as const };
+  }
+  if (response.pendingCount > 0 || response.runningCount > 0) {
+    return { label: "busy", color: "info" as const };
+  }
+  return { label: "idle", color: "success" as const };
+}
+
 export const RuntimePage = observer(function RuntimePage() {
   const store = opsStore;
 
@@ -144,7 +159,9 @@ export const RuntimePage = observer(function RuntimePage() {
   const activeProviders = store.providers ?? [];
   const jungleBusBlockSync = store.jungleBusBlockSync;
   const jungleBusAssurance = store.jungleBusChainTipAssurance;
+  const validationRepairs = store.validationRepairs;
   const assuranceChip = getAssuranceChip(jungleBusAssurance);
+  const validationRepairChip = getValidationRepairChip(validationRepairs);
 
   return (
     <Box>
@@ -308,6 +325,98 @@ export const RuntimePage = observer(function RuntimePage() {
                   <Alert severity="warning">
                     JungleBus tip is still moving, but local indexed progress has stalled beyond the configured local-progress window.
                   </Alert>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+
+          <Card variant="outlined" sx={{ borderRadius: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack spacing={2}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, alignItems: "flex-start" }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.25 }}>
+                      Validation dependency repair
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                      Durable queue for unresolved STAS or DSTAS lineage dependencies. Consigliere remains the validation authority; providers only supply missing data.
+                    </Typography>
+                  </Box>
+                  <Chip
+                    size="small"
+                    label={validationRepairChip.label}
+                    color={validationRepairChip.color}
+                    variant={validationRepairChip.color === "default" ? "outlined" : "filled"}
+                  />
+                </Box>
+
+                {validationRepairs ? (
+                  <>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" }, gap: 1.5 }}>
+                      <Box>
+                        <StatusRow label="Pending" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(validationRepairs.pendingCount)}</Typography>} />
+                        <StatusRow label="Running" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(validationRepairs.runningCount)}</Typography>} />
+                        <StatusRow label="Failed" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(validationRepairs.failedCount)}</Typography>} />
+                        <StatusRow label="Blocked" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(validationRepairs.blockedCount)}</Typography>} />
+                      </Box>
+                      <Box>
+                        <StatusRow label="Resolved" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(validationRepairs.resolvedCount)}</Typography>} />
+                        <StatusRow label="Total items" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(validationRepairs.totalCount)}</Typography>} />
+                        <StatusRow label="Oldest unresolved" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{validationRepairs.oldestUnresolvedAgeSeconds == null ? "none" : `${formatCount(validationRepairs.oldestUnresolvedAgeSeconds)} s`}</Typography>} />
+                        <StatusRow label="Created at" value={<Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatDateTime(validationRepairs.oldestUnresolvedCreatedAt)}</Typography>} />
+                      </Box>
+                    </Box>
+
+                    {validationRepairs.blockedCount > 0 && (
+                      <Alert severity="error">
+                        Some validation repairs are blocked. Inspect recent items and their last error before trusting unresolved token lineage verdicts.
+                      </Alert>
+                    )}
+
+                    {validationRepairs.failedCount > 0 && validationRepairs.blockedCount === 0 && (
+                      <Alert severity="warning">
+                        Some validation repairs exhausted retries. Resolution remains manual until new dependency data arrives.
+                      </Alert>
+                    )}
+
+                    {validationRepairs.items.length > 0 && (
+                      <Stack spacing={1}>
+                        {validationRepairs.items.slice(0, 5).map((item) => (
+                          <Box
+                            key={`${item.entityType}:${item.entityId}`}
+                            sx={{
+                              border: "1px solid",
+                              borderColor: "divider",
+                              borderRadius: 2,
+                              p: 1.5,
+                              display: "grid",
+                              gridTemplateColumns: { xs: "1fr", md: "minmax(0, 1.5fr) minmax(0, 1fr)" },
+                              gap: 1.5,
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
+                                {item.entityId}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                                {item.state} · attempts {item.attemptCount}
+                              </Typography>
+                            </Box>
+                            <Box>
+                              <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                                Missing deps: {item.missingDependencies.length} · reasons: {item.reasons.join(", ") || "n/a"}
+                              </Typography>
+                              <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                                Last error: {item.lastError || "none"}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        ))}
+                      </Stack>
+                    )}
+                  </>
+                ) : (
+                  <Alert severity="warning">Validation repair status is unavailable.</Alert>
                 )}
               </Stack>
             </CardContent>
