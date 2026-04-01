@@ -129,6 +129,7 @@ Important distinctions:
 - `raw_tx_fetch` = how the service acquires raw transaction hex
 - `validation_fetch` = how the service acquires lineage-critical dependency data for local validation
 - rooted token truth still comes from `Consigliere`'s local lineage-aware model and trusted-root policy
+- the public `validate stas` route is still a local `Consigliere` verdict, not a provider verdict
 
 ## Admin Tracking Endpoints
 

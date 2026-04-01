@@ -256,11 +256,16 @@ Partial history must not be served when:
 - `GET /api/tx/state/{id}`
 - `GET /api/tx/stas/validate/{id}`
 
+Validation note:
+- `GET /api/tx/stas/validate/{id}` returns a local `Consigliere` verdict derived from lineage-aware projection state
+- additive fields may expose validation status, B2G resolution, and missing dependency hints without changing the local validation authority model
+
 `GET /api/tx/by-height/get` is classified as assist, not core promise.
 
 Broadcast note:
 - `POST /api/tx/broadcast/{raw}` is a submission operation
-- network visibility and eventual confirmation are established asynchronously through ingest/realtime observation rather than a single immediate provider response
+- the service attempts every configured broadcast-capable provider and returns success when any provider accepts the submission
+- network visibility and eventual confirmation are still established asynchronously through ingest/realtime observation
 
 ## Decision: Transaction State Includes Broadcast-Aware Lifecycle
 

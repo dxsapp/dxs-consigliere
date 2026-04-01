@@ -4,6 +4,7 @@ using Dxs.Common.Journal;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Cache;
 using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Tests.Shared;
@@ -143,6 +144,63 @@ public class TransactionQueryServiceLifecycleTests : RavenTestDriver
         Assert.Equal("confirmed", second.LifecycleStatus);
         Assert.Equal("block-1", second.BlockHash);
         Assert.Equal(100, second.BlockHeight);
+    }
+
+    [Fact]
+    public async Task ValidateStasTransactionAsync_UsesLocalProjectionFacts_ForAskLaterAndIllegalRoots()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var service = new TransactionQueryService(
+            store,
+            new TxLifecycleProjectionReader(store),
+            new TxLifecycleProjectionRebuilder(store, new RavenObservationJournalReader(store)));
+
+        const string pendingTxId = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+        const string invalidTxId = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+
+        using (var session = store.OpenAsyncSession())
+        {
+            await session.StoreAsync(new MetaTransaction
+            {
+                Id = pendingTxId,
+                IsStas = true,
+                IsIssue = false,
+                AllStasInputsKnown = false,
+                IllegalRoots = [],
+                TokenIds = ["token-pending"]
+            });
+
+            await session.StoreAsync(new MetaTransaction
+            {
+                Id = invalidTxId,
+                IsStas = true,
+                IsIssue = false,
+                AllStasInputsKnown = true,
+                IllegalRoots = ["illegal-root-1"],
+                TokenIds = ["token-invalid"]
+            });
+
+            await session.SaveChangesAsync();
+        }
+
+        var pending = await service.ValidateStasTransactionAsync(pendingTxId);
+        var invalid = await service.ValidateStasTransactionAsync(invalidTxId);
+
+        Assert.True(pending.AskLater);
+        Assert.False(pending.IsLegal);
+        Assert.Equal("unknown", pending.ValidationStatus);
+        Assert.False(pending.B2GResolved);
+        Assert.Equal("token-pending", pending.TokenId);
+
+        Assert.False(invalid.AskLater);
+        Assert.False(invalid.IsLegal);
+        Assert.Equal("invalid", invalid.ValidationStatus);
+        Assert.True(invalid.B2GResolved);
+        Assert.Equal(["illegal-root-1"], invalid.IllegalRoots);
+        Assert.Equal("token-invalid", invalid.TokenId);
     }
 
     private static ServiceProvider CreateCacheServices()

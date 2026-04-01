@@ -87,9 +87,14 @@ The intended default posture is:
 - `junglebus` as optional advanced realtime source
 - `node` as the strongest advanced verification and authority-assist path when present
 
+Public validation posture:
+- `(D)STAS` legality verdicts still come from `Consigliere`'s local lineage-aware projection
+- `validation_fetch` only helps acquire missing dependency data needed for that verdict
+
 Current historical-scan posture:
 - `historical_address_scan` is still Bitails-backed in `v1`
 - `historical_token_scan` is still Bitails-backed in `v1`
+- current runtime does not pretend these scans have provider failover; if Bitails is unavailable, the scan job fails honestly
 - rooted token truth remains local to `Consigliere`, even when history is fetched from external providers
 
 ## Future Bitails Transport Contract

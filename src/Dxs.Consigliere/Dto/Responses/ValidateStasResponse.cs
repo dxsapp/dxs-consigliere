@@ -11,5 +11,8 @@ public record ValidateStasResponse(
     bool? OptionalDataContinuity,
     string TokenId,
     string[] Roots,
-    string[] IllegalRoots
+    string[] IllegalRoots,
+    string ValidationStatus,
+    bool B2GResolved,
+    string[] MissingDependencies
 );

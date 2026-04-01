@@ -76,6 +76,9 @@ public class TransactionControllerValidateStasTests
             true,
             "token-id-1",
             [],
+            [],
+            "valid",
+            true,
             []
         );
 
@@ -97,5 +100,8 @@ public class TransactionControllerValidateStasTests
         Assert.Equal(2, payload.SpendingType);
         Assert.True(payload.OptionalDataContinuity);
         Assert.Equal("token-id-1", payload.TokenId);
+        Assert.Equal("valid", payload.ValidationStatus);
+        Assert.True(payload.B2GResolved);
+        Assert.Empty(payload.MissingDependencies);
     }
 }

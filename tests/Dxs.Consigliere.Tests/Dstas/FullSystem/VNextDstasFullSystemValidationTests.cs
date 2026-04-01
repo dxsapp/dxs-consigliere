@@ -112,8 +112,12 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         Assert.True(tokenReadiness!.Readable);
         Assert.True(tokenReadiness.Authoritative);
         Assert.False(freezeValidation.AskLater);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, freezeValidation.ValidationStatus);
+        Assert.True(freezeValidation.B2GResolved);
         Assert.Equal("freeze", freezeValidation.EventType);
         Assert.Equal(2, freezeValidation.SpendingType);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, unfreezeValidation.ValidationStatus);
+        Assert.True(unfreezeValidation.B2GResolved);
         Assert.Equal("unfreeze", unfreezeValidation.EventType);
         Assert.Equal(2, unfreezeValidation.SpendingType);
     }
@@ -170,6 +174,8 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         Assert.Equal(TokenProjectionValidationStatus.Valid, tokenState.ValidationStatus);
         Assert.Equal(50, tokenState.TotalKnownSupply);
         Assert.Null(confiscationHistory);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, confiscationValidation.ValidationStatus);
+        Assert.True(confiscationValidation.B2GResolved);
         Assert.Equal("confiscation", confiscationValidation.EventType);
         Assert.Equal(3, confiscationValidation.SpendingType);
     }
@@ -224,8 +230,12 @@ public class VNextDstasFullSystemValidationTests : RavenTestDriver
         Assert.Equal(TokenProjectionProtocolType.Dstas, swapCancelHistory!.ProtocolType);
         Assert.Single(tokenUtxos);
         Assert.Equal(SwapCancelTxId, tokenUtxos[0].TxId);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, swapValidation.ValidationStatus);
+        Assert.True(swapValidation.B2GResolved);
         Assert.Equal("swap", swapValidation.EventType);
         Assert.Equal(1, swapValidation.SpendingType);
+        Assert.Equal(TokenProjectionValidationStatus.Valid, swapCancelValidation.ValidationStatus);
+        Assert.True(swapCancelValidation.B2GResolved);
         Assert.Equal("swap_cancel", swapCancelValidation.EventType);
         Assert.Equal(4, swapCancelValidation.SpendingType);
     }

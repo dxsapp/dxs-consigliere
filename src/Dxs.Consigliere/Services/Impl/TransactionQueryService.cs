@@ -2,6 +2,8 @@ using Dxs.Bsv;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
+using Dxs.Consigliere.Data.Models.Tokens;
+using Dxs.Consigliere.Data.Tokens.Dstas;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Extensions;
 
@@ -164,9 +166,7 @@ public class TransactionQueryService(
         if (metaTransaction == null)
             throw new TransactionQueryException(TransactionQueryErrorKind.NotFound, "Not found");
 
-        var askLater = !metaTransaction.IsIssue && !metaTransaction.AllStasInputsKnown;
-
-        if (!askLater && !metaTransaction.IsStas)
+        if (!metaTransaction.IsStas)
         {
             throw new TransactionQueryException(
                 TransactionQueryErrorKind.NotStas,
@@ -174,18 +174,30 @@ public class TransactionQueryService(
             );
         }
 
+        var validationStatus = StasProtocolProjectionSemantics.GetValidationStatus(metaTransaction);
+        var missingDependencies = (metaTransaction.MissingTransactions ?? [])
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        var b2gResolved = metaTransaction.IsIssue
+            || (metaTransaction.AllStasInputsKnown && missingDependencies.Length == 0);
+        var askLater = string.Equals(validationStatus, TokenProjectionValidationStatus.Unknown, StringComparison.Ordinal);
+
         return new ValidateStasResponse(
             askLater,
             metaTransaction.Id,
-            metaTransaction.IllegalRoots.Count == 0,
+            string.Equals(validationStatus, TokenProjectionValidationStatus.Valid, StringComparison.Ordinal),
             metaTransaction.IsIssue,
             metaTransaction.IsRedeem,
             metaTransaction.DstasEventType,
             metaTransaction.DstasSpendingType,
             metaTransaction.DstasOptionalDataContinuity,
-            metaTransaction.TokenIds.First(),
+            metaTransaction.TokenIds.FirstOrDefault() ?? string.Empty,
             [],
-            metaTransaction.IllegalRoots.ToArray()
+            metaTransaction.IllegalRoots.ToArray(),
+            validationStatus,
+            b2gResolved,
+            missingDependencies
         );
     }
 

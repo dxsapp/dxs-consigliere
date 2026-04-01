@@ -251,6 +251,10 @@ Key examples:
 - authoritative local re-checks after suspicious or disputed state transitions
 - integrity-sensitive dependency recovery after reorg or source disagreement
 
+Public API implication:
+- the transaction validation endpoint remains a local `Consigliere` verdict surface
+- `validation_fetch` may support that surface indirectly by supplying missing dependency data, but it does not replace local validation authority
+
 This keeps the routing model focused on why the fetch exists while preserving local validation authority.
 
 ## Decision: `verification_source` Is A Data-Verification Role, Not Validation Authority
@@ -292,19 +296,21 @@ Notes:
 - `broadcast` may still have a post-broadcast confirmation workflow
 - the rule here is only that these capabilities do not require verification on every normal invocation
 
-## Decision: Broadcast Uses Observe-and-Rebroadcast Semantics
+## Decision: Broadcast Uses Multi-Target Submission Plus Observed Confirmation
 
 `broadcast` in `v1` is not treated as a synchronous final-confirmation operation.
 
 Model:
 - the broadcast path sends the transaction to one or more configured destinations
-- success is determined operationally by later observation from source sockets or ingest feeds
+- immediate submission success is `any_success` across the configured broadcast-capable providers
+- later observation from source sockets or ingest feeds still establishes network visibility and eventual confirmation
 - long-unconfirmed transactions may be checked by a background recovery job
 - if no configured source can see the transaction, the recovery path may rebroadcast it
 
 Implications:
 - broadcast submission and broadcast confirmation are separate concerns
-- confirmation is established through observed network visibility, not by trusting a single immediate broadcast response
+- submission success is honest transport acceptance, not final chain truth
+- confirmation is still established through observed network visibility rather than trusting a single provider response as final truth
 - rebroadcast is a resilience mechanism, not a separate public product promise
 
 ## Capability Set
@@ -483,10 +489,10 @@ Rationale:
 
 | Capability | Preferred role | Fallback role | Notes |
 |---|---|---|---|
-| raw tx fetch | fast or cheap provider | node or secondary provider | depends on latency/cost budget |
-| broadcast | node when present | provider fallback if supported | higher confidence path preferred |
-| block crawl | JungleBus or node | secondary provider | must support backfill well |
-| mempool observation | JungleBus or node/ZMQ | degraded provider mode | realtime-critical |
+| raw tx fetch | JungleBus / GorillaPool | WhatsOnChain, Bitails, or node | routed through one internal raw-tx contract |
+| broadcast | every configured broadcast-capable provider in parallel | none | overall success rule is `any_success` |
+| block crawl | JungleBus | node | must support backfill and observed catch-up well |
+| mempool observation | Bitails websocket | JungleBus or node/ZMQ | realtime-critical, with Bitails as the baseline managed path |
 | confirmation tracking | node or verification source | provider read fallback | should not rely on weakest source only |
 | address history | indexed internal state first | assist provider for untracked reads | tracked scope stays internal |
 | UTXO lookup | indexed internal state first | provider lookup for assist mode | authoritative for tracked scope must come from index |
