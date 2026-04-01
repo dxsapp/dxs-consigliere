@@ -87,11 +87,19 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
         ValidateEnabledProviderReference(options.Capabilities.HistoricalAddressScan.Source, "capabilities.historical_address_scan.source", providerStates, errors);
         ValidateCapabilitySources(options.Capabilities.HistoricalAddressScan.FallbackSources, "capabilities.historical_address_scan.fallbackSources", errors);
         ValidateEnabledProviderReferences(options.Capabilities.HistoricalAddressScan.FallbackSources, "capabilities.historical_address_scan.fallbackSources", providerStates, errors);
+        ValidateBitailsOnlyHistoricalCapability(
+            options.Capabilities.HistoricalAddressScan,
+            "capabilities.historical_address_scan",
+            errors);
 
         ValidateCapabilityReference(options.Capabilities.HistoricalTokenScan.Source, "capabilities.historical_token_scan.source", errors);
         ValidateEnabledProviderReference(options.Capabilities.HistoricalTokenScan.Source, "capabilities.historical_token_scan.source", providerStates, errors);
         ValidateCapabilitySources(options.Capabilities.HistoricalTokenScan.FallbackSources, "capabilities.historical_token_scan.fallbackSources", errors);
         ValidateEnabledProviderReferences(options.Capabilities.HistoricalTokenScan.FallbackSources, "capabilities.historical_token_scan.fallbackSources", providerStates, errors);
+        ValidateBitailsOnlyHistoricalCapability(
+            options.Capabilities.HistoricalTokenScan,
+            "capabilities.historical_token_scan",
+            errors);
 
         ValidateBitailsTransport(options, errors);
 
@@ -199,6 +207,23 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
             string.IsNullOrWhiteSpace(bitails.Connection.Zmq.BlockUrl))
         {
             errors.Add("Bitails zmq transport requires connection.zmq.txUrl or connection.zmq.blockUrl.");
+        }
+    }
+
+    private static void ValidateBitailsOnlyHistoricalCapability(
+        RoutedCapabilityOverrideConfig capability,
+        string path,
+        ICollection<string> errors)
+    {
+        if (!string.IsNullOrWhiteSpace(capability.Source)
+            && !string.Equals(capability.Source, ExternalChainProviderName.Bitails, StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add($"{path}.source must be 'bitails' in v1.");
+        }
+
+        if (capability.FallbackSources is { Length: > 0 })
+        {
+            errors.Add($"{path}.fallbackSources must be empty in v1.");
         }
     }
 }

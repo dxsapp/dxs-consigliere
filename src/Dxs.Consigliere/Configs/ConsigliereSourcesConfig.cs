@@ -155,8 +155,7 @@ public class SourceCapabilitiesConfig
             },
             HistoricalAddressScan = new RoutedCapabilityOverrideConfig
             {
-                Source = ExternalChainProviderName.Bitails,
-                FallbackSources = [ExternalChainProviderName.WhatsOnChain]
+                Source = ExternalChainProviderName.Bitails
             },
             HistoricalTokenScan = new RoutedCapabilityOverrideConfig
             {

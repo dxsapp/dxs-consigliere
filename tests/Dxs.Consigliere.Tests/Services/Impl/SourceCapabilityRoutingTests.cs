@@ -140,6 +140,67 @@ public class SourceCapabilityRoutingTests
         Assert.Equal([ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.Bitails], route.FallbackSources);
     }
 
+    [Fact]
+    public void Resolve_HistoricalAddressScan_DoesNotAdvertiseLegacyFallbackProviders()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        var legacyConfig = new AppConfig
+        {
+            JungleBus = new JungleBusConfig { Enabled = true }
+        };
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.HistoricalAddressScan,
+            sourcesConfig,
+            legacyConfig,
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.Bitails, route.PrimarySource);
+        Assert.Empty(route.FallbackSources);
+    }
+
+    [Fact]
+    public void Resolve_HistoricalAddressScan_DoesNotInventLegacyFallbacks()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        sourcesConfig.Providers.Bitails.EnabledCapabilities =
+        [
+            ExternalChainCapability.ValidationFetch,
+            ExternalChainCapability.RawTxFetch,
+            ExternalChainCapability.HistoricalAddressScan
+        ];
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.HistoricalAddressScan,
+            sourcesConfig,
+            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.Bitails, route.PrimarySource);
+        Assert.Empty(route.FallbackSources);
+    }
+
+    [Fact]
+    public void Resolve_HistoricalTokenScan_DoesNotAdvertiseLegacyFallbackProviders()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        sourcesConfig.Providers.Bitails.EnabledCapabilities =
+        [
+            ExternalChainCapability.ValidationFetch,
+            ExternalChainCapability.RawTxFetch,
+            ExternalChainCapability.HistoricalTokenScan
+        ];
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.HistoricalTokenScan,
+            sourcesConfig,
+            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.Bitails, route.PrimarySource);
+        Assert.Empty(route.FallbackSources);
+    }
+
     private static ConsigliereSourcesConfig CreateSourcesConfig()
     {
         return new ConsigliereSourcesConfig
@@ -207,7 +268,9 @@ public class SourceCapabilityRoutingTests
                         ExternalChainCapability.Broadcast,
                         ExternalChainCapability.RealtimeIngest,
                         ExternalChainCapability.RawTxFetch,
-                        ExternalChainCapability.ValidationFetch
+                        ExternalChainCapability.ValidationFetch,
+                        ExternalChainCapability.HistoricalAddressScan,
+                        ExternalChainCapability.HistoricalTokenScan
                     ]),
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.WhatsOnChain,

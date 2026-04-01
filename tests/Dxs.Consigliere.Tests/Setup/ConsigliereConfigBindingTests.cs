@@ -249,6 +249,9 @@ public class ConsigliereConfigBindingTests
         Assert.Equal(["junglebus", "node"], sources.Routing.FallbackSources);
         Assert.Equal("bitails", sources.Capabilities.RealtimeIngest.Source);
         Assert.Equal("bitails", sources.Capabilities.HistoricalAddressScan.Source);
+        Assert.Empty(sources.Capabilities.HistoricalAddressScan.FallbackSources);
+        Assert.Equal("bitails", sources.Capabilities.HistoricalTokenScan.Source);
+        Assert.Empty(sources.Capabilities.HistoricalTokenScan.FallbackSources);
         Assert.True(sources.Providers.Bitails.Enabled);
         Assert.Equal("https://api.bitails.io", sources.Providers.Bitails.Connection.BaseUrl);
         Assert.Equal("websocket", sources.Providers.Bitails.Connection.Transport);
@@ -265,5 +268,22 @@ public class ConsigliereConfigBindingTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(result.Failures, x => x.Contains("Unsupported Bitails transport"));
+    }
+
+    [Fact]
+    public void ConsigliereSourcesValidation_RejectsHistoricalScanProvidersOtherThanBitails()
+    {
+        var sources = new ConsigliereSourcesConfig();
+        sources.Capabilities.HistoricalAddressScan.Source = "whatsonchain";
+        sources.Capabilities.HistoricalAddressScan.FallbackSources = ["bitails"];
+        sources.Capabilities.HistoricalTokenScan.Source = "node";
+
+        var validator = new ConsigliereSourcesConfigValidation();
+        var result = validator.Validate(string.Empty, sources);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Failures, x => x.Contains("capabilities.historical_address_scan.source must be 'bitails'"));
+        Assert.Contains(result.Failures, x => x.Contains("capabilities.historical_address_scan.fallbackSources must be empty"));
+        Assert.Contains(result.Failures, x => x.Contains("capabilities.historical_token_scan.source must be 'bitails'"));
     }
 }

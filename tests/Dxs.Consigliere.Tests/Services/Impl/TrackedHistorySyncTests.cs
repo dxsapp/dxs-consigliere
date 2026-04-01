@@ -212,6 +212,67 @@ public class TrackedHistorySyncTests : RavenTestDriver
     }
 
     [Fact]
+    public async Task HistoricalAddressBackfillRunner_FailsHonestlyWhenConfiguredProviderIsNotBitails()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var registration = new Dxs.Consigliere.Data.Tracking.TrackedEntityRegistrationStore(store);
+        var orchestrator = new TrackedEntityLifecycleOrchestrator(store);
+        var scheduler = new TrackedHistoryBackfillScheduler(store, orchestrator);
+        var readiness = new TrackedEntityReadinessService(store);
+
+        await registration.RegisterAddressAsync(Address, "Genesis", TrackedEntityHistoryMode.FullHistory);
+        await orchestrator.BeginTrackingAddressAsync(Address);
+        await scheduler.QueueAddressFullHistoryAsync(Address);
+
+        var catalog = new Mock<IExternalChainProviderCatalog>(MockBehavior.Strict);
+        catalog.Setup(x => x.GetDescriptors())
+            .Returns([
+                new ExternalChainProviderDescriptor(
+                    ExternalChainProviderName.WhatsOnChain,
+                    [ExternalChainCapability.HistoricalAddressScan])
+            ]);
+
+        var runner = new HistoricalAddressBackfillRunner(
+            store,
+            Mock.Of<IBitailsRestApiClient>(MockBehavior.Strict),
+            new NullRawTransactionFetchService(),
+            Mock.Of<ITxMessageBus>(MockBehavior.Strict),
+            new TestNetworkProvider(),
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
+            {
+                Providers = new SourceProvidersConfig
+                {
+                    Whatsonchain = new WhatsOnChainSourceConfig
+                    {
+                        Enabled = true,
+                        EnabledCapabilities = [ExternalChainCapability.HistoricalAddressScan]
+                    }
+                },
+                Capabilities = new SourceCapabilitiesConfig
+                {
+                    HistoricalAddressScan = new RoutedCapabilityOverrideConfig
+                    {
+                        Source = ExternalChainProviderName.WhatsOnChain
+                    }
+                }
+            }),
+            Options.Create(new AppConfig()),
+            catalog.Object,
+            orchestrator,
+            Mock.Of<ILogger<HistoricalAddressBackfillRunner>>());
+
+        var processed = await runner.RunNextAsync();
+
+        Assert.True(processed);
+        var snapshot = await readiness.GetAddressReadinessAsync(Address);
+        Assert.Equal(HistoryBackfillExecutionStatus.Failed, snapshot.History.BackfillStatus?.Status);
+        Assert.Equal("historical_address_scan_unavailable", snapshot.History.BackfillStatus?.ErrorCode);
+    }
+
+    [Fact]
     public async Task HistoricalTokenBackfillRunner_TransitionsToWaitingRetryOnProviderFailure()
     {
         if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
@@ -352,6 +413,67 @@ public class TrackedHistorySyncTests : RavenTestDriver
         Assert.True(snapshot.History.RootedToken.RootedHistorySecure);
         Assert.Equal(1, snapshot.History.RootedToken.CompletedTrustedRootCount);
         Assert.Empty(snapshot.History.RootedToken.UnknownRootFindings);
+    }
+
+    [Fact]
+    public async Task HistoricalTokenBackfillRunner_FailsWhenTrustedRootsAreMissing()
+    {
+        if (!DotNetRuntimeFacts.HasRuntimeMajor(8))
+            return;
+
+        using var store = GetDocumentStore();
+        var registration = new Dxs.Consigliere.Data.Tracking.TrackedEntityRegistrationStore(store);
+        var orchestrator = new TrackedEntityLifecycleOrchestrator(store);
+        var scheduler = new TrackedHistoryBackfillScheduler(store, orchestrator);
+        var readiness = new TrackedEntityReadinessService(store);
+
+        await registration.RegisterTokenAsync(TokenId, "TEST", TrackedEntityHistoryMode.FullHistory, []);
+        await orchestrator.BeginTrackingTokenAsync(TokenId);
+        await scheduler.QueueTokenFullHistoryAsync(TokenId);
+
+        var catalog = new Mock<IExternalChainProviderCatalog>(MockBehavior.Strict);
+        catalog.Setup(x => x.GetDescriptors())
+            .Returns([
+                new ExternalChainProviderDescriptor(
+                    ExternalChainProviderName.Bitails,
+                    [ExternalChainCapability.HistoricalTokenScan])
+            ]);
+
+        var runner = new HistoricalTokenBackfillRunner(
+            store,
+            Mock.Of<IBitailsRestApiClient>(MockBehavior.Strict),
+            new NullRawTransactionFetchService(),
+            Mock.Of<ITxMessageBus>(MockBehavior.Strict),
+            new TestNetworkProvider(),
+            new FakeAdminProviderConfigService(new ConsigliereSourcesConfig
+            {
+                Providers = new SourceProvidersConfig
+                {
+                    Bitails = new BitailsSourceConfig
+                    {
+                        Enabled = true,
+                        EnabledCapabilities = [ExternalChainCapability.HistoricalTokenScan]
+                    }
+                },
+                Capabilities = new SourceCapabilitiesConfig
+                {
+                    HistoricalTokenScan = new RoutedCapabilityOverrideConfig
+                    {
+                        Source = ExternalChainProviderName.Bitails
+                    }
+                }
+            }),
+            Options.Create(new AppConfig()),
+            catalog.Object,
+            orchestrator,
+            Mock.Of<ILogger<HistoricalTokenBackfillRunner>>());
+
+        var processed = await runner.RunNextAsync();
+
+        Assert.True(processed);
+        var snapshot = await readiness.GetTokenReadinessAsync(TokenId);
+        Assert.Equal(HistoryBackfillExecutionStatus.Failed, snapshot.History.BackfillStatus?.Status);
+        Assert.Equal("trusted_roots_required", snapshot.History.BackfillStatus?.ErrorCode);
     }
 
     private static Dxs.Infrastructure.Bitails.Dto.HistoryPage DeserializeHistoryPage(string json)

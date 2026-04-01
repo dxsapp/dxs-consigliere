@@ -189,6 +189,9 @@ export const ProvidersPage = observer(function ProvidersPage() {
           <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
             Ecosystem provider catalog, current capability wiring, and advanced operator edits after first-run setup. Providers supply blockchain data; Consigliere still performs local STAS/DSTAS validation and rooted-history decisions.
           </Typography>
+          <Typography variant="caption" sx={{ color: "text.disabled", mt: 0.75, display: "block" }}>
+            Historical address and rooted token scans remain Bitails-backed in the current runtime. Raw transaction fetch is routed separately.
+          </Typography>
         </Box>
         <Tooltip title="Refresh">
           <IconButton

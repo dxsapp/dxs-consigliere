@@ -315,7 +315,7 @@ public sealed class AdminProviderConfigService(
             {
                 ExternalChainProviderName.Bitails => "Recommended managed realtime provider. Websocket is the default first-run onboarding path, with API key optional at start and available later for paid or higher-limit usage. Also supports ZMQ mode and provider-backed history access.",
                 ExternalChainProviderName.WhatsOnChain => "Recommended REST default for simple fallback and onboarding flows. Keep it as the easy starter path rather than the preferred raw transaction source.",
-                ExternalChainProviderName.JungleBus => "Recommended practical raw transaction source through GorillaPool transaction-get, while remaining an advanced realtime option for operators who already understand JungleBus subscription setup.",
+                ExternalChainProviderName.JungleBus => "Recommended block-sync and practical raw transaction source through GorillaPool. Realtime use is still an advanced path for operators who already understand JungleBus subscription setup.",
                 _ => string.Empty
             },
             MissingRequirements = missing,

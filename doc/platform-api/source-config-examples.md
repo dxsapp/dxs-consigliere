@@ -14,6 +14,7 @@ Admin-shell note:
 - static examples here remain the deployment baseline; admin overrides do not rewrite these files
 - product messaging may recommend `JungleBus / GorillaPool` for practical raw transaction fetch even when `WhatsOnChain` remains the easy REST fallback default
 - `validation_fetch` examples describe dependency acquisition for local `(D)STAS` validation, not external validation authority
+- `historical_address_scan` and `historical_token_scan` remain Bitails-backed in current runtime examples; they are not shown with fake failover lists
 - for `Bitails websocket` onboarding, examples intentionally omit `connection.apiKey` unless the scenario is explicitly about paid or higher-limit provider usage
 
 The repository is AI-first, so the examples prefer:
@@ -225,20 +226,17 @@ Use this when the operator wants one clear default source, plus fallbacks and a 
           ]
         },
         "raw_tx_fetch": {
-          "source": "bitails",
+          "source": "junglebus",
           "fallbackSources": [
             "whatsonchain",
-            "node"
+            "bitails"
           ]
         },
         "validation_fetch": {
           "source": "node"
         },
         "historical_address_scan": {
-          "source": "bitails",
-          "fallbackSources": [
-            "whatsonchain"
-          ]
+          "source": "bitails"
         },
         "historical_token_scan": {
           "source": "bitails"
@@ -253,7 +251,7 @@ Notes:
 - good default serious-business profile
 - provider-first realtime ingest through `bitails`
 - `junglebus` kept as an advanced fallback stream rather than the default managed-mode source
-- cheaper lookup elasticity through `bitails` and `whatsonchain`
+- practical raw transaction fetch through `junglebus`, with `whatsonchain` and `bitails` as fallbacks
 - truth-critical validation dependency acquisition anchored to `node`, while the final `(D)STAS` verdict remains local to `Consigliere`
 
 ## Example 3: Provider-Only Setup Without A Node
@@ -277,7 +275,10 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           "connectTimeout": "00:00:03",
           "requestTimeout": "00:00:10",
           "streamTimeout": "00:00:30",
-          "enabledCapabilities": [],
+          "enabledCapabilities": [
+            "raw_tx_fetch",
+            "block_backfill"
+          ],
           "connection": {
             "baseUrl": "https://junglebus.gorillapool.io",
             "apiKey": "replace-me"
@@ -337,9 +338,10 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           "source": "bitails"
         },
         "raw_tx_fetch": {
-          "source": "bitails",
+          "source": "junglebus",
           "fallbackSources": [
-            "whatsonchain"
+            "whatsonchain",
+            "bitails"
           ]
         },
         "validation_fetch": {
@@ -349,10 +351,7 @@ Use this when the operator wants the lowest entry barrier and accepts stronger d
           ]
         },
         "historical_address_scan": {
-          "source": "bitails",
-          "fallbackSources": [
-            "whatsonchain"
-          ]
+          "source": "bitails"
         },
         "historical_token_scan": {
           "source": "bitails"
