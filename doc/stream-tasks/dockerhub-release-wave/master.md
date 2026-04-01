@@ -43,10 +43,10 @@ DockerHub repository:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `DR1` | `repo-governance` | `operator/governance` | `todo` | - | docs review | release policy is documented clearly |
-| `DR2` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `DR1` | workflow lint + dry review | GitHub Actions workflow publishes versioned DockerHub tags from `vX.Y.Z` |
-| `DR3` | `repo-governance` | `operator/governance` | `todo` | `DR2` | README review | README documents the release flow and image tag semantics |
-| `DR4` | `verification-and-conformance` | `operator/verification` | `todo` | `DR2`,`DR3` | dry run / release checklist | release process is operationally verified |
+| `DR1` | `repo-governance` | `operator/governance` | `done` | - | docs review | release policy is documented clearly |
+| `DR2` | `service-bootstrap-and-ops` | `operator/platform` | `done` | `DR1` | workflow lint + dry review | GitHub Actions workflow publishes versioned DockerHub tags from `vX.Y.Z` |
+| `DR3` | `repo-governance` | `operator/governance` | `done` | `DR2` | README review | README documents the release flow and image tag semantics |
+| `DR4` | `verification-and-conformance` | `operator/verification` | `done` | `DR2`,`DR3` | dry run / release checklist | release process is operationally verified |
 
 ## Definition of Done
 
@@ -54,3 +54,10 @@ DockerHub repository:
 - `latest` behavior is documented and intentional
 - README explains how maintainers cut releases
 - no ambiguity remains around release source of truth
+
+## Closeout
+
+Wave closed with:
+- `.github/workflows/docker-release.yml`
+- README release flow and DockerHub tag semantics
+- explicit stable-tag validation that ignores non-`vX.Y.Z` tags in v1

@@ -64,7 +64,7 @@ Addresses can be **added dynamically at runtime**, allowing payment processors t
 
 ## Docker Setup
 
-[Docker hub](https://hub.docker.com/r/dxsapp/consigliere)
+[Docker Hub](https://hub.docker.com/r/dxs/consigliere)
 
 ```bash
 docker run -p 5000:5000 \
@@ -77,10 +77,45 @@ docker run -p 5000:5000 \
   -e "ZmqClient__RemovedFromMempoolBlockAddress=tcp://your-node:28332" \
   -e "ZmqClient__DiscardedFromMempoolAddress=tcp://your-node:28332" \
   -e "ZmqClient__HashBlock2Address=tcp://your-node:28332" \
-  dxsapp/consigliere:latest
+  dxs/consigliere:latest
 ```
 
 Use Admin API to add addresses/tokens to watch after startup.
+
+### Docker Release Policy
+
+Release images are published automatically from Git tags.
+
+Stable release trigger:
+
+- push tag `vX.Y.Z`
+
+Published Docker tags for `vX.Y.Z`:
+
+- `dxs/consigliere:X.Y.Z`
+- `dxs/consigliere:X.Y`
+- `dxs/consigliere:X`
+- `dxs/consigliere:latest`
+
+Notes:
+
+- prerelease tags are ignored by the DockerHub workflow in v1
+- `latest` always points to the most recent stable `vX.Y.Z` release
+- Git tag is the release source of truth
+
+Maintainer release steps:
+
+```bash
+git checkout main
+git pull --ff-only
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+Required GitHub secrets for the workflow:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
 
 ### Docker Compose E2E Smoke
 
