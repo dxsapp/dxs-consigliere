@@ -44,6 +44,7 @@ public sealed class AdminRuntimeSourcePolicyService(IAdminProviderConfigService 
             new AdminProviderConfigUpdateRequest
             {
                 RealtimePrimaryProvider = primaryRealtimeSource,
+                RawTxPrimaryProvider = effective.RawTxPrimaryProvider,
                 BitailsTransport = bitailsTransport,
                 RestPrimaryProvider = effective.RestPrimaryProvider,
                 Bitails = new AdminBitailsProviderConfigUpdateRequest

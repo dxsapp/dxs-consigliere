@@ -31,7 +31,8 @@ public class AdminRuntimeController : BaseController
         if (request is null)
             return BadRequest(new { code = "request_required" });
 
-        var updatedBy = User?.Identity?.Name ?? authService.Username ?? "admin";
+        var authState = await authService.GetStateAsync(User, cancellationToken);
+        var updatedBy = User?.Identity?.Name ?? authState.Username ?? "admin";
         var result = await policyService.ApplyRealtimePolicyAsync(
             request.PrimaryRealtimeSource,
             request.BitailsTransport,

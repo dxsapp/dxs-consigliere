@@ -37,6 +37,7 @@ public class SourceProvidersConfig
                 Enabled = true,
                 EnabledCapabilities =
                 [
+                    ExternalChainCapability.RawTxFetch,
                     ExternalChainCapability.RealtimeIngest,
                     ExternalChainCapability.BlockBackfill
                 ],

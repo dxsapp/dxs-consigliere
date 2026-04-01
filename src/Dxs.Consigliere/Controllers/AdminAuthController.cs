@@ -16,8 +16,10 @@ public class AdminAuthController : BaseController
     [AllowAnonymous]
     [HttpGet("me")]
     [Produces(typeof(AdminAuthStatusResponse))]
-    public IActionResult Me([FromServices] IConsigliereAdminAuthService authService)
-        => Ok(BuildStatus(authService, User));
+    public async Task<IActionResult> Me(
+        [FromServices] IConsigliereAdminAuthService authService,
+        CancellationToken cancellationToken = default)
+        => Ok(await BuildStatusAsync(authService, User, cancellationToken));
 
     [AllowAnonymous]
     [HttpPost("login")]
@@ -26,19 +28,23 @@ public class AdminAuthController : BaseController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login(
         [FromBody] AdminLoginRequest request,
-        [FromServices] IConsigliereAdminAuthService authService
+        [FromServices] IConsigliereAdminAuthService authService,
+        CancellationToken cancellationToken = default
     )
     {
-        if (!authService.Enabled)
+        var state = await authService.GetStateAsync(User, cancellationToken);
+        if (state.SetupRequired)
+            return Conflict(new { code = "setup_required" });
+        if (!state.Enabled)
             return Ok(BuildDisabledStatus());
 
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new { code = "credentials_required" });
 
-        if (!authService.ValidateCredentials(request.Username, request.Password))
+        if (!await authService.ValidateCredentialsAsync(request.Username, request.Password, cancellationToken))
             return Unauthorized(new { code = "invalid_credentials" });
 
-        var principal = authService.CreatePrincipal();
+        var principal = authService.CreatePrincipal(request.Username.Trim());
         await HttpContext.SignInAsync(
             AdminAuthDefaults.Scheme,
             principal,
@@ -48,33 +54,45 @@ public class AdminAuthController : BaseController
                 ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(authService.SessionTtlMinutes)
             });
 
-        return Ok(BuildStatus(authService, principal));
+        return Ok(await BuildStatusAsync(authService, principal, cancellationToken));
     }
 
     [AllowAnonymous]
     [HttpPost("logout")]
     [Produces(typeof(AdminAuthStatusResponse))]
-    public async Task<IActionResult> Logout([FromServices] IConsigliereAdminAuthService authService)
+    public async Task<IActionResult> Logout(
+        [FromServices] IConsigliereAdminAuthService authService,
+        CancellationToken cancellationToken = default)
     {
-        if (!authService.Enabled)
+        var state = await authService.GetStateAsync(User, cancellationToken);
+        if (state.SetupRequired)
+            return Ok(BuildSetupRequiredStatus());
+        if (!state.Enabled)
             return Ok(BuildDisabledStatus());
 
         await HttpContext.SignOutAsync(AdminAuthDefaults.Scheme);
-        return Ok(BuildStatus(authService, new ClaimsPrincipal()));
+        return Ok(await BuildStatusAsync(authService, new ClaimsPrincipal(), cancellationToken));
     }
 
-    private static AdminAuthStatusResponse BuildStatus(IConsigliereAdminAuthService authService, ClaimsPrincipal user)
+    private static async Task<AdminAuthStatusResponse> BuildStatusAsync(
+        IConsigliereAdminAuthService authService,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken)
     {
-        if (!authService.Enabled)
+        var state = await authService.GetStateAsync(user, cancellationToken);
+        if (state.SetupRequired)
+            return BuildSetupRequiredStatus();
+
+        if (!state.Enabled)
             return BuildDisabledStatus();
 
-        var authenticated = authService.IsAuthenticated(user);
         return new AdminAuthStatusResponse
         {
+            SetupRequired = false,
             Enabled = true,
-            Authenticated = authenticated,
+            Authenticated = state.Authenticated,
             Mode = "cookie",
-            Username = authenticated ? authService.Username : string.Empty,
+            Username = state.Authenticated ? state.Username : string.Empty,
             SessionTtlMinutes = authService.SessionTtlMinutes
         };
     }
@@ -82,8 +100,18 @@ public class AdminAuthController : BaseController
     private static AdminAuthStatusResponse BuildDisabledStatus()
         => new()
         {
+            SetupRequired = false,
             Enabled = false,
             Authenticated = true,
             Mode = "disabled"
+        };
+
+    private static AdminAuthStatusResponse BuildSetupRequiredStatus()
+        => new()
+        {
+            SetupRequired = true,
+            Enabled = false,
+            Authenticated = false,
+            Mode = "cookie"
         };
 }

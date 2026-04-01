@@ -56,6 +56,7 @@ function ConfigColumn({
   title: string;
   values: {
     realtimePrimaryProvider: string;
+    rawTxPrimaryProvider: string;
     restPrimaryProvider: string;
     bitailsTransport: string;
   } | null;
@@ -80,7 +81,8 @@ function ConfigColumn({
         {values ? (
           <Box>
             <ValueRow label="Realtime" value={values.realtimePrimaryProvider} />
-            <ValueRow label="REST" value={values.restPrimaryProvider} />
+            <ValueRow label="Raw tx" value={values.rawTxPrimaryProvider} />
+            <ValueRow label="REST fallback" value={values.restPrimaryProvider} />
             <ValueRow label="Bitails" value={values.bitailsTransport} />
           </Box>
         ) : (
@@ -141,8 +143,10 @@ export const ProvidersPage = observer(function ProvidersPage() {
     // Selector fields — show from→to
     if (draft.realtimePrimaryProvider !== e.realtimePrimaryProvider)
       diffs.push(`Realtime: ${e.realtimePrimaryProvider} → ${draft.realtimePrimaryProvider}`);
+    if (draft.rawTxPrimaryProvider !== e.rawTxPrimaryProvider)
+      diffs.push(`Raw tx: ${e.rawTxPrimaryProvider} → ${draft.rawTxPrimaryProvider}`);
     if (draft.restPrimaryProvider !== e.restPrimaryProvider)
-      diffs.push(`REST: ${e.restPrimaryProvider} → ${draft.restPrimaryProvider}`);
+      diffs.push(`REST fallback: ${e.restPrimaryProvider} → ${draft.restPrimaryProvider}`);
     if (draft.bitailsTransport !== e.bitailsTransport)
       diffs.push(`Bitails transport: ${e.bitailsTransport} → ${draft.bitailsTransport}`);
 
@@ -180,10 +184,10 @@ export const ProvidersPage = observer(function ProvidersPage() {
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 600, letterSpacing: "-0.02em" }}>
-            Providers
+            Advanced provider settings
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-            Ecosystem provider catalog, recommended defaults, and minimal operator configuration for realtime, raw transaction fetch, and REST fallback.
+            Ecosystem provider catalog, current capability wiring, and advanced operator edits after first-run setup.
           </Typography>
         </Box>
         <Tooltip title="Refresh">
@@ -223,13 +227,13 @@ export const ProvidersPage = observer(function ProvidersPage() {
                         Start with Bitails websocket for managed realtime ingest without requiring an API key on day one, use JungleBus / GorillaPool for practical raw transaction fetches, and keep WhatsOnChain as the easy REST fallback/onboarding path. ZMQ remains an advanced infrastructure option.
                       </Typography>
                     </Box>
-                    <Chip size="small" label={config.overrideActive ? "Override Active" : "Static Only"} color={config.overrideActive ? "warning" : "default"} variant={config.overrideActive ? "filled" : "outlined"} />
+                    <Chip size="small" label={config.overrideActive ? "Saved Config Active" : "Using Defaults"} color={config.overrideActive ? "warning" : "default"} variant={config.overrideActive ? "filled" : "outlined"} />
                   </Box>
 
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     <Chip label={`Realtime: ${store.snapshot?.recommendations.realtimePrimaryProvider ?? "bitails"}`} color="primary" variant="outlined" />
                     <Chip label={`Raw tx: ${store.snapshot?.recommendations.rawTxFetchProvider ?? "junglebus"}`} color="secondary" variant="outlined" />
-                    <Chip label={`REST: ${store.snapshot?.recommendations.restPrimaryProvider ?? "whatsonchain"}`} color="primary" variant="outlined" />
+                    <Chip label={`REST fallback: ${store.snapshot?.recommendations.restPrimaryProvider ?? "whatsonchain"}`} color="primary" variant="outlined" />
                   </Box>
                 </Stack>
               </CardContent>
@@ -241,23 +245,23 @@ export const ProvidersPage = observer(function ProvidersPage() {
               <CardContent sx={{ p: 3 }}>
                 <Stack spacing={2.5}>
                   <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
-                    <ConfigColumn title="Static" values={config.static} />
-                    <ConfigColumn title="Override" values={config.override} emptyLabel="No override set" />
-                    <ConfigColumn title="Effective" values={config.effective} accent />
+                    <ConfigColumn title="Defaults" values={config.static} />
+                    <ConfigColumn title="Saved" values={config.override} emptyLabel="Saved config matches defaults" />
+                    <ConfigColumn title="Active" values={config.effective} accent />
                   </Box>
 
                   {config.restartRequired && (
                     <Alert severity="warning" icon={<WarningAmberOutlinedIcon />}>
                       <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.25 }}>Service restart required</Typography>
                       <Typography variant="body2">
-                        Provider overrides are persisted, but runtime source selection and client wiring apply fully only after restart.
+                        Saved provider changes are persisted immediately, but runtime source selection and client wiring apply fully only after restart.
                       </Typography>
                     </Alert>
                   )}
 
                   {config.overrideActive && (
                     <Typography variant="caption" sx={{ color: "text.disabled" }}>
-                      Override set by <Box component="span" sx={{ fontFamily: "monospace" }}>{config.updatedBy ?? "unknown"}</Box>
+                      Saved config updated by <Box component="span" sx={{ fontFamily: "monospace" }}>{config.updatedBy ?? "unknown"}</Box>
                       {config.updatedAt != null && ` · ${formatTs(config.updatedAt)}`}
                     </Typography>
                   )}
@@ -314,13 +318,18 @@ export const ProvidersPage = observer(function ProvidersPage() {
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.25 }}>Configure providers</Typography>
                     <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                      Keep this surface narrow: choose the primary realtime provider, Bitails transport, primary REST provider, and only the connection fields needed to get started.
+                      Advanced edits only. First-run setup now lives in the setup wizard; use this screen for post-onboarding provider changes.
                     </Typography>
                   </Box>
 
-                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
                     <TextField select size="small" label="Realtime provider" value={draft.realtimePrimaryProvider} onChange={(e) => store.setRealtimePrimaryProvider(e.target.value)}>
                       {config.allowedRealtimePrimaryProviders.map((option) => (
+                        <MenuItem key={option} value={option}>{option}</MenuItem>
+                      ))}
+                    </TextField>
+                    <TextField select size="small" label="Raw transaction provider" value={draft.rawTxPrimaryProvider} onChange={(e) => store.setRawTxPrimaryProvider(e.target.value)}>
+                      {config.allowedRawTxPrimaryProviders.map((option) => (
                         <MenuItem key={option} value={option}>{option}</MenuItem>
                       ))}
                     </TextField>
@@ -329,7 +338,7 @@ export const ProvidersPage = observer(function ProvidersPage() {
                         <MenuItem key={option} value={option}>{option}</MenuItem>
                       ))}
                     </TextField>
-                    <TextField select size="small" label="REST provider" value={draft.restPrimaryProvider} onChange={(e) => store.setRestPrimaryProvider(e.target.value)}>
+                    <TextField select size="small" label="REST fallback provider" value={draft.restPrimaryProvider} onChange={(e) => store.setRestPrimaryProvider(e.target.value)}>
                       {config.allowedRestPrimaryProviders.map((option) => (
                         <MenuItem key={option} value={option}>{option}</MenuItem>
                       ))}

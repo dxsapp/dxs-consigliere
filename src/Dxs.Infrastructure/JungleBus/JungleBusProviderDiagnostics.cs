@@ -11,6 +11,7 @@ public sealed class JungleBusProviderDiagnostics : IExternalChainProviderDiagnos
     public ExternalChainProviderDescriptor Descriptor { get; } = new(
         ExternalChainProviderName.JungleBus,
         [
+            ExternalChainCapability.RawTxFetch,
             ExternalChainCapability.RealtimeIngest,
             ExternalChainCapability.BlockBackfill
         ]

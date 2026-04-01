@@ -1,6 +1,7 @@
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export interface AuthStatus {
+  setupRequired: boolean;
   enabled: boolean;
   authenticated: boolean;
   mode: "cookie" | "disabled";
@@ -202,6 +203,7 @@ export interface AdminJungleBusProviderConfig {
 
 export interface AdminProviderConfigValues {
   realtimePrimaryProvider: string;
+  rawTxPrimaryProvider: string;
   restPrimaryProvider: string;
   bitailsTransport: string;
   bitails: AdminBitailsProviderConfig;
@@ -235,6 +237,7 @@ export interface AdminProvidersResponse {
     overrideActive: boolean;
     restartRequired: boolean;
     allowedRealtimePrimaryProviders: string[];
+    allowedRawTxPrimaryProviders: string[];
     allowedRestPrimaryProviders: string[];
     allowedBitailsTransports: string[];
     updatedAt: number | null;
@@ -245,11 +248,67 @@ export interface AdminProvidersResponse {
 
 export interface AdminProviderConfigUpdateRequest {
   realtimePrimaryProvider: string;
+  rawTxPrimaryProvider: string;
   restPrimaryProvider: string;
   bitailsTransport: string;
   bitails: AdminBitailsProviderConfig;
   whatsonchain: AdminRestProviderConfig;
   junglebus: AdminJungleBusProviderConfig;
+}
+
+// ─── Setup wizard ────────────────────────────────────────────────────────────
+
+export interface SetupStatus {
+  setupRequired: boolean;
+  setupCompleted: boolean;
+  adminEnabled: boolean;
+  adminUsername?: string;
+}
+
+export interface SetupOptions {
+  status: SetupStatus;
+  defaults: {
+    rawTxPrimaryProvider: string;
+    restFallbackProvider: string;
+    realtimePrimaryProvider: string;
+    bitailsTransport: string;
+  };
+  allowed: {
+    rawTxPrimaryProviders: string[];
+    restFallbackProviders: string[];
+    realtimePrimaryProviders: string[];
+    bitailsTransports: string[];
+  };
+  providerConfig: {
+    bitails: AdminBitailsProviderConfig;
+    whatsonchain: AdminRestProviderConfig;
+    junglebus: AdminJungleBusProviderConfig & { apiKey?: string };
+    node: {
+      zmqTxUrl: string;
+      zmqBlockUrl: string;
+    };
+  };
+}
+
+export interface SetupCompleteRequest {
+  admin: {
+    enabled: boolean;
+    username: string;
+    password: string;
+  };
+  providers: {
+    rawTxPrimaryProvider: string;
+    restFallbackProvider: string;
+    realtimePrimaryProvider: string;
+    bitailsTransport: string;
+    bitails: AdminBitailsProviderConfig;
+    whatsonchain: AdminRestProviderConfig;
+    junglebus: AdminJungleBusProviderConfig;
+    node: {
+      zmqTxUrl: string;
+      zmqBlockUrl: string;
+    };
+  };
 }
 
 // ─── Manage ──────────────────────────────────────────────────────────────────

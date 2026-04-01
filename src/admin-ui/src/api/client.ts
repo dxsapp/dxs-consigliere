@@ -10,6 +10,9 @@ import type {
   DashboardSummary,
   AdminProvidersResponse,
   AdminProviderConfigUpdateRequest,
+  SetupStatus,
+  SetupOptions,
+  SetupCompleteRequest,
   AddressManageRequest,
   TokenManageRequest,
   TokenHistoryUpgradeRequest,
@@ -68,6 +71,12 @@ export const authApi = {
   me: () => get<AuthStatus>("/api/admin/auth/me"),
   login: (body: LoginRequest) => post<AuthStatus>("/api/admin/auth/login", body),
   logout: () => post<AuthStatus>("/api/admin/auth/logout"),
+};
+
+export const setupApi = {
+  status: () => get<SetupStatus>("/api/setup/status"),
+  options: () => get<SetupOptions>("/api/setup/options"),
+  complete: (body: SetupCompleteRequest) => post<SetupStatus>("/api/setup/complete", body),
 };
 
 // ─── Tracked addresses ───────────────────────────────────────────────────────

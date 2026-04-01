@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import {
   Box,
@@ -14,6 +14,14 @@ import {
 import { authStore } from "@/stores/auth.store";
 
 export const LoginPage = observer(function LoginPage() {
+  if (authStore.setupRequired) {
+    return <Navigate to="/setup" replace />;
+  }
+
+  if (authStore.isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: Location })?.from?.pathname ?? "/";

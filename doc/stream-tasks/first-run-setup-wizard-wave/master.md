@@ -49,7 +49,11 @@ Advanced alternatives:
   - `Bitails websocket`
   - `Bitails ZMQ`
   - `JungleBus`
-  - `Node ZMQ`
+
+Advanced-only outside wizard v1:
+- `Node ZMQ`
+  - remains available through advanced provider/runtime surfaces
+  - is not exposed in the first-run wizard
 
 ## Setup Flow
 
@@ -121,14 +125,14 @@ Supporting zone:
 
 | slice | zone | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `FW1` | `repo-governance` | `operator/governance` | `todo` | - | docs review | capability matrix and onboarding contract are frozen |
-| `FW2` | `indexer-state-and-storage` | `operator/state` | `todo` | `FW1` | store tests | DB-backed setup/bootstrap documents exist |
-| `FW3` | `public-api-and-realtime` | `operator/api` | `todo` | `FW2` | controller tests | setup read/write API exists and is correctly gated |
-| `FW4` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `FW2`,`FW3` | runtime tests | bootstrap gating and admin-first-run behavior work |
-| `FW5` | `frontend-admin-shell` | `operator/ui` | `todo` | `FW3`,`FW4` | frontend build + smoke | capability-first setup wizard exists |
-| `FW6` | `frontend-admin-shell` | `operator/ui` | `todo` | `FW5` | page QA | `/providers` is demoted to advanced settings and no longer acts like first-run onboarding |
-| `FW7` | `verification-and-conformance` | `operator/verification` | `todo` | `FW2`,`FW3`,`FW4`,`FW5`,`FW6` | focused proof | first-run, save, restart-required, and post-setup flows are covered |
-| `A1` | `repo-governance` | `operator/governance` | `todo` | `FW7` | audit | old provider-first onboarding is retired cleanly |
+| `FW1` | `repo-governance` | `operator/governance` | `done` | - | docs review | capability matrix and onboarding contract are frozen |
+| `FW2` | `indexer-state-and-storage` | `operator/state` | `done` | `FW1` | store tests | DB-backed setup/bootstrap documents exist |
+| `FW3` | `public-api-and-realtime` | `operator/api` | `done` | `FW2` | controller tests | setup read/write API exists and is correctly gated |
+| `FW4` | `service-bootstrap-and-ops` | `operator/platform` | `done` | `FW2`,`FW3` | runtime tests | bootstrap gating and admin-first-run behavior work |
+| `FW5` | `frontend-admin-shell` | `operator/ui` | `done` | `FW3`,`FW4` | frontend build + smoke | capability-first setup wizard exists |
+| `FW6` | `frontend-admin-shell` | `operator/ui` | `done` | `FW5` | page QA | `/providers` is demoted to advanced settings and no longer acts like first-run onboarding |
+| `FW7` | `verification-and-conformance` | `operator/verification` | `done` | `FW2`,`FW3`,`FW4`,`FW5`,`FW6` | focused proof | first-run, save, restart-required, and post-setup flows are covered |
+| `A1` | `repo-governance` | `operator/governance` | `done` | `FW7` | audit | old provider-first onboarding is retired cleanly |
 
 ## Hard Boundaries
 
@@ -147,3 +151,12 @@ Supporting zone:
 - realtime clearly recommends `Bitails websocket`
 - current `/providers` page is no longer the primary first-run control surface
 - a new operator can configure `Consigliere` without understanding internal provider jargon
+
+## Closeout
+
+Wave closed with:
+- DB-backed setup bootstrap state and admin credential storage
+- anonymous setup API gated by setup-incomplete status only
+- capability-first `/setup` wizard in the admin SPA
+- `/providers` demoted to advanced settings + provider docs
+- focused proof for auth, setup, provider config, and frontend build

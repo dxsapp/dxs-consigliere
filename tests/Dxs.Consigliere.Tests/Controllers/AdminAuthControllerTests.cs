@@ -1,4 +1,5 @@
-using Dxs.Consigliere.Configs;
+using System.Security.Claims;
+
 using Dxs.Consigliere.Controllers;
 using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
@@ -10,41 +11,36 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
+
+using Moq;
 
 namespace Dxs.Consigliere.Tests.Controllers;
 
 public class AdminAuthControllerTests
 {
     [Fact]
-    public void Me_ReturnsDisabledStatus_WhenAdminAuthDisabled()
+    public async Task Me_ReturnsSetupRequiredStatus_WhenBootstrapIncomplete()
     {
         var controller = new AdminAuthController();
-        var authService = CreateAuthService(new ConsigliereAdminAuthConfig { Enabled = false });
+        var authService = CreateAuthService(new ConsigliereAdminAuthState(true, false, false, string.Empty));
 
-        var result = controller.Me(authService);
+        var result = await controller.Me(authService.Object);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         var payload = Assert.IsType<AdminAuthStatusResponse>(ok.Value);
-        Assert.False(payload.Enabled);
-        Assert.True(payload.Authenticated);
-        Assert.Equal("disabled", payload.Mode);
+        Assert.True(payload.SetupRequired);
+        Assert.False(payload.Authenticated);
     }
 
     [Fact]
     public async Task Login_ReturnsUnauthorized_ForInvalidCredentials()
     {
         var controller = new AdminAuthController();
-        var authService = CreateAuthService(new ConsigliereAdminAuthConfig
-        {
-            Enabled = true,
-            Username = "operator",
-            PasswordHash = ConsigliereAdminPasswordHash.Hash("correct-password")
-        });
+        var authService = CreateAuthService(new ConsigliereAdminAuthState(false, true, false, string.Empty), validateCredentials: false);
 
         var result = await controller.Login(
             new AdminLoginRequest { Username = "operator", Password = "wrong-password" },
-            authService);
+            authService.Object);
 
         var unauthorized = Assert.IsType<UnauthorizedObjectResult>(result);
         Assert.Equal(401, unauthorized.StatusCode);
@@ -53,23 +49,26 @@ public class AdminAuthControllerTests
     [Fact]
     public async Task Login_SetsCookieSession_ForValidCredentials()
     {
-        var controller = new AdminAuthController();
-        var authService = CreateAuthService(new ConsigliereAdminAuthConfig
+        var authService = CreateAuthService(new ConsigliereAdminAuthState(false, true, false, string.Empty), validateCredentials: true);
+        authService.Setup(x => x.CreatePrincipal("operator"))
+            .Returns(new ClaimsPrincipal(new ClaimsIdentity([
+                new Claim(ClaimTypes.Name, "operator"),
+                new Claim(AdminAuthDefaults.AdminClaimType, "true")
+            ], AdminAuthDefaults.Scheme)));
+        authService.Setup(x => x.GetStateAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsigliereAdminAuthState(false, true, true, "operator"));
+
+        var controller = new AdminAuthController
         {
-            Enabled = true,
-            Username = "operator",
-            PasswordHash = ConsigliereAdminPasswordHash.Hash("correct-password"),
-            CookieName = "consigliere_admin_test",
-            SessionTtlMinutes = 60
-        });
-        controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = CreateHttpContext()
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = CreateHttpContext()
+            }
         };
 
         var result = await controller.Login(
             new AdminLoginRequest { Username = "operator", Password = "correct-password" },
-            authService);
+            authService.Object);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         var payload = Assert.IsType<AdminAuthStatusResponse>(ok.Value);
@@ -89,8 +88,18 @@ public class AdminAuthControllerTests
         Assert.Equal(AdminAuthDefaults.Policy, ((AuthorizeAttribute)opsAuthorize).Policy);
     }
 
-    private static IConsigliereAdminAuthService CreateAuthService(ConsigliereAdminAuthConfig config)
-        => new ConsigliereAdminAuthService(Options.Create(config));
+    private static Mock<IConsigliereAdminAuthService> CreateAuthService(
+        ConsigliereAdminAuthState state,
+        bool validateCredentials = false)
+    {
+        var auth = new Mock<IConsigliereAdminAuthService>(MockBehavior.Strict);
+        auth.SetupGet(x => x.SessionTtlMinutes).Returns(60);
+        auth.Setup(x => x.GetStateAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(state);
+        auth.Setup(x => x.ValidateCredentialsAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(validateCredentials);
+        return auth;
+    }
 
     private static DefaultHttpContext CreateHttpContext()
     {

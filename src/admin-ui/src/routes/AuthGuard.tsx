@@ -32,6 +32,10 @@ export const AuthGuard = observer(function AuthGuard({
     );
   }
 
+  if (authStore.setupRequired) {
+    return <Navigate to="/setup" replace />;
+  }
+
   if (!authStore.isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

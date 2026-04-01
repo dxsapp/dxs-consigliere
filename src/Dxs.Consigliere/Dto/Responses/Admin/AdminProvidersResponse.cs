@@ -22,6 +22,7 @@ public sealed class AdminProviderConfigResponse
     public bool OverrideActive { get; set; }
     public bool RestartRequired { get; set; }
     public string[] AllowedRealtimePrimaryProviders { get; set; } = [];
+    public string[] AllowedRawTxPrimaryProviders { get; set; } = [];
     public string[] AllowedRestPrimaryProviders { get; set; } = [];
     public string[] AllowedBitailsTransports { get; set; } = [];
     public long? UpdatedAt { get; set; }
@@ -31,6 +32,7 @@ public sealed class AdminProviderConfigResponse
 public sealed class AdminProviderConfigValuesResponse
 {
     public string RealtimePrimaryProvider { get; set; }
+    public string RawTxPrimaryProvider { get; set; }
     public string RestPrimaryProvider { get; set; }
     public string BitailsTransport { get; set; }
     public AdminBitailsProviderConfigResponse Bitails { get; set; } = new();

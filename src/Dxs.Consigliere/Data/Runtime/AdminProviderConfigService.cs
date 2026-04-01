@@ -33,6 +33,13 @@ public sealed class AdminProviderConfigService(
         ExternalChainProviderName.Bitails
     ];
 
+    private static readonly string[] CandidateRawTxPrimaryProviders =
+    [
+        ExternalChainProviderName.JungleBus,
+        ExternalChainProviderName.Bitails,
+        ExternalChainProviderName.WhatsOnChain
+    ];
+
     public async Task<ConsigliereSourcesConfig> GetEffectiveSourcesConfigAsync(CancellationToken cancellationToken = default)
     {
         var effective = CloneConfig(sourcesConfig.Value);
@@ -84,6 +91,7 @@ public sealed class AdminProviderConfigService(
                 OverrideActive = overrideActive,
                 RestartRequired = overrideActive,
                 AllowedRealtimePrimaryProviders = GetAllowedRealtimePrimaryProviders(staticConfig),
+                AllowedRawTxPrimaryProviders = GetAllowedRawTxPrimaryProviders(staticConfig),
                 AllowedRestPrimaryProviders = GetAllowedRestPrimaryProviders(staticConfig),
                 AllowedBitailsTransports = GetAllowedBitailsTransports(staticConfig),
                 UpdatedAt = persistedProviderConfig.UpdatedAt ?? persistedProviderConfig.CreatedAt,
@@ -103,10 +111,12 @@ public sealed class AdminProviderConfigService(
 
         var staticConfig = CloneConfig(sourcesConfig.Value);
         var allowedRealtimePrimaryProviders = GetAllowedRealtimePrimaryProviders(staticConfig);
+        var allowedRawTxPrimaryProviders = GetAllowedRawTxPrimaryProviders(staticConfig);
         var allowedRestPrimaryProviders = GetAllowedRestPrimaryProviders(staticConfig);
         var allowedBitailsTransports = GetAllowedBitailsTransports(staticConfig);
 
         var realtimePrimary = Normalize(request.RealtimePrimaryProvider);
+        var rawTxPrimary = Normalize(request.RawTxPrimaryProvider);
         var restPrimary = Normalize(request.RestPrimaryProvider);
         var bitailsTransport = Normalize(request.BitailsTransport);
         updatedBy = string.IsNullOrWhiteSpace(updatedBy) ? "admin" : updatedBy.Trim();
@@ -121,6 +131,11 @@ public sealed class AdminProviderConfigService(
         if (!allowedRestPrimaryProviders.Contains(restPrimary, StringComparer.OrdinalIgnoreCase))
             return new AdminProviderConfigMutationResult(false, "invalid_rest_primary_provider");
 
+        if (string.IsNullOrWhiteSpace(rawTxPrimary))
+            return new AdminProviderConfigMutationResult(false, "raw_tx_primary_provider_required");
+        if (!allowedRawTxPrimaryProviders.Contains(rawTxPrimary, StringComparer.OrdinalIgnoreCase))
+            return new AdminProviderConfigMutationResult(false, "invalid_raw_tx_primary_provider");
+
         if (string.IsNullOrWhiteSpace(bitailsTransport))
             return new AdminProviderConfigMutationResult(false, "bitails_transport_required");
         if (!allowedBitailsTransports.Contains(bitailsTransport, StringComparer.OrdinalIgnoreCase))
@@ -130,6 +145,7 @@ public sealed class AdminProviderConfigService(
         {
             Id = RealtimeSourcePolicyOverrideDocument.DocumentId,
             PrimaryRealtimeSource = realtimePrimary,
+            RawTxPrimaryProvider = rawTxPrimary,
             RestPrimaryProvider = restPrimary,
             BitailsTransport = bitailsTransport,
             BitailsApiKey = NormalizeOptional(request.Bitails?.ApiKey),
@@ -174,7 +190,16 @@ public sealed class AdminProviderConfigService(
     {
         var existing = await overrideStore.GetAsync(cancellationToken);
         if (existing is not null)
+        {
+            if (string.IsNullOrWhiteSpace(existing.RawTxPrimaryProvider))
+            {
+                existing.RawTxPrimaryProvider = Normalize(sourcesConfig.Value.Capabilities.RawTxFetch.Source) ?? RecommendedRawTxProvider;
+                existing.UpdatedBy ??= "migration-defaults";
+                await overrideStore.SaveAsync(existing, cancellationToken);
+            }
+
             return existing;
+        }
 
         var seeded = BuildDefaultProviderConfigDocument("system-defaults");
         await overrideStore.SaveAsync(seeded, cancellationToken);
@@ -186,6 +211,7 @@ public sealed class AdminProviderConfigService(
         {
             Id = RealtimeSourcePolicyOverrideDocument.DocumentId,
             PrimaryRealtimeSource = Normalize(sourcesConfig.Value.Routing.PrimarySource) ?? RecommendedRealtimeProvider,
+            RawTxPrimaryProvider = Normalize(sourcesConfig.Value.Capabilities.RawTxFetch.Source) ?? RecommendedRawTxProvider,
             RestPrimaryProvider = Normalize(GetDefaultRestPrimaryProvider(sourcesConfig.Value)) ?? RecommendedRestProvider,
             BitailsTransport = Normalize(sourcesConfig.Value.Providers.Bitails.Connection.Transport) ?? BitailsRealtimeTransportMode.Websocket,
             BitailsApiKey = NormalizeOptional(sourcesConfig.Value.Providers.Bitails.Connection.ApiKey),
@@ -203,13 +229,8 @@ public sealed class AdminProviderConfigService(
 
     private static string GetDefaultRestPrimaryProvider(ConsigliereSourcesConfig config)
     {
-        if (string.Equals(config.Capabilities.RawTxFetch.Source, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(config.Capabilities.HistoricalAddressScan.Source, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase))
-        {
-            return ExternalChainProviderName.WhatsOnChain;
-        }
-
-        return RecommendedRestProvider;
+        var fallback = config.Capabilities.RawTxFetch.FallbackSources.FirstOrDefault();
+        return string.IsNullOrWhiteSpace(fallback) ? RecommendedRestProvider : fallback;
     }
 
     private AdminProviderCatalogItemResponse[] BuildCatalog(
@@ -240,14 +261,16 @@ public sealed class AdminProviderConfigService(
         var activeFor = new List<string>();
         if (string.Equals(effectiveValues.RealtimePrimaryProvider, providerId, StringComparison.OrdinalIgnoreCase))
             activeFor.Add("realtime");
+        if (string.Equals(effectiveValues.RawTxPrimaryProvider, providerId, StringComparison.OrdinalIgnoreCase))
+            activeFor.Add("raw_tx_fetch");
         if (string.Equals(effectiveValues.RestPrimaryProvider, providerId, StringComparison.OrdinalIgnoreCase))
-            activeFor.Add("rest");
+            activeFor.Add("rest_fallback");
 
         var missing = providerId switch
         {
             ExternalChainProviderName.Bitails => GetBitailsMissingRequirements(effectiveValues),
             ExternalChainProviderName.WhatsOnChain => GetWhatsonchainMissingRequirements(effectiveValues),
-            ExternalChainProviderName.JungleBus => GetJungleBusMissingRequirements(effectiveJungleBus),
+            ExternalChainProviderName.JungleBus => GetJungleBusMissingRequirements(effectiveValues, effectiveJungleBus),
             _ => []
         };
 
@@ -259,7 +282,7 @@ public sealed class AdminProviderConfigService(
             {
                 ExternalChainProviderName.Bitails => ["realtime", "rest", "history"],
                 ExternalChainProviderName.WhatsOnChain => ["rest"],
-                ExternalChainProviderName.JungleBus => ["realtime", "block_backfill"],
+                ExternalChainProviderName.JungleBus => ["realtime", "raw_tx_fetch", "block_backfill"],
                 _ => []
             },
             SupportedCapabilities = descriptor?.Capabilities?.ToArray() ?? [],
@@ -387,6 +410,12 @@ public sealed class AdminProviderConfigService(
             missing.Add("bitails_rest_base_url_required");
         }
 
+        if (string.Equals(effectiveValues.RawTxPrimaryProvider, ExternalChainProviderName.Bitails, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(effectiveValues.Bitails.BaseUrl))
+        {
+            missing.Add("bitails_rest_base_url_required");
+        }
+
         return missing.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
@@ -399,14 +428,32 @@ public sealed class AdminProviderConfigService(
             missing.Add("whatsonchain_base_url_required");
         }
 
+        if (string.Equals(effectiveValues.RawTxPrimaryProvider, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(effectiveValues.Whatsonchain.BaseUrl))
+        {
+            missing.Add("whatsonchain_base_url_required");
+        }
+
         return missing.ToArray();
     }
 
-    private static string[] GetJungleBusMissingRequirements(JungleBusProviderRuntimeSnapshot effectiveJungleBus)
+    private static string[] GetJungleBusMissingRequirements(
+        AdminProviderConfigValuesResponse effectiveValues,
+        JungleBusProviderRuntimeSnapshot effectiveJungleBus)
     {
         var missing = new List<string>();
-        if (string.IsNullOrWhiteSpace(effectiveJungleBus?.MempoolSubscriptionId))
+
+        if (string.Equals(effectiveValues.RealtimePrimaryProvider, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(effectiveJungleBus?.MempoolSubscriptionId))
             missing.Add("junglebus_mempool_subscription_id_required");
+
+        if ((string.Equals(effectiveValues.RawTxPrimaryProvider, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(effectiveValues.RestPrimaryProvider, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase)) &&
+            string.IsNullOrWhiteSpace(effectiveJungleBus?.BaseUrl))
+        {
+            missing.Add("junglebus_base_url_required");
+        }
+
         return missing.ToArray();
     }
 
@@ -427,6 +474,16 @@ public sealed class AdminProviderConfigService(
 
         return CandidateRestPrimaryProviders
             .Where(provider => CanServeRest(provider, config, descriptors))
+            .ToArray();
+    }
+
+    private string[] GetAllowedRawTxPrimaryProviders(ConsigliereSourcesConfig config)
+    {
+        var descriptors = providerCatalog.GetDescriptors()
+            .ToDictionary(x => x.Provider, StringComparer.OrdinalIgnoreCase);
+
+        return CandidateRawTxPrimaryProviders
+            .Where(provider => CanServeRawTx(provider, config, descriptors))
             .ToArray();
     }
 
@@ -488,6 +545,27 @@ public sealed class AdminProviderConfigService(
             return "junglebus_mempool_subscription_id_required";
         }
 
+        if (string.Equals(requested.RawTxPrimaryProvider, ExternalChainProviderName.JungleBus, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(requested.JungleBusBaseUrl) &&
+            string.IsNullOrWhiteSpace(staticConfig.Providers.JungleBus.Connection.BaseUrl))
+        {
+            return "junglebus_base_url_required";
+        }
+
+        if (string.Equals(requested.RawTxPrimaryProvider, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(requested.WhatsonchainBaseUrl) &&
+            string.IsNullOrWhiteSpace(staticConfig.Providers.Whatsonchain.Connection.BaseUrl))
+        {
+            return "whatsonchain_base_url_required";
+        }
+
+        if (string.Equals(requested.RawTxPrimaryProvider, ExternalChainProviderName.Bitails, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(requested.BitailsBaseUrl) &&
+            string.IsNullOrWhiteSpace(staticConfig.Providers.Bitails.Connection.BaseUrl))
+        {
+            return "bitails_rest_base_url_required";
+        }
+
         if (string.Equals(requested.RestPrimaryProvider, ExternalChainProviderName.WhatsOnChain, StringComparison.OrdinalIgnoreCase) &&
             string.IsNullOrWhiteSpace(requested.WhatsonchainBaseUrl) &&
             string.IsNullOrWhiteSpace(staticConfig.Providers.Whatsonchain.Connection.BaseUrl))
@@ -512,6 +590,7 @@ public sealed class AdminProviderConfigService(
         AdminProviderConfigValuesResponse baseline,
         AdminProviderConfigValuesResponse requested)
         => string.Equals(baseline.RealtimePrimaryProvider, requested.RealtimePrimaryProvider, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(baseline.RawTxPrimaryProvider, requested.RawTxPrimaryProvider, StringComparison.OrdinalIgnoreCase)
            && string.Equals(baseline.RestPrimaryProvider, requested.RestPrimaryProvider, StringComparison.OrdinalIgnoreCase)
            && string.Equals(baseline.BitailsTransport, requested.BitailsTransport, StringComparison.OrdinalIgnoreCase)
            && string.Equals(baseline.Bitails.ApiKey, requested.Bitails.ApiKey, StringComparison.Ordinal)
@@ -531,7 +610,8 @@ public sealed class AdminProviderConfigService(
         => new()
         {
             RealtimePrimaryProvider = Normalize(config.Capabilities.RealtimeIngest.Source),
-            RestPrimaryProvider = Normalize(config.Capabilities.RawTxFetch.Source),
+            RawTxPrimaryProvider = Normalize(config.Capabilities.RawTxFetch.Source),
+            RestPrimaryProvider = Normalize(config.Capabilities.RawTxFetch.FallbackSources.FirstOrDefault()),
             BitailsTransport = Normalize(config.Providers.Bitails.Connection.Transport),
             Bitails = new AdminBitailsProviderConfigResponse
             {
@@ -558,6 +638,7 @@ public sealed class AdminProviderConfigService(
         => new()
         {
             RealtimePrimaryProvider = Normalize(currentOverride.PrimaryRealtimeSource),
+            RawTxPrimaryProvider = Normalize(currentOverride.RawTxPrimaryProvider),
             RestPrimaryProvider = Normalize(currentOverride.RestPrimaryProvider),
             BitailsTransport = Normalize(currentOverride.BitailsTransport),
             Bitails = new AdminBitailsProviderConfigResponse
@@ -588,10 +669,16 @@ public sealed class AdminProviderConfigService(
 
         if (!string.IsNullOrWhiteSpace(currentOverride.PrimaryRealtimeSource))
             config.Capabilities.RealtimeIngest.Source = currentOverride.PrimaryRealtimeSource;
+        if (!string.IsNullOrWhiteSpace(currentOverride.RawTxPrimaryProvider))
+            config.Capabilities.RawTxFetch.Source = currentOverride.RawTxPrimaryProvider;
         if (!string.IsNullOrWhiteSpace(currentOverride.RestPrimaryProvider))
         {
-            config.Capabilities.RawTxFetch.Source = currentOverride.RestPrimaryProvider;
-            config.Capabilities.ValidationFetch.Source = currentOverride.RestPrimaryProvider;
+            config.Capabilities.RawTxFetch.FallbackSources = string.Equals(
+                currentOverride.RestPrimaryProvider,
+                config.Capabilities.RawTxFetch.Source,
+                StringComparison.OrdinalIgnoreCase)
+                ? []
+                : [currentOverride.RestPrimaryProvider];
         }
 
         if (!string.IsNullOrWhiteSpace(currentOverride.BitailsTransport))
@@ -659,6 +746,29 @@ public sealed class AdminProviderConfigService(
         {
             ExternalChainProviderName.Bitails => config.Providers.Bitails,
             ExternalChainProviderName.WhatsOnChain => config.Providers.Whatsonchain,
+            _ => null
+        };
+
+        return providerConfig is { Enabled: true } &&
+               providerConfig.EnabledCapabilities.Contains(ExternalChainCapability.RawTxFetch, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static bool CanServeRawTx(
+        string provider,
+        ConsigliereSourcesConfig config,
+        IReadOnlyDictionary<string, ExternalChainProviderDescriptor> descriptors)
+    {
+        if (!descriptors.TryGetValue(provider, out var descriptor))
+            return false;
+
+        if (!descriptor.Capabilities.Contains(ExternalChainCapability.RawTxFetch, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        SourceProviderConfig providerConfig = provider.ToLowerInvariant() switch
+        {
+            ExternalChainProviderName.Bitails => config.Providers.Bitails,
+            ExternalChainProviderName.WhatsOnChain => config.Providers.Whatsonchain,
+            ExternalChainProviderName.JungleBus => config.Providers.JungleBus,
             _ => null
         };
 

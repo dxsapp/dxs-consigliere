@@ -44,7 +44,8 @@ public class AdminRuntimeControllerTests
         service.Setup(x => x.ApplyRealtimePolicyAsync("whatsonchain", "pipes", "admin", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AdminRealtimeSourcePolicyMutationResult(false, "invalid_primary_realtime_source"));
         var auth = new Mock<IConsigliereAdminAuthService>(MockBehavior.Strict);
-        auth.SetupGet(x => x.Username).Returns("admin");
+        auth.Setup(x => x.GetStateAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsigliereAdminAuthState(false, true, true, "admin"));
 
         var controller = new AdminRuntimeController
         {
@@ -84,7 +85,8 @@ public class AdminRuntimeControllerTests
                 }
             });
         var auth = new Mock<IConsigliereAdminAuthService>(MockBehavior.Strict);
-        auth.SetupGet(x => x.Username).Returns("admin");
+        auth.Setup(x => x.GetStateAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsigliereAdminAuthState(false, true, true, "admin"));
 
         var controller = new AdminRuntimeController
         {

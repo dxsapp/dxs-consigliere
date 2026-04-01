@@ -54,10 +54,11 @@ If they are not available, this file remains authoritative for the admin shell.
 - partial history, degraded state, and unknown-root findings must remain explicit in UI text
 - if an endpoint is missing, scaffold the route cleanly and leave a typed TODO seam instead of inventing fake API behavior
 - treat `/api/admin/*` as summary/shell endpoints and `/api/ops/*` as detailed runtime endpoints
+- treat `/api/setup/*` as the only first-run bootstrap surface
 - do not expose bulk history-upgrade endpoints in v1 UI
-- keep `/providers` as the provider onboarding/configuration surface and `/runtime` as diagnostics
+- keep `/setup` as first-run onboarding, `/providers` as advanced provider settings, and `/runtime` as diagnostics
 - do not turn Providers into a generic provider-config editor
-- treat backend `allowedRealtimePrimaryProviders`, `allowedRestPrimaryProviders`, and `allowedBitailsTransports` as authoritative option lists
+- treat backend `allowedRealtimePrimaryProviders`, `allowedRawTxPrimaryProviders`, `allowedRestPrimaryProviders`, and `allowedBitailsTransports` as authoritative option lists
 - when provider config payload says `restartRequired=true`, show that warning explicitly instead of implying hot-reload happened
 - provider help links are product content, not decorative links; render them clearly
 

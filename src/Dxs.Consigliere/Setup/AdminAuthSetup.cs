@@ -74,13 +74,13 @@ public sealed class ConsigliereAdminAccessRequirement : IAuthorizationRequiremen
 public sealed class ConsigliereAdminAccessHandler(IConsigliereAdminAuthService authService)
     : AuthorizationHandler<ConsigliereAdminAccessRequirement>
 {
-    protected override Task HandleRequirementAsync(
+    protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         ConsigliereAdminAccessRequirement requirement)
     {
-        if (!authService.Enabled || authService.IsAuthenticated(context.User))
+        var state = await authService.GetStateAsync(context.User);
+        if (!state.SetupRequired && (!state.Enabled || state.Authenticated))
             context.Succeed(requirement);
 
-        return Task.CompletedTask;
     }
 }

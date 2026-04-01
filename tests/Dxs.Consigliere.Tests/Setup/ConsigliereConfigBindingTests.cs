@@ -30,9 +30,6 @@ public class ConsigliereConfigBindingTests
             ["Consigliere:Cache:Backend"] = "memory",
             ["Consigliere:Cache:MaxEntries"] = "2048",
             ["Consigliere:Cache:SafetyTtlSeconds"] = "45",
-            ["Consigliere:AdminAuth:Enabled"] = "true",
-            ["Consigliere:AdminAuth:Username"] = "operator",
-            ["Consigliere:AdminAuth:PasswordHash"] = "pbkdf2-sha256$100000$MTIzNDU2Nzg5MGFiY2RlZg==$YnJmW6O0dN0Y6iT7d2hM4GgK4D6s6H6fN0j8gP3hNlg=",
             ["Consigliere:AdminAuth:SessionTtlMinutes"] = "90",
             ["Consigliere:AdminAuth:CookieName"] = "consigliere_admin",
             ["VNextRuntime:CutoverMode"] = "shadow_read"
@@ -80,22 +77,19 @@ public class ConsigliereConfigBindingTests
         Assert.Equal("memory", cache.Backend);
         Assert.Equal(2048, cache.MaxEntries);
         Assert.Equal(45, cache.SafetyTtlSeconds);
-        Assert.True(adminAuth.Enabled);
-        Assert.Equal("operator", adminAuth.Username);
         Assert.Equal(90, adminAuth.SessionTtlMinutes);
         Assert.Equal("consigliere_admin", adminAuth.CookieName);
         Assert.Equal("shadow_read", appConfig.VNextRuntime.CutoverMode);
     }
 
     [Fact]
-    public void AddCorePlatformZoneServices_RejectsEnabledAdminAuthWithoutCredentials()
+    public void AddCorePlatformZoneServices_RejectsInvalidAdminCookieSettings()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Network"] = "Mainnet",
-                ["Consigliere:AdminAuth:Enabled"] = "true",
-                ["Consigliere:AdminAuth:Username"] = "operator"
+                ["Consigliere:AdminAuth:SessionTtlMinutes"] = "0"
             })
             .Build();
 
@@ -108,7 +102,7 @@ public class ConsigliereConfigBindingTests
         var exception = Assert.Throws<OptionsValidationException>(() =>
             provider.GetRequiredService<IOptions<ConsigliereAdminAuthConfig>>().Value);
 
-        Assert.Contains("PasswordHash", exception.Failures.Single());
+        Assert.Contains("SessionTtlMinutes", exception.Failures.Single());
     }
 
     [Fact]

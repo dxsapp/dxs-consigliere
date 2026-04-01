@@ -19,6 +19,7 @@ public class AdminRuntimeSourcePolicyServiceTests
             new RealtimeSourcePolicyOverrideDocument
             {
                 PrimaryRealtimeSource = ExternalChainProviderName.Bitails,
+                RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
                 RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
                 BitailsTransport = BitailsRealtimeTransportMode.Zmq,
                 WhatsonchainBaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
@@ -39,7 +40,8 @@ public class AdminRuntimeSourcePolicyServiceTests
 
         Assert.Equal(ExternalChainProviderName.Bitails, realtime.PrimarySource);
         Assert.Equal(BitailsRealtimeTransportMode.Zmq, effective.Providers.Bitails.Connection.Transport);
-        Assert.Equal(ExternalChainProviderName.WhatsOnChain, rawTx.PrimarySource);
+        Assert.Equal(ExternalChainProviderName.JungleBus, rawTx.PrimarySource);
+        Assert.Equal([ExternalChainProviderName.WhatsOnChain], rawTx.FallbackSources);
     }
 
     [Fact]
@@ -54,6 +56,7 @@ public class AdminRuntimeSourcePolicyServiceTests
             new AdminProviderConfigUpdateRequest
             {
                 RealtimePrimaryProvider = ExternalChainProviderName.WhatsOnChain,
+                RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
                 RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
                 BitailsTransport = BitailsRealtimeTransportMode.Websocket,
                 Whatsonchain = new AdminRestProviderConfigUpdateRequest
@@ -67,6 +70,7 @@ public class AdminRuntimeSourcePolicyServiceTests
             new AdminProviderConfigUpdateRequest
             {
                 RealtimePrimaryProvider = ExternalChainProviderName.Bitails,
+                RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
                 RestPrimaryProvider = ExternalChainProviderName.WhatsOnChain,
                 BitailsTransport = BitailsRealtimeTransportMode.Websocket,
                 Whatsonchain = new AdminRestProviderConfigUpdateRequest()
@@ -89,6 +93,7 @@ public class AdminRuntimeSourcePolicyServiceTests
             new AdminProviderConfigUpdateRequest
             {
                 RealtimePrimaryProvider = ExternalChainProviderName.JungleBus,
+                RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
                 RestPrimaryProvider = ExternalChainProviderName.Bitails,
                 BitailsTransport = BitailsRealtimeTransportMode.Websocket,
                 Bitails = new AdminBitailsProviderConfigUpdateRequest
@@ -182,7 +187,7 @@ public class AdminRuntimeSourcePolicyServiceTests
                 JungleBus =
                 {
                     Enabled = true,
-                    EnabledCapabilities = [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill],
+                    EnabledCapabilities = [ExternalChainCapability.RawTxFetch, ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill],
                     Connection =
                     {
                         BaseUrl = "https://junglebus.gorillapool.io"
@@ -259,7 +264,7 @@ public class AdminRuntimeSourcePolicyServiceTests
             [
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.JungleBus,
-                    [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill]),
+                    [ExternalChainCapability.RawTxFetch, ExternalChainCapability.RealtimeIngest, ExternalChainCapability.BlockBackfill]),
                 new ExternalChainProviderDescriptor(
                     ExternalChainProviderName.Bitails,
                     [

@@ -31,7 +31,8 @@ public class AdminProvidersController : BaseController
         if (request is null)
             return BadRequest(new { code = "request_required" });
 
-        var updatedBy = User?.Identity?.Name ?? authService.Username ?? "admin";
+        var authState = await authService.GetStateAsync(User, cancellationToken);
+        var updatedBy = User?.Identity?.Name ?? authState.Username ?? "admin";
         var result = await providerConfigService.ApplyProviderConfigAsync(request, updatedBy, cancellationToken);
 
         if (!result.Success)

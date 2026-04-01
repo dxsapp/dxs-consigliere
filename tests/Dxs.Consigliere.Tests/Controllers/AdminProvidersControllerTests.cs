@@ -47,7 +47,8 @@ public class AdminProvidersControllerTests
             .ReturnsAsync(new AdminProviderConfigMutationResult(false, "invalid_realtime_primary_provider"));
 
         var auth = new Mock<IConsigliereAdminAuthService>(MockBehavior.Strict);
-        auth.SetupGet(x => x.Username).Returns("admin");
+        auth.Setup(x => x.GetStateAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsigliereAdminAuthState(false, true, true, "admin"));
 
         var controller = new AdminProvidersController
         {
@@ -87,7 +88,8 @@ public class AdminProvidersControllerTests
             });
 
         var auth = new Mock<IConsigliereAdminAuthService>(MockBehavior.Strict);
-        auth.SetupGet(x => x.Username).Returns("admin");
+        auth.Setup(x => x.GetStateAsync(It.IsAny<ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConsigliereAdminAuthState(false, true, true, "admin"));
 
         var controller = new AdminProvidersController
         {

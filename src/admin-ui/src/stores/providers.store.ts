@@ -109,6 +109,11 @@ export class ProvidersStore {
     this.draft.restPrimaryProvider = value;
   }
 
+  setRawTxPrimaryProvider(value: string) {
+    if (!this.draft) return;
+    this.draft.rawTxPrimaryProvider = value;
+  }
+
   setBitailsTransport(value: string) {
     if (!this.draft) return;
     this.draft.bitailsTransport = value;
@@ -165,10 +170,11 @@ export class ProvidersStore {
     const e = this.snapshot.config.effective;
     // Use explicit field mapping instead of structuredClone to guard against
     // backend returning null for nested provider objects.
-    this.draft = {
-      realtimePrimaryProvider: e.realtimePrimaryProvider ?? "",
-      restPrimaryProvider: e.restPrimaryProvider ?? "",
-      bitailsTransport: e.bitailsTransport ?? "",
+      this.draft = {
+        realtimePrimaryProvider: e.realtimePrimaryProvider ?? "",
+        rawTxPrimaryProvider: e.rawTxPrimaryProvider ?? "",
+        restPrimaryProvider: e.restPrimaryProvider ?? "",
+        bitailsTransport: e.bitailsTransport ?? "",
       bitails: {
         apiKey: e.bitails?.apiKey ?? "",
         baseUrl: e.bitails?.baseUrl ?? "",

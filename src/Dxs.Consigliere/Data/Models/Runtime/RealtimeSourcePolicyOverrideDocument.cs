@@ -7,6 +7,7 @@ public sealed class RealtimeSourcePolicyOverrideDocument : AuditableEntity
     public const string DocumentId = "operator/runtime/realtime-source-policy";
 
     public string PrimaryRealtimeSource { get; set; }
+    public string RawTxPrimaryProvider { get; set; }
     public string RestPrimaryProvider { get; set; }
     public string BitailsTransport { get; set; }
     public string BitailsApiKey { get; set; }
@@ -29,6 +30,7 @@ public sealed class RealtimeSourcePolicyOverrideDocument : AuditableEntity
             yield return key;
 
         yield return nameof(PrimaryRealtimeSource);
+        yield return nameof(RawTxPrimaryProvider);
         yield return nameof(RestPrimaryProvider);
         yield return nameof(BitailsTransport);
         yield return nameof(BitailsApiKey);
@@ -50,6 +52,7 @@ public sealed class RealtimeSourcePolicyOverrideDocument : AuditableEntity
             yield return key;
 
         yield return nameof(PrimaryRealtimeSource);
+        yield return nameof(RawTxPrimaryProvider);
         yield return nameof(RestPrimaryProvider);
         yield return nameof(BitailsTransport);
         yield return nameof(BitailsApiKey);
@@ -71,6 +74,7 @@ public sealed class RealtimeSourcePolicyOverrideDocument : AuditableEntity
             yield return entry;
 
         yield return new KeyValuePair<string, object>(nameof(PrimaryRealtimeSource), PrimaryRealtimeSource);
+        yield return new KeyValuePair<string, object>(nameof(RawTxPrimaryProvider), RawTxPrimaryProvider);
         yield return new KeyValuePair<string, object>(nameof(RestPrimaryProvider), RestPrimaryProvider);
         yield return new KeyValuePair<string, object>(nameof(BitailsTransport), BitailsTransport);
         yield return new KeyValuePair<string, object>(nameof(BitailsApiKey), BitailsApiKey);

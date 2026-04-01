@@ -14,10 +14,12 @@ It is not a consumer product, wallet UI, or universal explorer.
 
 ## Auth Model v1
 
-- single configurable admin account
+- first-run bootstrap decides whether admin protection exists at all
+- single configurable admin account when admin protection is enabled
+- admin credentials are persisted in DB-backed setup state
 - built-in login/password only
 - cookie session auth
-- auth can be disabled for trusted local deployments
+- admin auth can be disabled for trusted local deployments
 - no registration
 - no RBAC
 - no multi-user management
@@ -25,29 +27,31 @@ It is not a consumer product, wallet UI, or universal explorer.
 ## Must-Have Screens
 
 1. Login
-2. Dashboard
-3. Tracked Addresses
-4. Tracked Tokens
-5. Address Details
-6. Token Details
-7. Providers
-8. Runtime / Ops
-9. Storage / Sources
-10. Findings / Recent Failures
+2. Setup
+3. Dashboard
+4. Tracked Addresses
+5. Tracked Tokens
+6. Address Details
+7. Token Details
+8. Providers
+9. Runtime / Ops
+10. Storage / Sources
+11. Findings / Recent Failures
 
 ## Must-Have Actions
 
 1. login/logout
-2. add watched address
-3. add watched token
-4. upgrade address to full history
-5. upgrade token to full history with trusted roots
-6. inspect readiness and history status
-7. inspect rooted token security state
-8. inspect provider catalog and recommended defaults
-9. inspect effective provider setup
-10. apply/reset bounded provider overrides
-11. inspect provider/cache/storage runtime status
+2. complete first-run setup wizard
+3. add watched address
+4. add watched token
+5. upgrade address to full history
+6. upgrade token to full history with trusted roots
+7. inspect readiness and history status
+8. inspect rooted token security state
+9. inspect provider catalog and recommended defaults
+10. inspect effective provider setup
+11. apply/reset bounded provider overrides
+12. inspect provider/cache/storage runtime status
 
 ## Explicit Non-Goals For v1
 
@@ -75,9 +79,29 @@ It is not a consumer product, wallet UI, or universal explorer.
 - config-managed tracked entities cannot be deleted from the shell and should surface `managed_by_config`
 - frontend should treat readiness/history/rooted status strings as authoritative and not collapse them into custom state machines
 - runtime screens should use `admin` endpoints for summary and `ops` endpoints for detail
-- Providers page is the onboarding and provider-configuration surface
+- `/setup` is the first-run onboarding and provider-configuration surface
+- `/providers` is advanced provider settings + provider docs after setup
 - Runtime page remains diagnostics-first
 - provider configuration is a bounded operator override layer, not static config editing
+
+## Setup Wizard
+
+- setup is capability-first, not provider-first
+- first-run questions are:
+  - admin access
+  - raw transaction source
+  - REST fallback
+  - realtime source
+  - review
+- recommended defaults:
+  - raw tx = `JungleBus / GorillaPool`
+  - REST fallback = `WhatsOnChain`
+  - realtime = `Bitails websocket`
+- wizard v1 does not expose `Node ZMQ`; keep that as an advanced provider/runtime path after setup
+- `/setup` is accessible without auth only while setup is incomplete
+- once setup is completed:
+  - wizard stops being the normal entry path
+  - login is required only if admin protection was enabled
 
 ## Critical UX Decisions
 
@@ -97,13 +121,16 @@ It is not a consumer product, wallet UI, or universal explorer.
 
 ### Providers Page
 
-- show recommended defaults explicitly:
+- present `/providers` as advanced settings and provider docs, not first-run onboarding
+- show current advanced configuration clearly:
+  - defaults
+  - saved config
+  - active runtime config
+- show recommended capability defaults explicitly:
   - realtime = `Bitails websocket`
-  - REST = `WhatsOnChain`
-- show recommended practical raw transaction source explicitly:
+  - REST fallback = `WhatsOnChain`
   - raw tx = `JungleBus / GorillaPool`
 - make it obvious that `Bitails` API key is optional for first-run websocket onboarding and becomes an upgrade field for paid or higher-limit usage
-- show static vs override vs effective provider setup side by side
 - show provider catalog cards for:
   - `Bitails`
   - `WhatsOnChain`
@@ -111,6 +138,7 @@ It is not a consumer product, wallet UI, or universal explorer.
   - `ZMQ / Node`
 - allow bounded override only for:
   - `realtimePrimaryProvider`
+  - `rawTxPrimaryProvider`
   - `restPrimaryProvider`
   - `bitailsTransport`
   - provider-specific connection fields exposed by backend

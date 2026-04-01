@@ -18,11 +18,13 @@ Returns current auth status for the admin shell.
 Response shape:
 - `enabled: boolean`
 - `authenticated: boolean`
+- `setupRequired: boolean`
 - `mode: "cookie" | "disabled"`
 - `username?: string`
 - `sessionTtlMinutes?: number`
 
 Semantics:
+- when setup is incomplete: returns `setupRequired=true`; the shell should route to `/setup`
 - when auth is disabled: returns `enabled=false`, `authenticated=true`, `mode="disabled"`
 - when auth is enabled and user is not logged in: returns `enabled=true`, `authenticated=false`, `mode="cookie"`
 
@@ -34,11 +36,84 @@ Request:
 Responses:
 - `200` with auth status payload on success
 - `400` with `{ code: "credentials_required" }` when request is incomplete
+- `409` with `{ code: "setup_required" }` when bootstrap is not completed yet
 - `401` with `{ code: "invalid_credentials" }` when credentials are wrong
 
 ### `POST /api/admin/auth/logout`
 Clears cookie session when auth is enabled.
 Returns auth status payload.
+
+## Setup Endpoints
+
+### `GET /api/setup/status`
+Returns current bootstrap state.
+
+Response shape:
+- `setupRequired: boolean`
+- `setupCompleted: boolean`
+- `adminEnabled: boolean`
+- `adminUsername: string`
+
+Semantics:
+- this endpoint is intentionally anonymous
+- it is the source of truth for routing first-run users into `/setup`
+
+### `GET /api/setup/options`
+Returns capability-first setup options and form defaults.
+
+Response shape:
+- `status`
+- `defaults`
+  - `rawTxPrimaryProvider`
+  - `restFallbackProvider`
+  - `realtimePrimaryProvider`
+  - `bitailsTransport`
+- `allowed`
+  - `rawTxPrimaryProviders[]`
+  - `restFallbackProviders[]`
+  - `realtimePrimaryProviders[]`
+  - `bitailsTransports[]`
+- `providerConfig`
+  - `bitails`
+  - `whatsonchain`
+  - `junglebus`
+  - `node`
+
+Semantics:
+- setup is capability-first:
+  - admin access
+  - raw transaction source
+  - REST fallback
+  - realtime source
+- default recommendations are:
+  - raw tx = `junglebus`
+  - REST fallback = `whatsonchain`
+  - realtime = `bitails`
+- realtime setup options intentionally exclude `node`; `Node ZMQ` remains an advanced post-setup path
+
+### `POST /api/setup/complete`
+Completes first-run setup and persists:
+- admin bootstrap state
+- provider capability choices
+
+Request shape:
+- `admin`
+  - `enabled`
+  - `username`
+  - `password`
+- `providers`
+  - `rawTxPrimaryProvider`
+  - `restFallbackProvider`
+  - `realtimePrimaryProvider`
+  - `bitailsTransport`
+  - `bitails`
+  - `whatsonchain`
+  - `junglebus`
+
+Responses:
+- `200` with setup status on success
+- `400` with `{ code }` for validation failures
+- `409` with `{ code: "setup_already_completed" }` when bootstrap has already been finalized
 
 ## Existing Operator Endpoints
 
@@ -183,7 +258,7 @@ Use for dashboard sync card.
 ## Providers Page Endpoints
 
 ### `GET /api/admin/providers`
-Returns the operator-facing provider catalog and bounded provider configuration snapshot.
+Returns the advanced provider catalog and bounded provider configuration snapshot.
 
 Response shape:
 - `recommendations`
@@ -197,6 +272,7 @@ Response shape:
   - `overrideActive`
   - `restartRequired`
   - `allowedRealtimePrimaryProviders[]`
+  - `allowedRawTxPrimaryProviders[]`
   - `allowedRestPrimaryProviders[]`
   - `allowedBitailsTransports[]`
   - `updatedAt`
@@ -205,6 +281,7 @@ Response shape:
 
 Provider-config value shape:
 - `realtimePrimaryProvider`
+- `rawTxPrimaryProvider`
 - `restPrimaryProvider`
 - `bitailsTransport`
 - `bitails`
@@ -239,17 +316,19 @@ Semantics:
   - REST = `whatsonchain`
   - raw tx = `junglebus`
 - for the default Bitails websocket onboarding path, `bitails.apiKey` is optional and should not be treated as a required field by the UI
-- `static` = values from static config only
-- `override` = persisted operator override only, or `null` when none exists
-- `effective` = static config plus operator override
+- `/providers` is the advanced settings surface after setup, not the first-run entry point
+- `static` = baseline capability values from source defaults
+- `override` = persisted provider config stored in DB, or `null` when it matches baseline
+- `effective` = runtime-applied values after overlay
 - `restartRequired=true` means override persistence succeeded, but service restart is still required before runtime source/client wiring is guaranteed to switch fully
-- this is the shell-facing source of truth for the dedicated `/providers` page
+- this is the shell-facing source of truth for the advanced `/providers` page
 
 ### `PUT /api/admin/providers/config`
 Persists the bounded provider override.
 
 Request:
 - `realtimePrimaryProvider`
+- `rawTxPrimaryProvider`
 - `restPrimaryProvider`
 - `bitailsTransport`
 - `bitails`

@@ -3,6 +3,7 @@ namespace Dxs.Consigliere.Dto.Requests;
 public sealed class AdminProviderConfigUpdateRequest
 {
     public string RealtimePrimaryProvider { get; set; }
+    public string RawTxPrimaryProvider { get; set; }
     public string RestPrimaryProvider { get; set; }
     public string BitailsTransport { get; set; }
     public AdminBitailsProviderConfigUpdateRequest Bitails { get; set; } = new();

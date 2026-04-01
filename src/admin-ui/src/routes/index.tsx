@@ -3,6 +3,7 @@ import { createBrowserRouter, useParams } from "react-router-dom";
 import { AuthGuard } from "./AuthGuard";
 import { AppShell } from "./AppShell";
 import { LoginPage } from "@/pages/LoginPage";
+import { SetupPage } from "@/pages/SetupPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { AddressesPage } from "@/pages/AddressesPage";
 import { AddressDetailPage } from "@/pages/AddressDetailPage";
@@ -20,6 +21,8 @@ import { dashboardStore } from "@/stores/dashboard.store";
 import { findingsStore } from "@/stores/findings.store";
 import { opsStore } from "@/stores/ops.store";
 import { providersStore } from "@/stores/providers.store";
+import { setupStore } from "@/stores/setup.store";
+import { authStore } from "@/stores/auth.store";
 
 // ─── Route hydration wrappers ─────────────────────────────────────────────────
 // Shell-level orchestration only. Pages read store state, they do not call APIs.
@@ -29,6 +32,21 @@ function DashboardRoute() {
     void dashboardStore.ensureLoaded();
   }, []);
   return <DashboardPage />;
+}
+
+function LoginRoute() {
+  useEffect(() => {
+    void authStore.initialize();
+  }, []);
+  return <LoginPage />;
+}
+
+function SetupRoute() {
+  useEffect(() => {
+    void setupStore.ensureLoaded();
+    void authStore.refresh();
+  }, []);
+  return <SetupPage />;
 }
 
 function AddressesRoute() {
@@ -93,8 +111,12 @@ function StorageRoute() {
 
 export const router = createBrowserRouter([
   {
+    path: "/setup",
+    element: <SetupRoute />,
+  },
+  {
     path: "/login",
-    element: <LoginPage />,
+    element: <LoginRoute />,
   },
   {
     path: "/",

@@ -16,11 +16,16 @@ export class AuthStore {
   // ─── Derived ──────────────────────────────────────────────────────────────
 
   get isAuthenticated(): boolean {
+    if (this._status?.setupRequired) return false;
     return this._status?.authenticated ?? false;
   }
 
   get isAuthEnabled(): boolean {
     return this._status?.enabled ?? true;
+  }
+
+  get setupRequired(): boolean {
+    return this._status?.setupRequired ?? false;
   }
 
   get username(): string | undefined {
@@ -53,6 +58,25 @@ export class AuthStore {
       runInAction(() => {
         this._status = status;
         this._initState = "ready";
+      });
+    } catch {
+      runInAction(() => {
+        this._initState = "error";
+      });
+    }
+  }
+
+  async refresh(): Promise<void> {
+    runInAction(() => {
+      this._initState = "loading";
+    });
+
+    try {
+      const status = await authApi.me();
+      runInAction(() => {
+        this._status = status;
+        this._initState = "ready";
+        this._loginError = null;
       });
     } catch {
       runInAction(() => {
