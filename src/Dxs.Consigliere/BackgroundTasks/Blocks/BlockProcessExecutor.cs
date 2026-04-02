@@ -37,6 +37,7 @@ public class BlockProcessExecutor(
 {
     public static readonly TimeSpan BlockProcessDelayStep = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan MaxBlockProcessDelay = TimeSpan.FromMinutes(5);
+    private const string LegacyNodeSkipMessagePrefix = "Skipped legacy node-sourced block context";
 
     public async Task ExecuteAsync(string blockHash, CancellationToken cancellationToken)
     {
@@ -93,6 +94,8 @@ public class BlockProcessExecutor(
         CancellationToken cancellationToken
     )
     {
+        context.Messages.RemoveAll(x => x.StartsWith(LegacyNodeSkipMessagePrefix, StringComparison.Ordinal));
+
         var effectiveSources = await providerConfigService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var route = SourceCapabilityRouting.Resolve(
             ExternalChainCapability.BlockBackfill,
@@ -112,7 +115,6 @@ public class BlockProcessExecutor(
                     selectedSource
                 );
                 context.NextProcessAt = null;
-                context.Messages.Add($"Skipped legacy node-sourced block context after block-backfill switched to `{selectedSource}`");
                 return;
             }
 

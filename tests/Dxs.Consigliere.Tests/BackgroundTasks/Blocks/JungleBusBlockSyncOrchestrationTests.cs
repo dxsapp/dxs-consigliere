@@ -75,7 +75,7 @@ public class JungleBusBlockSyncOrchestrationTests : RavenTestDriver
         using var verify = store.OpenAsyncSession();
         var context = await verify.LoadAsync<BlockProcessContext>(blockHash);
         Assert.NotNull(context);
-        Assert.Contains(context.Messages, x => x.Contains("Skipped legacy node-sourced block context", StringComparison.Ordinal));
+        Assert.DoesNotContain(context.Messages, x => x.Contains("Skipped legacy node-sourced block context", StringComparison.Ordinal));
         Assert.Equal(0, context.ErrorsCount);
         Assert.Null(context.NextProcessAt);
         Assert.False(context.Scheduled);
