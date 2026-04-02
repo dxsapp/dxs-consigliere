@@ -12,17 +12,14 @@ import {
   Alert,
   Skeleton,
   Tooltip,
-  Collapse,
-  IconButton,
 } from "@mui/material";
 import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
-import ExpandMoreOutlinedIcon from "@mui/icons-material/ExpandMoreOutlined";
-import ExpandLessOutlinedIcon from "@mui/icons-material/ExpandLessOutlined";
 import { addressDetailStore } from "@/stores/address-detail.store";
 import { addressListStore } from "@/stores/address-list.store";
 import { notifyStore } from "@/stores/notify.store";
 import { ReadinessChip } from "@/components/ReadinessChip";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { JsonPanel } from "@/components/JsonPanel";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -78,8 +75,6 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
   const [untrackOpen, setUntrackOpen] = useState(false);
   const [untracking, setUntracking] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
-  const [rawExpanded, setRawExpanded] = useState(false);
-
   const address = addressParam ? decodeURIComponent(addressParam) : null;
   const store = addressDetailStore;
 
@@ -392,51 +387,9 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
         </Card>
       )}
 
-      {/* Raw payload */}
+      {/* Additional fields */}
       {hasExtra && (
-        <Card variant="outlined">
-          <CardContent sx={{ py: 2 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                cursor: "pointer",
-              }}
-              onClick={() => setRawExpanded((v) => !v)}
-            >
-              <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
-                Raw Payload
-              </Typography>
-              <IconButton size="small" sx={{ color: "text.disabled" }}>
-                {rawExpanded ? (
-                  <ExpandLessOutlinedIcon fontSize="small" />
-                ) : (
-                  <ExpandMoreOutlinedIcon fontSize="small" />
-                )}
-              </IconButton>
-            </Box>
-            <Collapse in={rawExpanded}>
-              <Divider sx={{ my: 1 }} />
-              <Box
-                component="pre"
-                sx={{
-                  fontSize: "0.75rem",
-                  fontFamily: "monospace",
-                  color: "text.secondary",
-                  bgcolor: "background.default",
-                  borderRadius: 1,
-                  p: 1.5,
-                  overflow: "auto",
-                  maxHeight: 400,
-                  m: 0,
-                }}
-              >
-                {JSON.stringify(extraFields, null, 2)}
-              </Box>
-            </Collapse>
-          </CardContent>
-        </Card>
+        <JsonPanel title="Additional fields" data={extraFields} />
       )}
 
       <ConfirmDialog

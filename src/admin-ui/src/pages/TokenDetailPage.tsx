@@ -12,22 +12,19 @@ import {
   Alert,
   Skeleton,
   Tooltip,
-  Collapse,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
 } from "@mui/material";
 import ArrowBackOutlinedIcon from "@mui/icons-material/ArrowBackOutlined";
-import ExpandMoreOutlinedIcon from "@mui/icons-material/ExpandMoreOutlined";
-import ExpandLessOutlinedIcon from "@mui/icons-material/ExpandLessOutlined";
 import { tokenDetailStore } from "@/stores/token-detail.store";
 import { tokenListStore } from "@/stores/token-list.store";
 import { notifyStore } from "@/stores/notify.store";
 import { ReadinessChip } from "@/components/ReadinessChip";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { TrustedRootsInput, parseTrustedRoots } from "@/components/TrustedRootsInput";
+import { JsonPanel } from "@/components/JsonPanel";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -144,8 +141,6 @@ export const TokenDetailPage = observer(function TokenDetailPage() {
   const [untrackOpen, setUntrackOpen] = useState(false);
   const [untracking, setUntracking] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
-  const [rawExpanded, setRawExpanded] = useState(false);
-
   const tokenId = tokenIdParam ? decodeURIComponent(tokenIdParam) : null;
   const store = tokenDetailStore;
 
@@ -511,51 +506,9 @@ export const TokenDetailPage = observer(function TokenDetailPage() {
         </Card>
       )}
 
-      {/* Raw payload */}
+      {/* Additional fields */}
       {hasExtra && (
-        <Card variant="outlined">
-          <CardContent sx={{ py: 2 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                cursor: "pointer",
-              }}
-              onClick={() => setRawExpanded((v) => !v)}
-            >
-              <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
-                Raw Payload
-              </Typography>
-              <IconButton size="small" sx={{ color: "text.disabled" }}>
-                {rawExpanded ? (
-                  <ExpandLessOutlinedIcon fontSize="small" />
-                ) : (
-                  <ExpandMoreOutlinedIcon fontSize="small" />
-                )}
-              </IconButton>
-            </Box>
-            <Collapse in={rawExpanded}>
-              <Divider sx={{ my: 1 }} />
-              <Box
-                component="pre"
-                sx={{
-                  fontSize: "0.75rem",
-                  fontFamily: "monospace",
-                  color: "text.secondary",
-                  bgcolor: "background.default",
-                  borderRadius: 1,
-                  p: 1.5,
-                  overflow: "auto",
-                  maxHeight: 400,
-                  m: 0,
-                }}
-              >
-                {JSON.stringify(extraFields, null, 2)}
-              </Box>
-            </Collapse>
-          </CardContent>
-        </Card>
+        <JsonPanel title="Additional fields" data={extraFields} />
       )}
 
       {tokenId && (

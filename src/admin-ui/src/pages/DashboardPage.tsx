@@ -162,9 +162,14 @@ export const DashboardPage = observer(function DashboardPage() {
     <Box>
       {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, letterSpacing: "-0.02em" }}>
-          Dashboard
-        </Typography>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 600, letterSpacing: "-0.02em" }}>
+            Dashboard
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+            Operator summary for tracked scope, degraded entities, and infrastructure readiness.
+          </Typography>
+        </Box>
         <Tooltip title="Refresh">
           <IconButton
             size="small"
@@ -258,12 +263,12 @@ export const DashboardPage = observer(function DashboardPage() {
           accent={s && s.backfillingTokenCount > 0 ? "info" : "default"}
         />
         <StatCard
-          label="Full History Live — Addr"
+          label="Historical Backfill Live — Addr"
           value={s?.fullHistoryLiveAddressCount ?? 0}
           accent={s && s.fullHistoryLiveAddressCount > 0 ? "success" : "default"}
         />
         <StatCard
-          label="Full History Live — Token"
+          label="Rooted Backfill Live — Token"
           value={s?.fullHistoryLiveTokenCount ?? 0}
           accent={s && s.fullHistoryLiveTokenCount > 0 ? "success" : "default"}
         />
