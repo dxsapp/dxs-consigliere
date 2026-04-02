@@ -56,6 +56,7 @@ It is not a consumer product, wallet UI, or universal explorer.
 ## Explicit Non-Goals For v1
 
 - no UI for bulk history-upgrade endpoints
+- no dedicated History section yet; address/token pages only expose scoped status and bounded upgrade actions
 - no multi-user admin management
 - no reverse-proxy auth mode in UI
 - no destructive purge UI for tracked entities
@@ -201,3 +202,13 @@ It is not a consumer product, wallet UI, or universal explorer.
 - do not imply that `full_history` means unlimited historical reconstruction
 - historical backfill actions should warn that deep history may require higher-capacity provider access, more disk, and long-running backfill time
 - where useful, suggest operational consolidation to a fresh address instead of promising endless historical archaeology
+
+## Admin UI Backlog For v2
+
+- move history-heavy operator workflows into a dedicated `History` section instead of expanding address/token detail pages indefinitely
+- keep address/token detail pages focused on current managed state, readiness, rooted status, and bounded upgrade entry points
+- treat the future `History` section as the place for:
+  - queued history upgrades
+  - historical backfill progress
+  - scoped completeness explanations
+  - deeper caveats about provider capacity, disk, and runtime cost

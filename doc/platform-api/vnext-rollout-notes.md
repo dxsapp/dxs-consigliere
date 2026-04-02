@@ -144,3 +144,16 @@ Two useful follow-ups remain in backlog:
 - priority: medium
 
 These are useful but not required for the current JungleBus-first rollout shape.
+
+3. Dedicated admin `History` section in `v2`
+- goal: move history-heavy workflows out of address/token detail pages and into their own admin surface
+- rationale:
+  - current detail pages should stay focused on current managed state and readiness
+  - historical backfill semantics need more room for caveats and progress visibility
+  - deep-history UX should not pretend to be cheap or universally complete
+- likely contents:
+  - queued history upgrades
+  - historical backfill progress
+  - scoped completeness explanations
+  - operator warnings about provider limits, disk usage, and long-running sync cost
+- priority: medium
