@@ -286,4 +286,19 @@ public class ConsigliereConfigBindingTests
         Assert.Contains(result.Failures, x => x.Contains("capabilities.historical_address_scan.fallbackSources must be empty"));
         Assert.Contains(result.Failures, x => x.Contains("capabilities.historical_token_scan.source must be 'bitails'"));
     }
+
+    [Fact]
+    public void ConsigliereSourcesValidation_RejectsMismatchedBitailsZmqProxyUrls()
+    {
+        var sources = new ConsigliereSourcesConfig();
+        sources.Providers.Bitails.Connection.Transport = BitailsRealtimeTransportMode.Zmq;
+        sources.Providers.Bitails.Connection.Zmq.TxUrl = "https://zmq.bitails.io";
+        sources.Providers.Bitails.Connection.Zmq.BlockUrl = "https://zmq-alt.bitails.io";
+
+        var validator = new ConsigliereSourcesConfigValidation();
+        var result = validator.Validate(string.Empty, sources);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Failures, x => x.Contains("same proxy endpoint URL"));
+    }
 }

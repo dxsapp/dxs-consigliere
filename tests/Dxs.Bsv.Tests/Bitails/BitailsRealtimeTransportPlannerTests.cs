@@ -29,7 +29,7 @@ public class BitailsRealtimeTransportPlannerTests
     public void CreateZmqPlan_UsesExplicitOperatorEndpoint()
     {
         var planner = new BitailsRealtimeTransportPlanner();
-        var endpoint = new Uri("tcp://127.0.0.1:28332");
+        var endpoint = new Uri("https://zmq.bitails.io");
 
         var plan = planner.CreateZmqPlan(endpoint,
             new BitailsRealtimeSubscriptionTarget.AllAddresses(),
@@ -40,9 +40,10 @@ public class BitailsRealtimeTransportPlannerTests
         Assert.Equal(endpoint, plan.Endpoint);
         Assert.Equal(
         [
-            "lock-address",
-            "spent-address",
-            "utxo-spent-utxo-tx_7"
+            "rawtx2",
+            "removedfrommempoolblock",
+            "discardedfrommempool",
+            "hashblock2"
         ],
         plan.Topics);
     }

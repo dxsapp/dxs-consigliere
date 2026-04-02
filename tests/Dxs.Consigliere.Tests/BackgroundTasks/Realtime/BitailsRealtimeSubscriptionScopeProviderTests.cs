@@ -107,6 +107,14 @@ public class BitailsRealtimeSubscriptionScopeProviderTests
 
         Assert.Equal(Dxs.Infrastructure.Bitails.Realtime.BitailsRealtimeTransportMode.Zmq, scope.TransportPlan.Mode);
         Assert.Equal("tcp://bitails.example:28332/", scope.TransportPlan.Endpoint.ToString());
+        Assert.Equal(
+        [
+            "rawtx2",
+            "removedfrommempoolblock",
+            "discardedfrommempool",
+            "hashblock2"
+        ],
+        scope.TransportPlan.Topics);
     }
 
     private static BitailsRealtimeSubscriptionScopeProvider CreateProvider(FakeTransactionStore store, ConsigliereSourcesConfig config)

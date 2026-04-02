@@ -7,6 +7,18 @@ namespace Dxs.Infrastructure.Bitails.Realtime;
 public static class BitailsRealtimeTopicCatalog
 {
     public static Uri DefaultWebSocketEndpoint { get; } = new("https://api.bitails.io/global", UriKind.Absolute);
+    public const string ZmqRawTx2Topic = "rawtx2";
+    public const string ZmqRemovedFromMempoolBlockTopic = "removedfrommempoolblock";
+    public const string ZmqDiscardedFromMempoolTopic = "discardedfrommempool";
+    public const string ZmqHashBlock2Topic = "hashblock2";
+
+    public static IReadOnlyList<string> ZmqProxyTopics { get; } =
+    [
+        ZmqRawTx2Topic,
+        ZmqRemovedFromMempoolBlockTopic,
+        ZmqDiscardedFromMempoolTopic,
+        ZmqHashBlock2Topic
+    ];
 
     public static IReadOnlyList<string> GetTopics(IEnumerable<BitailsRealtimeSubscriptionTarget> targets)
     {
@@ -17,6 +29,8 @@ public static class BitailsRealtimeTopicCatalog
             .Distinct(StringComparer.Ordinal)
             .ToArray();
     }
+
+    public static IReadOnlyList<string> GetZmqProxyTopics() => ZmqProxyTopics;
 
     public static IReadOnlyList<string> GetTopics(BitailsRealtimeSubscriptionTarget target)
     {

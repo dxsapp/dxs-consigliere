@@ -46,14 +46,15 @@ public class BitailsRealtimeIngestRunnerTests
             new FakeProviderSettingsAccessor(),
             new TestNetworkProvider(),
             txMessageBus,
+            new FakeBlockMessageBus(),
             NullLogger<BitailsRealtimeIngestRunner>.Instance);
 
         using var cts = new CancellationTokenSource();
         var runTask = runner.RunAsync(cts.Token);
 
         await realtimeClient.WaitForConnectAsync();
-        realtimeClient.Publish(new BitailsRealtimeTransactionNotification($"lock-address-{watchedAddress.Value}", transaction.Id, DateTimeOffset.UtcNow));
-        realtimeClient.Publish(new BitailsRealtimeTransactionNotification($"spent-address-{watchedAddress.Value}", transaction.Id, DateTimeOffset.UtcNow));
+        realtimeClient.Publish(new BitailsRealtimeEvent(BitailsRealtimeEventKind.TransactionAdded, $"lock-address-{watchedAddress.Value}", DateTimeOffset.UtcNow, transaction.Id));
+        realtimeClient.Publish(new BitailsRealtimeEvent(BitailsRealtimeEventKind.TransactionAdded, $"spent-address-{watchedAddress.Value}", DateTimeOffset.UtcNow, transaction.Id));
 
         await store.WaitForCountAsync(1);
         await sink.WaitForCountAsync(1);
@@ -62,6 +63,68 @@ public class BitailsRealtimeIngestRunnerTests
         Assert.Single(store.SavedTransactions);
         Assert.Equal(transaction.Id, store.SavedTransactions.Single());
         Assert.Equal(1, realtimeClient.ConnectCount);
+
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await runTask);
+    }
+
+    [Fact]
+    public async Task PostsBitailsRemoveAndBlockEventsWithoutRawFetch()
+    {
+        var txMessageBus = new TxMessageBus();
+        var blockMessageBus = new FakeBlockMessageBus();
+        var removedMessages = new ConcurrentQueue<TxMessage>();
+        var removalCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var blockCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var txSubscription = txMessageBus.Subscribe(message =>
+        {
+            if (message.MessageType == TxMessage.Type.RemoveTransaction)
+            {
+                removedMessages.Enqueue(message);
+                removalCompletion.TrySetResult();
+            }
+        });
+        using var blockSubscription = blockMessageBus.Subscribe(message => blockCompletion.TrySetResult());
+
+        var realtimeClient = new FakeBitailsRealtimeIngestClient();
+        var runner = new BitailsRealtimeIngestRunner(
+            realtimeClient,
+            new FakeScopeProvider("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            new FakeRawTransactionFetchService(null, null),
+            new FakeProviderSettingsAccessor(),
+            new TestNetworkProvider(),
+            txMessageBus,
+            blockMessageBus,
+            NullLogger<BitailsRealtimeIngestRunner>.Instance);
+
+        using var cts = new CancellationTokenSource();
+        var runTask = runner.RunAsync(cts.Token);
+
+        await realtimeClient.WaitForConnectAsync();
+        realtimeClient.Publish(new BitailsRealtimeEvent(
+            BitailsRealtimeEventKind.TransactionRemoved,
+            BitailsRealtimeTopicCatalog.ZmqDiscardedFromMempoolTopic,
+            DateTimeOffset.UtcNow,
+            TxId: "89abcdefabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba",
+            RemoveReason: "collision-in-block-tx",
+            CollidedWithTransaction: "fedcba98abbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba",
+            BlockHash: "01234567abbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba"));
+        realtimeClient.Publish(new BitailsRealtimeEvent(
+            BitailsRealtimeEventKind.BlockConnected,
+            BitailsRealtimeTopicCatalog.ZmqHashBlock2Topic,
+            DateTimeOffset.UtcNow,
+            BlockHash: "76543210abbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba"));
+
+        await removalCompletion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await blockCompletion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var removed = Assert.Single(removedMessages);
+        Assert.Equal(RemoveFromMempoolReason.CollisionInBlockTx, removed.Reason);
+        Assert.Equal("fedcba98abbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba", removed.CollidedWithTransaction);
+        Assert.Equal("01234567abbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba", removed.BlockHash);
+        Assert.Single(blockMessageBus.Messages);
+        Assert.Equal("76543210abbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabbaabba", blockMessageBus.Messages.Single().BlockHash);
 
         cts.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await runTask);
@@ -103,15 +166,15 @@ public class BitailsRealtimeIngestRunnerTests
 
         public Task WaitForConnectAsync() => _connected.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        public void Publish(BitailsRealtimeTransactionNotification notification) => _connection.Publish(notification);
+        public void Publish(BitailsRealtimeEvent realtimeEvent) => _connection.Publish(realtimeEvent);
 
         private sealed class FakeConnection : IBitailsRealtimeConnection
         {
-            private readonly Subject<BitailsRealtimeTransactionNotification> _subject = new();
+            private readonly Subject<BitailsRealtimeEvent> _subject = new();
 
-            public IObservable<BitailsRealtimeTransactionNotification> Transactions => _subject;
+            public IObservable<BitailsRealtimeEvent> Events => _subject;
 
-            public void Publish(BitailsRealtimeTransactionNotification notification) => _subject.OnNext(notification);
+            public void Publish(BitailsRealtimeEvent realtimeEvent) => _subject.OnNext(realtimeEvent);
 
             public ValueTask DisposeAsync()
             {
@@ -132,6 +195,24 @@ public class BitailsRealtimeIngestRunnerTests
                 string.Equals(requestedTxId, txId, StringComparison.OrdinalIgnoreCase)
                     ? new RawTransactionFetchResult(ExternalChainProviderName.Bitails, raw)
                     : null);
+    }
+
+    private sealed class FakeBlockMessageBus : IBlockMessageBus
+    {
+        private readonly BlockMessageBus _inner = new();
+
+        public ConcurrentQueue<BlockMessage> Messages { get; } = new();
+
+        public IDisposable AddPublisher(IObservable<BlockMessage> txObservable) => _inner.AddPublisher(txObservable);
+        public IObservable<BlockMessage> AsObservable() => _inner.AsObservable();
+        public IObserver<BlockMessage> AsObserver() => _inner.AsObserver();
+        public void Post(BlockMessage message)
+        {
+            Messages.Enqueue(message);
+            _inner.Post(message);
+        }
+
+        public IDisposable Subscribe(IObserver<BlockMessage> observer) => _inner.Subscribe(observer);
     }
 
     private sealed class RecordingObservationSink : ITxObservationSink

@@ -59,10 +59,10 @@ Out of scope:
 
 | slice | zone lead | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `BZ1` | `external-chain-adapters` | `operator/integration` | `todo` | - | adapter tests + payload replay note | Bitails ZMQ proxy client and topic mapping contract are frozen |
-| `BZ2` | `indexer-ingest-orchestration` | `operator/runtime` | `todo` | `BZ1` | runner tests + integration wiring check | `bitailsTransport = zmq` runs through realtime ingest without websocket-only guardrails |
-| `BZ3` | `service-bootstrap-and-ops` | `operator/platform` | `todo` | `BZ1`,`BZ2` | config validation + startup/build check | config/diagnostics/startup describe proxy transport honestly and accept optional no-auth operation |
-| `BZ4` | `verification-and-conformance` | `operator/verification` | `todo` | `BZ1`,`BZ2`,`BZ3` | focused tests + command log | payload-to-bus behavior and runtime branch are proven |
+| `BZ1` | `external-chain-adapters` | `operator/integration` | `completed` | - | adapter tests + payload replay note | Bitails ZMQ proxy client and topic mapping contract are frozen |
+| `BZ2` | `indexer-ingest-orchestration` | `operator/runtime` | `completed` | `BZ1` | runner tests + integration wiring check | `bitailsTransport = zmq` runs through realtime ingest without websocket-only guardrails |
+| `BZ3` | `service-bootstrap-and-ops` | `operator/platform` | `completed` | `BZ1`,`BZ2` | config validation + startup/build check | config/diagnostics/startup describe proxy transport honestly and accept optional no-auth operation |
+| `BZ4` | `verification-and-conformance` | `operator/verification` | `completed` | `BZ1`,`BZ2`,`BZ3` | focused tests + command log | payload-to-bus behavior and runtime branch are proven |
 
 ## Definition of Done
 
@@ -72,6 +72,19 @@ Out of scope:
 - No direct-ZMQ naming confusion is introduced in runtime code or diagnostics.
 - Transport endpoint remains configurable and does not rely on a hardcoded host.
 - Focused validation covers adapter parsing, runtime branch selection, and startup/config acceptance.
+
+## Result
+
+The wave is complete.
+
+What landed:
+- Bitails `zmq` is now implemented as a socket.io proxy transport rather than a rejected config branch.
+- Realtime ingest now consumes generic Bitails realtime events so the proxy path can emit:
+  - `rawtx2`
+  - `removedfrommempoolblock`
+  - `discardedfrommempool`
+  - `hashblock2`
+- Current config keeps the existing split `txUrl` / `blockUrl` fields, but runtime validates that they must currently resolve to one shared proxy endpoint URL when both are set.
 
 ## Delivery Notes
 

@@ -39,7 +39,7 @@ public sealed class BitailsRealtimeTransportPlanner : IBitailsRealtimeTransportP
         return new BitailsRealtimeTransportPlan(
             BitailsRealtimeTransportMode.Zmq,
             endpoint,
-            BitailsRealtimeTopicCatalog.GetTopics(targets ?? []).ToArray()
+            BitailsRealtimeTopicCatalog.GetZmqProxyTopics().ToArray()
         );
     }
 }

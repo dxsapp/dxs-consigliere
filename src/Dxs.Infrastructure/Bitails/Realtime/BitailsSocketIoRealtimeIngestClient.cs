@@ -55,10 +55,10 @@ public sealed class BitailsSocketIoRealtimeIngestClient(ILogger<BitailsSocketIoR
         ILogger logger
     ) : IBitailsRealtimeConnection
     {
-        private readonly Subject<BitailsRealtimeTransactionNotification> _transactions = new();
+        private readonly Subject<BitailsRealtimeEvent> _events = new();
         private readonly List<string> _topics = [.. plan.Topics];
 
-        public IObservable<BitailsRealtimeTransactionNotification> Transactions => _transactions;
+        public IObservable<BitailsRealtimeEvent> Events => _events;
 
         public async Task ConnectAsync(CancellationToken cancellationToken)
         {
@@ -104,8 +104,8 @@ public sealed class BitailsSocketIoRealtimeIngestClient(ILogger<BitailsSocketIoR
             }
             finally
             {
-                _transactions.OnCompleted();
-                _transactions.Dispose();
+                _events.OnCompleted();
+                _events.Dispose();
                 socket.Dispose();
             }
         }
@@ -120,7 +120,7 @@ public sealed class BitailsSocketIoRealtimeIngestClient(ILogger<BitailsSocketIoR
                     return;
                 }
 
-                _transactions.OnNext(new BitailsRealtimeTransactionNotification(topic, txId, DateTimeOffset.UtcNow));
+                _events.OnNext(new BitailsRealtimeEvent(BitailsRealtimeEventKind.TransactionAdded, topic, DateTimeOffset.UtcNow, txId));
             }
             catch (Exception ex)
             {

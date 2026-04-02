@@ -208,6 +208,14 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
         {
             errors.Add("Bitails zmq transport requires connection.zmq.txUrl or connection.zmq.blockUrl.");
         }
+
+        if (string.Equals(transport, BitailsRealtimeTransportMode.Zmq, StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(bitails.Connection.Zmq.TxUrl) &&
+            !string.IsNullOrWhiteSpace(bitails.Connection.Zmq.BlockUrl) &&
+            !string.Equals(bitails.Connection.Zmq.TxUrl, bitails.Connection.Zmq.BlockUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add("Bitails zmq transport currently requires connection.zmq.txUrl and connection.zmq.blockUrl to use the same proxy endpoint URL.");
+        }
     }
 
     private static void ValidateBitailsOnlyHistoricalCapability(

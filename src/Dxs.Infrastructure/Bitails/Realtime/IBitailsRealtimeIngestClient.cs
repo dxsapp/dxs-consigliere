@@ -6,7 +6,7 @@ namespace Dxs.Infrastructure.Bitails.Realtime;
 
 public interface IBitailsRealtimeConnection : IAsyncDisposable
 {
-    IObservable<BitailsRealtimeTransactionNotification> Transactions { get; }
+    IObservable<BitailsRealtimeEvent> Events { get; }
 }
 
 public interface IBitailsRealtimeIngestClient

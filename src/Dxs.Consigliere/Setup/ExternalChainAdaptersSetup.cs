@@ -15,7 +15,9 @@ public static class ExternalChainAdaptersSetup
             .AddTransient<IBitailsRestApiClient, BitailsRestApiClient>()
             .AddHttpClient<IBitailsRestApiClient, BitailsRestApiClient>().Services
             .AddSingleton<IBitailsRealtimeTransportPlanner, BitailsRealtimeTransportPlanner>()
-            .AddSingleton<IBitailsRealtimeIngestClient, BitailsSocketIoRealtimeIngestClient>()
+            .AddSingleton<BitailsSocketIoRealtimeIngestClient>()
+            .AddSingleton<BitailsSocketIoZmqProxyIngestClient>()
+            .AddSingleton<IBitailsRealtimeIngestClient, BitailsRealtimeIngestClient>()
             .AddSingleton<IExternalChainProviderDiagnostics, BitailsProviderDiagnostics>()
             .AddSingleton<IWhatsOnChainRestApiClient, WhatsOnChainRestApiClient>()
             .AddHttpClient<IWhatsOnChainRestApiClient, WhatsOnChainRestApiClient>().Services

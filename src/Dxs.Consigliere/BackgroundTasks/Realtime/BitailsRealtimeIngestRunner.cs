@@ -22,6 +22,7 @@ public sealed class BitailsRealtimeIngestRunner(
     IExternalChainProviderSettingsAccessor providerSettingsAccessor,
     INetworkProvider networkProvider,
     ITxMessageBus txMessageBus,
+    IBlockMessageBus blockMessageBus,
     ILogger<BitailsRealtimeIngestRunner> logger
 )
 {
@@ -60,12 +61,6 @@ public sealed class BitailsRealtimeIngestRunner(
 
                 if (activeScope is null || !string.Equals(activeScope.Signature, scope.Signature, StringComparison.Ordinal))
                 {
-                    if (scope.TransportPlan.Mode != Dxs.Infrastructure.Bitails.Realtime.BitailsRealtimeTransportMode.WebSocket)
-                    {
-                        throw new NotSupportedException(
-                            $"Bitails realtime ingest currently supports only {Dxs.Infrastructure.Bitails.Realtime.BitailsRealtimeTransportMode.WebSocket:G} transport.");
-                    }
-
                     activeSubscription?.Dispose();
                     activeSubscription = null;
                     if (activeConnection is not null)
@@ -76,8 +71,8 @@ public sealed class BitailsRealtimeIngestRunner(
 
                     var bitailsSettings = await providerSettingsAccessor.GetBitailsAsync(cancellationToken);
                     activeConnection = await realtimeIngestClient.ConnectAsync(scope.TransportPlan, bitailsSettings.ApiKey, cancellationToken);
-                    activeSubscription = activeConnection.Transactions
-                        .Subscribe(notification => _ = HandleNotificationAsync(notification, cancellationToken));
+                    activeSubscription = activeConnection.Events
+                        .Subscribe(realtimeEvent => _ = HandleEventAsync(realtimeEvent, cancellationToken));
                     activeScope = scope;
 
                     _logger.LogInformation(
@@ -100,25 +95,60 @@ public sealed class BitailsRealtimeIngestRunner(
         }
     }
 
-    private async Task HandleNotificationAsync(BitailsRealtimeTransactionNotification notification, CancellationToken cancellationToken)
+    private async Task HandleEventAsync(BitailsRealtimeEvent realtimeEvent, CancellationToken cancellationToken)
     {
-        if (!TryReserve(notification.TxId))
-            return;
+        switch (realtimeEvent.Kind)
+        {
+            case BitailsRealtimeEventKind.TransactionAdded:
+                await HandleTransactionAddedAsync(realtimeEvent, cancellationToken);
+                return;
+            case BitailsRealtimeEventKind.TransactionRemoved:
+                HandleTransactionRemoved(realtimeEvent);
+                return;
+            case BitailsRealtimeEventKind.BlockConnected:
+                HandleBlockConnected(realtimeEvent);
+                return;
+            default:
+                _logger.LogDebug("Ignoring unsupported Bitails realtime event kind {Kind} on topic {Topic}", realtimeEvent.Kind, realtimeEvent.Topic);
+                return;
+        }
+    }
+
+    private async Task HandleTransactionAddedAsync(BitailsRealtimeEvent realtimeEvent, CancellationToken cancellationToken)
+    {
+        string reservedTxId = null;
 
         try
         {
-            var raw = await rawTransactionFetchService.TryGetAsync(notification.TxId, cancellationToken);
-            if (raw?.Raw is not { Length: > 0 } txRaw)
+            Transaction transaction;
+            if (realtimeEvent.RawTransaction is { Length: > 0 } rawTransaction)
             {
-                _recentlySeen.TryRemove(notification.TxId, out _);
-                _logger.LogDebug("Bitails realtime tx {TxId} was announced on {Topic} but raw payload was unavailable", notification.TxId, notification.Topic);
-                return;
+                transaction = Transaction.Parse(rawTransaction, networkProvider.Network);
+                if (!TryReserve(transaction.Id))
+                    return;
+
+                reservedTxId = transaction.Id;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(realtimeEvent.TxId) || !TryReserve(realtimeEvent.TxId))
+                    return;
+
+                reservedTxId = realtimeEvent.TxId;
+                var raw = await rawTransactionFetchService.TryGetAsync(realtimeEvent.TxId, cancellationToken);
+                if (raw?.Raw is not { Length: > 0 } txRaw)
+                {
+                    _recentlySeen.TryRemove(realtimeEvent.TxId, out _);
+                    _logger.LogDebug("Bitails realtime tx {TxId} was announced on {Topic} but raw payload was unavailable", realtimeEvent.TxId, realtimeEvent.Topic);
+                    return;
+                }
+
+                transaction = Transaction.Parse(txRaw, networkProvider.Network);
             }
 
-            var transaction = Transaction.Parse(txRaw, networkProvider.Network);
             txMessageBus.Post(TxMessage.AddedToMempool(
                 transaction,
-                notification.ObservedAt.ToUnixTimeSeconds(),
+                realtimeEvent.ObservedAt.ToUnixTimeSeconds(),
                 TxObservationSource.Bitails
             ));
 
@@ -128,9 +158,37 @@ public sealed class BitailsRealtimeIngestRunner(
         }
         catch
         {
-            _recentlySeen.TryRemove(notification.TxId, out _);
+            if (!string.IsNullOrWhiteSpace(reservedTxId))
+                _recentlySeen.TryRemove(reservedTxId, out _);
             throw;
         }
+    }
+
+    private void HandleTransactionRemoved(BitailsRealtimeEvent realtimeEvent)
+    {
+        if (string.IsNullOrWhiteSpace(realtimeEvent.TxId))
+        {
+            _logger.LogDebug("Ignoring Bitails realtime remove event on {Topic} because txid was missing", realtimeEvent.Topic);
+            return;
+        }
+
+        txMessageBus.Post(TxMessage.RemovedFromMempool(
+            realtimeEvent.TxId,
+            TxObservationSource.Bitails,
+            MapRemoveReason(realtimeEvent.RemoveReason),
+            realtimeEvent.CollidedWithTransaction,
+            realtimeEvent.BlockHash));
+    }
+
+    private void HandleBlockConnected(BitailsRealtimeEvent realtimeEvent)
+    {
+        if (string.IsNullOrWhiteSpace(realtimeEvent.BlockHash))
+        {
+            _logger.LogDebug("Ignoring Bitails realtime block event on {Topic} because block hash was missing", realtimeEvent.Topic);
+            return;
+        }
+
+        blockMessageBus.Post(new BlockMessage(realtimeEvent.BlockHash, TxObservationSource.Bitails));
     }
 
     private bool TryReserve(string txId)
@@ -148,4 +206,15 @@ public sealed class BitailsRealtimeIngestRunner(
                 _recentlySeen.TryRemove(entry.Key, out _);
         }
     }
+
+    private static RemoveFromMempoolReason MapRemoveReason(string reason)
+        => reason?.Trim().ToLowerInvariant() switch
+        {
+            "expired" => RemoveFromMempoolReason.Expired,
+            "mempool-sizelimit-exceeded" => RemoveFromMempoolReason.MempoolSizeLimitExceeded,
+            "collision-in-block-tx" => RemoveFromMempoolReason.CollisionInBlockTx,
+            "reorg" => RemoveFromMempoolReason.Reorg,
+            "included-in-block" => RemoveFromMempoolReason.IncludedInBlock,
+            _ => RemoveFromMempoolReason.Unknown
+        };
 }
