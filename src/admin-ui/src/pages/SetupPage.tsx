@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import {
@@ -41,7 +41,7 @@ export const SetupPage = observer(function SetupPage() {
   const options = setupStore.options;
   const draft = setupStore.draft;
 
-  const currentStepValid = useMemo(() => {
+  const currentStepValid = (() => {
     if (!draft) return false;
     if (step === 0) {
       if (!draft.admin.enabled) return true;
@@ -71,7 +71,7 @@ export const SetupPage = observer(function SetupPage() {
       return Boolean(draft.providers.junglebus.mempoolSubscriptionId);
     }
     return true;
-  }, [confirmPassword, draft, step]);
+  })();
 
   if (options?.status.setupCompleted && !authStore.setupRequired) {
     return <Navigate to={options.status.adminEnabled ? "/login" : "/"} replace />;
@@ -273,7 +273,16 @@ export const SetupPage = observer(function SetupPage() {
                 )}
 
                 <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-                  <Button color="inherit" disabled={step === 0 || setupStore.saving} onClick={() => setStep((current) => Math.max(0, current - 1))}>
+                  <Button
+                    variant="text"
+                    color="primary"
+                    disabled={step === 0 || setupStore.saving}
+                    onClick={() => setStep((current) => Math.max(0, current - 1))}
+                    sx={{
+                      fontWeight: 600,
+                      opacity: step === 0 || setupStore.saving ? undefined : 1,
+                    }}
+                  >
                     Back
                   </Button>
                   <Box sx={{ display: "flex", gap: 1.5 }}>
