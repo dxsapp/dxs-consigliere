@@ -124,9 +124,10 @@ function AddAddressDialog({ open, onClose }: AddDialogProps) {
               control={<Radio size="small" />}
               label={
                 <Box>
-                  <Typography variant="body2">Full history</Typography>
+                  <Typography variant="body2">Historical backfill</Typography>
                   <Typography variant="caption" sx={{ color: "text.disabled" }}>
-                    Backfill all historical transactions
+                    Attempt scoped historical backfill. This may require higher-capacity provider access,
+                    disk space, and long-running sync time.
                   </Typography>
                 </Box>
               }

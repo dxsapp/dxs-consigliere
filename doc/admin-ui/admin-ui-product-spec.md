@@ -197,3 +197,7 @@ It is not a consumer product, wallet UI, or universal explorer.
   - first/last activity
   - latest projection sequence
 - rooted-history/trusted-roots/unknown-root status should still come from readiness/history, not from a second derived frontend state machine
+- address/token detail pages should explicitly state that history is scoped to the local managed universe
+- do not imply that `full_history` means unlimited historical reconstruction
+- historical backfill actions should warn that deep history may require higher-capacity provider access, more disk, and long-running backfill time
+- where useful, suggest operational consolidation to a fresh address instead of promising endless historical archaeology

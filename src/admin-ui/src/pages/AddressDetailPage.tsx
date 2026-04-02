@@ -309,6 +309,12 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
               <ReadinessChip readiness={current.readiness.history?.historyReadiness ?? summary?.historyReadiness ?? "unavailable"} />
             </Box>
           </InfoRow>
+          <InfoRow label="History model">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Scoped local history. Current state is authoritative inside the managed scope; older
+              chain activity outside that scope may remain unresolved.
+            </Typography>
+          </InfoRow>
           <InfoRow label="Token balance snapshot">
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
               {current.tokenBalanceSatoshis != null || current.tokenBalanceCount != null
@@ -347,6 +353,12 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
               Actions
             </Typography>
             <Divider sx={{ my: 1 }} />
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Address history is intentionally scoped. Deeper backfill can require paid or
+              higher-capacity provider access, significant disk usage, and long-running sync time.
+              If you need a fresh operational boundary, move funds to a new address and track from
+              there.
+            </Alert>
             <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 1.5 }}>
               <Button
                 variant="outlined"
@@ -354,7 +366,7 @@ export const AddressDetailPage = observer(function AddressDetailPage() {
                 onClick={handleUpgradeHistory}
                 disabled={upgrading}
               >
-                {upgrading ? "Upgrading…" : "Upgrade to Full History"}
+                {upgrading ? "Queueing…" : "Queue historical backfill"}
               </Button>
               <Tooltip
                 title={

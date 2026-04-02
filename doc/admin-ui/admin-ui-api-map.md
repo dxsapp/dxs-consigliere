@@ -130,6 +130,8 @@ Important distinctions:
 - `validation_fetch` = how the service acquires lineage-critical dependency data for local validation
 - rooted token truth still comes from `Consigliere`'s local lineage-aware model and trusted-root policy
 - the public `validate stas` route is still a local `Consigliere` verdict, not a provider verdict
+- historical backfill remains a scoped operator action, not a promise of unlimited chain-history reconstruction
+- UI copy should warn that deep historical sync may require higher-capacity provider limits, more disk, and long-running backfill time
 
 ## Admin Tracking Endpoints
 

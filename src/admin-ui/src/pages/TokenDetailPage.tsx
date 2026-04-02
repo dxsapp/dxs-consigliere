@@ -109,11 +109,13 @@ function UpgradeHistoryDialog({ open, tokenId, onClose }: UpgradeDialogProps) {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Upgrade to Full History</DialogTitle>
+      <DialogTitle>Queue Rooted Historical Backfill</DialogTitle>
       <DialogContent sx={{ pt: "16px !important" }}>
         <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
-          Provide the genesis (root) transaction IDs for this token. The indexer will use these to
-          backfill the full transaction history.
+          Provide trusted root transaction IDs for this token. The indexer will use them to expand
+          rooted history inside the local managed scope. This is not unlimited token archaeology and
+          may require higher-capacity provider access, additional disk space, and long-running
+          backfill time.
         </Typography>
         <TrustedRootsInput value={rootsRaw} onChange={setRootsRaw} required />
       </DialogContent>
@@ -126,7 +128,7 @@ function UpgradeHistoryDialog({ open, tokenId, onClose }: UpgradeDialogProps) {
           variant="contained"
           disabled={!canSubmit || submitting}
         >
-          {submitting ? "Submitting…" : "Upgrade"}
+          {submitting ? "Submitting…" : "Queue backfill"}
         </Button>
       </DialogActions>
     </Dialog>
@@ -399,6 +401,12 @@ export const TokenDetailPage = observer(function TokenDetailPage() {
           <InfoRow label="History readiness">
             <ReadinessChip readiness={current.readiness.history?.historyReadiness ?? summary?.historyReadiness ?? "unavailable"} />
           </InfoRow>
+          <InfoRow label="History model">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Scoped rooted history. Current token state is authoritative inside the trusted-root
+              managed scope; full chain archaeology is intentionally out of scope by default.
+            </Typography>
+          </InfoRow>
         </CardContent>
       </Card>
 
@@ -466,13 +474,18 @@ export const TokenDetailPage = observer(function TokenDetailPage() {
               Actions
             </Typography>
             <Divider sx={{ my: 1 }} />
+            <Alert severity="info" sx={{ mb: 1.5 }}>
+              Rooted historical backfill can require paid or higher-capacity provider access,
+              significant disk usage, and long-running sync time. For a clean operational boundary,
+              move tokens into a fresh address and continue tracking from there.
+            </Alert>
             <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", mt: 1.5 }}>
               <Button
                 variant="outlined"
                 size="small"
                 onClick={() => setUpgradeOpen(true)}
               >
-                Upgrade to Full History
+                Queue rooted backfill
               </Button>
               <Tooltip
                 title={

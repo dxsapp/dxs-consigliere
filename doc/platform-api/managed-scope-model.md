@@ -163,6 +163,20 @@ Rationale:
 - token correctness requires lineage awareness in the reverse direction
 - in the common case reverse token unwinding is effectively cheap, while worst-case cost is concentrated in initial token syncs and pathological reorg scenarios
 
+## Decision: Deep Historical Archaeology Is Not a Default Product Promise
+
+`Consigliere` does not promise unlimited historical reconstruction by default.
+
+Reason:
+- very deep chain ancestry can require high-capacity or paid provider access
+- durable deep backfill can consume significant disk
+- long-running sync windows are expensive to operate and hard to bound safely
+
+Operational guidance:
+- the default product posture should emphasize current managed state, realtime ingest, block sync, and bounded validation repair
+- historical backfill should be presented as a scoped operator action with explicit caveats, not as a guaranteed universal history mode
+- when a clean operational boundary is acceptable, operators can move funds or tokens to a fresh address and continue local history from there
+
 ## Token Reverse Lineage Rule
 
 For `tracked_token`, `Consigliere` must unwind the token backwards through every parent generation participating in that token's history.
