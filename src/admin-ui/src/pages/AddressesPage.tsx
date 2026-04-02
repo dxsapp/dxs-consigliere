@@ -18,6 +18,7 @@ import {
   Radio,
   Alert,
   FormHelperText,
+  Checkbox,
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import { DataGrid } from "@mui/x-data-grid";
@@ -25,6 +26,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { addressListStore } from "@/stores/address-list.store";
 import { notifyStore } from "@/stores/notify.store";
 import { ReadinessChip } from "@/components/ReadinessChip";
+import { SummaryMetricCard } from "@/components/SummaryMetricCard";
 import type { TrackedAddressListItem, HistoryPolicyMode } from "@/types/api";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -153,6 +155,11 @@ function AddAddressDialog({ open, onClose }: AddDialogProps) {
 export const AddressesPage = observer(function AddressesPage() {
   const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
+  const items = addressListStore.items;
+  const degradedCount = items.filter((item) => item.readiness.degraded).length;
+  const authoritativeCount = items.filter((item) => item.readiness.authoritative).length;
+  const backfillCount = items.filter((item) => item.readiness.history?.historyReadiness === "backfill_live").length;
+  const unreadableCount = items.filter((item) => !item.readiness.readable).length;
 
   const columns: GridColDef<TrackedAddressListItem>[] = [
     {
@@ -247,10 +254,12 @@ export const AddressesPage = observer(function AddressesPage() {
           </Typography>
           {addressListStore.loadState === "success" && (
             <Typography variant="body2" sx={{ color: "text.disabled", mt: 0.25 }}>
-          {addressListStore.items.length} address
-              {addressListStore.items.length !== 1 ? "es" : ""}
+              {items.length} address{items.length !== 1 ? "es" : ""}
             </Typography>
           )}
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, maxWidth: 760 }}>
+            Current managed address scope. Historical backfill is bounded and may require more provider capacity, disk, and runtime than forward-only tracking.
+          </Typography>
         </Box>
         <Button
           variant="contained"
@@ -278,10 +287,17 @@ export const AddressesPage = observer(function AddressesPage() {
       )}
 
       {/* Tombstoned toggle */}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2, mb: 2 }}>
+        <SummaryMetricCard label="Tracked addresses" value={items.length} helper="Current managed scope" />
+        <SummaryMetricCard label="Authoritative" value={authoritativeCount} helper="Readable and locally authoritative" accent={authoritativeCount === items.length && items.length > 0 ? "success" : "default"} />
+        <SummaryMetricCard label="Degraded" value={degradedCount} helper="Addresses needing operator attention" accent={degradedCount > 0 ? "warning" : "default"} />
+        <SummaryMetricCard label="Backfill active" value={backfillCount} helper={`${unreadableCount} unreadable`} accent={backfillCount > 0 ? "info" : "default"} />
+      </Box>
+
       <Box sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
         <FormControlLabel
           control={
-            <Radio
+            <Checkbox
               size="small"
               checked={addressListStore.includeTombstoned}
               onChange={(e) => {
@@ -293,7 +309,7 @@ export const AddressesPage = observer(function AddressesPage() {
           }
           label={
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Show tombstoned
+              Include tombstoned addresses
             </Typography>
           }
         />

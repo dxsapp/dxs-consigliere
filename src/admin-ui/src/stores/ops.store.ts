@@ -3,7 +3,9 @@ import { opsApi, dashboardApi } from "@/api/client";
 import type {
   JungleBusBlockSyncStatusResponse,
   JungleBusChainTipAssuranceResponse,
+  ProjectionCacheStatusResponse,
   ProviderStatusResponse,
+  StorageStatusResponse,
   SyncStatusResponse,
   ValidationRepairStatusResponse,
 } from "@/types/api";
@@ -12,10 +14,10 @@ type LoadState = "idle" | "loading" | "success" | "error";
 
 export class OpsStore {
   providers: ProviderStatusResponse[] | null = null;
-  opsCache: unknown = null;
-  opsStorage: unknown = null;
-  adminCacheStatus: unknown = null;
-  adminStorageStatus: unknown = null;
+  opsCache: ProjectionCacheStatusResponse | null = null;
+  opsStorage: StorageStatusResponse | null = null;
+  adminCacheStatus: ProjectionCacheStatusResponse | null = null;
+  adminStorageStatus: StorageStatusResponse | null = null;
   syncStatus: SyncStatusResponse | null = null;
   jungleBusBlockSync: JungleBusBlockSyncStatusResponse | null = null;
   jungleBusChainTipAssurance: JungleBusChainTipAssuranceResponse | null = null;

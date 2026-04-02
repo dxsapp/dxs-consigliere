@@ -1,119 +1,47 @@
 import { useNavigate } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import {
-  Box,
-  Typography,
-  Button,
-  Card,
-  CardContent,
-  CardActionArea,
-  Skeleton,
   Alert,
-  IconButton,
+  Box,
+  Button,
   CircularProgress,
+  IconButton,
+  Skeleton,
+  Stack,
   Tooltip,
+  Typography,
 } from "@mui/material";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
 import { dashboardStore } from "@/stores/dashboard.store";
-import { JsonPanel } from "@/components/JsonPanel";
+import { KeyValueCard } from "@/components/KeyValueCard";
+import { SummaryMetricCard } from "@/components/SummaryMetricCard";
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-
-type CardAccent = "default" | "success" | "warning" | "error" | "info";
-
-const ACCENT_COLORS: Record<CardAccent, string> = {
-  default: "transparent",
-  success: "success.main",
-  warning: "warning.main",
-  error: "error.main",
-  info: "info.main",
-};
-
-interface StatCardProps {
-  label: string;
-  value: number;
-  accent?: CardAccent;
-  sublabel?: string;
-  onClick?: () => void;
+function formatCount(value: number | null | undefined): string {
+  if (value == null) return "unavailable";
+  return new Intl.NumberFormat("en-GB").format(value);
 }
 
-function StatCard({ label, value, accent = "default", sublabel, onClick }: StatCardProps) {
-  const accentColor = ACCENT_COLORS[accent];
-  const inner = (
-    <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <Typography
-          variant="caption"
-          sx={{ color: "text.disabled", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.06em" }}
-        >
-          {label}
-        </Typography>
-        {accent !== "default" && (
-          <Box
-            sx={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              bgcolor: accentColor,
-              mt: 0.5,
-              flexShrink: 0,
-            }}
-          />
-        )}
+function formatPercent(value: number | null | undefined): string {
+  if (value == null || Number.isNaN(value)) return "unavailable";
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function DashboardSkeleton() {
+  return (
+    <Stack spacing={2}>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
+        {Array.from({ length: 8 }).map((_, index) => (
+          <Skeleton key={index} variant="rounded" height={116} />
+        ))}
       </Box>
-      <Typography
-        variant="h3"
-        sx={{
-          fontWeight: 700,
-          letterSpacing: "-0.03em",
-          mt: 1,
-          color: accent !== "default" && value > 0 ? accentColor : "text.primary",
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </Typography>
-      {sublabel && (
-        <Typography variant="caption" sx={{ color: "text.disabled", mt: 0.5, display: "block" }}>
-          {sublabel}
-        </Typography>
-      )}
-    </CardContent>
-  );
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        borderColor: accent !== "default" && value > 0 ? accentColor : "divider",
-        transition: "border-color 0.2s",
-      }}
-    >
-      {onClick ? (
-        <CardActionArea onClick={onClick} sx={{ height: "100%" }}>
-          {inner}
-        </CardActionArea>
-      ) : (
-        inner
-      )}
-    </Card>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+        <Skeleton variant="rounded" height={260} />
+        <Skeleton variant="rounded" height={260} />
+        <Skeleton variant="rounded" height={260} />
+      </Box>
+    </Stack>
   );
 }
-
-// ─── Skeleton row ─────────────────────────────────────────────────────────────
-
-function StatCardSkeleton() {
-  return (
-    <Card variant="outlined">
-      <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-        <Skeleton variant="text" width={80} height={14} />
-        <Skeleton variant="text" width={48} height={48} sx={{ mt: 0.5 }} />
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export const DashboardPage = observer(function DashboardPage() {
   const navigate = useNavigate();
@@ -127,11 +55,7 @@ export const DashboardPage = observer(function DashboardPage() {
             Dashboard
           </Typography>
         </Box>
-        <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, mb: 2 }}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <StatCardSkeleton key={i} />
-          ))}
-        </Box>
+        <DashboardSkeleton />
       </Box>
     );
   }
@@ -156,133 +80,153 @@ export const DashboardPage = observer(function DashboardPage() {
     );
   }
 
-  const s = store.summary;
+  const summary = store.summary;
+  const syncStatus = store.syncStatus;
+  const cacheStatus = store.cacheStatus;
+  const storageStatus = store.storageStatus;
 
   return (
     <Box>
-      {/* Header */}
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 600, letterSpacing: "-0.02em" }}>
             Dashboard
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-            Operator summary for tracked scope, degraded entities, and infrastructure readiness.
+            Current managed scope, operator attention items, and a short read on local infrastructure readiness.
           </Typography>
         </Box>
         <Tooltip title="Refresh">
-          <IconButton
-            size="small"
-            onClick={() => store.reload()}
-            disabled={store.refreshing}
-            sx={{ color: "text.disabled" }}
-          >
-            {store.refreshing ? (
-              <CircularProgress size={16} color="inherit" />
-            ) : (
-              <RefreshOutlinedIcon fontSize="small" />
-            )}
+          <IconButton size="small" onClick={() => store.reload()} disabled={store.refreshing} sx={{ color: "text.disabled" }}>
+            {store.refreshing ? <CircularProgress size={16} color="inherit" /> : <RefreshOutlinedIcon fontSize="small" />}
           </IconButton>
         </Tooltip>
       </Box>
 
-      {/* Primary — Entities */}
-      <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
-        Entities
-      </Typography>
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 2, mt: 1, mb: 3 }}>
-        <StatCard
-          label="Active Addresses"
-          value={s?.activeAddressCount ?? 0}
-          sublabel={
-            s && s.tombstonedAddressCount > 0
-              ? `${s.tombstonedAddressCount} tombstoned`
-              : undefined
-          }
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2, mb: 3 }}>
+        <SummaryMetricCard
+          label="Tracked addresses"
+          value={formatCount(summary?.activeAddressCount ?? 0)}
+          helper={summary && summary.tombstonedAddressCount > 0 ? `${formatCount(summary.tombstonedAddressCount)} tombstoned` : "Open tracked address scope"}
           onClick={() => navigate("/addresses")}
         />
-        <StatCard
-          label="Active Tokens"
-          value={s?.activeTokenCount ?? 0}
-          sublabel={
-            s && s.tombstonedTokenCount > 0
-              ? `${s.tombstonedTokenCount} tombstoned`
-              : undefined
+        <SummaryMetricCard
+          label="Tracked tokens"
+          value={formatCount(summary?.activeTokenCount ?? 0)}
+          helper={summary && summary.tombstonedTokenCount > 0 ? `${formatCount(summary.tombstonedTokenCount)} tombstoned` : "Open tracked token scope"}
+          onClick={() => navigate("/tokens")}
+        />
+        <SummaryMetricCard
+          label="Failures"
+          value={formatCount(summary?.failureCount ?? 0)}
+          accent={summary && summary.failureCount > 0 ? "error" : "default"}
+          helper={summary && summary.failureCount > 0 ? "Recent operator-visible failures" : "No failure findings in summary"}
+          onClick={summary && summary.failureCount > 0 ? () => navigate("/findings") : undefined}
+        />
+        <SummaryMetricCard
+          label="Unknown root findings"
+          value={formatCount(summary?.unknownRootFindingCount ?? 0)}
+          accent={summary && summary.unknownRootFindingCount > 0 ? "warning" : "default"}
+          helper={
+            summary && summary.blockingUnknownRootTokenCount > 0
+              ? `${formatCount(summary.blockingUnknownRootTokenCount)} blocking tokens`
+              : "No blocking rooted-history findings"
           }
+          onClick={summary && summary.unknownRootFindingCount > 0 ? () => navigate("/findings") : undefined}
+        />
+        <SummaryMetricCard
+          label="Degraded addresses"
+          value={formatCount(summary?.degradedAddressCount ?? 0)}
+          accent={summary && summary.degradedAddressCount > 0 ? "error" : "default"}
+          helper="Addresses needing operator attention"
+          onClick={() => navigate("/addresses")}
+        />
+        <SummaryMetricCard
+          label="Degraded tokens"
+          value={formatCount(summary?.degradedTokenCount ?? 0)}
+          accent={summary && summary.degradedTokenCount > 0 ? "error" : "default"}
+          helper="Tokens needing operator attention"
+          onClick={() => navigate("/tokens")}
+        />
+        <SummaryMetricCard
+          label="Address backfill active"
+          value={formatCount(summary?.backfillingAddressCount ?? 0)}
+          accent={summary && summary.backfillingAddressCount > 0 ? "info" : "default"}
+          helper={`${formatCount(summary?.fullHistoryLiveAddressCount ?? 0)} historical backfills live`}
+          onClick={() => navigate("/addresses")}
+        />
+        <SummaryMetricCard
+          label="Token rooted backfill active"
+          value={formatCount(summary?.backfillingTokenCount ?? 0)}
+          accent={summary && summary.backfillingTokenCount > 0 ? "info" : "default"}
+          helper={`${formatCount(summary?.fullHistoryLiveTokenCount ?? 0)} rooted backfills live`}
           onClick={() => navigate("/tokens")}
         />
       </Box>
 
-      {/* Health */}
-      <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
-        Health
-      </Typography>
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, mt: 1, mb: 3 }}>
-        <StatCard
-          label="Degraded Addresses"
-          value={s?.degradedAddressCount ?? 0}
-          accent={s && s.degradedAddressCount > 0 ? "error" : "default"}
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
+        <KeyValueCard
+          title="Chain sync"
+          description="A short summary of local chain progress. Use Runtime for deeper provider and assurance diagnostics."
+          status={{
+            label: syncStatus?.isSynced ? "synced" : "catching up",
+            color: syncStatus?.isSynced ? "success" : "warning",
+          }}
+          rows={[
+            { label: "Indexed height", value: <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(syncStatus?.height ?? null)}</Typography> },
+            { label: "Sync status", value: <Typography variant="body2">{syncStatus?.isSynced ? "Local chain tip is caught up." : "Local chain tip is still advancing."}</Typography> },
+            { label: "Next surface", value: <Button size="small" onClick={() => navigate("/runtime")}>Open Runtime</Button> },
+          ]}
         />
-        <StatCard
-          label="Degraded Tokens"
-          value={s?.degradedTokenCount ?? 0}
-          accent={s && s.degradedTokenCount > 0 ? "error" : "default"}
+
+        <KeyValueCard
+          title="Projection cache"
+          description="Cache health and projection lag for the local read models used by the operator shell."
+          status={{
+            label: cacheStatus?.enabled ? "enabled" : "disabled",
+            color: cacheStatus?.enabled ? "success" : "default",
+          }}
+          rows={[
+            { label: "Backend", value: <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{cacheStatus?.backend ?? "unavailable"}</Typography> },
+            { label: "Entries", value: <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatCount(cacheStatus?.count ?? null)}{cacheStatus?.maxEntries != null ? ` / ${formatCount(cacheStatus.maxEntries)}` : ""}</Typography> },
+            { label: "Hit ratio", value: <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{formatPercent(cacheStatus?.hitRatio ?? null)}</Typography> },
+            { label: "Projection lag", value: <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{cacheStatus ? `addr ${formatCount(cacheStatus.projectionLag.address.lag)} · token ${formatCount(cacheStatus.projectionLag.token.lag)} · tx ${formatCount(cacheStatus.projectionLag.txLifecycle.lag)}` : "unavailable"}</Typography> },
+            { label: "Next surface", value: <Button size="small" onClick={() => navigate("/storage")}>Open Storage</Button> },
+          ]}
         />
-        <StatCard
-          label="Failures"
-          value={s?.failureCount ?? 0}
-          accent={s && s.failureCount > 0 ? "error" : "default"}
-          onClick={s && s.failureCount > 0 ? () => navigate("/findings") : undefined}
-        />
-        <StatCard
-          label="Unknown Root Findings"
-          value={s?.unknownRootFindingCount ?? 0}
-          accent={s && s.unknownRootFindingCount > 0 ? "warning" : "default"}
-          sublabel={
-            s && s.blockingUnknownRootTokenCount > 0
-              ? `${s.blockingUnknownRootTokenCount} blocking`
-              : undefined
-          }
-          onClick={s && s.unknownRootFindingCount > 0 ? () => navigate("/findings") : undefined}
+
+        <KeyValueCard
+          title="Raw transaction payload storage"
+          description="Persistence posture for raw transaction payloads used by repair and replay workflows."
+          status={{
+            label: storageStatus?.rawTransactionPayloads.persistenceActive ? "active" : "inactive",
+            color: storageStatus?.rawTransactionPayloads.persistenceActive ? "success" : "warning",
+          }}
+          rows={[
+            { label: "Provider", value: <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{storageStatus?.rawTransactionPayloads.provider ?? "unavailable"}</Typography> },
+            { label: "Retention", value: <Typography variant="body2">{storageStatus?.rawTransactionPayloads.retentionPolicy ?? "unavailable"}</Typography> },
+            { label: "Compression", value: <Typography variant="body2">{storageStatus?.rawTransactionPayloads.compression ?? "unavailable"}</Typography> },
+            { label: "Location", value: <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>{storageStatus?.rawTransactionPayloads.location.collection || storageStatus?.rawTransactionPayloads.location.rootPath || storageStatus?.rawTransactionPayloads.location.bucket || "unavailable"}</Typography> },
+            { label: "Next surface", value: <Button size="small" onClick={() => navigate("/storage")}>Inspect storage</Button> },
+          ]}
         />
       </Box>
 
-      {/* Backfill */}
-      <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
-        Backfill
-      </Typography>
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, mt: 1, mb: 3 }}>
-        <StatCard
-          label="Backfilling Addresses"
-          value={s?.backfillingAddressCount ?? 0}
-          accent={s && s.backfillingAddressCount > 0 ? "info" : "default"}
-        />
-        <StatCard
-          label="Backfilling Tokens"
-          value={s?.backfillingTokenCount ?? 0}
-          accent={s && s.backfillingTokenCount > 0 ? "info" : "default"}
-        />
-        <StatCard
-          label="Historical Backfill Live — Addr"
-          value={s?.fullHistoryLiveAddressCount ?? 0}
-          accent={s && s.fullHistoryLiveAddressCount > 0 ? "success" : "default"}
-        />
-        <StatCard
-          label="Rooted Backfill Live — Token"
-          value={s?.fullHistoryLiveTokenCount ?? 0}
-          accent={s && s.fullHistoryLiveTokenCount > 0 ? "success" : "default"}
-        />
-      </Box>
+      {!cacheStatus?.enabled && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          Projection cache is disabled. The operator shell still works, but repeated reads will depend more directly on the backing store.
+        </Alert>
+      )}
 
-      {/* Infrastructure status */}
-      <Typography variant="overline" sx={{ color: "text.disabled", fontSize: "0.68rem" }}>
-        Infrastructure
+      {storageStatus?.rawTransactionPayloads.notes?.length ? (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          {storageStatus.rawTransactionPayloads.notes.join(" ")}
+        </Alert>
+      ) : null}
+
+      <Typography variant="body2" sx={{ color: "text.disabled", mt: 2 }}>
+        Cache and storage details are intentionally kept short here. Use Runtime for live diagnostics and Storage for persistence details.
       </Typography>
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2, mt: 1 }}>
-        <JsonPanel title="Sync Status" data={store.syncStatus} />
-        <JsonPanel title="Cache Status" data={store.cacheStatus} />
-        <JsonPanel title="Storage Status" data={store.storageStatus} />
-      </Box>
     </Box>
   );
 });

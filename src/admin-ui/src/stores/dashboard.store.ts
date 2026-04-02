@@ -1,14 +1,14 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import { dashboardApi } from "@/api/client";
-import type { DashboardSummary } from "@/types/api";
+import type { DashboardSummary, ProjectionCacheStatusResponse, StorageStatusResponse, SyncStatusResponse } from "@/types/api";
 
 type LoadState = "idle" | "loading" | "success" | "error";
 
 export class DashboardStore {
   summary: DashboardSummary | null = null;
-  syncStatus: unknown = null;
-  cacheStatus: unknown = null;
-  storageStatus: unknown = null;
+  syncStatus: SyncStatusResponse | null = null;
+  cacheStatus: ProjectionCacheStatusResponse | null = null;
+  storageStatus: StorageStatusResponse | null = null;
 
   loadState: LoadState = "idle";
   refreshing = false;

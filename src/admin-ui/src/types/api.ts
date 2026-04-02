@@ -257,6 +257,86 @@ export interface DashboardSummary {
   failureCount: number;
 }
 
+export interface ProjectionCacheInvalidationDomain {
+  domain: string;
+  calls: number;
+  tags: number;
+  lastInvalidatedAt: string | null;
+}
+
+export interface ProjectionCacheInvalidationTelemetry {
+  calls: number;
+  tags: number;
+  lastInvalidatedAt: string | null;
+  domains: ProjectionCacheInvalidationDomain[];
+}
+
+export interface ProjectionLagItem {
+  projection: string;
+  checkpointSequence: number;
+  lag: number;
+}
+
+export interface ProjectionLag {
+  journalTailSequence: number;
+  address: ProjectionLagItem;
+  token: ProjectionLagItem;
+  txLifecycle: ProjectionLagItem;
+}
+
+export interface HistoryEnvelopeBackfillStatus {
+  pendingCount: number;
+  lastBatchScanned: number;
+  lastBatchRewritten: number;
+  lastBatchMissingTransactions: number;
+  lastTouchedSequence: number;
+  lastRunStartedAt: string | null;
+  lastRunCompletedAt: string | null;
+}
+
+export interface ProjectionCacheStatusResponse {
+  enabled: boolean;
+  backend: string;
+  count: number;
+  maxEntries: number | null;
+  hits: number;
+  misses: number;
+  factoryCalls: number;
+  invalidatedKeys: number;
+  invalidatedTags: number;
+  evictions: number;
+  hitRatio: number;
+  invalidation: ProjectionCacheInvalidationTelemetry;
+  projectionLag: ProjectionLag;
+  historyEnvelopeBackfill: HistoryEnvelopeBackfillStatus;
+}
+
+export interface StorageLocationStatusResponse {
+  database: string;
+  collection: string;
+  rootPath: string;
+  shardByTxId: boolean | null;
+  bucket: string;
+  prefix: string;
+  region: string;
+  endpoint: string;
+}
+
+export interface RawTransactionPayloadStorageStatusResponse {
+  enabled: boolean;
+  provider: string;
+  providerImplemented: boolean;
+  persistenceActive: boolean;
+  retentionPolicy: string;
+  compression: string;
+  location: StorageLocationStatusResponse;
+  notes: string[];
+}
+
+export interface StorageStatusResponse {
+  rawTransactionPayloads: RawTransactionPayloadStorageStatusResponse;
+}
+
 // ─── Runtime source policy ───────────────────────────────────────────────────
 
 export interface AdminRealtimeSourcePolicyValues {

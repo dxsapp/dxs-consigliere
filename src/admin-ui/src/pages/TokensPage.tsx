@@ -18,6 +18,7 @@ import {
   Radio,
   Alert,
   Collapse,
+  Checkbox,
 } from "@mui/material";
 import AddOutlinedIcon from "@mui/icons-material/AddOutlined";
 import { DataGrid } from "@mui/x-data-grid";
@@ -25,6 +26,7 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { tokenListStore } from "@/stores/token-list.store";
 import { notifyStore } from "@/stores/notify.store";
 import { ReadinessChip } from "@/components/ReadinessChip";
+import { SummaryMetricCard } from "@/components/SummaryMetricCard";
 import { TrustedRootsInput, parseTrustedRoots } from "@/components/TrustedRootsInput";
 import type { TrackedTokenListItem, HistoryPolicyMode } from "@/types/api";
 
@@ -186,6 +188,11 @@ function AddTokenDialog({ open, onClose }: AddDialogProps) {
 export const TokensPage = observer(function TokensPage() {
   const navigate = useNavigate();
   const [addOpen, setAddOpen] = useState(false);
+  const items = tokenListStore.items;
+  const degradedCount = items.filter((item) => item.readiness.degraded).length;
+  const authoritativeCount = items.filter((item) => item.readiness.authoritative).length;
+  const backfillCount = items.filter((item) => item.readiness.history?.historyReadiness === "backfill_live").length;
+  const blockingUnknownRootCount = items.filter((item) => item.readiness.history?.rootedToken?.blockingUnknownRoot).length;
 
   const columns: GridColDef<TrackedTokenListItem>[] = [
     {
@@ -281,9 +288,12 @@ export const TokensPage = observer(function TokensPage() {
           </Typography>
           {tokenListStore.loadState === "success" && (
             <Typography variant="body2" sx={{ color: "text.disabled", mt: 0.25 }}>
-              {tokenListStore.items.length} token{tokenListStore.items.length !== 1 ? "s" : ""}
+              {items.length} token{items.length !== 1 ? "s" : ""}
             </Typography>
           )}
+          <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, maxWidth: 760 }}>
+            Managed token scope with local rooted-history truth. Rooted historical backfill is bounded by trusted roots and is not unlimited token archaeology.
+          </Typography>
         </Box>
         <Button
           variant="contained"
@@ -309,10 +319,22 @@ export const TokensPage = observer(function TokensPage() {
         </Alert>
       )}
 
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2, mb: 2 }}>
+        <SummaryMetricCard label="Tracked tokens" value={items.length} helper="Current rooted token scope" />
+        <SummaryMetricCard label="Authoritative" value={authoritativeCount} helper="Readable and locally authoritative" accent={authoritativeCount === items.length && items.length > 0 ? "success" : "default"} />
+        <SummaryMetricCard label="Degraded" value={degradedCount} helper="Tokens needing operator attention" accent={degradedCount > 0 ? "warning" : "default"} />
+        <SummaryMetricCard
+          label="Rooted backfill / blocking roots"
+          value={`${backfillCount} / ${blockingUnknownRootCount}`}
+          helper="Live rooted backfills / tokens blocked by unknown roots"
+          accent={blockingUnknownRootCount > 0 ? "warning" : backfillCount > 0 ? "info" : "default"}
+        />
+      </Box>
+
       <Box sx={{ mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
         <FormControlLabel
           control={
-            <Radio
+            <Checkbox
               size="small"
               checked={tokenListStore.includeTombstoned}
               onChange={(e) => {
@@ -324,7 +346,7 @@ export const TokensPage = observer(function TokensPage() {
           }
           label={
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Show tombstoned
+              Include tombstoned tokens
             </Typography>
           }
         />

@@ -8,6 +8,7 @@ import type {
   UntrackResult,
   Finding,
   DashboardSummary,
+  ProjectionCacheStatusResponse,
   AdminProvidersResponse,
   AdminProviderConfigUpdateRequest,
   SetupStatus,
@@ -27,6 +28,7 @@ import type {
   JungleBusBlockSyncStatusResponse,
   JungleBusChainTipAssuranceResponse,
   ValidationRepairStatusResponse,
+  StorageStatusResponse,
 } from "@/types/api";
 
 // ─── Error model ─────────────────────────────────────────────────────────────
@@ -205,8 +207,8 @@ export const tokenApi = {
 export const dashboardApi = {
   summary: () => get<DashboardSummary>("/api/admin/dashboard/summary"),
   syncStatus: () => get<SyncStatusResponse>("/api/admin/blockchain/sync-status"),
-  cacheStatus: () => get<unknown>("/api/admin/cache/status"),
-  storageStatus: () => get<unknown>("/api/admin/storage/status"),
+  cacheStatus: () => get<ProjectionCacheStatusResponse>("/api/admin/cache/status"),
+  storageStatus: () => get<StorageStatusResponse>("/api/admin/storage/status"),
 };
 
 export const providersApi = {
@@ -225,8 +227,8 @@ export const findingsApi = {
 
 export const opsApi = {
   providers: () => get<ProviderStatusResponse[]>("/api/ops/providers"),
-  cache: () => get<unknown>("/api/ops/cache"),
-  storage: () => get<unknown>("/api/ops/storage"),
+  cache: () => get<ProjectionCacheStatusResponse>("/api/ops/cache"),
+  storage: () => get<StorageStatusResponse>("/api/ops/storage"),
   jungleBusBlockSync: () => get<JungleBusBlockSyncStatusResponse>("/api/ops/junglebus/block-sync"),
   jungleBusChainTipAssurance: () => get<JungleBusChainTipAssuranceResponse>("/api/ops/junglebus/chain-tip-assurance"),
   validationRepairs: () => get<ValidationRepairStatusResponse>("/api/ops/validation/repairs"),

@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { observer } from "mobx-react-lite";
 import {
   Alert,
@@ -15,7 +16,7 @@ import {
   Divider,
 } from "@mui/material";
 import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
-import { JsonPanel } from "@/components/JsonPanel";
+import { SummaryMetricCard } from "@/components/SummaryMetricCard";
 import { opsStore } from "@/stores/ops.store";
 import type {
   JungleBusChainTipAssuranceResponse,
@@ -153,6 +154,7 @@ function getValidationRepairChip(response: ValidationRepairStatusResponse | null
 }
 
 export const RuntimePage = observer(function RuntimePage() {
+  const navigate = useNavigate();
   const store = opsStore;
 
   const jungleBus = store.providers?.find((provider) => provider.provider === "junglebus") ?? null;
@@ -203,11 +205,39 @@ export const RuntimePage = observer(function RuntimePage() {
       {store.isLoading && !store.refreshing ? (
         <Stack spacing={2}>
           <Skeleton variant="rounded" height={120} />
+          <Skeleton variant="rounded" height={120} />
           <Skeleton variant="rounded" height={180} />
           <Skeleton variant="rounded" height={56} />
         </Stack>
       ) : (
         <Stack spacing={2}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(4, minmax(0, 1fr))" }, gap: 2 }}>
+            <SummaryMetricCard
+              label="Local indexed height"
+              value={formatCount(store.syncStatus?.height ?? jungleBusBlockSync?.highestKnownLocalBlockHeight ?? null)}
+              helper={store.syncStatus?.isSynced ? "Local chain tip is caught up." : "Local chain tip is still moving."}
+              accent={store.syncStatus?.isSynced ? "success" : "warning"}
+            />
+            <SummaryMetricCard
+              label="JungleBus lag"
+              value={formatCount(jungleBusBlockSync?.lagBlocks ?? jungleBusAssurance?.lagBlocks ?? null)}
+              helper={jungleBusBlockSync?.healthy ? "Observed block flow is healthy." : "Inspect block-sync card for scheduler or provider drift."}
+              accent={jungleBusBlockSync?.degraded ? "warning" : jungleBusBlockSync?.healthy ? "success" : "default"}
+            />
+            <SummaryMetricCard
+              label="Validation repairs"
+              value={formatCount((validationRepairs?.pendingCount ?? 0) + (validationRepairs?.runningCount ?? 0))}
+              helper={validationRepairs ? `${formatCount(validationRepairs.failedCount + validationRepairs.blockedCount)} degraded items` : "Validation repair queue unavailable"}
+              accent={validationRepairs && (validationRepairs.failedCount > 0 || validationRepairs.blockedCount > 0) ? "warning" : validationRepairs ? "info" : "default"}
+            />
+            <SummaryMetricCard
+              label="Active providers"
+              value={formatCount(activeProviders.filter((provider) => provider.enabled && provider.configured).length)}
+              helper={`${formatCount(activeProviders.filter((provider) => provider.degraded).length)} degraded providers`}
+              onClick={() => navigate("/providers")}
+            />
+          </Box>
+
           <Card variant="outlined" sx={{ borderRadius: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack spacing={2}>
@@ -431,12 +461,21 @@ export const RuntimePage = observer(function RuntimePage() {
             ))}
           </Box>
 
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", xl: "repeat(2, minmax(0, 1fr))" }, gap: 2 }}>
-            <JsonPanel title="Cache Status (admin)" data={store.adminCacheStatus} />
-            <JsonPanel title="Cache Detail (ops)" data={store.opsCache} />
-          </Box>
-
-          <JsonPanel title="Storage Detail (ops)" data={store.opsStorage} />
+          <Alert
+            severity="info"
+            action={
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button color="inherit" size="small" onClick={() => navigate("/storage")}>
+                  Storage
+                </Button>
+                <Button color="inherit" size="small" onClick={() => navigate("/providers")}>
+                  Providers
+                </Button>
+              </Box>
+            }
+          >
+            Runtime stays diagnostics-first. Cache and payload persistence details live on Storage, while capability overrides and help links live on Providers.
+          </Alert>
         </Stack>
       )}
     </Box>

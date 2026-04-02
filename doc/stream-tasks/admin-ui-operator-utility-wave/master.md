@@ -53,11 +53,11 @@ Out of scope:
 
 | slice | zone lead | owner | status | depends_on | validation | done_when |
 |---|---|---|---|---|---|---|
-| `AU1` | `public-api-and-realtime` | `operator/api` | `todo` | - | frontend build + page contract review | page roles and information hierarchy are frozen |
-| `AU2` | `public-api-and-realtime` | `operator/api` | `todo` | `AU1` | frontend build + manual page smoke | dashboard/runtime/storage/providers surfaces stop fighting each other |
-| `AU3` | `public-api-and-realtime` | `operator/api` | `todo` | `AU1` | frontend build + entity-page smoke | address/token list and detail pages show operator-useful summaries and actions |
-| `AU4` | `public-api-and-realtime` | `operator/api` | `todo` | `AU2`,`AU3` | frontend build + copy review | remaining raw dumps, legacy wording, and ambiguous state labels are removed |
-| `AU5` | `verification-and-conformance` | `operator/verification` | `todo` | `AU2`,`AU3`,`AU4` | `pnpm typecheck`, `pnpm build`, manual admin smoke | wave proof and residuals are captured honestly |
+| `AU1` | `public-api-and-realtime` | `operator/api` | `done` | - | frontend build + page contract review | page roles and information hierarchy are frozen |
+| `AU2` | `public-api-and-realtime` | `operator/api` | `done` | `AU1` | frontend build + manual page smoke | dashboard/runtime/storage/providers surfaces stop fighting each other |
+| `AU3` | `public-api-and-realtime` | `operator/api` | `done` | `AU1` | frontend build + entity-page smoke | address/token list and detail pages show operator-useful summaries and actions |
+| `AU4` | `public-api-and-realtime` | `operator/api` | `done` | `AU2`,`AU3` | frontend build + copy review | remaining raw dumps, legacy wording, and ambiguous state labels are removed |
+| `AU5` | `verification-and-conformance` | `operator/verification` | `done` | `AU2`,`AU3`,`AU4` | `pnpm typecheck`, `pnpm build`, manual admin smoke | wave proof and residuals are captured honestly |
 
 ## Definition of Done
 
@@ -73,5 +73,7 @@ Out of scope:
 ## Delivery Notes
 
 - Package path: `/Users/imighty/Code/dxs-consigliere/doc/stream-tasks/admin-ui-operator-utility-wave/`
-- Record implementation commit hashes here as slices land.
-- If small API/DTO additions become necessary, add a handoff note in this file before crossing zones.
+- Package creation commit: `52a0dd7` (`docs(admin-ui): add operator utility wave`)
+- This wave stayed inside `src/admin-ui/**`; no backend handoff was required.
+- Small frontend contract cleanup landed for cache/storage typing in `/Users/imighty/Code/dxs-consigliere/src/admin-ui/src/types/api.ts` and `/Users/imighty/Code/dxs-consigliere/src/admin-ui/src/api/client.ts`.
+- Manual browser smoke was not run in this execution round; closeout records only typecheck/build proof.
