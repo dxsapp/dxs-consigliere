@@ -4,6 +4,9 @@
 
 This note captures the final operator-facing rollout shape for `Consigliere vnext`.
 
+Release-readiness status for the now-simplified `v1` product lives in:
+- `/Users/imighty/Code/dxs-consigliere/doc/platform-api/v1-release-readiness.md`
+
 The service now supports four explicit runtime cutover modes through `VNextRuntime:CutoverMode`:
 
 - `legacy`
