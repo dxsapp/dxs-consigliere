@@ -26,7 +26,11 @@ public class StasDependencyRevalidationCascadeIntegrationTests : RavenTestDriver
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var replayingStore = new ReplayingMetaTransactionStore();
-        var coordinator = new StasDependencyRevalidationCoordinator(dependencyStore, store, replayingStore, NullLogger.Instance);
+        var coordinator = new StasDependencyRevalidationCoordinator(
+            dependencyStore,
+            store,
+            replayingStore,
+            NullLogger<StasDependencyRevalidationCoordinator>.Instance);
         replayingStore.AttachCoordinator(coordinator);
 
         await SeedMetaTransactionAsync(store, "root");
@@ -50,7 +54,11 @@ public class StasDependencyRevalidationCascadeIntegrationTests : RavenTestDriver
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var replayingStore = new ReplayingMetaTransactionStore();
-        var coordinator = new StasDependencyRevalidationCoordinator(dependencyStore, store, replayingStore, NullLogger.Instance);
+        var coordinator = new StasDependencyRevalidationCoordinator(
+            dependencyStore,
+            store,
+            replayingStore,
+            NullLogger<StasDependencyRevalidationCoordinator>.Instance);
         replayingStore.AttachCoordinator(coordinator);
 
         await SeedMetaTransactionAsync(store, "child");

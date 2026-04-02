@@ -12,7 +12,7 @@ public sealed class StasDependencyRevalidationCoordinator(
     ITokenValidationDependencyStore dependencyStore,
     IDocumentStore documentStore,
     IMetaTransactionStore transactionStore,
-    ILogger logger
+    ILogger<StasDependencyRevalidationCoordinator> logger
 ) : IStasDependencyRevalidationCoordinator
 {
     public async Task HandleTransactionChangedAsync(string txId, CancellationToken cancellationToken = default)

@@ -25,6 +25,7 @@ public sealed class TxObservationJournalMirrorBackgroundTask(
     private readonly CancellationTokenSource _cts = new();
     private IDisposable _txSubscription;
     private IAgent<FilteredTransactionMessage> _messageHandler;
+    private bool _disposed;
 
     public string Name => nameof(TxObservationJournalMirrorBackgroundTask);
 
@@ -42,17 +43,37 @@ public sealed class TxObservationJournalMirrorBackgroundTask(
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _txSubscription?.Dispose();
+        _txSubscription = null;
         _messageHandler?.Complete();
-        _cts.Cancel();
+        CancelTokenSource();
 
         return Task.CompletedTask;
     }
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _txSubscription?.Dispose();
-        _cts.Cancel();
+        _txSubscription = null;
+        CancelTokenSource();
         _cts.Dispose();
+    }
+
+    private void CancelTokenSource()
+    {
+        if (_cts.IsCancellationRequested)
+            return;
+
+        try
+        {
+            _cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task HandleAsync(FilteredTransactionMessage message)

@@ -56,6 +56,20 @@ public class BlockObservationJournalMirrorBackgroundTaskTests
         task.Dispose();
     }
 
+    [Fact]
+    public async Task DisposeIsIdempotentAfterStop()
+    {
+        var blockMessageBus = new BlockMessageBus();
+        var journal = new FakeObservationJournal(expectedCount: 1);
+        var task = CreateTask(blockMessageBus, journal);
+
+        await task.StartAsync(CancellationToken.None);
+        await task.StopAsync(CancellationToken.None);
+
+        task.Dispose();
+        task.Dispose();
+    }
+
     private static BlockObservationJournalMirrorBackgroundTask CreateTask(
         BlockMessageBus blockMessageBus,
         FakeObservationJournal journal,

@@ -19,6 +19,7 @@ public sealed class BlockObservationJournalMirrorBackgroundTask(
     private readonly CancellationTokenSource _cts = new();
     private IDisposable _blockSubscription;
     private IAgent<BlockMessage> _messageHandler;
+    private bool _disposed;
 
     public string Name => nameof(BlockObservationJournalMirrorBackgroundTask);
 
@@ -36,17 +37,37 @@ public sealed class BlockObservationJournalMirrorBackgroundTask(
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _blockSubscription?.Dispose();
+        _blockSubscription = null;
         _messageHandler?.Complete();
-        _cts.Cancel();
+        CancelTokenSource();
 
         return Task.CompletedTask;
     }
 
     public void Dispose()
     {
+        if (_disposed)
+            return;
+
+        _disposed = true;
         _blockSubscription?.Dispose();
-        _cts.Cancel();
+        _blockSubscription = null;
+        CancelTokenSource();
         _cts.Dispose();
+    }
+
+    private void CancelTokenSource()
+    {
+        if (_cts.IsCancellationRequested)
+            return;
+
+        try
+        {
+            _cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
     }
 
     private async Task HandleAsync(BlockMessage message)

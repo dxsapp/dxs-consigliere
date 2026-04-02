@@ -129,14 +129,30 @@ Notes:
 
 ## I. Docker / Release Proof
 
-- [ ] empty-DB `docker compose` first-run smoke has been re-run after the latest simplification and scoped-history copy changes
-- [ ] setup wizard has been re-verified end-to-end in containerized run after the latest release-hardening changes
-- [ ] runtime panels have been re-smoked in the latest compose image after the latest delivery waves
+- [x] empty-DB `docker compose` first-run smoke has been re-run after the latest simplification and scoped-history copy changes
+- [x] setup wizard has been re-verified end-to-end in containerized run after the latest release-hardening changes
+- [x] runtime panels have been re-smoked in the latest compose image after the latest delivery waves
 - [x] Docker/release workflow exists for tagged DockerHub publishing
 
 Notes:
-- this is the main remaining release-hardening bucket before calling `v1.0`
-- these are execution checks, not architecture gaps
+- verified on `2026-04-02` with fresh `docker compose down -v --remove-orphans && docker compose up -d --build`
+- empty-DB setup proof:
+  - `GET /api/setup/status` -> `200`, `setupRequired=true`
+  - `POST /api/setup/complete` with admin disabled + Bitails/JungleBus/WhatsOnChain defaults -> `200`, `setupCompleted=true`
+- containerized runtime proof:
+  - `GET /api/admin/auth/me` -> `200`
+  - `GET /api/admin/blockchain/sync-status` -> `200`
+  - `GET /api/admin/cache/status` -> `200`
+  - `GET /api/admin/storage/status` -> `200`
+  - `GET /api/admin/runtime/sources` -> `200`
+  - `GET /api/ops/cache` -> `200`
+  - `GET /api/ops/providers` -> `200`
+  - `GET /api/ops/junglebus/block-sync` -> `200`
+  - `GET /api/ops/junglebus/chain-tip-assurance` -> `200`
+  - `GET /api/ops/validation/repairs` -> `200`
+- the smoke rerun exposed and closed two real startup blockers before this note was marked green:
+  - non-idempotent hosted-service disposal in block/tx journal mirror tasks
+  - untyped `ILogger` injection in `StasDependencyRevalidationCoordinator`
 
 ## J. Explicit Backlog, Not Hidden Release Blockers
 
@@ -155,8 +171,8 @@ Current recommendation:
 - `Consigliere` is at `v1 release candidate` status for scoped operator deployments
 
 What is still needed before calling it a cleaner `v1.0`:
-1. rerun empty-DB compose first-run smoke
-2. rerun setup/admin/runtime smoke in the containerized image
-3. confirm no regressions in current docs/UI after the scoped-history simplification
+1. decide whether current compile/startup warnings are acceptable for `v1.0` or need another hardening pass
+2. keep final release cut honest about `single_source` JungleBus assurance and scoped-history posture
+3. confirm no regressions in current docs/UI after the scoped-history simplification and compose smoke fixes
 
 If those pass, the remaining gaps are backlog or polish, not core product uncertainty.

@@ -83,7 +83,11 @@ public sealed class TokenLineageBenchmarkHarness : ConfiguredRavenBenchmarkTestD
         using var store = GetDocumentStore();
         var dependencyStore = new TokenValidationDependencyStore(store);
         var replayingStore = new RecordingMetaTransactionStore();
-        var coordinator = new StasDependencyRevalidationCoordinator(store, replayingStore, NullLogger.Instance);
+        var coordinator = new StasDependencyRevalidationCoordinator(
+            dependencyStore: dependencyStore,
+            documentStore: store,
+            transactionStore: replayingStore,
+            logger: NullLogger<StasDependencyRevalidationCoordinator>.Instance);
         replayingStore.AttachCoordinator(coordinator);
 
         await SeedMetaTransactionAsync(store, "root", cancellationToken);
