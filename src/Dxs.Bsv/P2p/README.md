@@ -1,7 +1,7 @@
 # `Dxs.Bsv.P2p` — Bitcoin SV P2P Message Codec
 
 Pure byte-level codec for the BSV P2P wire protocol. **No network code in this layer** —
-this is the conformance layer (Gate 1 of [consigliere-thin-node-design.md](../../../doc/platform-api/consigliere-thin-node-design.md)).
+this is the conformance layer (Gate 1 of [consigliere-thin-node-design.md](../../../docs/platform-api/consigliere-thin-node-design.md)).
 
 ## Layout
 

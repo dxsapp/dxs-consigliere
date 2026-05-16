@@ -11,7 +11,7 @@
 
 ## AI-First Checklist
 
-- [ ] I identified the touched ownership zone(s) from `doc/repository-zones/zone-catalog.md`
+- [ ] I identified the touched ownership zone(s) from `docs/repository-zones/zone-catalog.md`
 - [ ] I followed the nearest scoped `AGENTS.md`
 - [ ] The change keeps or improves cheap-context editing
 - [ ] I avoided broad mixed-responsibility edits where a narrower seam was possible

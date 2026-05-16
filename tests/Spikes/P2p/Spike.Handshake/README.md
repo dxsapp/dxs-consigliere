@@ -1,7 +1,7 @@
 # Spike: P2P Handshake Pinger
 
 Throwaway console app that validates the assumptions behind the
-[P2P Broadcaster design](../../../../doc/platform-api/p2p-broadcaster-design.md).
+[P2P Broadcaster design](../../../../docs/platform-api/p2p-broadcaster-design.md).
 
 ## Goal
 
