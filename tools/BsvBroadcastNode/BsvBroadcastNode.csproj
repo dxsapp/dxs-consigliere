@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BsvBroadcastNode</RootNamespace>
+    <AssemblyName>BsvBroadcastNode</AssemblyName>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Dxs.Bsv/Dxs.Bsv.csproj" />
+  </ItemGroup>
+
+</Project>
