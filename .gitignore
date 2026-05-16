@@ -73,3 +73,6 @@ src/admin-ui/dist/
 src/Dxs.Consigliere/wwwroot/
 src/admin-ui/.env.local
 src/admin-ui/.env.*.local
+
+# C# Dev Kit language service cache
+*.csproj.lscache
