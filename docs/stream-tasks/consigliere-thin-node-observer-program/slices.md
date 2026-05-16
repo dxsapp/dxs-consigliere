@@ -36,11 +36,20 @@ against the header.
 
 **Owned paths.**
 - `src/Dxs.Bsv/P2p/Chain/` (new)
-- `src/Dxs.Bsv/P2p/Session/PeerSession.cs` — add **all** observation
-  extension points needed by W1, W2, W3 in one contract-freeze pass:
-  `OnHeadersReceived`, `OnBlockInvReceived`, `OnInvReceived(InvMessage)`,
-  `OnRejectReceived`. Bodies may stub to no-ops; signatures and dispatch
-  are locked in this wave.
+- `src/Dxs.Bsv/P2p/Session/PeerSession.cs` — add **the complete**
+  set of observation callbacks and the telemetry sink per Core Rule §7
+  in `master.md`:
+  - `OnHeadersReceived(IReadOnlyList<BlockHeader>)` (W1 uses)
+  - `OnInvReceived(InvMessage)` — single typed callback for both tx
+    and block inv items; consumers filter by `InvType`. (Replaces
+    earlier inconsistent `OnBlockInvReceived` / `OnInvReceived(tx)`
+    split flagged by audit A2.)
+  - `OnRejectReceived(RejectMessage)` (W2 reject-class quorum;
+    W6 reject-rate scoring)
+  - `PeerTelemetry` snapshot type + `IPeerTelemetrySink` interface
+    (W4 reads aggregates, W6 implements production sink).
+  Bodies may stub to no-ops; signatures, dispatch, and telemetry
+  field set are locked in this wave.
 - `src/Dxs.Consigliere/Services/P2p/HeadersChainService.cs` (new)
 - `src/Dxs.Consigliere/Data/P2p/BlockHeaderStore.cs` (new)
 - `src/Dxs.Consigliere/Data/Models/P2p/BlockHeaderDocument.cs` (new)
@@ -61,10 +70,24 @@ header tips; recovery is built later. Token watchlist matching is W2.
 **Validation signal.**
 - Initial header sync from Bitails REST + transition to P2P-only mode
   completes within 10 s of startup on a fresh VPS.
-- Over a 24 h soak: every block observed by WhatsOnChain on mainnet
-  also produces a `WalletHub.OnNewBlock` event with p95 lag ≤ 2 s.
+- Over a **24 h soak harness** described below: every block observed
+  by WhatsOnChain on mainnet also produces a `WalletHub.OnNewBlock`
+  event with p95 lag ≤ 2 s.
 - Admin endpoint `GET /api/admin/p2p/headers/tip` returns a hash that
   matches the WhatsOnChain block explorer for the same height.
+
+**Benchmark harness for the p95-lag claim.** A `HeadersSoakRecorder`
+hosted service runs alongside the headers chain service during the
+24 h soak. For each `OnNewBlock` it timestamps `now_recv_utc` and the
+block's header `timestamp` field. In parallel, the harness polls
+WhatsOnChain's `/v1/bsv/main/chain/info` endpoint at 1 s cadence; on
+each height change it records `now_explorer_utc`. End of soak: lag per
+block = `now_recv_utc - now_explorer_utc`; p95 is computed over the
+soak window. Hardware/runtime assumption is the same fresh
+DigitalOcean droplet class used in the existing Gate 2 soak runbook
+(`docs/platform-api/thin-node-gate2-soak-runbook.md`). The harness
+itself is a throwaway recorder under `tests/Spikes/P2p/` and does not
+ship in the wave's production artifacts.
 
 **Completion signal.** Contract-freeze slice closed; all ledger items
 closed; `dotnet test` green; admin endpoint matches WhatsOnChain tip
@@ -103,7 +126,14 @@ Validation covers:
 - token-output match (STAS / DSTAS)
 - removal of address while observer running (no false matches on
   next tx)
-- 500 K-address load benchmark (≤ 2 s startup load; ≤ 50 ns hot path)
+- 500 K-address load benchmark (≤ 2 s startup load measured wall-clock
+  from `RavenWatchlistLoader` start to `WatchlistMatcher.Loaded = true`).
+  Hot-path lookup latency target: **p99 ≤ 100 ns** in a BenchmarkDotNet
+  microbenchmark over the matcher only (no parsing). The earlier
+  `≤ 50 ns hot path` figure in draft text was a single-operation
+  mean estimate — superseded; canonical target is p99 ≤ 100 ns,
+  reconciled with the program validation matrix (`Validation matrix`
+  row "Watchlist scale").
 - collision behaviour on `HashSet<ulong>` 8-byte prefix (full hash160
   verify catches; no false positive escape)
 

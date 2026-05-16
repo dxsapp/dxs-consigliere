@@ -95,6 +95,23 @@ After each wave closes:
 This is the default `next-wave-first` mode per the
 `durable-wave-package` skill. Do not chain wave executions silently.
 
+## Prerequisite-slice gating inside a wave
+
+Waves 1 and 2 each declare a mandatory first slice (W1: contract
+freeze; W2: journal-contract extension + watchlist correctness/scale).
+When the child wave package is opened, that package's `master.md`
+ledger must encode it explicitly:
+
+- The first slice (`prereq`) has no `depends_on` and must close before
+  any main slice opens.
+- Every main slice in the wave has `depends_on = prereq-slice-id`.
+- The wave's `launch-prompt.md` instructs the execution operator to
+  stop and audit the prereq slice on its own before opening the rest.
+
+This prevents an executor from spawning main implementation work in
+parallel with an open prerequisite slice — the audit gate is per
+slice, not just per wave, for these two waves.
+
 ## Validation
 
 Per-wave validation lives in each wave's `master.md` and `slices.md`.

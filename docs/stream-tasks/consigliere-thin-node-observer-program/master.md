@@ -98,12 +98,42 @@ Out of scope:
    to a single P2P-first `Submit/Broadcast` flow. Bitails/WoC/bitcoind
    broadcast paths are removed (this is vnext — no backwards-compat).
 7. **Hub & PeerSession contract freeze in Wave 1.** Wave 1's first
-   slice pre-declares **all** hub events (`OnNewBlock`, `OnReorg`,
-   updated `Broadcast` signature) and **all** `PeerSession` observation
-   extension points (`OnHeadersReceived`, `OnBlockInvReceived`,
-   `OnInvReceived(tx)`) that downstream waves need. Implementations may
-   stub out, but the surfaces and group naming are fixed before any
-   wave touches them in anger. Eliminates merge thrash across waves.
+   slice pre-declares the **complete** set of hub events,
+   `PeerSession` extension points, and per-peer telemetry surface that
+   every downstream wave needs. Bodies may stub; the surfaces themselves
+   are frozen. This enumeration replaces any earlier draft list.
+   - **Hub events on `IWalletHub`** (consumed by Waves 1–5):
+     - `OnNewBlock(BlockTipDto)` (W1)
+     - `OnReorg(ReorgEventDto)` (W3)
+     - existing `OnTransactionFound` / `OnTransactionDeleted` reused
+       by W2/W3 unchanged
+     - `Broadcast(hex) → BroadcastReceiptDto` DTO signature finalised
+       (hub method itself changes in W5; DTO is stable across waves)
+   - **`PeerSession` observation callbacks** (typed DTOs only, no
+     bare hash overloads):
+     - `OnHeadersReceived(IReadOnlyList<BlockHeader>)` (W1)
+     - `OnInvReceived(InvMessage)` — single callback for both tx and
+       block inv items; consumers filter by `InvType`. Replaces the
+       earlier inconsistent `OnBlockInvReceived` / `OnInvReceived(tx)`
+       split.
+     - `OnRejectReceived(RejectMessage)` (W2 reject-class quorum;
+       W6 reject-rate scoring)
+   - **`PeerSession` telemetry surface** (consumed by W4 source
+     metrics and W6 peer scoring — frozen here so neither wave needs
+     to touch `PeerSession.cs` later):
+     - `PeerTelemetry` snapshot type exposing: bytes-in, bytes-out,
+       last-recv-utc, last-send-utc, ping-rtt-p50/p95-ms,
+       getdata-served-count, reject-received-count,
+       last-disconnect-reason.
+     - `IPeerTelemetrySink` interface — `PeerSession` writes scalar
+       updates on every relevant event (ping reply, frame processed,
+       reject received, disconnect). W4 reads aggregates; W6
+       implements the production sink + alert poller.
+
+   If a child wave needs a callback or telemetry field not on this
+   list, it must open an explicit contract-freeze amendment slice in
+   Wave 1's package before touching `PeerSession.cs` — no silent
+   additions.
 8. **Stop-and-audit per wave.** Each child wave gets its own Codex
    audit before execution and `audits/A1.md` after closeout. No wave
    leaves `done` without an audit pass.
@@ -113,34 +143,48 @@ Out of scope:
 ## Ownership Zones
 
 Program zones (local to this work) map to the repo's higher-level zone
-catalog in `docs/repository-zones/zone-catalog.md`. Each child wave
-declares which **program** zones it modifies and lists the **repo**
-zones it crosses, so the existing handoff contracts apply.
+catalog in `docs/repository-zones/zone-catalog.md`. **All repo-zone
+names below are exact catalog entries.** Each child wave declares which
+**program** zones it modifies and lists the **repo** zones it crosses,
+so the existing handoff contracts apply.
 
-| Program zone | Repo zone(s) per `zone-catalog.md` | Files |
+| Program zone | Repo zone (catalog name) | Files |
 |---|---|---|
-| `bsv-p2p-codec` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/{Codec,Messages,FrameCodec,P2pNetwork,P2pAddress,P2pCommands,P2pDecodeException,Frame}.cs` |
-| `bsv-p2p-session` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Session/` |
-| `bsv-p2p-pool` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Pool/` |
-| `bsv-p2p-chain` (new; Phase 1) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Chain/` |
-| `bsv-p2p-observer` (new; Phase 2) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Observer/` |
+| `bsv-p2p-codec` | `bsv-protocol-core` (per precedence rule §2 in catalog) | `src/Dxs.Bsv/P2p/{Codec,Messages,FrameCodec,P2pNetwork,P2pAddress,P2pCommands,P2pDecodeException,Frame}.cs` |
+| `bsv-p2p-session` | `bsv-protocol-core` (precedence rule §2) | `src/Dxs.Bsv/P2p/Session/` |
+| `bsv-p2p-pool` | `bsv-protocol-core` (precedence rule §2) | `src/Dxs.Bsv/P2p/Pool/` |
+| `bsv-p2p-chain` (new; Wave 1) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Chain/` |
+| `bsv-p2p-observer` (new; Wave 2) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Observer/` |
 | `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/` |
 | `consigliere-p2p-data` | `indexer-state-and-storage` | `src/Dxs.Consigliere/Data/{P2p,Models/P2p}/` |
 | `consigliere-p2p-tasks` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/BackgroundTasks/P2p/` |
 | `consigliere-p2p-realtime` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/BackgroundTasks/Realtime/` |
-| `consigliere-broadcast` | `indexer-write-path` | `src/Dxs.Consigliere/Services/{IBroadcastService.cs,Impl/BroadcastService.cs}` |
+| `consigliere-broadcast` | `public-api-and-realtime` (`BroadcastService.cs` is explicitly listed there) | `src/Dxs.Consigliere/Services/{IBroadcastService.cs,Impl/BroadcastService.cs}` |
 | `consigliere-hub-public` | `public-api-and-realtime` | `src/Dxs.Consigliere/WebSockets/{IWalletHub.cs,WalletHub.cs,BroadcastReceiptDto.cs}` |
-| `consigliere-admin-api` | `public-api-and-realtime` (admin sub-zone) | `src/Dxs.Consigliere/Controllers/AdminP2pController.cs` + new admin controllers |
+| `consigliere-admin-api` | `public-api-and-realtime` | `src/Dxs.Consigliere/Controllers/AdminP2pController.cs` + new admin controllers |
 | `consigliere-tx-projection` | `indexer-state-and-storage` | `src/Dxs.Consigliere/Data/Transactions/TxLifecycleProjection*.cs` and journal |
-| `admin-ui` | `admin-ui` | `src/admin-ui/` |
-| `dxs-bsv-tests` | tests | `tests/Dxs.Bsv.Tests/P2p/` |
-| `consigliere-tests` | tests | `tests/Dxs.Consigliere.Tests/` |
+| `consigliere-bitcoind-service` (W5 only) | `indexer-ingest-orchestration` (`BitcoindService.cs` is explicitly listed there) | `src/Dxs.Consigliere/Services/Impl/BitcoindService.cs` (broadcast removal touches this) |
+| `external-broadcast-clients` (W5 only) | `external-chain-adapters` | `src/Dxs.Infrastructure/Bitails/BitailsRestApiClient.cs` and `src/Dxs.Infrastructure/WoC/WhatsOnChainRestApiClient.cs` (broadcast endpoint removal) |
+| `consigliere-bootstrap` (W6 only) | `service-bootstrap-and-ops` | DI registration for new hosted services in `Setup/BsvP2pSetup.cs` and any `Configs/*.cs` additions |
+| `admin-ui-pages` | not in current catalog — `src/admin-ui/**` is a separate SPA project; treat as its own out-of-catalog zone with the same handoff conventions | `src/admin-ui/` |
+| `program-tests` | `verification-and-conformance` (catalog row "tests/**") | `tests/Dxs.Bsv.Tests/P2p/`, `tests/Dxs.Consigliere.Tests/` |
+| `program-docs` | `repo-governance` (catalog row "docs/**") | `docs/platform-api/` (change notes, runbook) and `docs/stream-tasks/<wave-slug>/` |
+
+**Note on the `src/admin-ui/` gap.** The repo catalog does not list a
+zone for the admin SPA. This program treats `src/admin-ui/` as its
+own out-of-catalog zone for the duration of Wave 4 and Wave 6 admin
+pages. Adding `admin-ui` to the catalog is governance work (separate
+change, owned by `repo-governance`); not blocking for this program but
+should be raised post-Wave 6.
 
 Handoff requirements (per `docs/repository-zones/handoff-contract.md`):
-- W2 crosses `indexer-state-and-storage` (journal schema), `indexer-ingest-orchestration` (runner), and `public-api-and-realtime` (hub event). The W2 wave package must list the handoff facts: extended journal source enum + new hub method names + admin endpoints.
-- W3 crosses `indexer-state-and-storage` (projection reorg replay), `indexer-ingest-orchestration` (rescan runner), and `public-api-and-realtime` (reorg hub event).
-- W5 crosses `indexer-write-path` (broadcast unification) and `public-api-and-realtime` (single `Broadcast` method).
-- W6 crosses `indexer-ingest-orchestration` (peer scoring loop, alert poller), `public-api-and-realtime` (operator endpoints), and `admin-ui` (operator pages).
+
+- **W1** crosses `bsv-protocol-core` (codec + session + chain), `indexer-state-and-storage` (block header documents), `indexer-ingest-orchestration` (hosted service for headers chain), `public-api-and-realtime` (new hub events). Handoff facts: frozen hub event signatures, frozen `PeerSession` extension surface, block-header document schema.
+- **W2** crosses `bsv-protocol-core` (observer logic + new session callback bodies), `indexer-state-and-storage` (`TxObservationSource.P2p` enum + journal extension), `indexer-ingest-orchestration` (new ingest runner), `public-api-and-realtime` (source-tag in existing hub events). Handoff facts: source enum addition, journal append overload signature, runner DI registration.
+- **W3** crosses `bsv-protocol-core` (reorg detector), `indexer-state-and-storage` (projection rebuilder coverage verification; rescan-state document if `DegradedReorgState` needs persistence), `indexer-ingest-orchestration` (rescan runner), `public-api-and-realtime` (already-frozen `OnReorg` hub event).
+- **W4** crosses `indexer-state-and-storage` (metrics counter document), `indexer-ingest-orchestration` (metrics recorder + Bitails/JBus source-tag adjustments), `public-api-and-realtime` (admin endpoint), out-of-catalog `admin-ui`.
+- **W5** crosses `public-api-and-realtime` (single `Broadcast` method, `BroadcastService` rework), `indexer-ingest-orchestration` (`BitcoindService.Broadcast` removal), `external-chain-adapters` (broadcast endpoints removed from `BitailsRestApiClient` / `WhatsOnChainRestApiClient`).
+- **W6** crosses `bsv-protocol-core` (peer-scoring fields on `PeerRecord`, scoring loop in `PeerManager`), `indexer-ingest-orchestration` (alert poller hosted service, optional inbound listener service), `public-api-and-realtime` (alerts admin endpoint), `service-bootstrap-and-ops` (DI wiring for the new services and any new configs), out-of-catalog `admin-ui`, `repo-governance` (`docs/platform-api/` runbook + change notes).
 
 ## Program Waves
 
@@ -246,9 +290,20 @@ endpoint), `admin-ui` (alerts panel), `docs/platform-api/` (change notes
   source-tagged journal).
 - Wave 4 must close before Wave 5 (metrics in place before HTTP
   fallback is removed).
-- Wave 5 must close before Wave 6 — or W6 can run before W5 if the
-  operator wants peer scoring + alerts before legacy broadcast removal.
-  Default: W5 first, then W6 (W6 covers W5's change notes).
+- **Wave 5 must close before Wave 6.** Committed order is W5 → W6.
+  Rationale: W6 publishes the public `Broadcast` change notes, which
+  can only be finalised after W5 actually lands the new signature; W6
+  also depends on the source-metrics dashboard from W4 being able to
+  show three sources during the cut-over.
+  - Note on operator safety: peer scoring and pool alerts are
+    *useful* before W5 ships, but the current peer pool already
+    persists per-peer attempt history via `PeerRecord`
+    (`src/Dxs.Bsv/P2p/Pool/PeerRecord.cs`), so cold-start operators
+    can still recover from a bad pool by restarting before W6. The
+    program accepts that small risk in exchange for a clean
+    dependency chain. Operators who need W6 earlier can run it
+    in parallel with W5 *only* if they accept that W6's change-notes
+    slice will be re-opened once the W5 signature is final.
 - All hub event additions and `PeerSession` extension points are
   pre-declared in Wave 1's contract-freeze slice. Subsequent waves only
   implement against the frozen surface — they do not add new ones
