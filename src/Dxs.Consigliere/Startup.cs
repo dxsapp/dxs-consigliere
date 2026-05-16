@@ -10,6 +10,7 @@ public class Startup(IConfiguration configuration)
         services
             .AddPersistenceZoneServices(configuration)
             .AddBsvRuntimeZoneServices(configuration)
+            .AddBsvP2pZoneServices(configuration)
             .AddPublicApiZoneServices()
             .AddCorePlatformZoneServices(configuration)
             .AddExternalChainAdapterZoneServices()

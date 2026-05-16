@@ -1,4 +1,5 @@
 using Dxs.Bsv;
+using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Dto;
 using Dxs.Consigliere.Dto.Requests;
@@ -131,6 +132,26 @@ public class WalletHub(
 
         return result.Success;
     }
+
+    /// <summary>
+    /// Gate 3: P2P broadcast with lifecycle tracking.
+    /// Returns a receipt immediately; state transitions are streamed via
+    /// OnBroadcastStateChanged to the caller's connection group.
+    /// </summary>
+    public async Task<BroadcastReceiptDto> BroadcastTracked(
+        string rawHex,
+        [FromServices] IBroadcastService broadcastService)
+    {
+        var receipt = await broadcastService.SubmitAsync(rawHex, Context.ConnectionId);
+        return new BroadcastReceiptDto(receipt.TxId, receipt.State.ToString(), receipt.CreatedAtMs, receipt.FailReason);
+    }
+
+    /// <summary>Subscribe to state-change events for one txid.</summary>
+    public Task SubscribeToBroadcast(string txId)
+        => Groups.AddToGroupAsync(Context.ConnectionId, $"broadcast:{txId}");
+
+    public Task UnsubscribeFromBroadcast(string txId)
+        => Groups.RemoveFromGroupAsync(Context.ConnectionId, $"broadcast:{txId}");
 
     #endregion
 

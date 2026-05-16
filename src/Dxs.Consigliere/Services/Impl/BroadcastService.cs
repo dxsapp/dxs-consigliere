@@ -3,7 +3,10 @@ using Dxs.Bsv.Factories;
 using Dxs.Bsv.Models;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
+using Dxs.Consigliere.Data.Models.P2p;
+using Dxs.Consigliere.Data.P2p;
 using Dxs.Consigliere.Data.Runtime;
+using Dxs.Consigliere.Services.P2p;
 using Dxs.Consigliere.Extensions;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.Common;
@@ -256,4 +259,72 @@ public class BroadcastService(
 
     private static string FormatAttemptMessage(BroadcastProviderAttempt attempt)
         => $"{attempt.Provider}:{attempt.Message ?? (attempt.Success ? "accepted" : "failed")}";
+
+    // ── Gate 3: P2P tracked broadcast ────────────────────────────────────────
+
+    // These are injected via property injection or accessed from DI scope to
+    // keep the existing constructor unchanged (BroadcastService already has 10 params).
+    // Set by BroadcastServiceP2pExtension.Configure().
+    internal TxPolicyValidator PolicyValidator { get; set; }
+    internal OutgoingTransactionStore OutgoingStore { get; set; }
+    internal TxRelayCoordinator RelayCoordinator { get; set; }
+
+    public async Task<BroadcastReceipt> SubmitAsync(string rawHex, string clientConnectionId = null, CancellationToken ct = default)
+    {
+        if (PolicyValidator is null || OutgoingStore is null)
+        {
+            // P2P subsystem not enabled — degrade gracefully.
+            return new BroadcastReceipt(null, OutgoingTxState.Failed, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                "P2P broadcast subsystem not enabled (Consigliere:Broadcast:P2p:Enabled = false)");
+        }
+
+        var validation = await PolicyValidator.ValidateAsync(rawHex, ct);
+
+        if (!validation.IsValid)
+        {
+            if (PolicyValidator.IsDuplicateResult(validation))
+            {
+                // Idempotent: return existing receipt.
+                var existing = await OutgoingStore.GetOrNullAsync(PolicyValidator.ExtractTxIdFromDuplicate(validation), ct);
+                if (existing is not null)
+                    return new BroadcastReceipt(existing.TxId, existing.State, existing.CreatedAtMs);
+            }
+            return new BroadcastReceipt(null, OutgoingTxState.PolicyInvalid, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), validation.FailReason);
+        }
+
+        var tx = new OutgoingTransaction
+        {
+            Id = OutgoingTransaction.BuildId(validation.TxId),
+            TxId = validation.TxId,
+            RawHex = rawHex,
+            ParsedSizeBytes = validation.SizeBytes,
+            State = OutgoingTxState.Validated,
+            ClientConnectionId = clientConnectionId,
+        };
+        await OutgoingStore.SaveAsync(tx, ct);
+
+        // Fire-and-forget dispatch — lifecycle worker picks it up if this fails.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                tx.State = OutgoingTxState.Dispatching;
+                await OutgoingStore.SaveAsync(tx, default);
+
+                var served = await RelayCoordinator.AnnounceAsync(tx.TxId, tx.RawHex, default);
+                if (served == 0)
+                {
+                    tx.State = OutgoingTxState.Failed;
+                    tx.LastError = "No peers available at dispatch time";
+                    await OutgoingStore.SaveAsync(tx, default);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Background dispatch failed for {TxId}", tx.TxId);
+            }
+        }, ct);
+
+        return new BroadcastReceipt(tx.TxId, OutgoingTxState.Validated, tx.CreatedAtMs);
+    }
 }
