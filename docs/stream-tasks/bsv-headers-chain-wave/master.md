@@ -112,12 +112,14 @@ Out of scope:
    intentionally migrate them. A regression test in S0 asserts both
    the callback fires and the channel still delivers the frame.
 4. **Frozen surfaces have empty bodies where downstream waves own
-   the implementation.** `OnReorg` returns no-op in W1; W3 implements
-   it. `IPeerTelemetrySink` has a `NullPeerTelemetrySink` default
-   registered in DI; W6 swaps in the production implementation.
-   `IPeerTelemetryRegistry` defaults to `NullPeerTelemetryRegistry`
-   returning the null sink. Build stays green at every wave closure
-   without violating the freeze.
+   the implementation.** `OnReorg` is declared on `IWalletHub` but
+   never emitted in W1; W3 wires the emitter. `IPeerTelemetrySink`
+   has a `NullPeerTelemetrySink` default constructed by every
+   `PeerSession` in W1; W6 swaps the construction site to a
+   production sink. No registry indirection — `TxRelayCoordinator`
+   calls `session.Telemetry.<...>` directly on the session that
+   emitted the frame (audit A1-followup new-H1). Build stays green
+   at every wave closure without violating the freeze.
 5. **Headers store is append-and-prune.** We retain the last 200
    headers by height (configurable). Older headers are pruned by a
    background pass — provider clients (Bitails/JungleBus) cover
@@ -147,7 +149,7 @@ Zones):
 | Program zone | Repo zone | Files (new unless noted) |
 |---|---|---|
 | `bsv-p2p-session` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Session/PeerSession.cs` (extend: callbacks, `SendGetHeadersAsync`, `Telemetry` property) |
-| `bsv-p2p-chain` (new) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Chain/{HeadersChain.cs, BlockHeaderHasher.cs, HeadersChainOptions.cs, IPeerTelemetrySink.cs, NullPeerTelemetrySink.cs, IPeerTelemetryRegistry.cs, NullPeerTelemetryRegistry.cs, PeerTelemetry.cs}` |
+| `bsv-p2p-chain` (new) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Chain/{HeadersChain.cs, BlockHeaderHasher.cs, HeadersChainOptions.cs, IPeerTelemetrySink.cs, NullPeerTelemetrySink.cs, PeerTelemetry.cs}` |
 | `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/{HeadersChainService.cs, HeadersChainBootstrapper.cs, HubNewBlockNotifier.cs, INewBlockNotifier.cs, TxRelayCoordinator.cs}` (last one: minor telemetry-hook only) |
 | `consigliere-p2p-data` | `indexer-state-and-storage` | `src/Dxs.Consigliere/Data/{P2p/BlockHeaderStore.cs, Models/P2p/BlockHeaderDocument.cs}` |
 | `consigliere-hub-public` | `public-api-and-realtime` | `src/Dxs.Consigliere/WebSockets/{IWalletHub.cs, IWalletServer.cs, WalletHub.cs, BlockTipDto.cs (new), ReorgEventDto.cs (new), BroadcastReceiptDto.cs (comment only)}` |
@@ -178,12 +180,10 @@ slice in this package.
 | W3 | `PeerSession.OnHeadersReceived` | use for reorg-detector input | rename; change parameter type |
 | W3 | `IWalletHub.OnReorg(ReorgEventDto)` | implement body | change DTO field set; rename event |
 | W3 | `BlockHeaderStore.RecentAsync`, `GetByHashAsync`, `PruneBelowAsync` | reorg ancestor walks | change method names / signatures |
-| W4 | `IPeerTelemetrySink.Snapshot()` + `PeerTelemetry` fields | implement production sink reading aggregates | add new fields without amendment; rename existing fields |
-| W4 | `IPeerTelemetryRegistry` | implement non-null registry | change interface shape |
+| W4 | `IPeerTelemetrySink.Snapshot()` + `PeerTelemetry` fields | implement production sink reading aggregates per session | add new fields without amendment; rename existing fields |
 | W5 | `BroadcastReceiptDto` shape | unchanged — frozen | rename properties; change types; add/remove properties |
 | W5 | `IWalletServer.Broadcast(...)`, `BroadcastTracked(...)` | **may collapse into single `Broadcast(hex) → BroadcastReceiptDto`** — this is W5's authorised change | n/a (W5 owns these server methods) |
-| W6 | `IPeerTelemetrySink` rich events (`RecordGetDataRequested`, `RecordGetDataServed`, `RecordRelayBackInv`, `RecordRejectReceived(cls)`, `RecordProtocolViolation`, `RecordDisconnect`) | implement production sink + scoring | change interface; collapse `RejectByClass` to a single counter |
-| W6 | `IPeerTelemetryRegistry` | swap in production registry | change interface |
+| W6 | `IPeerTelemetrySink` rich events (`RecordGetDataRequested`, `RecordGetDataServed`, `RecordRelayBackInv`, `RecordRejectReceived(cls)`, `RecordProtocolViolation`, `RecordDisconnect`) | implement production sink + scoring; swap construction site inside `PeerManager` (W6 owns that file) | change interface; collapse `RejectByClass` to a single counter |
 | W6 | `BlockTipDto` / `ReorgEventDto` shapes for admin panel | unchanged — frozen | rename properties; add/remove properties |
 | W6 | `HeadersChainOptions` config keys | surface to admin UI | rename keys; change defaults silently |
 

@@ -101,63 +101,96 @@ Used until W6 ships the production sink.
 
 - Add `IPeerTelemetrySink Telemetry { get; }` property to
   `PeerSession`. Ctor takes the sink (default
-  `NullPeerTelemetrySink.Instance`).
+  `NullPeerTelemetrySink.Instance`). `PeerManager` constructs each
+  session with a fresh sink instance (in W1, this is
+  `new NullPeerTelemetrySink()` — every session gets its own
+  no-op instance so that W6's production sink can be substituted
+  per-session without API change).
 - Send loop calls `RecordBytesOut` on each frame.
 - Receive loop calls `RecordBytesIn` on each frame; failed decodes
   call `RecordProtocolViolation(reason)`.
 - Ping reply handler calls `RecordPingRtt`.
 - `End` / disconnect path calls `RecordDisconnect`.
-- Inbound `getdata` (handled today by `TxRelayCoordinator`) is not
-  re-instrumented in S0 — the relay coordinator will gain a small
-  hook in S0.7 below so it can call the sink for served/requested
-  events without W6 re-touching it.
 
-### S0.7 — Relay-side telemetry hook
+### S0.7 — Relay-side telemetry hook (direct, no registry)
 
-`TxRelayCoordinator.cs` already records the served-at timestamp
-internally (lines ~109-152). S0 adds a single dependency hook so it
-can emit telemetry against the same sink:
+Per audit A1-followup new-H1: the prior revision introduced an
+`IPeerTelemetryRegistry` indirection that could not be wired without
+also putting `PeerManager.cs` in S0 ownership. Simplifying to a
+direct path:
 
-- Constructor of `TxRelayCoordinator` gains an optional
-  `IPeerTelemetryRegistry registry` argument. The registry maps
-  `IPEndPoint → IPeerTelemetrySink` (one sink per active session)
-  and is populated by `PeerManager` when a session reaches `Ready`.
-- On `getdata` received for a known broadcast hash, the coordinator
-  resolves the sink and calls `RecordGetDataRequested` then, after
-  reply, `RecordGetDataServed`.
-- On a relay-back `inv` for one of our broadcast txids, the
-  coordinator calls `RecordRelayBackInv`.
+`TxRelayCoordinator` already iterates active `PeerSession` instances
+from `PeerManager` and processes their `IncomingMessages` per
+session, so it knows **which session** every frame came from. It
+calls `session.Telemetry.<...>` directly. No registry, no
+endpoint→sink lookup, no `PeerManager.cs` change required.
 
-The registry interface:
+S0 changes in `TxRelayCoordinator.cs`:
 
-```csharp
-public interface IPeerTelemetryRegistry
-{
-    IPeerTelemetrySink For(IPEndPoint endpoint);
-}
-```
+- On `getdata` received for a known broadcast hash, call
+  `session.Telemetry.RecordGetDataRequested(invType, hash)`, then
+  after the `tx` send completes call
+  `session.Telemetry.RecordGetDataServed(invType, hash, serveLatency)`
+  where `serveLatency = nowAfterSend - nowAtRequest`.
+- On a relay-back `inv` for one of our broadcast txids, call
+  `session.Telemetry.RecordRelayBackInv(txid)`.
 
-Default implementation returns `NullPeerTelemetrySink.Instance`; W6
-swaps in a real one.
+The `IPeerTelemetryRegistry` / `NullPeerTelemetryRegistry` types
+**are dropped** from S0 owned paths (audit A1-followup H1). The
+manifest must not include them.
+
+`PeerManager.cs` is **not** in S0 ownership. Sink lifetime is owned
+by the `PeerSession` instance: created in the ctor (default
+`new NullPeerTelemetrySink()`), discarded when the session
+completes. W6 swaps the construction site (still inside W6's
+ownership of `consigliere-p2p-bootstrap` / `bsv-p2p-pool` per the
+program ownership table) — that swap is a W6 concern, not a W1
+freeze concern.
 
 ### S0.8 — Hub events and DTOs
 
+Per audit A1-followup new-M1: `IWalletHub` is the typed **client
+callback** contract; `IWalletServer` is the **server-callable** hub
+method contract; `WalletHub : Hub<IWalletHub>, IWalletServer` only
+hosts server methods. Frozen surfaces land on the correct side of
+that split.
+
+**Client callbacks (typed) — frozen on `IWalletHub` only:**
+
 - `src/Dxs.Consigliere/WebSockets/IWalletHub.cs` — add:
-  - `Task OnNewBlock(BlockTipDto tip)` (W1 emits)
+  - `Task OnNewBlock(BlockTipDto tip)` (W1 emits via
+    `HubNewBlockNotifier` in S5)
   - `Task OnReorg(ReorgEventDto reorg)` (signature frozen here;
-    body remains a no-op until W3)
+    no emitter wired in W1 — W3 owns the emitter)
+
+These are **not** added to `WalletHub.cs` as server methods.
+Broadcasting to the `block:tip` group happens in S5's
+`HubNewBlockNotifier` via `IHubContext<WalletHub, IWalletHub>`.
+
+**Server-callable subscription methods — frozen on `IWalletServer`:**
+
+- `src/Dxs.Consigliere/WebSockets/IWalletServer.cs` — add:
+  - `Task SubscribeToBlockTip()`
+  - `Task SubscribeToReorg()`
+- `src/Dxs.Consigliere/WebSockets/WalletHub.cs` — implement both
+  server methods following the existing subscription pattern (e.g.
+  `await Groups.AddToGroupAsync(Context.ConnectionId, "block:tip")`).
+  These are the only `WalletHub` additions S0 makes.
+
+**Frozen DTOs:**
+
 - `src/Dxs.Consigliere/WebSockets/BlockTipDto.cs` (new) — record:
   `{ string Hash, long Height, long TimestampMs, string PrevHash, int HeaderSize }`.
 - `src/Dxs.Consigliere/WebSockets/ReorgEventDto.cs` (new) — record:
   `{ string CommonAncestorHash, long CommonAncestorHeight, string[] OrphanedHashes, string NewTipHash, long NewTipHeight, bool DegradedState }`.
-- `src/Dxs.Consigliere/WebSockets/WalletHub.cs` — `OnNewBlock` body
-  is `Clients.Group("block:tip").OnNewBlock(tip)`; `OnReorg` body
-  is `Task.CompletedTask` until W3 replaces it.
-- `src/Dxs.Consigliere/WebSockets/IWalletServer.cs` — add
-  `SubscribeToBlockTip()` and `SubscribeToReorg()` server methods.
-- `src/Dxs.Consigliere/WebSockets/WalletHub.cs` — implement those
-  two server methods (add caller `Context.ConnectionId` to the
-  named group).
+
+**Manifest split.** The manifest snapshots the client callbacks
+under an `IWalletHub` section and the new server methods under an
+`IWalletServer` section. The approval test asserts no `OnNewBlock`
+/ `OnReorg` server method exists on `IWalletServer` or `WalletHub`,
+and no `SubscribeToBlockTip` / `SubscribeToReorg` client callback
+exists on `IWalletHub`. This catches the audit-A1-followup M1
+class of drift.
 
 ### S0.9 — `BroadcastReceiptDto` shape freeze
 
@@ -214,17 +247,20 @@ still receives the frame even when a callback is registered:
 
 ### Owned paths (S0)
 
-- `src/Dxs.Bsv/P2p/Session/PeerSession.cs` (extend)
+- `src/Dxs.Bsv/P2p/Session/PeerSession.cs` (extend: callbacks,
+  `SendGetHeadersAsync`, `Telemetry` property)
 - `src/Dxs.Bsv/P2p/Chain/PeerTelemetry.cs` (new)
 - `src/Dxs.Bsv/P2p/Chain/IPeerTelemetrySink.cs` (new)
 - `src/Dxs.Bsv/P2p/Chain/NullPeerTelemetrySink.cs` (new)
-- `src/Dxs.Bsv/P2p/Chain/IPeerTelemetryRegistry.cs` (new)
-- `src/Dxs.Bsv/P2p/Chain/NullPeerTelemetryRegistry.cs` (new)
 - `src/Dxs.Consigliere/Services/P2p/TxRelayCoordinator.cs` (minor:
-  optional registry ctor arg + four sink calls)
-- `src/Dxs.Consigliere/WebSockets/IWalletHub.cs` (extend)
-- `src/Dxs.Consigliere/WebSockets/IWalletServer.cs` (extend)
-- `src/Dxs.Consigliere/WebSockets/WalletHub.cs` (extend)
+  per-session direct sink calls on `session.Telemetry`)
+- `src/Dxs.Consigliere/WebSockets/IWalletHub.cs` (extend: client
+  callbacks `OnNewBlock`, `OnReorg`)
+- `src/Dxs.Consigliere/WebSockets/IWalletServer.cs` (extend: server
+  methods `SubscribeToBlockTip`, `SubscribeToReorg`)
+- `src/Dxs.Consigliere/WebSockets/WalletHub.cs` (extend: implement
+  the two new server methods only — no client-callback emit code
+  here; that's S5's `HubNewBlockNotifier`)
 - `src/Dxs.Consigliere/WebSockets/BlockTipDto.cs` (new)
 - `src/Dxs.Consigliere/WebSockets/ReorgEventDto.cs` (new)
 - `src/Dxs.Consigliere/WebSockets/BroadcastReceiptDto.cs` (comment
@@ -232,6 +268,17 @@ still receives the frame even when a callback is registered:
 - `tests/Dxs.Consigliere.Tests/P2p/ContractFreeze/manifest.json` (new)
 - `tests/Dxs.Consigliere.Tests/P2p/ContractFreeze/ContractFreezeApprovalTests.cs` (new)
 - `tests/Dxs.Bsv.Tests/P2p/Session/PeerSessionAdditiveDispatchTests.cs` (new)
+
+**Explicitly NOT in S0 ownership:**
+
+- `src/Dxs.Bsv/P2p/Pool/PeerManager.cs` — sink construction inside
+  the `PeerSession` ctor uses `new NullPeerTelemetrySink()` by
+  default, so `PeerManager` does not need to allocate or register
+  sinks in W1. W6 swaps the construction site when it ships the
+  production sink.
+- `IPeerTelemetryRegistry` / `NullPeerTelemetryRegistry` —
+  intentionally removed per audit A1-followup new-H1. The simpler
+  per-session direct path replaces them.
 
 **Out of scope (S0).** Any header chain logic. Any document or
 store. Any business behaviour. Migration of `TxRelayCoordinator`

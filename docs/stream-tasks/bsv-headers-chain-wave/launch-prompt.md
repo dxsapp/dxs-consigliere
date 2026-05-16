@@ -25,11 +25,13 @@ End state at wave close:
 - `PeerSession.SendGetHeadersAsync(GetHeadersMessage, CancellationToken)`
   send helper added.
 - `PeerTelemetry` record + `IPeerTelemetrySink` rich-event interface
-  + `IPeerTelemetryRegistry` frozen with `Null*` defaults registered;
-  W6 swaps in production sinks without re-opening this wave.
-- `TxRelayCoordinator` gets a small telemetry hook (optional registry
-  arg + four sink calls) so served/requested getdata and relay-back
-  invs are recorded against the same sink W6 will consume.
+  frozen with `NullPeerTelemetrySink` as the per-session default;
+  W6 swaps the construction site (inside `PeerManager`, which W6
+  owns) without re-opening this wave. No registry indirection.
+- `TxRelayCoordinator` gets a small telemetry hook — direct
+  `session.Telemetry.<...>` calls on the session that emitted the
+  frame — so served/requested getdata and relay-back invs are
+  recorded against the same sink W6 will consume.
 - `BroadcastReceiptDto` shape frozen (comment + manifest). Server
   methods `IWalletServer.Broadcast` / `BroadcastTracked` are
   **explicitly not frozen**; W5 may collapse them.
@@ -130,10 +132,16 @@ Per-slice validation lives in `slices.md`. Wave-level:
 - `dotnet test` returns no new failures vs the pre-W1 baseline
   (baseline counts recorded at S0 start; delta counted as residual).
 - `ContractFreezeApprovalTests` green — reflected surface
-  byte-equal to `manifest.json` for `IWalletHub`, frozen
-  `IWalletServer` members, frozen `PeerSession` members,
-  `PeerTelemetry`, `IPeerTelemetrySink`, `IPeerTelemetryRegistry`,
-  `BlockTipDto`, `ReorgEventDto`, `BroadcastReceiptDto`.
+  byte-equal to `manifest.json`, with manifest sections for:
+  - `IWalletHub` client callbacks (must include `OnNewBlock`,
+    `OnReorg`; must NOT contain `SubscribeTo*`)
+  - `IWalletServer` server methods (must include
+    `SubscribeToBlockTip`, `SubscribeToReorg`; must NOT contain
+    `OnNewBlock` / `OnReorg`)
+  - frozen `PeerSession` members (including `SendGetHeadersAsync`,
+    `Telemetry`, and the three new callbacks)
+  - `PeerTelemetry`, `IPeerTelemetrySink`
+  - `BlockTipDto`, `ReorgEventDto`, `BroadcastReceiptDto`.
 - `PeerSessionAdditiveDispatchTests` green — callback fires AND
   `IncomingMessages` still receives `inv` / `reject` / `headers`.
 - Grep proves no `OnBlockInvReceived` or `OnInvReceived(tx)`
