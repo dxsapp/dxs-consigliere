@@ -1,7 +1,8 @@
 ---
 created: 2026-05-16
+revised: 2026-05-16 (post audit A1)
 type: program
-status: draft (awaiting program-level audit)
+status: draft (revised per audit A1 — awaiting next-round program audit OR direct Wave 1 audit)
 ---
 
 # Consigliere Thin-Node Observer Program
@@ -14,7 +15,8 @@ inside Consigliere — so the product observes transactions and blocks
 straight from the BSV P2P network, not only through Bitails/JungleBus
 HTTP polls. End state: Consigliere ingests via P2P first, Bitails and
 JungleBus stay alive as configurable redundant sources whose health is
-measurable and visible in the admin panel.
+measurable and visible in the admin panel, and the deployment is
+operator-grade (peer scoring, alerts, runbook, public API docs).
 
 Business outcome: Consigliere becomes a self-sufficient BSV indexer for
 managed-scope addresses and tokens, with operator-grade observability of
@@ -39,34 +41,52 @@ dev tool only. It is not advertised to product consumers.
 In scope:
 - block-header chain state via P2P with provider-validated content
 - mempool transaction observation via P2P with watchlist matching
-- reorg detection and orphan recovery
+- reorg detection and orphan recovery via existing `Reorged` lifecycle
+  state (see Core Rule §2)
 - per-source metrics surfaced in admin UI
 - unification of broadcast under a single `Broadcast` method
   (P2P primary, no legacy HTTP-provider fallback)
+- production-operations layer: peer scoring + rotation, alerts,
+  inbound listener decision for Consigliere, public-API change notes
 - ownership-zone discipline so wave executions don't fight over the
   same files
 
 Out of scope:
 - Postgres migration (deferred — separate program when this is done)
 - bloom-filter peer-side filtering (BIP37 `filterload`); we do
-  client-side watchlist matching with `HashSet<ulong>` instead
+  client-side watchlist matching with `HashSet<ulong>` + full-hash160
+  verify, sized for ≤500 K addresses (open question on harder ceiling
+  noted in §Open Questions)
 - full historical chain sync; we only track the active tip and a
-  shallow reorg-recovery window (≤200 headers back)
+  shallow reorg-recovery window (≤200 headers back) with an explicit
+  degraded-state fallback for deeper divergence
 - multi-tenant watchlists; one Consigliere instance = one watchlist
 - breaking REST/SignalR public surface contracts beyond the single
-  `Broadcast` method change
+  explicitly-versioned `Broadcast` method change
 
 ## Core Rules
 
-1. **Source-agnostic persistence.** P2P observer must append to the
-   existing `TxObservationJournalWriter` with source tag `"p2p"`; it does
-   not create a parallel transaction store.
+1. **Source-agnostic persistence — but make the contract first.**
+   P2P observer appends to `TxObservationJournalWriter`. The journal
+   currently accepts `TxMessage` and `TxObservationSource` only knows
+   `node` / `junglebus` / `bitails`. Wave 2's first slice extends the
+   contract to accept a source-neutral observation DTO and adds
+   `TxObservationSource.P2p`. No P2P observation code lands before
+   that prerequisite closes.
 2. **`TxLifecycleProjectionDocument` is the canonical observed-tx view.**
    `SeenBySources` accumulates source tags. Quorum-based state
-   transitions read from this projection.
+   transitions read from this projection. Reorg semantics reuse the
+   existing `Reorged` lifecycle state already produced by
+   `TxLifecycleProjectionRebuilder` on `BlockDisconnected` observations;
+   Wave 3 does not invent a new state machine.
 3. **HashSet-based watchlist matching, not bloom filter.**
-   `WatchingAddress.Hash160[0..8]` as `ulong` keys, full hash160 verify
-   on positive match. Hot reload via Raven Subscription API.
+   Watchlist matcher computes `Address.Hash160[0..8]` as `ulong` keys at
+   load time from `WatchingAddress.Address` (the model stores
+   `{Name, Address}`, no precomputed Hash160). Full hash160 verify on
+   positive match. Hot reload via Raven Subscription API. Tokens are
+   matched by parsing outputs against `WatchingToken.TokenId`; if any
+   token is watched, P2P observer parses every tx — same limitation as
+   today's Bitails realtime scope provider.
 4. **Blocks: P2P signal, provider content.** P2P `inv(MSG_BLOCK)` and
    `headers` give us the tip notification; full block content is fetched
    from Bitails / JungleBus REST. Provider response is validated against
@@ -77,34 +97,50 @@ Out of scope:
 6. **No legacy HTTP-provider broadcast.** `IBroadcastService` collapses
    to a single P2P-first `Submit/Broadcast` flow. Bitails/WoC/bitcoind
    broadcast paths are removed (this is vnext — no backwards-compat).
-7. **Stop-and-audit per wave.** Each child wave gets its own Codex
+7. **Hub & PeerSession contract freeze in Wave 1.** Wave 1's first
+   slice pre-declares **all** hub events (`OnNewBlock`, `OnReorg`,
+   updated `Broadcast` signature) and **all** `PeerSession` observation
+   extension points (`OnHeadersReceived`, `OnBlockInvReceived`,
+   `OnInvReceived(tx)`) that downstream waves need. Implementations may
+   stub out, but the surfaces and group naming are fixed before any
+   wave touches them in anger. Eliminates merge thrash across waves.
+8. **Stop-and-audit per wave.** Each child wave gets its own Codex
    audit before execution and `audits/A1.md` after closeout. No wave
    leaves `done` without an audit pass.
-8. **One commit per slice when practical.** Final wave closeout commit
+9. **One commit per slice when practical.** Final wave closeout commit
    may bundle small follow-ups but should reference the slice ledger.
 
 ## Ownership Zones
 
-Touch these source paths during this program. Each child wave declares
-which zones it actually modifies — no wave touches a zone owned by
-another in-flight wave.
+Program zones (local to this work) map to the repo's higher-level zone
+catalog in `docs/repository-zones/zone-catalog.md`. Each child wave
+declares which **program** zones it modifies and lists the **repo**
+zones it crosses, so the existing handoff contracts apply.
 
-- `bsv-p2p-codec` — `src/Dxs.Bsv/P2p/{Codec,Messages,FrameCodec,P2pNetwork,P2pAddress,P2pCommands,P2pDecodeException,Frame}.cs`
-- `bsv-p2p-session` — `src/Dxs.Bsv/P2p/Session/`
-- `bsv-p2p-pool` — `src/Dxs.Bsv/P2p/Pool/`
-- `bsv-p2p-chain` — `src/Dxs.Bsv/P2p/Chain/` (new; Phase 1)
-- `bsv-p2p-observer` — `src/Dxs.Bsv/P2p/Observer/` (new; Phase 2)
-- `consigliere-p2p-services` — `src/Dxs.Consigliere/Services/P2p/`
-- `consigliere-p2p-data` — `src/Dxs.Consigliere/Data/{P2p,Models/P2p}/`
-- `consigliere-p2p-tasks` — `src/Dxs.Consigliere/BackgroundTasks/P2p/`
-- `consigliere-p2p-realtime` — `src/Dxs.Consigliere/BackgroundTasks/Realtime/` (Bitails/JBus ingest paths — adjusted for source tags)
-- `consigliere-broadcast` — `src/Dxs.Consigliere/Services/{IBroadcastService.cs,Impl/BroadcastService.cs}`
-- `consigliere-hub-public` — `src/Dxs.Consigliere/WebSockets/{IWalletHub.cs,WalletHub.cs,BroadcastReceiptDto.cs}`
-- `consigliere-admin-api` — `src/Dxs.Consigliere/Controllers/AdminP2pController.cs` + new admin controllers
-- `consigliere-tx-projection` — `src/Dxs.Consigliere/Services/Impl/Tx*Projection*.cs` and related
-- `admin-ui` — `src/admin-ui/` (admin SPA pages added late, Phase 4)
-- `dxs-bsv-tests` — `tests/Dxs.Bsv.Tests/P2p/`
-- `consigliere-tests` — `tests/Dxs.Consigliere.Tests/`
+| Program zone | Repo zone(s) per `zone-catalog.md` | Files |
+|---|---|---|
+| `bsv-p2p-codec` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/{Codec,Messages,FrameCodec,P2pNetwork,P2pAddress,P2pCommands,P2pDecodeException,Frame}.cs` |
+| `bsv-p2p-session` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Session/` |
+| `bsv-p2p-pool` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Pool/` |
+| `bsv-p2p-chain` (new; Phase 1) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Chain/` |
+| `bsv-p2p-observer` (new; Phase 2) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Observer/` |
+| `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/` |
+| `consigliere-p2p-data` | `indexer-state-and-storage` | `src/Dxs.Consigliere/Data/{P2p,Models/P2p}/` |
+| `consigliere-p2p-tasks` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/BackgroundTasks/P2p/` |
+| `consigliere-p2p-realtime` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/BackgroundTasks/Realtime/` |
+| `consigliere-broadcast` | `indexer-write-path` | `src/Dxs.Consigliere/Services/{IBroadcastService.cs,Impl/BroadcastService.cs}` |
+| `consigliere-hub-public` | `public-api-and-realtime` | `src/Dxs.Consigliere/WebSockets/{IWalletHub.cs,WalletHub.cs,BroadcastReceiptDto.cs}` |
+| `consigliere-admin-api` | `public-api-and-realtime` (admin sub-zone) | `src/Dxs.Consigliere/Controllers/AdminP2pController.cs` + new admin controllers |
+| `consigliere-tx-projection` | `indexer-state-and-storage` | `src/Dxs.Consigliere/Data/Transactions/TxLifecycleProjection*.cs` and journal |
+| `admin-ui` | `admin-ui` | `src/admin-ui/` |
+| `dxs-bsv-tests` | tests | `tests/Dxs.Bsv.Tests/P2p/` |
+| `consigliere-tests` | tests | `tests/Dxs.Consigliere.Tests/` |
+
+Handoff requirements (per `docs/repository-zones/handoff-contract.md`):
+- W2 crosses `indexer-state-and-storage` (journal schema), `indexer-ingest-orchestration` (runner), and `public-api-and-realtime` (hub event). The W2 wave package must list the handoff facts: extended journal source enum + new hub method names + admin endpoints.
+- W3 crosses `indexer-state-and-storage` (projection reorg replay), `indexer-ingest-orchestration` (rescan runner), and `public-api-and-realtime` (reorg hub event).
+- W5 crosses `indexer-write-path` (broadcast unification) and `public-api-and-realtime` (single `Broadcast` method).
+- W6 crosses `indexer-ingest-orchestration` (peer scoring loop, alert poller), `public-api-and-realtime` (operator endpoints), and `admin-ui` (operator pages).
 
 ## Program Waves
 
@@ -113,90 +149,178 @@ Sequential execution. Each wave produces its own
 when its turn comes. The program package stays open across all waves.
 
 ### Wave 1 — `bsv-headers-chain-wave`
-Headers chain tracker via P2P, persisted to RavenDB. New-block events
-exposed through `WalletHub.OnNewBlock`. Provider-side block content fetch
-hooked to header-tip event. Initial seed via Bitails REST (configurable
-to P2P-only).
+**Contract-freeze slice + headers chain tracker.** First slice declares
+all hub events / subscription groups / `PeerSession` extension points
+for the whole program (per Core Rule §7). Then headers chain via P2P,
+persisted to RavenDB. New-block events exposed through
+`WalletHub.OnNewBlock`. Provider-side block content fetch hooked to
+header-tip event. Initial seed via Bitails REST by default; P2P-only
+via config.
 Touches: `bsv-p2p-session` (callbacks), `bsv-p2p-chain` (new),
-`consigliere-p2p-services`, `consigliere-p2p-data`, `consigliere-hub-public`,
-`dxs-bsv-tests`.
+`consigliere-p2p-services`, `consigliere-p2p-data`, `consigliere-hub-public`
+(contract freeze + new event), `dxs-bsv-tests`.
 
 ### Wave 2 — `bsv-mempool-observer-wave`
-P2P observer plugged into the existing journal as a new source. Watchlist
-matching via `HashSet<ulong>`. Hot reload of `WatchingAddress`/`WatchingToken`.
-Source-stats recorder records every source-observation before dedupe.
-Touches: `bsv-p2p-session` (inv-tx callback), `bsv-p2p-observer` (new),
-`consigliere-p2p-services` (journal source runner), `consigliere-p2p-tasks`,
-`consigliere-tx-projection` (source tag), `dxs-bsv-tests`.
+**Journal contract extension slice + P2P observer.** First slice extends
+the journal: `TxObservationSource.P2p` constant, source-neutral
+`AppendAsync(TxObservation, raw?, source)` overload, projection rebuild
+test proving `SeenBySources` accumulates `p2p`. Then `MempoolWatcher`
+with deduplication, watchlist matcher (`HashSet<ulong>` + Raven
+Subscription hot reload), getdata fetch policy. Bitails/JungleBus
+runners get tagged so observations carry their source identity
+consistently. **Watchlist correctness/scale validation** is a first-class
+slice: address-output, address-input, STAS/DSTAS token output, deletes,
+500 K-address load benchmark.
+Touches: `bsv-p2p-session` (inv-tx callback, frozen surface from W1),
+`bsv-p2p-observer` (new), `consigliere-p2p-services`,
+`consigliere-p2p-tasks`, `consigliere-tx-projection` (source-enum
+extension + write-path), `consigliere-p2p-realtime` (Bitails/JBus
+source-tag adjustments), `dxs-bsv-tests`.
 
 ### Wave 3 — `reorg-handling-wave`
-Reorg detection algorithm using the headers chain from Wave 1. On reorg,
-orphaned tx documents get reverted to mempool state via journal append.
-`WalletHub.OnReorg` and `OnTransactionDeleted` events. Rescan of orphaned
-blocks via provider fetch.
-Touches: `bsv-p2p-chain` (reorg detector), `consigliere-p2p-services`,
-`consigliere-p2p-data`, `consigliere-hub-public`, `consigliere-tx-projection`.
+**Reorg detection over the headers chain + journal replay using
+existing `Reorged` state.** No new lifecycle state is invented; the
+rebuilder already moves tx from confirmed to `Reorged` on
+`BlockDisconnected` observations (see `TxLifecycleProjectionRebuilder.cs`
+lines ~198–227). Wave 3 generates the right `BlockDisconnected`
+observations from P2P-detected reorgs, fetches orphaned block bodies
+from a provider, validates the content against the orphaned header, and
+emits `WalletHub.OnReorg` + per-tx `OnTransactionDeleted`. Beyond the
+≤200-block window → explicit `DegradedReorgState` requiring manual
+operator action (alert in W6).
+Validation includes: 1-deep, 2-deep, N-deep loopback fork tests; deep
+reorg beyond window (degraded state asserted); provider returning
+mismatching block body for orphaned hash (refuse, alert); idempotency
+of repeated `BlockDisconnected` events.
+Touches: `bsv-p2p-chain` (reorg detector), `consigliere-p2p-services`
+(rescan + observation translator), `consigliere-p2p-data`,
+`consigliere-hub-public` (already-frozen `OnReorg`),
+`consigliere-tx-projection` (verify rebuilder coverage; minor
+extension only if `DegradedReorgState` requires a new event type).
 
 ### Wave 4 — `observation-source-metrics-wave`
-Source metrics (P2P / Bitails / JungleBus) for every observation: first-seen
-counts, lag histograms, only-saw counters. Admin endpoints exposing the
-metrics. Admin SPA page for P2P + observation health.
-Touches: `consigliere-p2p-services` (metrics recorder), `consigliere-admin-api`,
-`consigliere-p2p-realtime` (Bitails/JBus tag with source), `admin-ui`.
+Per-source stats recorded **before** dedupe: first-seen counts, lag
+histograms, only-saw counters. Persisted in Raven (rolling window) +
+exposed by admin endpoint and a new admin SPA page. Validation uses
+fixture-injected observations to confirm counters match exactly (no
+"plausibly fires" language).
+Touches: `consigliere-p2p-services` (metrics recorder),
+`consigliere-admin-api`, `consigliere-p2p-realtime` (already source-tagged
+in W2), `admin-ui`.
 
 ### Wave 5 — `broadcast-unification-wave`
 Collapse `Broadcast(hex)` and `BroadcastTracked(hex)` into a single
 `Broadcast(hex) → BroadcastReceiptDto`. Remove legacy HTTP-provider
 broadcast paths (`BitcoindService.Broadcast`, Bitails/WoC broadcast
-clients). Backward compatibility intentionally not preserved (vnext).
-Touches: `consigliere-broadcast`, `consigliere-hub-public`,
-`bsv-p2p-pool` minor wiring, possibly `Dxs.Infrastructure` cleanup.
+clients). Wave 5 explicitly **depends on W2** for the source attribution
+needed inside the unified broadcast lifecycle, and **depends on W4** so
+operator metrics are present at the moment the HTTP fallback disappears
+(no surprises if P2P pool dips). Backward compatibility for clients
+intentionally not preserved (vnext); change documented in W6's public
+API change notes.
+Touches: `consigliere-broadcast`, `consigliere-hub-public` (already-frozen
+`Broadcast` signature), `bsv-p2p-pool` (minor wiring),
+`Dxs.Infrastructure` (cleanup of unused clients).
+
+### Wave 6 — `production-ops-wave`
+Operator-grade hardening that the goal statement requires but earlier
+waves intentionally defer: peer scoring + rotation in `PeerManager`;
+critical alerts (pool size, relay-back rate, reorg depth, source-first
+dropout); inbound listener decision for Consigliere (opt-in or off);
+operator runbook covering new admin pages; public-API change notes for
+the `Broadcast` contract; soak documentation referencing the existing
+`thin-node-gate2-soak-runbook.md`.
+Touches: `bsv-p2p-pool` (scoring), `consigliere-p2p-services` (alert
+poller, optional inbound runner), `consigliere-admin-api` (alert
+endpoint), `admin-ui` (alerts panel), `docs/platform-api/` (change notes
++ runbook), `consigliere-tests`.
 
 ## Cross-Wave Dependency Rules
 
 - Wave 1 must close before Wave 3 (reorg needs headers chain).
-- Wave 2 must close before Wave 3 (reorg revert touches observed tx).
+- Wave 1 must close before Wave 2 (contract freeze first).
+- Wave 2 must close before Wave 3 (reorg revert touches observed tx
+  source attribution).
 - Wave 2 must close before Wave 4 (metrics need source observations).
-- Wave 1 and Wave 5 can run in parallel **only if** different agents work
-  on different zones. We default to strict sequential execution per the
-  user's stop-and-audit rule.
-- All waves share `consigliere-hub-public`. Hub event additions happen
-  sequentially across waves. No wave silently changes a hub event added
-  by another.
+- Wave 2 must close before Wave 5 (broadcast unification reuses
+  source-tagged journal).
+- Wave 4 must close before Wave 5 (metrics in place before HTTP
+  fallback is removed).
+- Wave 5 must close before Wave 6 — or W6 can run before W5 if the
+  operator wants peer scoring + alerts before legacy broadcast removal.
+  Default: W5 first, then W6 (W6 covers W5's change notes).
+- All hub event additions and `PeerSession` extension points are
+  pre-declared in Wave 1's contract-freeze slice. Subsequent waves only
+  implement against the frozen surface — they do not add new ones
+  silently.
 
 ## Program Ledger
 
-| wave | slug | status | depends_on | done_when | audit |
-|---|---|---|---|---|---|
-| 1 | `bsv-headers-chain-wave` | not_opened | — | headers tracked, new-block event emitted, reorg framework wired (detection itself in W3) | A1 |
-| 2 | `bsv-mempool-observer-wave` | not_opened | — | tx observed via P2P, journal source=p2p, watchlist match working, hot reload working | A1 |
-| 3 | `reorg-handling-wave` | not_opened | W1, W2 | reorg event emitted, orphan tx reverted, rescan implemented | A1 |
-| 4 | `observation-source-metrics-wave` | not_opened | W2 | per-source metrics persisted, admin endpoints + UI page live | A1 |
-| 5 | `broadcast-unification-wave` | not_opened | — | single Broadcast method, legacy HTTP-provider paths removed | A1 |
+| wave | slug | zone lead | status | depends_on | validation | done_when | audit |
+|---|---|---|---|---|---|---|---|
+| 1 | `bsv-headers-chain-wave` | bsv-protocol-core | not_opened | — | tip sync ≤10s; OnNewBlock fired per mainnet block within p95 lag (target ≤2s, measured over 24h soak) | contract-freeze slice closed; headers persisted; new-block event live; admin endpoint matches WoC tip | A1 |
+| 2 | `bsv-mempool-observer-wave` | indexer-ingest-orchestration | not_opened | W1 | journal accepts `p2p` source; watchlist load benchmark ≥500 K addresses ≤2s; observed-tx event with `SeenBySources` containing `p2p` | journal contract extended; observer live; watchlist hot reload + scale test green | A1 |
+| 3 | `reorg-handling-wave` | indexer-state-and-storage | not_opened | W1, W2 | 1/2/N-deep fork tests; deep-reorg-beyond-window asserts degraded state; mismatched-body provider rejected; idempotent disconnect events | reorg detector live; `Reorged` state correctly produced; OnReorg event fired; rescan validates against header | A1 |
+| 4 | `observation-source-metrics-wave` | indexer-ingest-orchestration | not_opened | W2 | fixture-injected observations match counter values exactly; lag histogram bucket counts deterministic | metrics recorder live; admin API + SPA page show three sources with non-zero counters in fixture run | A1 |
+| 5 | `broadcast-unification-wave` | indexer-write-path | not_opened | W2, W4 | grep shows no legacy broadcast HTTP-provider paths; real mainnet tx confirmed via single `Broadcast` method end-to-end | single `Broadcast` method; HTTP-provider clients removed | A1 |
+| 6 | `production-ops-wave` | indexer-ingest-orchestration | not_opened | W2 (W5 recommended) | alert fires when pool drops below threshold in fixture; peer rotation evicts low-scoring peer in fixture; runbook reviewed | peer scoring live; alerts wired; runbook + change notes published | A1 |
 
 Status vocabulary: `not_opened`, `todo`, `in_progress`, `blocked`, `done`, `stale`.
 
 ## Definition of Done
 
 Program is `done` when:
-- all five waves are `done` or intentionally `not_opened`
-- `tests/Dxs.Bsv.Tests` passes; `tests/Dxs.Consigliere.Tests` passes (any
-  delta vs baseline counted as residuals)
+- all six waves are `done` or intentionally `not_opened`
+- `tests/Dxs.Bsv.Tests` and `tests/Dxs.Consigliere.Tests` pass with no
+  new failures vs baseline (delta counted as residual)
 - a real BSV mainnet transaction broadcast survives the full lifecycle:
   Submitted → PeerAcked → MempoolSeen → Mined → Confirmed, with events
   visible via SignalR
-- the admin panel shows healthy P2P pool, recent headers tip, mempool
-  observation rate, per-source metrics
+- admin panel shows healthy P2P pool with non-trivial peer rotation,
+  recent headers tip, mempool observation rate, per-source metrics,
+  active alerts (if any)
 - closeout evidence in `evidence/closeout.md` lists end-state metrics,
   delivery hashes, residuals, and operator-facing changes
+- public API change notes for the `Broadcast` contract are published in
+  `docs/platform-api/`
+
+## Open Questions (answers locked in by program author)
+
+1. **Watchlist size ceiling.** Program targets ≤500 K addresses (~12 MB
+   `HashSet<ulong>` + Raven verify on hit). 1 M is the soft upper
+   tested in W2's scale slice — beyond that we revisit bloom or
+   per-tenant sharding in a follow-up.
+2. **Post-reorg canonical state.** `Reorged`. Existing
+   `TxLifecycleProjectionRebuilder.BlockDisconnected` already produces
+   it. W3 does not invent a new state.
+3. **Block-body providers under reorg.** Bitails/JungleBus serve
+   orphaned bodies for at least 24 h after the reorg (verified at W3
+   open; if not, W3 falls back to P2P `getdata(MSG_BLOCK)` for the
+   orphan body, which is expensive but works).
+4. **`Broadcast` return-type change compatibility.** No backwards-compat.
+   This is vnext. Change notes in W6 list the new signature for
+   consuming businesses.
+5. **Alerting backend.** Metrics-first via existing logging + admin
+   endpoints; alert delivery is webhook-pluggable in W6 (concrete
+   backend selection deferred — operator-config decision, not program
+   decision).
+6. **Inbound listener in Consigliere.** Moved into W6 explicitly. The
+   tool layer (`tools/BsvBroadcastNode/PeerNodeHost.cs`) keeps its
+   listener for dev/test; integration into Consigliere is opt-in per
+   operator deployment posture.
 
 ## Delivery Notes
 
 Commit hashes recorded here as waves close.
 
+- Program package created: `<hash-pending>` (this commit)
+- Program audit A1 (Codex GPT-5, MAJOR REVISION REQUIRED): see
+  `audits/program-audit-A1.md`
+- Program revision per A1: `<hash-pending>` (this commit)
 - Wave 1 delivery: (pending)
 - Wave 2 delivery: (pending)
 - Wave 3 delivery: (pending)
 - Wave 4 delivery: (pending)
 - Wave 5 delivery: (pending)
+- Wave 6 delivery: (pending)
 - Program closeout commit: (pending)
