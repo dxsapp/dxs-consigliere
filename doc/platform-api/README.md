@@ -11,6 +11,8 @@ Documents:
 - `implementation-roadmap.md` — phased implementation plan and mandatory write-path rework.
 - `vnext-implementation-slices.md` — detailed zone-based vnext delivery plan with implementation slices.
 - `history-sync-implementation-slices.md` — zone-based implementation slices for tracked history sync and readiness.
+- `p2p-broadcaster-design.md` — (superseded) original P2P broadcaster design + spike journey. Kept for context.
+- `consigliere-thin-node-design.md` — current approved design for Consigliere as a BSV thin-node broadcaster.
 
 Principles:
 - `Consigliere` is not an explorer-first product.
