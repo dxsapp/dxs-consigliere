@@ -174,9 +174,12 @@ transitions (W3). Watchlist UI management (already exists in
 
 **Intent.** When the chain tip from Wave 1 diverges from prior history,
 detect the common ancestor, emit a reorg event, rescan orphaned blocks
-through the provider, and append `BlockDisconnected` observations so
-the existing rebuilder moves affected tx into the `Reorged` lifecycle
-state.
+through the provider, append `BlockDisconnected` observations so the
+existing rebuilder moves affected tx into the `Reorged` lifecycle
+state, **and actively re-broadcast every affected tx for which we
+hold raw bytes** so the tx re-enters the network mempool. The
+subsequent mempool observation flips the projection forward to
+`SeenInMempool`.
 
 **Critical change vs original draft.** Wave 3 reuses the existing
 projection semantics. `TxLifecycleProjectionRebuilder.cs` already
@@ -195,15 +198,35 @@ data loss.
 - `src/Dxs.Bsv/P2p/Chain/ReorgDetector.cs` (new; algorithm lives here)
 - `src/Dxs.Consigliere/Services/P2p/ReorgHandlerService.cs` (new) — owns
   the rescan loop, provider-content fetch + header validation, journal
-  translator
+  translator, **post-reorg re-broadcast pass**
 - `src/Dxs.Consigliere/WebSockets/WalletHub.cs` — implement `OnReorg`
   body (surface already frozen in W1)
+- `src/Dxs.Consigliere/Data/Models/P2p/` — optional sidecar doc for
+  `RebroadcastSkippedReason` if we don't extend the projection itself
 - `tests/Dxs.Bsv.Tests/P2p/Chain/ReorgDetectorTests.cs` (new)
 - `tests/Dxs.Consigliere.Tests/P2p/ReorgHandlerServiceTests.cs` (new)
 
+**Re-broadcast pass design.** After the `BlockDisconnected` journal
+events have been appended for an orphaned block (and the projection
+has caught up to `Reorged` for all affected tx), the
+`ReorgHandlerService` collects the affected txids and resolves raw
+bytes in this order:
+1. `OutgoingTransactionStore` — own outgoing tx have raw stored from
+   the original submit. Always preferred when present.
+2. `RawTransactionPayloadStore` — observed-watchlist tx with raw
+   persisted by the journal (when matched, see Wave 2).
+3. Otherwise, mark `RebroadcastSkippedReason = "no_raw"` and proceed.
+
+For every tx with raw resolved, send `inv(MSG_TX, txid)` to all
+`PeerSession`s in `Ready` state. The existing `TxRelayCoordinator`
+serve-getdata path (Gate 3) handles the rest: peers `getdata`, we
+hand them the raw, they accept and relay back. Each subsequent
+`SeenInMempool` observation moves the projection forward as designed.
+
 **Out of scope.** Wallet/account-level balance recompute (already part
 of projection downstream). Heavy historical rescan beyond 200-block
-window (degraded-state alert instead).
+window (degraded-state alert instead). Re-broadcast for tx where we
+have no raw bytes — best-effort only, logged.
 
 **Validation signal.**
 - 1-deep fork test: orphan one block, expect each tx in the orphaned
@@ -219,6 +242,18 @@ window (degraded-state alert instead).
   prior state.
 - Replay test: replay journal from zero on a fresh Raven, observe
   identical end-state for affected tx.
+- **Re-broadcast (own outgoing)**: insert a fixture own-outgoing tx
+  whose state was advanced to `Mined`. Trigger 1-deep reorg orphaning
+  that block. Assert `inv(MSG_TX, txid)` was sent on every ready
+  `PeerSession`, the mock peer's `getdata` reply received the same
+  raw bytes back, and no `RebroadcastSkippedReason` recorded.
+- **Re-broadcast (observed watchlist)**: same, but the affected tx
+  was observed via watchlist match with raw persisted to
+  `RawTransactionPayloadStore`. Assert same announce-on-all-peers
+  behaviour.
+- **No-raw best-effort**: tx affected by reorg with no raw resolvable
+  in either store. Assert `RebroadcastSkippedReason = "no_raw"`
+  recorded; no announce attempted; warning logged.
 
 ### Wave 4 — `observation-source-metrics-wave`
 
@@ -374,6 +409,7 @@ default unless explicit request).
 | Watchlist scale | W2 | 500 K-address load benchmark ≤ 2 s; lookup p99 ≤ 100 ns |
 | P2P observed tx with raw bytes for watchlist match | W2 | send tx to watched address; observe `OnTransactionFound` with raw in the journal payload reference |
 | Reorg handling produces `Reorged` state | W3 | 1/2/N-depth loopback fork tests in `Dxs.Bsv.Tests` |
+| Re-broadcast after reorg flips affected tx back into mempool | W3 | fixture-injected orphan + assert `inv` announce on every ready peer for both own-outgoing and observed-watchlist tx; `RebroadcastSkippedReason` recorded for no-raw case |
 | Deep reorg degraded state | W3 | beyond-window fork test asserts `DegradedReorgState` alert |
 | Provider body validation | W3 | mismatch-merkle-root test refuses provider response |
 | Per-source metrics exact | W4 | fixture-injected observations match counter values exactly |

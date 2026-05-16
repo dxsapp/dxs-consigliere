@@ -78,7 +78,15 @@ Out of scope:
    transitions read from this projection. Reorg semantics reuse the
    existing `Reorged` lifecycle state already produced by
    `TxLifecycleProjectionRebuilder` on `BlockDisconnected` observations;
-   Wave 3 does not invent a new state machine.
+   Wave 3 does not invent a new state machine. **However**, Wave 3
+   actively re-broadcasts every orphaned tx for which we hold raw
+   bytes (own outgoing tx via `OutgoingTransactionStore`, observed
+   watchlist tx via `RawTransactionPayloadStore`) so they re-enter
+   the network mempool quickly. This is how we close the loop on the
+   user requirement: "tx should be back in mempool after reorg". The
+   `Reorged` state is the immediate ledger reading; the subsequent
+   re-broadcast plus the next mempool observation flip the projection
+   forward to `SeenInMempool` again.
 3. **HashSet-based watchlist matching, not bloom filter.**
    Watchlist matcher computes `Address.Hash160[0..8]` as `ulong` keys at
    load time from `WatchingAddress.Address` (the model stores
@@ -223,24 +231,51 @@ source-tag adjustments), `dxs-bsv-tests`.
 
 ### Wave 3 — `reorg-handling-wave`
 **Reorg detection over the headers chain + journal replay using
-existing `Reorged` state.** No new lifecycle state is invented; the
-rebuilder already moves tx from confirmed to `Reorged` on
-`BlockDisconnected` observations (see `TxLifecycleProjectionRebuilder.cs`
-lines ~198–227). Wave 3 generates the right `BlockDisconnected`
-observations from P2P-detected reorgs, fetches orphaned block bodies
-from a provider, validates the content against the orphaned header, and
-emits `WalletHub.OnReorg` + per-tx `OnTransactionDeleted`. Beyond the
-≤200-block window → explicit `DegradedReorgState` requiring manual
-operator action (alert in W6).
+existing `Reorged` state + active re-broadcast of orphaned tx.**
+
+No new lifecycle state is invented; the rebuilder already moves tx
+from confirmed to `Reorged` on `BlockDisconnected` observations (see
+`TxLifecycleProjectionRebuilder.cs` lines ~198–227). Wave 3 generates
+the right `BlockDisconnected` observations from P2P-detected reorgs,
+fetches orphaned block bodies from a provider, validates the content
+against the orphaned header, and emits `WalletHub.OnReorg` + per-tx
+`OnTransactionDeleted`.
+
+After the projection has been moved to `Reorged`, Wave 3 fires a
+**re-broadcast pass**: for every affected txid, look up raw bytes
+(first `OutgoingTransactionStore` for our own tx, then
+`RawTransactionPayloadStore` for observed watchlist tx with stored
+raw), and announce via `inv` to all ready peers. This pushes the tx
+back into the network mempool — peers that purged it on reorg will
+`getdata` and re-accept, then re-relay. Subsequent mempool
+observations flip the projection forward to `SeenInMempool` again,
+closing the user requirement that orphaned tx end up back in mempool.
+
+If raw bytes are not available for an orphaned tx (observed-but-not-
+persisted), Wave 3 logs a warning, marks the tx with
+`RebroadcastSkippedReason = "no_raw"`, and relies on natural
+re-propagation from other peers (best-effort).
+
+Beyond the ≤200-block window → explicit `DegradedReorgState` requiring
+manual operator action (alert in W6).
+
 Validation includes: 1-deep, 2-deep, N-deep loopback fork tests; deep
 reorg beyond window (degraded state asserted); provider returning
 mismatching block body for orphaned hash (refuse, alert); idempotency
-of repeated `BlockDisconnected` events.
+of repeated `BlockDisconnected` events; **re-broadcast test: tx
+inserted as own-outgoing + confirmed, fork orphaning the block,
+assert announce(inv) was sent on each ready peer for that txid, and
+mock-peer's getdata returns same raw bytes**; same with observed-tx
+where raw was persisted in `RawTransactionPayloadStore`; same where
+raw is missing (warning + `RebroadcastSkippedReason` set).
+
 Touches: `bsv-p2p-chain` (reorg detector), `consigliere-p2p-services`
-(rescan + observation translator), `consigliere-p2p-data`,
-`consigliere-hub-public` (already-frozen `OnReorg`),
-`consigliere-tx-projection` (verify rebuilder coverage; minor
-extension only if `DegradedReorgState` requires a new event type).
+(rescan + observation translator + re-broadcast loop),
+`consigliere-p2p-data` (`RebroadcastSkippedReason` field on
+projection or sidecar doc — decide at wave-open), `consigliere-hub-public`
+(already-frozen `OnReorg`), `consigliere-tx-projection` (verify
+rebuilder coverage; minor extension only if `DegradedReorgState`
+requires a new event type).
 
 ### Wave 4 — `observation-source-metrics-wave`
 Per-source stats recorded **before** dedupe: first-seen counts, lag
