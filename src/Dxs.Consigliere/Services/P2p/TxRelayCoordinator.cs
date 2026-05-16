@@ -106,8 +106,14 @@ public sealed class TxRelayCoordinator(
                         var requestedTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
                         if (!requestedTxId.Equals(txId, StringComparison.OrdinalIgnoreCase)) continue;
 
+                        // Telemetry: peer asked us for this tx (per-session direct
+                        // sink call — see Wave 1 S0.7).
+                        session.Telemetry.RecordGetDataRequested(InvType.Tx, item.Hash);
+                        var requestedAt = DateTime.UtcNow;
+
                         // Serve the tx
                         await session.SendTxAsync(rawBytes, ct);
+                        session.Telemetry.RecordGetDataServed(InvType.Tx, item.Hash, DateTime.UtcNow - requestedAt);
                         logger.LogInformation("Served {TxId} to {Peer}", txId, session.Remote);
 
                         // Update PeerAcked state in store
@@ -138,6 +144,10 @@ public sealed class TxRelayCoordinator(
                         if (item.Type != InvType.Tx) continue;
                         var seenTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
                         if (!_pendingTx.ContainsKey(seenTxId)) continue;
+
+                        // Telemetry: peer is relaying our tx back (per-session direct
+                        // sink call — see Wave 1 S0.7).
+                        session.Telemetry.RecordRelayBackInv(item.Hash);
 
                         var count = _relayBackCount.AddOrUpdate(seenTxId, 1, (_, old) => old + 1);
                         logger.LogDebug("Relay-back #{Count} for {TxId} from {Peer}", count, seenTxId, session.Remote);

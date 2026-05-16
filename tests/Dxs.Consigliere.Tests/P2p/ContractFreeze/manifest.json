@@ -1,0 +1,359 @@
+{
+  "IWalletHub": {
+    "OnNewBlock": {
+      "kind": "method",
+      "returnType": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "tip",
+          "type": "Dxs.Consigliere.WebSockets.BlockTipDto"
+        }
+      ]
+    },
+    "OnReorg": {
+      "kind": "method",
+      "returnType": "System.Threading.Tasks.Task",
+      "parameters": [
+        {
+          "name": "reorg",
+          "type": "Dxs.Consigliere.WebSockets.ReorgEventDto"
+        }
+      ]
+    }
+  },
+  "IWalletServer": {
+    "SubscribeToBlockTip": {
+      "kind": "method",
+      "returnType": "System.Threading.Tasks.Task",
+      "parameters": []
+    },
+    "SubscribeToReorg": {
+      "kind": "method",
+      "returnType": "System.Threading.Tasks.Task",
+      "parameters": []
+    }
+  },
+  "PeerSession": {
+    "OnHeadersReceived": {
+      "kind": "property",
+      "type": "System.Action\u003CSystem.Collections.Generic.IReadOnlyList\u003CDxs.Bsv.P2p.Messages.BlockHeader\u003E\u003E",
+      "canRead": true,
+      "canWrite": true
+    },
+    "OnInvReceived": {
+      "kind": "property",
+      "type": "System.Action\u003CDxs.Bsv.P2p.Messages.InvMessage\u003E",
+      "canRead": true,
+      "canWrite": true
+    },
+    "OnRejectReceived": {
+      "kind": "property",
+      "type": "System.Action\u003CDxs.Bsv.P2p.Messages.RejectMessage\u003E",
+      "canRead": true,
+      "canWrite": true
+    },
+    "SendGetHeadersAsync": {
+      "kind": "method",
+      "returnType": "System.Threading.Tasks.ValueTask",
+      "parameters": [
+        {
+          "name": "msg",
+          "type": "Dxs.Bsv.P2p.Messages.GetHeadersMessage"
+        },
+        {
+          "name": "ct",
+          "type": "System.Threading.CancellationToken"
+        }
+      ]
+    },
+    "Telemetry": {
+      "kind": "property",
+      "type": "Dxs.Bsv.P2p.Chain.IPeerTelemetrySink",
+      "canRead": true,
+      "canWrite": false
+    }
+  },
+  "PeerTelemetry": {
+    "properties": {
+      "BytesIn": "System.Int64",
+      "BytesOut": "System.Int64",
+      "GetDataRequestedCount": "System.Int64",
+      "GetDataServeP50Ms": "System.Double",
+      "GetDataServeP95Ms": "System.Double",
+      "GetDataServedCount": "System.Int64",
+      "LastDisconnectReason": "System.Nullable\u003CDxs.Bsv.P2p.Session.DisconnectReason\u003E",
+      "LastRecvUtc": "System.Nullable\u003CSystem.DateTimeOffset\u003E",
+      "LastSendUtc": "System.Nullable\u003CSystem.DateTimeOffset\u003E",
+      "PingRttP50Ms": "System.Double",
+      "PingRttP95Ms": "System.Double",
+      "PingSampleCount": "System.Int32",
+      "ProtocolViolationCount": "System.Int64",
+      "RejectByClass": "System.Collections.Generic.IReadOnlyDictionary\u003CDxs.Bsv.P2p.Messages.RejectClass, System.Int64\u003E",
+      "RelayBackInvCount": "System.Int64"
+    },
+    "primaryConstructor": [
+      {
+        "name": "BytesIn",
+        "type": "System.Int64"
+      },
+      {
+        "name": "BytesOut",
+        "type": "System.Int64"
+      },
+      {
+        "name": "LastRecvUtc",
+        "type": "System.Nullable\u003CSystem.DateTimeOffset\u003E"
+      },
+      {
+        "name": "LastSendUtc",
+        "type": "System.Nullable\u003CSystem.DateTimeOffset\u003E"
+      },
+      {
+        "name": "PingRttP50Ms",
+        "type": "System.Double"
+      },
+      {
+        "name": "PingRttP95Ms",
+        "type": "System.Double"
+      },
+      {
+        "name": "PingSampleCount",
+        "type": "System.Int32"
+      },
+      {
+        "name": "GetDataRequestedCount",
+        "type": "System.Int64"
+      },
+      {
+        "name": "GetDataServedCount",
+        "type": "System.Int64"
+      },
+      {
+        "name": "GetDataServeP50Ms",
+        "type": "System.Double"
+      },
+      {
+        "name": "GetDataServeP95Ms",
+        "type": "System.Double"
+      },
+      {
+        "name": "RelayBackInvCount",
+        "type": "System.Int64"
+      },
+      {
+        "name": "RejectByClass",
+        "type": "System.Collections.Generic.IReadOnlyDictionary\u003CDxs.Bsv.P2p.Messages.RejectClass, System.Int64\u003E"
+      },
+      {
+        "name": "ProtocolViolationCount",
+        "type": "System.Int64"
+      },
+      {
+        "name": "LastDisconnectReason",
+        "type": "System.Nullable\u003CDxs.Bsv.P2p.Session.DisconnectReason\u003E"
+      }
+    ]
+  },
+  "IPeerTelemetrySink": {
+    "RecordBytesIn": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "RecordBytesOut": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "System.Int32"
+        }
+      ]
+    },
+    "RecordDisconnect": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "reason",
+          "type": "Dxs.Bsv.P2p.Session.DisconnectReason"
+        }
+      ]
+    },
+    "RecordGetDataRequested": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "type",
+          "type": "Dxs.Bsv.P2p.Messages.InvType"
+        },
+        {
+          "name": "hash",
+          "type": "System.ReadOnlySpan\u003CSystem.Byte\u003E"
+        }
+      ]
+    },
+    "RecordGetDataServed": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "type",
+          "type": "Dxs.Bsv.P2p.Messages.InvType"
+        },
+        {
+          "name": "hash",
+          "type": "System.ReadOnlySpan\u003CSystem.Byte\u003E"
+        },
+        {
+          "name": "serveLatency",
+          "type": "System.TimeSpan"
+        }
+      ]
+    },
+    "RecordPingRtt": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "rtt",
+          "type": "System.TimeSpan"
+        }
+      ]
+    },
+    "RecordProtocolViolation": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "reason",
+          "type": "System.String"
+        }
+      ]
+    },
+    "RecordRejectReceived": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "cls",
+          "type": "Dxs.Bsv.P2p.Messages.RejectClass"
+        }
+      ]
+    },
+    "RecordRelayBackInv": {
+      "kind": "method",
+      "returnType": "System.Void",
+      "parameters": [
+        {
+          "name": "txid",
+          "type": "System.ReadOnlySpan\u003CSystem.Byte\u003E"
+        }
+      ]
+    },
+    "Snapshot": {
+      "kind": "method",
+      "returnType": "Dxs.Bsv.P2p.Chain.PeerTelemetry",
+      "parameters": []
+    }
+  },
+  "BlockTipDto": {
+    "properties": {
+      "Hash": "System.String",
+      "HeaderSize": "System.Int32",
+      "Height": "System.Int64",
+      "PrevHash": "System.String",
+      "TimestampMs": "System.Int64"
+    },
+    "primaryConstructor": [
+      {
+        "name": "Hash",
+        "type": "System.String"
+      },
+      {
+        "name": "Height",
+        "type": "System.Int64"
+      },
+      {
+        "name": "TimestampMs",
+        "type": "System.Int64"
+      },
+      {
+        "name": "PrevHash",
+        "type": "System.String"
+      },
+      {
+        "name": "HeaderSize",
+        "type": "System.Int32"
+      }
+    ]
+  },
+  "ReorgEventDto": {
+    "properties": {
+      "CommonAncestorHash": "System.String",
+      "CommonAncestorHeight": "System.Int64",
+      "DegradedState": "System.Boolean",
+      "NewTipHash": "System.String",
+      "NewTipHeight": "System.Int64",
+      "OrphanedHashes": "System.String[]"
+    },
+    "primaryConstructor": [
+      {
+        "name": "CommonAncestorHash",
+        "type": "System.String"
+      },
+      {
+        "name": "CommonAncestorHeight",
+        "type": "System.Int64"
+      },
+      {
+        "name": "OrphanedHashes",
+        "type": "System.String[]"
+      },
+      {
+        "name": "NewTipHash",
+        "type": "System.String"
+      },
+      {
+        "name": "NewTipHeight",
+        "type": "System.Int64"
+      },
+      {
+        "name": "DegradedState",
+        "type": "System.Boolean"
+      }
+    ]
+  },
+  "BroadcastReceiptDto": {
+    "properties": {
+      "CreatedAtMs": "System.Int64",
+      "FailReason": "System.String",
+      "State": "System.String",
+      "TxId": "System.String"
+    },
+    "primaryConstructor": [
+      {
+        "name": "TxId",
+        "type": "System.String"
+      },
+      {
+        "name": "State",
+        "type": "System.String"
+      },
+      {
+        "name": "CreatedAtMs",
+        "type": "System.Int64"
+      },
+      {
+        "name": "FailReason",
+        "type": "System.String"
+      }
+    ]
+  }
+}

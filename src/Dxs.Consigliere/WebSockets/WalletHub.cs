@@ -155,6 +155,26 @@ public class WalletHub(
 
     #endregion
 
+    #region Block tip (Wave 1)
+
+    /// <summary>
+    /// Wave 1 S0.8: subscribe caller to <c>block:tip</c>. The actual
+    /// broadcast to that group lives in S5's <c>HubNewBlockNotifier</c>
+    /// via <c>IHubContext&lt;WalletHub, IWalletHub&gt;</c> — this is the
+    /// server method, not the emitter.
+    /// </summary>
+    public Task SubscribeToBlockTip()
+        => Groups.AddToGroupAsync(Context.ConnectionId, "block:tip");
+
+    /// <summary>
+    /// Wave 1 S0.8: subscribe caller to <c>block:reorg</c>. Emitter wired
+    /// in Wave 3; no messages are sent on this group in W1.
+    /// </summary>
+    public Task SubscribeToReorg()
+        => Groups.AddToGroupAsync(Context.ConnectionId, "block:reorg");
+
+    #endregion
+
     private static async Task EnsureReadableAsync(
         IEnumerable<string> addresses,
         IEnumerable<string> tokenIds,

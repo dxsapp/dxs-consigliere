@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
+using Dxs.Bsv.P2p.Chain;
 using Dxs.Bsv.P2p.Messages;
 
 using Microsoft.Extensions.Logging;
@@ -40,6 +41,7 @@ public sealed class PeerSession : IAsyncDisposable
     private Task? _sendLoop;
     private Task? _pingLoop;
     private long _lastInboundUtcTicks;
+    private long _lastPingSentUtcTicks; // 0 = no ping in-flight
     private int _disposed;
 
     /// <summary>
@@ -63,12 +65,22 @@ public sealed class PeerSession : IAsyncDisposable
     /// <summary>Completes when the session ends, with the reason.</summary>
     public Task<DisconnectReason> Completion => _completion.Task;
 
-    public PeerSession(P2pNetwork network, IPEndPoint remote, PeerSessionConfig? config = null, ILogger? logger = null)
+    /// <summary>
+    /// Per-session telemetry sink. Defaults to <see cref="NullPeerTelemetrySink"/>
+    /// (one fresh instance per session). W6 swaps the construction site
+    /// inside PeerManager when it ships the production sink — this
+    /// session-owned property is the only knob downstream code needs.
+    /// Frozen by the Wave 1 contract freeze.
+    /// </summary>
+    public IPeerTelemetrySink Telemetry { get; }
+
+    public PeerSession(P2pNetwork network, IPEndPoint remote, PeerSessionConfig? config = null, ILogger? logger = null, IPeerTelemetrySink? telemetry = null)
     {
         _network = network ?? throw new ArgumentNullException(nameof(network));
         _remote = remote ?? throw new ArgumentNullException(nameof(remote));
         _config = config ?? new PeerSessionConfig();
         _logger = logger ?? NullLogger.Instance;
+        Telemetry = telemetry ?? new NullPeerTelemetrySink();
         _outbound = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(64) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
         _inbound = Channel.CreateBounded<InboundFrame>(new BoundedChannelOptions(_config.InboundChannelCapacity) { SingleReader = false, FullMode = BoundedChannelFullMode.Wait });
     }
@@ -201,6 +213,7 @@ public sealed class PeerSession : IAsyncDisposable
     public ValueTask SendVersionAsync(VersionMessage msg, CancellationToken ct) => SendAsync(P2pCommands.Version, msg.Serialize(), ct);
     public ValueTask SendInvAsync(InvMessage msg, CancellationToken ct) => SendAsync(P2pCommands.Inv, msg.Serialize(), ct);
     public ValueTask SendGetDataAsync(GetDataMessage msg, CancellationToken ct) => SendAsync(P2pCommands.GetData, msg.Serialize(), ct);
+    public ValueTask SendGetHeadersAsync(GetHeadersMessage msg, CancellationToken ct) => SendAsync(P2pCommands.GetHeaders, msg.Serialize(), ct);
     public ValueTask SendNotFoundAsync(NotFoundMessage msg, CancellationToken ct) => SendAsync(P2pCommands.NotFound, msg.Serialize(), ct);
     public ValueTask SendHeadersAsync(HeadersMessage msg, CancellationToken ct) => SendAsync(P2pCommands.Headers, msg.Serialize(), ct);
     public ValueTask SendAddrAsync(AddrMessage msg, CancellationToken ct) => SendAsync(P2pCommands.Addr, msg.Serialize(), ct);
@@ -214,6 +227,28 @@ public sealed class PeerSession : IAsyncDisposable
     /// </summary>
     public Action<IReadOnlyList<TimedAddress>>? OnAddrReceived { get; set; }
 
+    /// <summary>
+    /// Fires when peer sends a <c>headers</c> message. Dispatched <b>in
+    /// addition to</b> the frame being written to
+    /// <see cref="IncomingMessages"/> (additive-dispatch invariant from
+    /// Wave 1 S0). Consumers may choose either path.
+    /// </summary>
+    public Action<IReadOnlyList<BlockHeader>>? OnHeadersReceived { get; set; }
+
+    /// <summary>
+    /// Fires when peer sends an <c>inv</c> message. Single typed callback
+    /// for both <see cref="InvType.Tx"/> and block inv items; consumers
+    /// filter by <see cref="InvVector.Type"/>. Dispatched additively
+    /// alongside the inbound channel (S0 invariant).
+    /// </summary>
+    public Action<InvMessage>? OnInvReceived { get; set; }
+
+    /// <summary>
+    /// Fires when peer sends a <c>reject</c> message. Dispatched additively
+    /// alongside the inbound channel (S0 invariant).
+    /// </summary>
+    public Action<RejectMessage>? OnRejectReceived { get; set; }
+
     // ----- internal loops -----
 
     private async Task ReceiveLoopAsync(CancellationToken ct)
@@ -224,6 +259,7 @@ public sealed class PeerSession : IAsyncDisposable
             {
                 var frame = await ReadNextFrameAsync(ct);
                 Volatile.Write(ref _lastInboundUtcTicks, DateTime.UtcNow.Ticks);
+                Telemetry.RecordBytesIn(Frame.HeaderSize + frame.Payload.Length);
 
                 switch (frame.Command)
                 {
@@ -232,7 +268,13 @@ public sealed class PeerSession : IAsyncDisposable
                         await _stream!.WriteAsync(FrameCodec.Encode(_network, P2pCommands.Pong, frame.Payload), ct);
                         continue;
                     case P2pCommands.Pong:
-                        // Peer responded to our ping; nothing to do.
+                        // Peer responded to our ping. Compute RTT if a ping is in-flight.
+                        var sentTicks = Interlocked.Exchange(ref _lastPingSentUtcTicks, 0);
+                        if (sentTicks != 0)
+                        {
+                            var rtt = DateTime.UtcNow - new DateTime(sentTicks, DateTimeKind.Utc);
+                            if (rtt > TimeSpan.Zero) Telemetry.RecordPingRtt(rtt);
+                        }
                         continue;
                     case P2pCommands.Protoconf:
                         ApplyProtoconf(frame.Payload);
@@ -256,15 +298,62 @@ public sealed class PeerSession : IAsyncDisposable
                             catch { /* ignore malformed gossip */ }
                         }
                         continue;
+                    case P2pCommands.Headers:
+                        // Additive dispatch: fire callback AND surface on channel.
+                        if (OnHeadersReceived is not null)
+                        {
+                            try
+                            {
+                                var headersMsg = HeadersMessage.Parse(frame.Payload);
+                                OnHeadersReceived(headersMsg.Headers);
+                            }
+                            catch (P2pDecodeException ex)
+                            {
+                                Telemetry.RecordProtocolViolation($"headers: {ex.Message}");
+                            }
+                        }
+                        break;
+                    case P2pCommands.Inv:
+                        if (OnInvReceived is not null)
+                        {
+                            try
+                            {
+                                var invMsg = InvMessage.Parse(frame.Payload);
+                                OnInvReceived(invMsg);
+                            }
+                            catch (P2pDecodeException ex)
+                            {
+                                Telemetry.RecordProtocolViolation($"inv: {ex.Message}");
+                            }
+                        }
+                        break;
+                    case P2pCommands.Reject:
+                        if (OnRejectReceived is not null)
+                        {
+                            try
+                            {
+                                var rejectMsg = RejectMessage.Parse(frame.Payload);
+                                Telemetry.RecordRejectReceived(rejectMsg.Classify());
+                                OnRejectReceived(rejectMsg);
+                            }
+                            catch (P2pDecodeException ex)
+                            {
+                                Telemetry.RecordProtocolViolation($"reject: {ex.Message}");
+                            }
+                        }
+                        break;
                 }
 
                 // Surface everything else to the caller via the channel.
+                // Note: headers/inv/reject reach BOTH the callback above AND the
+                // channel below — the additive-dispatch invariant from Wave 1 S0.
                 await _inbound.Writer.WriteAsync(new InboundFrame(frame.Command, frame.Payload), ct);
             }
         }
         catch (OperationCanceledException) { /* normal shutdown */ }
         catch (P2pDecodeException ex)
         {
+            Telemetry.RecordProtocolViolation(ex.Message);
             await EndWith(DisconnectReason.ProtocolViolation, ex.Message);
         }
         catch (Exception ex) when (IsConnectionLost(ex))
@@ -290,6 +379,7 @@ public sealed class PeerSession : IAsyncDisposable
                 while (_outbound.Reader.TryRead(out var frame))
                 {
                     await _stream!.WriteAsync(frame, ct);
+                    Telemetry.RecordBytesOut(frame.Length);
                 }
             }
         }
@@ -324,6 +414,7 @@ public sealed class PeerSession : IAsyncDisposable
                 // (we don't drop the connection if pong is missing; pong tracking
                 // is implicit via inbound activity).
                 var nonce = (ulong)Random.Shared.NextInt64();
+                Volatile.Write(ref _lastPingSentUtcTicks, DateTime.UtcNow.Ticks);
                 await SendAsync(P2pCommands.Ping, new PingMessage(nonce).Serialize(), ct);
             }
         }
@@ -475,6 +566,7 @@ public sealed class PeerSession : IAsyncDisposable
         finally
         {
             State = PeerSessionState.Closed;
+            try { Telemetry.RecordDisconnect(reason); } catch { /* never let telemetry break shutdown */ }
             _completion.TrySetResult(reason);
         }
     }
