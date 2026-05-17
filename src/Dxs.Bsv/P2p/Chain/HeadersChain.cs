@@ -193,6 +193,33 @@ public sealed class HeadersChain
     public bool IsLoaded => _loaded;
 
     /// <summary>
+    /// Wave 3 S1 — read-only ancestor lookup by wire-order hash hex.
+    /// The hash key matches what <see cref="TryExtend"/> stores (the
+    /// lowercase hex of <see cref="BlockHeaderHasher.Hash"/>, i.e. wire
+    /// order). Used by the reorg detector to walk back from a fork tip
+    /// through the retained window. Returns false for unknown hashes.
+    /// </summary>
+    public bool TryGetByWireHashHex(string wireHashHex, out BlockHeader header, out long height)
+    {
+        if (_byHash.TryGetValue(wireHashHex, out var entry))
+        {
+            header = entry.Header;
+            height = entry.Height;
+            return true;
+        }
+        header = null!;
+        height = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Wave 3 S1 — the wave-level <c>RetainedHeaderCount</c> option, exposed
+    /// read-only so the reorg detector can decide between a "normal" reorg
+    /// (fork point inside the window) and a degraded reorg (below window).
+    /// </summary>
+    public int RetainedHeaderCount => _options.RetainedHeaderCount;
+
+    /// <summary>
     /// Anchor the chain to a specific (header, height) pair. Used by the
     /// bootstrapper (Wave 1 S4) when an external height-aware source
     /// (e.g. WhatsOnChain /chain/info) provides the current tip. After
