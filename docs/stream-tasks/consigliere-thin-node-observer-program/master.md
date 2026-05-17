@@ -348,7 +348,7 @@ endpoint), `admin-ui` (alerts panel), `docs/platform-api/` (change notes
 
 | wave | slug | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|---|
-| 1 | `bsv-headers-chain-wave` | bsv-protocol-core | not_opened | — | tip sync ≤10s; OnNewBlock fired per mainnet block within p95 lag (target ≤2s, measured over 24h soak) | contract-freeze slice closed; headers persisted; new-block event live; admin endpoint matches WoC tip | A1 |
+| 1 | `bsv-headers-chain-wave` | bsv-protocol-core | done | — | tip sync ≤10s; OnNewBlock fired per mainnet block within p95 lag (target ≤2s, measured over 24h soak) | contract-freeze slice closed; headers persisted; new-block event live; admin endpoint matches WoC tip | A2-followup-2 APPROVE |
 | 2 | `bsv-mempool-observer-wave` | indexer-ingest-orchestration | not_opened | W1 | journal accepts `p2p` source; watchlist load benchmark ≥500 K addresses ≤2s; observed-tx event with `SeenBySources` containing `p2p` | journal contract extended; observer live; watchlist hot reload + scale test green | A1 |
 | 3 | `reorg-handling-wave` | indexer-state-and-storage | not_opened | W1, W2 | 1/2/N-deep fork tests; deep-reorg-beyond-window asserts degraded state; mismatched-body provider rejected; idempotent disconnect events | reorg detector live; `Reorged` state correctly produced; OnReorg event fired; rescan validates against header | A1 |
 | 4 | `observation-source-metrics-wave` | indexer-ingest-orchestration | not_opened | W2 | fixture-injected observations match counter values exactly; lag histogram bucket counts deterministic | metrics recorder live; admin API + SPA page show three sources with non-zero counters in fixture run | A1 |
@@ -407,7 +407,7 @@ Commit hashes recorded here as waves close.
 - Program audit A1 (Codex GPT-5, MAJOR REVISION REQUIRED): see
   `audits/program-audit-A1.md`
 - Program revision per A1: `<hash-pending>` (this commit)
-- Wave 1 delivery: (pending)
+- Wave 1 delivery (`bsv-headers-chain-wave`): closed 2026-05-17 — final commit `f87da92` (full chain: c7b1428 S0, aafbec6 S1, 79aaaf6 S2, 332ca13 S3, 407e1fb S4, 7cbf2d7 S5, 8036bb7 S6, 8babc11 S7 scaffold, 557f8ad closeout, 4997122 A2 fix, 774aaa4 A2-followup fix, f87da92 ledger). Wave audit A2-followup-2 APPROVE.
 - Wave 2 delivery: (pending)
 - Wave 3 delivery: (pending)
 - Wave 4 delivery: (pending)

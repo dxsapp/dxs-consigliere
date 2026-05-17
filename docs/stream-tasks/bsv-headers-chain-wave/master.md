@@ -257,4 +257,5 @@ Commit hashes recorded here as slices close.
 - Wave revision per audit A2: `4997122`
 - Wave audit A2-followup (MAJOR REVISION REQUIRED — new-H1: WoC source incompatible with live JSON shape): `audits/wave1-audit-A2-followup.md`
 - Wave revision per A2-followup: `774aaa4` (WoC source rewritten + 10 unit tests + stale-doc cleanup)
-- Wave audit A2-followup-2: pending
+- Wave audit A2-followup-2 (APPROVE): `audits/wave1-audit-A2-followup-2.md`
+- **Wave 1 closed: 2026-05-17.** Wave 2 may open.
