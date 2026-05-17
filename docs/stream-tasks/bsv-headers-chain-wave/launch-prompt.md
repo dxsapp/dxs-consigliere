@@ -144,8 +144,12 @@ Per-slice validation lives in `slices.md`. Wave-level:
   - `BlockTipDto`, `ReorgEventDto`, `BroadcastReceiptDto`.
 - `PeerSessionAdditiveDispatchTests` green — callback fires AND
   `IncomingMessages` still receives `inv` / `reject` / `headers`.
-- Grep proves no `OnBlockInvReceived` or `OnInvReceived(tx)`
-  patterns; `SendGetHeadersAsync` is present in `PeerSession.cs`.
+- Grep, **scoped to code only** (audit S0-A1 M1):
+  `rg -n "OnBlockInvReceived|OnInvReceived\(tx\)" src tests`
+  returns zero hits. Do not include `docs/` — audit and
+  explanatory text intentionally references the old names.
+  `rg -n "SendGetHeadersAsync" src/Dxs.Bsv/P2p/Session/PeerSession.cs`
+  returns at least one match.
 - `GET /api/admin/p2p/headers/tip` matches WhatsOnChain
   `chain/info` at validation time.
 - `evidence/headers-soak.md` records 24 h soak per the JSONL schema

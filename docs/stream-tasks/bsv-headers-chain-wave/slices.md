@@ -43,11 +43,20 @@ away from `IncomingMessages` is out of scope for W1.
 
 Add to `src/Dxs.Bsv/P2p/Session/PeerSession.cs`:
 
-- `Task SendGetHeadersAsync(GetHeadersMessage msg, CancellationToken ct)`
+- `ValueTask SendGetHeadersAsync(GetHeadersMessage msg, CancellationToken ct)`
   — wraps `SendAsync(P2pCommands.GetHeaders, msg.Serialize(), ct)`.
   Required by S3 (audit A1 H2). The wave's "consumed surface" claim
   for `SendGetHeadersAsync` is satisfied **only** by adding this
   helper in S0; do not assume it already exists.
+
+  **Return-type convention (audit S0-A1 H1).** Every existing
+  `PeerSession.Send*Async` helper returns `ValueTask`
+  (`SendInvAsync`, `SendGetDataAsync`, `SendHeadersAsync`,
+  `SendTxAsync`, etc., see `PeerSession.cs` lines ~201-208). The
+  new helper follows the same pattern — `ValueTask`, not `Task`.
+  The earlier S0.2 draft showed `Task` by mistake; the canonical
+  frozen signature is `ValueTask SendGetHeadersAsync(...)` and the
+  manifest reflects that.
 
 ### S0.3 — `PeerTelemetry` snapshot
 
@@ -294,11 +303,15 @@ dispatchers + default sinks + telemetry-hook plumbing.
   surface byte-for-byte.
 - `PeerSessionAdditiveDispatchTests` green — callbacks fire **and**
   `IncomingMessages` still receives `inv`/`reject`/`headers`.
-- Static check: grep across `src/` and `docs/` for
-  `OnBlockInvReceived` or `OnInvReceived(tx)` patterns — must
-  return zero hits.
-- Static check: grep for `SendGetHeadersAsync` returns at least one
-  match in `PeerSession.cs` (helper present).
+- Static check (audit S0-A1 M1 scope fix): grep across **code only**
+  for forbidden historical patterns must return zero hits. Exact
+  command, recorded in S0 evidence:
+  `rg -n "OnBlockInvReceived|OnInvReceived\(tx\)" src tests`.
+  Docs intentionally reference the old names in audit / explanatory
+  text; do **not** include `docs/` in this scan or it will fail on
+  documentation-only references.
+- Static check: `rg -n "SendGetHeadersAsync" src/Dxs.Bsv/P2p/Session/PeerSession.cs`
+  returns at least one match (helper present).
 
 **Done when.** All declared surfaces compile; build green; both new
 tests green; reflection-grep checks green; slice-level audit
