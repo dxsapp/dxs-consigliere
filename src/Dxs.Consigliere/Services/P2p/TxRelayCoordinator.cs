@@ -5,9 +5,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using Dxs.Bsv;
 using Dxs.Bsv.P2p;
 using Dxs.Bsv.P2p.Messages;
-using Dxs.Bsv.P2p.Pool;
+using Dxs.Bsv.P2p.Observer;
 using Dxs.Bsv.P2p.Session;
 using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
@@ -38,12 +39,15 @@ namespace Dxs.Consigliere.Services.P2p;
 /// </summary>
 public sealed class TxRelayCoordinator
 {
-    private readonly PeerManager _peerManager;
+    private readonly BsvP2pHealth _health;
     private readonly OutgoingTransactionStore _store;
     private readonly ILogger<TxRelayCoordinator> _logger;
     private readonly PerSessionDispatcherRegistry? _dispatcherRegistry;
 
-    // txid → raw hex bytes (populated during Dispatching)
+    // txid → raw hex bytes (populated during Dispatching). Key is the
+    // canonical display-order txid (matches OutgoingTransactionStore + the
+    // rest of the Consigliere lifecycle pipeline). Wire-order inbound
+    // inv/getdata hashes are normalized via WireToDisplayHex before lookup.
     private readonly ConcurrentDictionary<string, byte[]> _pendingTx = new(StringComparer.OrdinalIgnoreCase);
 
     // txid → count of peers that sent relay-back inv
@@ -53,12 +57,12 @@ public sealed class TxRelayCoordinator
     private readonly ConcurrentDictionary<PeerSession, byte> _wiredSessions = new(ReferenceEqualityComparer.Instance);
 
     public TxRelayCoordinator(
-        PeerManager peerManager,
+        BsvP2pHealth health,
         OutgoingTransactionStore store,
         ILogger<TxRelayCoordinator> logger,
         PerSessionDispatcherRegistry? dispatcherRegistry = null)
     {
-        _peerManager = peerManager;
+        _health = health;
         _store = store;
         _logger = logger;
         _dispatcherRegistry = dispatcherRegistry;
@@ -74,7 +78,7 @@ public sealed class TxRelayCoordinator
         var rawBytes = Convert.FromHexString(rawHex);
         _pendingTx[txId] = rawBytes;
 
-        var sessions = _peerManager.ActiveSessions.Values
+        var sessions = _health.ActiveSessions
             .Where(s => s.State == PeerSessionState.Ready)
             .ToList();
 
@@ -84,7 +88,9 @@ public sealed class TxRelayCoordinator
             return 0;
         }
 
-        var txidBytes = Convert.FromHexString(txId);
+        // txId is canonical display-order; on the wire we need it
+        // byte-reversed (audit W2 A2 H1).
+        var txidBytes = TxHashOrder.DisplayHexToWire(txId);
         var inv = InvMessage.ForTx(txidBytes);
         var served = 0;
 
@@ -146,7 +152,10 @@ public sealed class TxRelayCoordinator
         foreach (var item in getdata.Items)
         {
             if (item.Type != InvType.Tx) continue;
-            var requestedTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
+            // Audit W2 A2 H1: inv hashes are wire-order on the wire;
+            // _pendingTx keys are canonical display-order (matches
+            // OutgoingTransactionStore + Bitails / JungleBus). Normalize.
+            var requestedTxId = TxHashOrder.WireToDisplayHex(item.Hash);
             if (!_pendingTx.TryGetValue(requestedTxId, out var rawBytes)) continue;
 
             session.Telemetry.RecordGetDataRequested(InvType.Tx, item.Hash);
@@ -171,7 +180,7 @@ public sealed class TxRelayCoordinator
         foreach (var item in inv.Items)
         {
             if (item.Type != InvType.Tx) continue;
-            var seenTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
+            var seenTxId = TxHashOrder.WireToDisplayHex(item.Hash);
             if (!_pendingTx.ContainsKey(seenTxId)) continue;
 
             session.Telemetry.RecordRelayBackInv(item.Hash);
@@ -198,7 +207,7 @@ public sealed class TxRelayCoordinator
             var reject = RejectMessage.Parse(frame.Payload);
             if (reject.Hash is not null)
             {
-                var rejectedTxId = Convert.ToHexString(reject.Hash).ToLowerInvariant();
+                var rejectedTxId = TxHashOrder.WireToDisplayHex(reject.Hash);
                 if (_pendingTx.ContainsKey(rejectedTxId))
                 {
                     _logger.LogWarning("Peer {Peer} rejected {TxId}: {Code} {Reason}",
@@ -253,7 +262,8 @@ public sealed class TxRelayCoordinator
                     foreach (var item in getdata.Items)
                     {
                         if (item.Type != InvType.Tx) continue;
-                        var requestedTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
+                        // Audit W2 A2 H1: wire-order on wire, display-order in our state.
+                        var requestedTxId = TxHashOrder.WireToDisplayHex(item.Hash);
                         if (!requestedTxId.Equals(txId, StringComparison.OrdinalIgnoreCase)) continue;
 
                         session.Telemetry.RecordGetDataRequested(InvType.Tx, item.Hash);
@@ -271,7 +281,7 @@ public sealed class TxRelayCoordinator
                     foreach (var item in inv.Items)
                     {
                         if (item.Type != InvType.Tx) continue;
-                        var seenTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
+                        var seenTxId = TxHashOrder.WireToDisplayHex(item.Hash);
                         if (!_pendingTx.ContainsKey(seenTxId)) continue;
 
                         session.Telemetry.RecordRelayBackInv(item.Hash);
@@ -295,7 +305,7 @@ public sealed class TxRelayCoordinator
                     var reject = RejectMessage.Parse(frame.Payload);
                     if (reject.Hash is not null)
                     {
-                        var rejectedTxId = Convert.ToHexString(reject.Hash).ToLowerInvariant();
+                        var rejectedTxId = TxHashOrder.WireToDisplayHex(reject.Hash);
                         if (rejectedTxId.Equals(txId, StringComparison.OrdinalIgnoreCase))
                         {
                             _logger.LogWarning("Peer {Peer} rejected {TxId}: {Code} {Reason}",

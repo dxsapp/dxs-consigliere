@@ -197,13 +197,23 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
 
             _recorder.RecordInvObserved(TxObservationSource.P2p);
 
-            var txid = Convert.ToHexString(item.Hash).ToLowerInvariant();
+            // Audit W2 A2 H1: inv hashes are wire-order on the wire;
+            // canonical journal identity is display-order (matches
+            // Bitails / JungleBus / OutgoingTransactionStore /
+            // TxLifecycleProjectionDocument). Normalise at the boundary
+            // so dedupe + SeenBySources accumulation across sources
+            // works on the same id.
+            var txid = TxHashOrder.WireToDisplayHex(item.Hash);
             var decision = _watcher.DecideFetch(txid);
             switch (decision)
             {
                 case MempoolWatcher.FetchDecision.Duplicate:
                     continue;
                 case MempoolWatcher.FetchDecision.RateLimited:
+                    // Audit W2 A2 M1: a rate-limited inv must not poison
+                    // the dedupe cache for the full TTL — Forget so a
+                    // later inv (after the 1 s window slides) can retry.
+                    _watcher.Forget(txid);
                     _recorder.RecordRateLimited();
                     continue;
                 case MempoolWatcher.FetchDecision.Fetch:
@@ -288,7 +298,7 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         }
         if (tx is null) { _recorder.RecordParseError(); return; }
 
-        var parsed = ToParsedTx(tx, txid);
+        var parsed = ToParsedTx(tx, rawBytes, txid);
         var result = _matcher.Match(parsed);
 
         if (result is MatchResult.None)
@@ -319,23 +329,40 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         if (ok) _recorder.RecordMatched();
     }
 
-    private static ParsedTx ToParsedTx(Transaction tx, string txid)
+    private ParsedTx ToParsedTx(Transaction tx, byte[] rawBytes, string txid)
     {
+        // Audit W2 A2 H2: the live ingest path now consumes the S1
+        // TxScriptParser contract directly (canonical 25-byte P2PKH
+        // output check, compressed + uncompressed P2PKH input pubkey
+        // derivation, defensive token parsing). The earlier shortcut
+        // through Output.Address / Input.Address bypassed the
+        // contract — UnlockingScriptReader only derives input
+        // addresses for 33-byte compressed pubkeys, which would drop
+        // matches for uncompressed P2PKH inputs that S1 explicitly
+        // supports.
         var outputHashes = new List<byte[]>(tx.Outputs.Count);
         var outputTokens = new List<string>();
         for (var i = 0; i < tx.Outputs.Count; i++)
         {
-            var o = tx.Outputs[i];
-            if (o.Address?.Hash160 is { Length: 20 } h)
-                outputHashes.Add(h);
-            if (!string.IsNullOrEmpty(o.TokenId))
-                outputTokens.Add(o.TokenId);
+            var script = tx.Outputs[i].ScriptPubKey.Materialize(rawBytes);
+            if (TxScriptParser.TryParseP2pkhOutput(script, out var h))
+            {
+                outputHashes.Add(h.ToArray());
+                continue;
+            }
+            if (TxScriptParser.TryParseTokenId(script, _network.Network, out var tokenId)
+                && !string.IsNullOrEmpty(tokenId))
+            {
+                outputTokens.Add(tokenId);
+            }
         }
         var inputHashes = new List<byte[]>(tx.Inputs.Count);
         for (var i = 0; i < tx.Inputs.Count; i++)
         {
-            var inp = tx.Inputs[i];
-            if (inp.Address?.Hash160 is { Length: 20 } h)
+            var input = tx.Inputs[i];
+            if (input.Coinbase) continue;
+            var scriptSig = input.ScriptSig.Materialize(rawBytes);
+            if (TxScriptParser.TryParseP2pkhInputPubkey(scriptSig, out var h) && h is not null)
                 inputHashes.Add(h);
         }
         return new ParsedTx(txid, outputHashes, inputHashes, outputTokens);

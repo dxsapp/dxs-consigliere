@@ -49,7 +49,11 @@ public static class BsvP2pSetup
                 new MempoolWatcher(sp.GetRequiredService<IOptions<MempoolWatcherOptions>>().Value))
             .AddHostedService<P2pMempoolIngestRunner>()
             // Wire P2P properties into BroadcastService after construction.
-            .AddSingleton<BroadcastServiceP2pWirer>();
+            .AddSingleton<BroadcastServiceP2pWirer>()
+            // Audit W2 A2 C1: a registered wirer is inert without a
+            // host-side invoker. Schedule it via a one-shot hosted
+            // service that runs Wire() right after DI is built.
+            .AddHostedService<BroadcastServiceP2pWirerHost>();
 
     // Called from BsvP2pHostedService after PeerManager starts, so
     // BroadcastService can find the relay coordinator.
@@ -80,4 +84,22 @@ public sealed class BroadcastServiceP2pWirer(
         if (broadcastService is BroadcastService bs)
             BsvP2pSetup.ConfigureBroadcastServiceP2p(bs, validator, store, relay);
     }
+}
+
+/// <summary>
+/// Audit W2 A2 C1 fix: hosts the <see cref="BroadcastServiceP2pWirer"/>
+/// as a one-shot startup invoker so the registered wirer actually
+/// runs.
+/// </summary>
+internal sealed class BroadcastServiceP2pWirerHost(BroadcastServiceP2pWirer wirer)
+    : Microsoft.Extensions.Hosting.IHostedService
+{
+    public System.Threading.Tasks.Task StartAsync(System.Threading.CancellationToken cancellationToken)
+    {
+        wirer.Wire();
+        return System.Threading.Tasks.Task.CompletedTask;
+    }
+
+    public System.Threading.Tasks.Task StopAsync(System.Threading.CancellationToken cancellationToken)
+        => System.Threading.Tasks.Task.CompletedTask;
 }
