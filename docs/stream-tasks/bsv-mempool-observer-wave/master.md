@@ -293,4 +293,5 @@ Commit hashes recorded here as slices close.
 - Wave closeout evidence: `evidence/closeout.md` (this commit)
 - Wave audit A2 (post-execution, MAJOR REVISION REQUIRED — C1 DI, H1 txid order, H2 parser bypass, M1 rate-limit forget, M2 runner E2E): `audits/wave2-audit-A2.md`
 - Wave revision per A2: `16515cf` (TxHashOrder + runner refactors + DI/runner integration tests; TxRelayCoordinator depends on BsvP2pHealth not PeerManager; one-shot BroadcastServiceP2pWirerHost added; runner uses TxScriptParser + display-order txid + Forget on rate-limit)
-- Wave audit A2-followup: pending
+- Wave audit A2-followup (APPROVE WITH CHANGES; all five A2 findings closed, one new-L1 test-name precision finding): `audits/wave2-audit-A2-followup.md`
+- Final fix per A2-followup new-L1: this commit (split `RateLimited_Inv_AllowsRetryAfterWindowSlides` into `RateLimited_Inv_ForgetsTxid_NotRetainedInDedupe` + `RateLimited_Inv_RetriesAfterWindowSlides`; shared `BuildRunnerForRateLimitTest` helper). Wave 2 CLOSED.

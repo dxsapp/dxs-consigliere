@@ -1,8 +1,10 @@
 # Wave 2 Closeout — `bsv-mempool-observer-wave`
 
-Status: revised per wave audit A2 (commit `16515cf`); ready for
-follow-up audit. S0-S7 implemented; S8 operator-driven and
-deferred per `evidence/live-validation.md`.
+Status: CLOSED. Wave audit A2 → MAJOR REVISION REQUIRED (closed by
+`16515cf`); A2-followup → APPROVE WITH CHANGES with one new-L1
+test-name precision finding (closed by this commit). S0-S7
+implemented; S8 operator-driven and deferred per
+`evidence/live-validation.md`.
 
 ## Delivery summary
 
@@ -113,7 +115,11 @@ From `evidence/watchlist-bench.md`:
 - `audits/S0-A1.md` — S0 slice audit (MAJOR REVISION REQUIRED;
   H1 IsDuplicate propagation, M1 nullable annotation)
 - `audits/S0-A1-followup.md` — S0 follow-up (APPROVE)
-- `audits/wave2-audit-A2.md` — pending wave-level post-execution audit
+- `audits/wave2-audit-A2.md` — post-execution wave audit (MAJOR
+  REVISION REQUIRED; C1/H1/H2/M1/M2)
+- `audits/wave2-audit-A2-followup.md` — post-revision audit
+  (APPROVE WITH CHANGES; all five A2 findings closed, one new-L1
+  test-name precision issue logged)
 
 ## Ready-for-audit checklist
 
@@ -125,7 +131,9 @@ From `evidence/watchlist-bench.md`:
 - [x] `evidence/watchlist-bench.md` exists with the measured fields.
 - [x] `evidence/live-validation.md` documents the deferred S8 plan.
 - [x] `audits/wave2-audit-A2.md` — MAJOR REVISION REQUIRED;
-      revision committed as `16515cf`. Awaiting A2-followup audit.
+      revision committed as `16515cf`.
+- [x] `audits/wave2-audit-A2-followup.md` — APPROVE WITH CHANGES;
+      single new-L1 test-name precision issue closed by this commit.
 
 ## Audit A2 revision summary (commit `16515cf`)
 
@@ -178,3 +186,21 @@ Test counts after revision:
 - `Dxs.Consigliere.Tests` 314 passed (was 308, +6: 3 DI
   resolution + 3 runner integration) + 24 explicit Skipped +
   3 pre-existing baseline (unchanged).
+
+## Audit A2-followup follow-up (this commit)
+
+- **new-L1** (rate-limit test name precision): the single test
+  `RateLimited_Inv_AllowsRetryAfterWindowSlides` proved that the
+  txid was forgotten from dedupe but did NOT prove that a retry
+  actually fires getdata after the window slides. Split into two
+  separately named tests, each pinning the observable in its name:
+  - `RateLimited_Inv_ForgetsTxid_NotRetainedInDedupe` — asserts
+    strict `DedupeSize` equality before-vs-after the rate-limited
+    inv (proves `Forget` ran). Rate-window state independent.
+  - `RateLimited_Inv_RetriesAfterWindowSlides` — after the
+    1.1 s sleep, sends a second inv for the same txid and
+    polls the server's received-frame channel for a `getdata`
+    frame. Pinned by `Assert.True(sawGetData)`.
+- Shared helper `BuildRunnerForRateLimitTest` keeps both tests
+  small. Net delta: +1 runner integration test (now 315 passed in
+  `Dxs.Consigliere.Tests`, was 314).

@@ -284,21 +284,124 @@ public class P2pMempoolIngestRunnerTests
     }
 
     [Fact]
-    public async Task RateLimited_Inv_AllowsRetryAfterWindowSlides()
+    public async Task RateLimited_Inv_ForgetsTxid_NotRetainedInDedupe()
     {
-        // Audit W2 A2 M1: a rate-limited inv must Forget so a later
-        // inv (after the 1 s window slides) can retry. Use a watcher
-        // with MaxGetDataPerSec=1 so we can deterministically exhaust
-        // the budget.
-        var (raw, displayTxid, watchedHash) = BuildWatchedTx("12UScFvnuA9FjeoapbRQ5YS963mgzrQkZo");
-        var (raw2, displayTxid2, _) = BuildWatchedTx("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+        // Audit W2 A2 M1 first half: runner calls watcher.Forget(txid)
+        // on RateLimited so the dedupe cache doesn't permanently
+        // de-duplicate a transient rate-limit miss. Pin THIS specific
+        // behaviour — the retry-after-window-slides part lives in its
+        // own test below to keep the assertion crisp (audit
+        // A2-followup new-L1 test-name precision fix).
+        var (_, displayTxid, watchedHash) = BuildWatchedTx("12UScFvnuA9FjeoapbRQ5YS963mgzrQkZo");
 
+        var (runner, watcher, recorder, session, server) =
+            await BuildRunnerForRateLimitTest(watchedHash);
+        try
+        {
+            // Pre-consume the budget so the next inv hits RateLimited.
+            Assert.Equal(MempoolWatcher.FetchDecision.Fetch, watcher.DecideFetch("burner"));
+
+            var dedupeBefore = watcher.DedupeSize;
+
+            // Inv arrives → runner sees RateLimited → Forget.
+            var wireTxid = TxHashOrder.DisplayHexToWire(displayTxid);
+            await server.ServerSendAsync(P2pCommands.Inv,
+                new InvMessage(new[] { new InvVector(InvType.Tx, wireTxid) }).Serialize());
+
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (DateTime.UtcNow < deadline && recorder.GetRateLimitedCount() == 0)
+                await Task.Delay(20);
+            Assert.True(recorder.GetRateLimitedCount() >= 1,
+                "expected RateLimited counter to increment on first inv");
+
+            // The rate-limited txid was inserted into the dedupe cache
+            // by DecideFetch (TryAdd succeeded before the rate-budget
+            // check rejected it). If the runner's Forget(txid) call ran
+            // on the RateLimited branch the dedupe size returns to its
+            // pre-inv value; without Forget it would be one larger.
+            // This is the precise observable we want to pin — and it
+            // doesn't depend on the rate window state.
+            Assert.Equal(dedupeBefore, watcher.DedupeSize);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+            await server.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task RateLimited_Inv_RetriesAfterWindowSlides()
+    {
+        // Audit W2 A2 M1 second half: once the 1-second rate-limit
+        // window slides, a re-issued inv for the same txid succeeds
+        // (because the runner called Forget on the rate-limit branch,
+        // AND the window has now made room in the rate budget).
+        // Pinned by sleeping past the window — slower but the only
+        // proof of the actual behaviour the audit cared about.
+        var (raw, displayTxid, watchedHash) = BuildWatchedTx("12UScFvnuA9FjeoapbRQ5YS963mgzrQkZo");
+
+        var (runner, watcher, recorder, session, server) =
+            await BuildRunnerForRateLimitTest(watchedHash);
+        try
+        {
+            // Burn the single rate slot.
+            Assert.Equal(MempoolWatcher.FetchDecision.Fetch, watcher.DecideFetch("burner"));
+
+            // First inv: rate-limited.
+            var wireTxid = TxHashOrder.DisplayHexToWire(displayTxid);
+            await server.ServerSendAsync(P2pCommands.Inv,
+                new InvMessage(new[] { new InvVector(InvType.Tx, wireTxid) }).Serialize());
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            while (DateTime.UtcNow < deadline && recorder.GetRateLimitedCount() == 0)
+                await Task.Delay(20);
+            Assert.True(recorder.GetRateLimitedCount() >= 1);
+
+            // Wait for the 1-second sliding window to clear.
+            await Task.Delay(1_100);
+
+            // Second inv for the SAME txid. Now Fetch is allowed
+            // (window slot freed) and dedupe doesn't block (Forget
+            // cleared the prior entry).
+            await server.ServerSendAsync(P2pCommands.Inv,
+                new InvMessage(new[] { new InvVector(InvType.Tx, wireTxid) }).Serialize());
+
+            // Drain server's received-frame channel until we see a
+            // getdata (proves the retry actually issued the request).
+            deadline = DateTime.UtcNow.AddSeconds(3);
+            var sawGetData = false;
+            while (DateTime.UtcNow < deadline && !sawGetData)
+            {
+                using var pollCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+                try
+                {
+                    var frame = await server.Received.ReadAsync(pollCts.Token);
+                    if (frame.Command == P2pCommands.GetData) sawGetData = true;
+                }
+                catch (OperationCanceledException) { }
+            }
+            Assert.True(sawGetData,
+                "after the 1 s rate-limit window slid, the runner did not retry getdata");
+        }
+        finally
+        {
+            await session.DisposeAsync();
+            await server.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Build a runner + a connected MiniBsvServer + session set up
+    /// for the rate-limit tests (MaxGetDataPerSec=1). Returns the
+    /// owned-by-caller server + session so the test can dispose them
+    /// in a finally block.
+    /// </summary>
+    private async Task<(P2pMempoolIngestRunner runner, MempoolWatcher watcher, SourceObservationRecorder recorder, PeerSession session, MiniBsvServer server)>
+        BuildRunnerForRateLimitTest(byte[] watchedHash)
+    {
         var matcher = new WatchlistMatcher();
         matcher.AddAddress(watchedHash);
-        matcher.AddAddress(new Address("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa").Hash160);
 
-        // We need direct control over the watcher's rate limit, so
-        // construct the runner manually with our budget=1 watcher.
         var health = new BsvP2pHealth();
         var recorder = new SourceObservationRecorder();
         var watcher = new MempoolWatcher(new MempoolWatcherOptions
@@ -323,30 +426,13 @@ public class P2pMempoolIngestRunnerTests
             new FakeNetwork(),
             NullLogger<P2pMempoolIngestRunner>.Instance);
 
-        // Pre-consume the budget by calling DecideFetch directly on
-        // an unrelated txid (Forget afterwards so it doesn't pollute
-        // dedupe). This burns the one rate slot.
-        Assert.Equal(MempoolWatcher.FetchDecision.Fetch, watcher.DecideFetch("burner"));
-
-        await using var server = new MiniBsvServer(P2pNetwork.Mainnet);
+        var server = new MiniBsvServer(P2pNetwork.Mainnet);
         await server.StartAsync();
-        await using var session = new PeerSession(P2pNetwork.Mainnet, server.EndPoint);
-        await session.ConnectAsync(SampleVersion(), new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+        var session = new PeerSession(P2pNetwork.Mainnet, server.EndPoint);
+        var hs = await session.ConnectAsync(SampleVersion(), new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
+        Assert.True(hs.Success);
         runner.Reconcile(new[] { session });
 
-        // First inv: rate-limited (budget exhausted by the burner).
-        var wireTxid = TxHashOrder.DisplayHexToWire(displayTxid);
-        await server.ServerSendAsync(P2pCommands.Inv,
-            new InvMessage(new[] { new InvVector(InvType.Tx, wireTxid) }).Serialize());
-        // Wait until the recorder sees the RateLimited increment.
-        var deadline = DateTime.UtcNow.AddSeconds(2);
-        while (DateTime.UtcNow < deadline && recorder.GetRateLimitedCount() == 0)
-            await Task.Delay(20);
-        Assert.True(recorder.GetRateLimitedCount() >= 1,
-            "expected RateLimited counter to increment on first inv");
-
-        // The runner should have called Forget(txid) on RateLimited,
-        // so the dedupe cache does NOT contain it.
-        Assert.True(watcher.DedupeSize < 5, "dedupe should not retain rate-limited txids");
+        return (runner, watcher, recorder, session, server);
     }
 }
