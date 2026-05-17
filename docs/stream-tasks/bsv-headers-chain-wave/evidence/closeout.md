@@ -1,6 +1,7 @@
 # Wave 1 Closeout — `bsv-headers-chain-wave`
 
-Status: ready for wave-level audit A2.
+Status: revised per wave audit A2 (commit `4997122`); ready for
+follow-up audit.
 
 ## Delivery summary
 
@@ -170,5 +171,44 @@ what each wave consumes. Concrete artifacts now exist:
       hashes, residuals, and handoff facts.
 - [ ] `evidence/headers-soak.md` — operator-driven 24h soak; not
       in scope for code-review audit pass.
-- [ ] `audits/wave1-audit-A2.md` — to be written by Codex against
-      this evidence + the implementation commits.
+- [x] `audits/wave1-audit-A2.md` — MAJOR REVISION REQUIRED;
+      revision committed as `4997122`. Awaiting follow-up audit.
+
+## Audit A2 revision summary (commit `4997122`)
+
+All four A2 findings addressed:
+
+- **H1** — chain refuses to auto-promote arbitrary first header to
+  height 0. Added `ExtendResult.Unanchored`, `HeadersChain.Seed`,
+  and `WhatsOnChainHeadersBootstrapSource` (default DI binding).
+  Production cold start now goes: WoC `/chain/info` →
+  `chain.Seed(header, height)` → P2P deltas extend from there.
+- **H3** — `BlockHeaderHasher.ToDisplayHex` helper; admin endpoint
+  and `BlockTipDto` now surface display-order hashes (matching
+  WhatsOnChain / explorers). Raven docs stay wire-order internally.
+- **H2** — soak recorder references Dxs.Consigliere and drives the
+  real `HeadersChainService` + `HeadersChainBootstrapper` +
+  `IBlockHeaderStore` path with an in-memory store and a
+  JSONL-emitting `INewBlockNotifier`. End-of-soak calls
+  `store.GetTipAsync()` — same call the admin endpoint makes.
+  `analyze.py` now treats `<128` joined as INCONCLUSIVE (exit 2),
+  not FAIL.
+- **M1** — runtime-gated tests converted to `[SkippableFact]` +
+  `Skip.IfNot(...)`; runner now reports 18 explicit skips instead
+  of silent passes. Added
+  `HeadersChainBootstrapperUnitTests` (6 non-Raven tests against
+  an `IBlockHeaderStore` fake).
+
+Test counts after revision:
+
+- `Dxs.Bsv.Tests` 154/154 (was 149 — +5 for `Seed` + `ToDisplayHex`).
+- `Dxs.Consigliere.Tests`: 267 passed + 18 explicitly Skipped + 3
+  pre-existing RavenDB integration failures (unchanged).
+- Soak recorder builds clean against the Consigliere reference.
+
+Supporting refactor:
+
+- Extracted `IBlockHeaderStore` interface. `BlockHeaderStore`
+  implements it. `HeadersChainService` and
+  `HeadersChainBootstrapper` depend on the interface; production
+  DI binds both names to the same singleton.

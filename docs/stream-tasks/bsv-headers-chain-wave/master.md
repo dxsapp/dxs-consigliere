@@ -252,5 +252,7 @@ Commit hashes recorded here as slices close.
 - Slice S5 delivery: `7cbf2d7`
 - Slice S6 delivery: `8036bb7`
 - Slice S7 delivery: `8babc11` (scaffold; 24h soak operator-driven)
-- Wave closeout evidence: `evidence/closeout.md` (this commit)
-- Wave audit A2 (post-execution): pending
+- Wave closeout evidence: `evidence/closeout.md` (`557f8ad`)
+- Wave audit A2 (post-execution, MAJOR REVISION REQUIRED): `audits/wave1-audit-A2.md`
+- Wave revision per audit A2: `4997122`
+- Wave audit A2-followup: pending
