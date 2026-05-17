@@ -290,6 +290,17 @@ file sealed class InMemoryBlockHeaderStore : IBlockHeaderStore
         foreach (var k in stale) _byHash.TryRemove(k, out _);
         return Task.CompletedTask;
     }
+
+    // W3 A2-followup N1: persistent active-tip pointer. Spike doesn't
+    // exercise restart-tip semantics — minimal in-memory backing field.
+    private BlockHeaderActiveTip _activeTip;
+    public Task SetActiveTipAsync(string blockHashHex, long height, CancellationToken ct = default)
+    {
+        _activeTip = new BlockHeaderActiveTip(blockHashHex, height);
+        return Task.CompletedTask;
+    }
+    public Task<BlockHeaderActiveTip> GetActiveTipAsync(CancellationToken ct = default)
+        => Task.FromResult(_activeTip);
 }
 
 file sealed class JsonlEmittingNotifier(Action<BlockTipDto> onTip) : INewBlockNotifier

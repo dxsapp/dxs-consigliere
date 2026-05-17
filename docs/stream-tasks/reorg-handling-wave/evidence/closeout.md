@@ -75,7 +75,7 @@ watchlist) can land the fetcher then.
 | 3 | Five-block reorg | covered (`ReorgDetectorTests.Detect_FiveDeepFork_*` + `ReorgPipelineTests.FiveDeepFork_AppendsFiveDisconnectedEntries_*`) |
 | 4 | Deep reorg beyond window | covered (`ReorgDetectorTests.Detect_ForkPointBelowRetention_*`, `ReorgPipelineTests.DegradedPlan_*`) |
 | 5 | Mismatched-body | **N/A** — S2 deferral removed the block-body fetch path; merkle validation is the fetcher's responsibility and there is no fetcher to test |
-| 6 | Idempotent replay | covered (`BlockObservationJournalWriterTests.AppendDisconnected_RepeatCall_*`, `ReorgPipelineTests.RepeatPlan_SameOrphans_*`) |
+| 6 | Idempotent replay | covered (`BlockObservationJournalWriterTests.AppendDisconnected_RepeatCall_*`, `ReorgPipelineTests.RepeatPlan_SameForkTip_IsIdempotent_StableState` — renamed in A2 revision; the post-C2 promotion makes a second replay see the detector return null via height-equality short-circuit, a stronger guarantee than the pre-rename fingerprint-only check) |
 | 7 | Tx in OutgoingStore re-broadcast | covered (`OrphanedTxRebroadcasterTests.TxInOutgoingStore_*`) |
 | 8 | Tx in PayloadStore re-broadcast | covered (`OrphanedTxRebroadcasterTests.TxInPayloadStore_*`) |
 | 9 | Tx with no raw skipped | covered (`OrphanedTxRebroadcasterTests.TxWithNoRaw_*`) |
@@ -410,3 +410,70 @@ the shipped `OrphanedTxRebroadcastRecorder` method names exactly.
   `NonCoinbase_*`, +3 from `ActiveTipPointerStartupTests`) + 24
   explicit Skipped + 3 pre-existing baseline Raven-runtime failures
   (unchanged).
+
+## A2-followup-2 revision summary (this commit)
+
+A2-followup-2 audit returned MAJOR REVISION REQUIRED with 3
+partials and 2 new findings. All five items folded.
+
+### N1+C1+M1 — startup walk-back + durable-failure rollback
+
+**Before (the partial close):** the active-tip pointer existed but
+`StartAsync` only seeded the in-memory chain from
+`RecentAsync(retentionCount)` — top-N-by-height. If the store
+retained enough taller rejected fork headers, the active tip's
+ancestors got pushed out of the top-N entirely;
+`TryGetByWireHashHex(activeTip.BlockHashHex)` would miss, the
+warning branch fired, and the fallback was the raw-max tip — which
+is exactly the rejected fork (N1 not actually closed).
+
+**After:** `StartAsync` now does a UNION of top-N-by-height ∪
+walk-back-from-active-tip. The walk-back calls
+`_store.GetByHashAsync(activeTip.BlockHashHex)` and follows
+`PrevHash` for up to `RetainedHeaderCount` steps. The resulting
+combined set is deduped (keyed by wire-hash) and replayed via
+`LoadFromStore`; the in-memory tip is then overridden via
+`PromoteFork(activeTipHeader)`. The pointer-target is guaranteed
+to be in the loaded set, so the height-based fallback is
+unreachable in normal operation (preserved only for the degenerate
+"pointer references a missing-from-store header" case which now
+logs an explicit corruption warning).
+
+For M1 (durable-commit failure): the catch block's rollback set
+was widened to include `"promote-fork-durable"`. A
+`SetActiveTipAsync` failure at Step 8 now rolls back the in-memory
+`PromoteFork`, so the detector re-runs the plan on the next header
+arrival via the still-stored fork. Without this, the system would
+be wedged with in-memory tip on the new chain but durable pointer
+on the old, and the detector would return null on retry.
+
+### N3 — `HeadersSoakRecorder` spike
+
+Spike `InMemoryBlockHeaderStore` in
+`tests/Spikes/P2p/HeadersSoakRecorder/Program.cs` now implements
+the new `SetActiveTipAsync` / `GetActiveTipAsync` interface members
+(in-memory backing field, stubs only — the spike doesn't exercise
+restart-tip semantics).
+
+### N4 — `OrphanedTxRebroadcaster` XML doc
+
+Replaced the "Coinbase exclusion is implicit" paragraph with the
+explicit `ICoinbaseProbe` description matching the shipped code.
+
+### M2 closeout note — test rename in row #6
+
+The S6 coverage matrix row #6 "Idempotent replay" entry referenced
+the pre-A2 test name `RepeatPlan_SameOrphans_*`; now references the
+post-A2 rename `RepeatPlan_SameForkTip_IsIdempotent_StableState`
+with an explanation that the post-C2 promotion makes the test
+stronger (detector returns null on replay via height-equality
+short-circuit, not just a duplicate journal fingerprint).
+
+### Final test counts after A2-followup-2 revision
+
+- `Dxs.Bsv.Tests` 220/220 (no Bsv-side changes).
+- `Dxs.Consigliere.Tests` 347 passed (+1 from
+  `ActiveTipWalkBack_LoadsActiveChainAncestors_DisplacedByForks`)
+  + 24 explicit Skipped + 3 pre-existing baseline Raven-runtime
+  failures (unchanged).
+- Spike `HeadersSoakRecorder` builds clean (N3 closed).

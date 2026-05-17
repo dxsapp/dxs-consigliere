@@ -99,24 +99,53 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
             return;
         }
 
-        // Replay persisted headers into the in-memory chain.
+        // Replay persisted headers into the in-memory chain. Audit
+        // W3 A2-followup-2 N1: RecentAsync(N) picks the N tallest
+        // headers; if the store has more than N rejected-fork
+        // headers above the active tip, the active tip's ancestry
+        // can be entirely pushed out of the result set. We must
+        // ALSO load the active-tip + walk back via PrevHash to
+        // guarantee the active chain itself is loaded — otherwise
+        // the pointer-override below would fall through to the
+        // height-based fallback (which is exactly what N1 forbids).
         var persisted = await _store.RecentAsync(_options.RetainedHeaderCount, cancellationToken);
-        if (persisted.Count > 0)
+        var activeTip = await _store.GetActiveTipAsync(cancellationToken);
+        if (activeTip is not null || persisted.Count > 0)
         {
-            var seeds = persisted
+            // Deduped union: top-N-by-height ∪ active-chain-walk-back.
+            // Keyed by wire-hash to dedupe across the two sources.
+            var combined = new Dictionary<string, BlockHeaderDocument>(StringComparer.Ordinal);
+            foreach (var doc in persisted) combined[doc.Hash] = doc;
+
+            if (activeTip is not null)
+            {
+                var walked = 0;
+                var cursor = await _store.GetByHashAsync(activeTip.BlockHashHex, cancellationToken);
+                while (cursor is not null && walked < _options.RetainedHeaderCount)
+                {
+                    combined[cursor.Hash] = cursor;
+                    walked++;
+                    if (string.IsNullOrEmpty(cursor.PrevHash)) break;
+                    cursor = await _store.GetByHashAsync(cursor.PrevHash, cancellationToken);
+                }
+            }
+
+            var seeds = combined.Values
                 .Select(d => (new BlockHeader(d.HeaderBytes80), d.Height))
                 .ToList();
             _chain.LoadFromStore(seeds);
-            _logger.LogInformation("HeadersChainService replayed {Count} headers; raw-max-height tip {Tip}",
-                seeds.Count, _chain.TipHeight);
+            _logger.LogInformation(
+                "HeadersChainService replayed {Count} headers (top-{N}-by-height ∪ active-chain-walk); "
+                + "raw-max-height tip {Tip}",
+                seeds.Count, _options.RetainedHeaderCount, _chain.TipHeight);
 
-            // Audit W3 A2-followup N1: LoadFromStore picks the highest-
-            // height entry as the in-memory tip; that's wrong when the
-            // store also retains a rejected-but-taller fork. Override
-            // the in-memory tip via the persistent active-tip pointer.
-            // If the pointer is missing (legacy data from before this
-            // fix) we keep the height-based choice — best-effort backfill.
-            var activeTip = await _store.GetActiveTipAsync(cancellationToken);
+            // Apply the persistent active-tip pointer. Post-fix: the
+            // walk-back above guarantees the pointer-target is loaded,
+            // so the height-based fallback is unreachable in normal
+            // operation. The else-branch is preserved for the
+            // degenerate case where GetByHashAsync returns null for
+            // the pointer hash (data corruption / restore from
+            // partial backup).
             if (activeTip is not null)
             {
                 if (_chain.TryGetByWireHashHex(activeTip.BlockHashHex, out var tipHeader, out var tipHeight))
@@ -125,14 +154,15 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
                     _logger.LogInformation(
                         "HeadersChainService applied persistent active-tip pointer: {Hash}@{Height} "
                         + "(raw-max was @{RawMax})",
-                        activeTip.BlockHashHex, activeTip.Height, seeds.Max(s => s.Item2));
+                        activeTip.BlockHashHex, activeTip.Height,
+                        seeds.Count > 0 ? seeds.Max(s => s.Item2) : -1L);
                 }
                 else
                 {
                     _logger.LogWarning(
                         "Persistent active-tip pointer references {Hash}@{Height} but the header is "
-                        + "no longer in the retained window; in-memory tip stays at raw-max height. "
-                        + "This is recoverable on next header arrival.",
+                        + "not present in the store (corruption / partial restore?); in-memory tip "
+                        + "stays at raw-max height. Operator review required.",
                         activeTip.BlockHashHex, activeTip.Height);
                 }
             }

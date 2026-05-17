@@ -93,6 +93,89 @@ public class ActiveTipPointerStartupTests
     }
 
     [Fact]
+    public void ActiveTipWalkBack_LoadsActiveChainAncestors_DisplacedByForks()
+    {
+        // Audit W3 A2-followup-2 N1 fix: when RecentAsync(N) by raw
+        // height alone would push the active-tip's ancestors out (the
+        // store holds enough taller rejected forks to fill the top-N),
+        // the startup recipe must ALSO walk back from the active-tip
+        // pointer via PrevHash so the active chain itself is loaded.
+        //
+        // Setup: active chain @ height 5 (single header), retention =
+        // 3, store holds 4 rejected fork headers @ heights 10/11/12/13
+        // (all taller than active). RecentAsync(3) returns the top
+        // three fork headers (heights 11, 12, 13). Without walk-back,
+        // the active-tip header (height 5) would NOT be loaded and
+        // PromoteFork would have nothing to promote to.
+        //
+        // The walk-back logic in HeadersChainService.StartAsync calls
+        // GetByHashAsync(activeTip.BlockHashHex) and follows PrevHash
+        // until the retention cap; that guarantees the active header
+        // is in the loaded set.
+        var genesis = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x01);
+        var active5 = HeaderTestUtil.BuildChild(genesis, merkleFill: 0xA0); // height 1, but pretend it's "active@5"
+        var forks = new BlockHeader[4];
+        var fp = genesis;
+        for (var i = 0; i < 4; i++)
+        {
+            forks[i] = HeaderTestUtil.BuildChild(fp, merkleFill: 0xB0, timestamp: 1700000005);
+            fp = forks[i];
+        }
+
+        var store = new FakeBlockHeaderStore();
+        store.Headers[ToHex(active5)] = ToDoc(active5, height: 5, prev: genesis);
+        store.Headers[ToHex(forks[0])] = ToDoc(forks[0], height: 10, prev: genesis);
+        store.Headers[ToHex(forks[1])] = ToDoc(forks[1], height: 11, prev: forks[0]);
+        store.Headers[ToHex(forks[2])] = ToDoc(forks[2], height: 12, prev: forks[1]);
+        store.Headers[ToHex(forks[3])] = ToDoc(forks[3], height: 13, prev: forks[2]);
+
+        // Active-tip pointer points at active5; without walk-back this
+        // header is excluded from RecentAsync(3).
+        store.SetActiveTipAsync(ToHex(active5), 5, CancellationToken.None).Wait();
+
+        // Simulate HeadersChainService.StartAsync's logic: union of
+        // RecentAsync(3) and walk-back from active-tip via PrevHash.
+        var top = store.RecentAsync(3, CancellationToken.None).Result;
+        var pointer = store.GetActiveTipAsync(CancellationToken.None).Result;
+        Assert.NotNull(pointer);
+
+        var combined = new Dictionary<string, BlockHeaderDocument>();
+        foreach (var d in top) combined[d.Hash] = d;
+        var walked = 0;
+        var cursor = store.GetByHashAsync(pointer!.BlockHashHex, CancellationToken.None).Result;
+        while (cursor is not null && walked < 3)
+        {
+            combined[cursor.Hash] = cursor;
+            walked++;
+            if (string.IsNullOrEmpty(cursor.PrevHash)) break;
+            cursor = store.GetByHashAsync(cursor.PrevHash, CancellationToken.None).Result;
+        }
+
+        // Active header must be in the union, even though it's not in
+        // the raw-height top 3.
+        Assert.Contains(ToHex(active5), combined.Keys);
+        Assert.DoesNotContain(ToHex(forks[0]), top.Select(d => d.Hash));
+        // And the top-3 by height is exactly the three tallest forks.
+        Assert.Equal(
+            new[] { ToHex(forks[3]), ToHex(forks[2]), ToHex(forks[1]) },
+            top.Select(d => d.Hash).ToArray());
+    }
+
+    private static string ToHex(BlockHeader h)
+        => System.Convert.ToHexString(BlockHeaderHasher.Hash(h)).ToLowerInvariant();
+
+    private static BlockHeaderDocument ToDoc(BlockHeader header, long height, BlockHeader prev)
+        => new()
+        {
+            Id = BlockHeaderDocument.BuildId(ToHex(header)),
+            Hash = ToHex(header),
+            Height = height,
+            PrevHash = ToHex(prev),
+            TimestampMs = (long)BlockHeaderHasher.TimestampUnixSeconds(header) * 1000L,
+            HeaderBytes80 = header.Bytes80,
+        };
+
+    [Fact]
     public void HeadersChain_PromoteFork_PromotesIfHashInRetention()
     {
         // Direct chain-level test: simulate a startup where both an

@@ -27,15 +27,15 @@ namespace Dxs.Consigliere.Services.P2p;
 ///         continues; one failing tx never blocks others.</item>
 /// </list>
 ///
-/// <para>Coinbase exclusion is implicit: coinbase txs almost never live
-/// in <see cref="OutgoingTransactionStore"/> (we don't broadcast them)
-/// nor in <see cref="IRawTransactionPayloadStore"/> for a thin-node
-/// observer (we don't fetch full block bodies — W3 S2 deferred);
-/// the natural "no raw" path skips them. If a coinbase txid does happen
-/// to have raw bytes recorded and gets re-announced, the receiving peer
-/// rejects it (coinbases are block-bound by consensus) and
-/// <see cref="OrphanedTxRebroadcastRecorder.IncrementAnnounceFailed"/>
-/// fires.</para>
+/// <para>Coinbase exclusion is EXPLICIT via
+/// <see cref="ICoinbaseProbe"/> (audit W3 A2 H2 + A2-followup N2):
+/// the probe runs BEFORE the raw lookup and skips coinbase txs via
+/// <see cref="OrphanedTxRebroadcastRecorder.IncrementSkippedCoinbase"/>.
+/// The production default
+/// <see cref="MetaTransactionCoinbaseProbe"/> requires the full BSV
+/// consensus signature <c>Index == 0 AND Inputs.Count == 1 AND
+/// Inputs[0].TxId is all-zero</c> so a non-coinbase tx whose
+/// <c>Index</c> defaulted to 0 is not misclassified.</para>
 /// </summary>
 public sealed class OrphanedTxRebroadcaster : IOrphanedTxRebroadcaster
 {

@@ -273,14 +273,20 @@ public sealed class ReorgPipeline : IReorgPipeline
             // log line tagged with the step that failed.
             _health.MarkDegradedReorg(DateTimeOffset.UtcNow);
 
-            // A2-followup M1 fix: roll back the in-memory promote on
-            // a post-in-memory-promote failure so the detector sees the
-            // fork again on next header arrival and retry runs. Skip
-            // this if the durable commit succeeded (failure was in a
-            // later sub-step or the catch fired for an unrelated
-            // reason) — once durable, the new tip is authoritative.
+            // A2-followup M1 fix + A2-followup-2 expansion: roll back
+            // the in-memory promote on any post-in-memory-promote
+            // failure INCLUDING the durable-commit step itself. A
+            // SetActiveTipAsync failure during "promote-fork-durable"
+            // means the persistent pointer still references the OLD
+            // active tip — we must roll back in-memory so the next
+            // header arrival re-detects the fork and retries the full
+            // plan (journal entries are idempotent by fingerprint).
+            // Without this, the system would be stuck: in-memory says
+            // new tip, durable says old tip, the detector returns null
+            // on retry because chain.Tip equals fork tip.
             if (preReorgTip is not null
-                && progressTag is "rebuild" or "hub-emit" or "new-block-notify" or "rebroadcast")
+                && progressTag is "rebuild" or "hub-emit" or "new-block-notify"
+                                  or "rebroadcast" or "promote-fork-durable")
             {
                 try { _chain.PromoteFork(preReorgTip); }
                 catch (Exception rollbackEx)
