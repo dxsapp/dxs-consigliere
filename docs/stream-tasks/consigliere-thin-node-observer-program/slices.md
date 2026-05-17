@@ -139,10 +139,19 @@ Validation covers:
 
 **Owned paths.**
 - `src/Dxs.Bsv/P2p/Observer/` (new) — `MempoolWatcher`,
-  `WatchlistMatcher`, `SourceObservationRecorder`, `TxScriptParser`
-  (reuse parts of `Dxs.Bsv.Script`)
+  `WatchlistMatcher`, `TxScriptParser` (reuse parts of `Dxs.Bsv.Script`)
 - `src/Dxs.Bsv/P2p/Session/PeerSession.cs` — implement
   `OnInvReceived` body (surface already frozen in W1)
+- `src/Dxs.Consigliere/Services/P2p/SourceObservationRecorder.cs`
+  (new) — Consigliere-orchestration counter for "bitails" /
+  "junglebus" / "p2p" source tags (audit W2 M3 reconciliation;
+  moved here from `src/Dxs.Bsv/P2p/Observer/` because source
+  labels are Consigliere-level, not BSV-protocol-level)
+- `src/Dxs.Consigliere/Services/P2p/PerSessionFrameDispatcher.cs`
+  + `PerSessionDispatcherRegistry.cs` (new) — owns the single
+  consumer of `PeerSession.IncomingMessages` and fans frames to
+  multiple subscribers; `TxRelayCoordinator` refactors to consume
+  via this. Audit W2 H1 fix.
 - `src/Dxs.Consigliere/Services/P2p/P2pMempoolIngestRunner.cs` (new) —
   `IHostedService`, parallel to `BitailsRealtimeIngestRunner`
 - `src/Dxs.Consigliere/Services/P2p/RavenWatchlistLoader.cs` (new) —

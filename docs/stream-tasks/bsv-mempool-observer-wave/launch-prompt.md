@@ -81,6 +81,16 @@ A2-followup-2 APPROVE.
   All needed surface is frozen by Wave 1 S0. If a slice surfaces a
   need S0 missed, open a contract-freeze amendment slice in
   `docs/stream-tasks/bsv-headers-chain-wave/` first.
+- **`PeerSession.IncomingMessages` is single-consumer.** Audit W2
+  H1: `ChannelReader<T>` delivers each frame to exactly one
+  consumer; `TxRelayCoordinator` (Gate 3) already reads it per
+  session. W2's mempool runner must NOT add a parallel reader.
+  S5 introduces `PerSessionFrameDispatcher` that owns the single
+  reader and fans frames to multiple subscribers (relay coordinator +
+  mempool watcher). `TxRelayCoordinator` is refactored in S5 to
+  consume via the dispatcher — behavioural parity. Adding
+  `OnTxReceived` to `PeerSession` is forbidden (would violate the
+  W1 S0 contract freeze).
 - **HashSet<ulong> watchlist, not bloom filter** (program rule).
   8-byte prefix index + full hash160 verify on hit.
 - **No reorg recovery in W2.** That's W3. Even if we observe a tx
@@ -123,8 +133,14 @@ Per-slice validation lives in `slices.md`. Wave-level:
 - `dotnet test` returns no new failures vs the pre-W2 baseline.
 - `SeenBySourcesProjectionTests` green — proves
   `SeenBySources` accumulates `p2p` + `bitails` for the same txid.
-- Watchlist scale benchmark: 500 K load ≤ 2 s; lookup p99 ≤ 100 ns.
-- `evidence/watchlist-bench.md` exists with measured numbers.
+- **`PerSessionFrameDispatcher` fan-out + `TxRelayCoordinator` /
+  mempool race regression tests** green (audit W2 H1) — no frame
+  starvation across 1 K-event mixed-traffic fixture.
+- Watchlist scale benchmark: 500 K load ≤ 2 s; lookup p99 ≤ 100 ns
+  on the reference CPU class declared in `slices.md` §S7
+  reproducibility block.
+- `evidence/watchlist-bench.md` exists with host metadata, corpus
+  seed, and all required measured fields.
 - `evidence/live-validation.md` exists OR closeout explicitly
   defers S8 with a follow-up date.
 - Static check, scoped to code only:

@@ -64,15 +64,27 @@ In scope:
 - `MempoolWatcher` — dedupe `inv(MSG_TX)` items across peers, gate
   `getdata` requests under a rate limit, route received `tx` payloads
   through `WatchlistMatcher` and (on hit) through
-  `TxObservationJournalWriter`.
+  `TxObservationJournalWriter`. Explicit `MaxFetchedTxBytes` policy
+  (default 32 MiB, raised from the legacy 2 MiB session default)
+  with oversize-payload accounting — see `slices.md` §S4 payload
+  section.
+- `PerSessionFrameDispatcher` + `PerSessionDispatcherRegistry`
+  (new Consigliere infrastructure) — owns the single consumer of
+  `PeerSession.IncomingMessages` per session and fans frames out
+  to multiple subscribers. `TxRelayCoordinator` is refactored in
+  the same slice to consume via the dispatcher (behavioural
+  parity). Audit W2 H1 fix.
 - `P2pMempoolIngestRunner` — `IHostedService` that wires
   `PeerSession.OnInvReceived` (frozen S0 surface from W1) into
-  `MempoolWatcher`. Parallel to `BitailsRealtimeIngestRunner` /
+  `MempoolWatcher`, subscribes one-shot `tx`-frame handlers via the
+  dispatcher to await getdata replies, and routes payloads through
+  the watcher. Parallel to `BitailsRealtimeIngestRunner` /
   `JungleBusRealtimeIngestRunner`.
-- Source-tag cleanup of `BitailsRealtimeIngestRunner` and
-  `JungleBusRealtimeIngestRunner` so all observations consistently
-  pass the source string through the new journal overload (no
-  behavioural change beyond explicit tagging).
+- **S6 is a regression-pin slice only** — current Bitails and
+  JungleBus runners already tag their observations correctly via
+  `TxMessage.Source`. W2 adds source-tag assertions to the
+  existing runner tests but makes no production-code edits in
+  those runners. See `slices.md` §S6 + audit W2 M2 reconciliation.
 - Watchlist correctness fixture suite: address-output, address-input,
   STAS / DSTAS token output, removal of address while observer
   running, `HashSet<ulong>` collision behaviour.
@@ -135,6 +147,19 @@ Out of scope:
    of 2026-05-17.
 8. **Stop-and-audit per wave** (program rule). S0 gets its own
    slice-level audit before S1-S8 open, mirroring the W1 pattern.
+9. **`PeerSession.IncomingMessages` is single-consumer.** Audit
+   W2 H1 reconciliation. `ChannelReader<T>` is not a broadcast
+   primitive — each frame is delivered to exactly one consumer.
+   `TxRelayCoordinator` (Gate 3) currently reads the channel
+   per session; W2's mempool runner must NOT add a parallel
+   reader on the same session. S5 introduces a
+   `PerSessionFrameDispatcher` in Consigliere that owns the
+   single reader and fans frames out to multiple subscribers
+   (relay coordinator + mempool watcher + future consumers).
+   `TxRelayCoordinator` is refactored in S5 to consume via the
+   dispatcher — behavioural parity. Adding a new `OnTxReceived`
+   `PeerSession` callback is **forbidden** (would violate Wave 1
+   S0 contract freeze).
 
 ## Ownership Zones
 
@@ -143,13 +168,26 @@ Program zones touched in this wave:
 | Program zone | Repo zone | Files (new unless noted) |
 |---|---|---|
 | `bsv-p2p-session` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Session/PeerSession.cs` (no signature changes — consumes frozen S0 callbacks only) |
-| `bsv-p2p-observer` (new) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Observer/{MempoolWatcher,WatchlistMatcher,TxScriptParser}.cs` |
-| `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/{P2pMempoolIngestRunner,RavenWatchlistLoader,SourceObservationRecorder}.cs` |
+| `bsv-p2p-observer` (new) | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Observer/{MempoolWatcher,MempoolWatcherOptions,WatchlistMatcher,MatchResult,TxScriptParser}.cs` |
+| `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/{P2pMempoolIngestRunner,RavenWatchlistLoader,SourceObservationRecorder,PerSessionFrameDispatcher,PerSessionDispatcherRegistry}.cs`; `src/Dxs.Consigliere/Services/P2p/TxRelayCoordinator.cs` (refactor to use the dispatcher; behavioural parity) |
 | `consigliere-p2p-tasks` | `indexer-ingest-orchestration` | (none new in W2 — runner is hosted-service in `consigliere-p2p-services`) |
-| `consigliere-tx-projection` | `indexer-state-and-storage` | `src/Dxs.Bsv/BitcoinMonitor/Models/TxObservation.cs` (+ `P2p` source constant), `src/Dxs.Consigliere/BackgroundTasks/TxObservationJournalWriter.cs` (+ source-neutral overload) |
-| `consigliere-p2p-realtime` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/BackgroundTasks/Realtime/{BitailsRealtimeIngestRunner,JungleBusRealtimeIngestRunner}.cs` (source-tag cleanup; no behavioural change) |
-| `program-tests` | `verification-and-conformance` | `tests/Dxs.Bsv.Tests/P2p/Observer/`, `tests/Dxs.Consigliere.Tests/P2p/`, watchlist scale microbenchmark under `tests/Dxs.Consigliere.Benchmarks/` |
+| `consigliere-tx-projection` | `indexer-state-and-storage` | `src/Dxs.Consigliere/BackgroundTasks/TxObservationJournalWriter.cs` (+ source-neutral overload); `src/Dxs.Consigliere/Data/Transactions/TxLifecycleProjectionRebuilder.cs` (unchanged — read-only consumer of new `Source` value) |
+| `bsv-runtime-ingest` | `bsv-runtime-ingest` (per `docs/repository-zones/zone-catalog.md` line 13: `src/Dxs.Bsv/{BitcoinMonitor,Rpc,Zmq,Factories}/**`) | `src/Dxs.Bsv/BitcoinMonitor/Models/TxObservation.cs` (+ `P2p` source constant) |
+| `consigliere-p2p-realtime` | `indexer-ingest-orchestration` | (W2 leaves both runners' production code untouched — S6 is regression-test pin only; see `slices.md` §S6) |
+| `program-tests` | `verification-and-conformance` | `tests/Dxs.Bsv.Tests/P2p/Observer/`, `tests/Dxs.Consigliere.Tests/P2p/`, `tests/Dxs.Consigliere.Tests/BackgroundTasks/Realtime/*` (S6 pin), watchlist scale microbenchmark under `tests/Dxs.Consigliere.Benchmarks/` |
 | `program-docs` | `repo-governance` | `docs/stream-tasks/bsv-mempool-observer-wave/` |
+
+**Audit W2 M3 reconciliation:** `src/Dxs.Bsv/BitcoinMonitor/`
+belongs to `bsv-runtime-ingest` per the zone catalog precedence
+rule, not `indexer-state-and-storage` (which is Raven-document
+state inside Consigliere). The earlier draft mislabelled it; the
+table above corrects this. `SourceObservationRecorder` is
+Consigliere orchestration state — labels like `bitails` /
+`junglebus` / `p2p` are Consigliere-level, not BSV-protocol — and
+lives under `src/Dxs.Consigliere/Services/P2p/`. The parent
+program's `slices.md` initially listed it under
+`src/Dxs.Bsv/P2p/Observer/`; a parallel parent-program update in
+this revision moves it to align.
 
 Out-of-catalog ad-hoc:
 
@@ -180,8 +218,8 @@ Status vocabulary: `not_opened`, `todo`, `in_progress`, `blocked`,
 | S2 | `bsv-p2p-observer` (WatchlistMatcher pure logic) | not_opened | S0, S1 | unit tests: add / remove address; positive match on prefix + full-hash verify; negative match on prefix-collision-but-different-full-hash; token-output match | matcher resolves address + token in O(1) hot path; full-hash verify catches 8-byte prefix collision | wave-A1 |
 | S3 | `consigliere-p2p-services` (RavenWatchlistLoader) | not_opened | S0, S2 | Raven integration test: initial bulk load from `WatchingAddress` / `WatchingToken`; subscription delta add / remove pushes into matcher; benchmark: 500 K addresses load wall-clock ≤ 2 s | loader populates matcher on startup; subscription deltas reflect in matcher within 200 ms; 500 K-address load benchmark ≤ 2 s | wave-A1 |
 | S4 | `bsv-p2p-observer` (MempoolWatcher core) | not_opened | S0, S2 | unit tests: dedupe across peers (one getdata per txid); rate-limit enforcement; route matched tx to journal; route unmatched tx through `SourceObservationRecorder` only | inv(MSG_TX) → at most one getdata per txid per N seconds; matched tx persisted via journal; unmatched tx counted but not persisted | wave-A1 |
-| S5 | `consigliere-p2p-services` (P2pMempoolIngestRunner) | not_opened | S0, S2, S3, S4 | hosted-service test: fake peer pushes inv → service sends getdata → fake peer responds with tx → journal append observed; runner registered as `IHostedService` in DI | service starts, attaches `OnInvReceived` to every Ready peer (frozen S0 callback), drives the watcher, no exceptions across 1k-tx fixture | wave-A1 |
-| S6 | `consigliere-p2p-realtime` (Bitails / JBus source-tag cleanup) | not_opened | S0 | regression test: existing Bitails / JungleBus observation paths still append journal entries with the correct source tag; no behavioural change vs baseline | both runners explicitly pass their source string through the new overload; baseline tests still green | wave-A1 |
+| S5 | `consigliere-p2p-services` (PerSessionFrameDispatcher + P2pMempoolIngestRunner) | not_opened | S0, S2, S3, S4 | dispatcher fan-out test; `TxRelayCoordinator` + mempool runner race regression on the same session (audit W2 H1); hosted-service test: fake peer pushes inv → service sends getdata → fake peer responds with tx → journal append observed; existing Gate-3 broadcast tests still green after `TxRelayCoordinator` refactor | dispatcher routes frames to multiple subscribers; `TxRelayCoordinator` migrated to consume via the dispatcher (behavioural parity); runner attaches `OnInvReceived` per Ready peer, drives watcher via one-shot tx-frame handlers, no race or starvation in 1k-event fixture | wave-A1 |
+| S6 | `consigliere-p2p-realtime` (Bitails / JBus source-tag **regression pin**) | not_opened | S0 | regression-test assertion: every captured `TxMessage.Source` from each runner is the expected constant; no production-code edits in W2 (current runners already tag correctly per audit W2 M2) | both runner test suites still green with the source-tag assertion added; PR diff for S6 touches only the two runner test files | wave-A1 |
 | S7 | `program-tests` (watchlist correctness fixture suite) | not_opened | S0, S1, S2, S3 | fixture suite covers address-output (P2PKH), address-input (spending tx), STAS / DSTAS token output, removal-during-observation, prefix collision; microbenchmark p99 ≤ 100 ns | every fixture scenario in §S7 of `slices.md` green; microbenchmark report in `evidence/watchlist-bench.md` | wave-A1 |
 | S8 | live-mainnet validation (operator-driven) | not_opened | S0–S7 | operator runs Consigliere mainnet with a known watched address; tx paying that address triggers `WalletHub.OnTransactionFound` within 2 s of inv arrival; `SeenBySources` includes `p2p` in the projection | one observed live-mainnet hit recorded in `evidence/live-validation.md` with timestamps + projection snapshot | wave-A1 |
 
