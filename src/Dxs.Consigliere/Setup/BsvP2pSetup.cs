@@ -55,16 +55,29 @@ public static class BsvP2pSetup
             // service that runs Wire() right after DI is built.
             .AddHostedService<BroadcastServiceP2pWirerHost>()
             // Wave 3 — reorg handling.
+            // Audit W3 A2 C1 fix: production uses the bits-based work
+            // comparer so a malicious peer minting low-difficulty
+            // headers can't win a reorg by height alone. The
+            // height-only comparer is kept registered for tests that
+            // pin synthetic chains at uniform regtest difficulty.
             .AddSingleton<HeightCumulativeWorkComparer>()
+            .AddSingleton<WorkBitsCumulativeWorkComparer>()
             .AddSingleton<ICumulativeWorkComparer>(sp =>
-                sp.GetRequiredService<HeightCumulativeWorkComparer>())
+                sp.GetRequiredService<WorkBitsCumulativeWorkComparer>())
             .AddSingleton<ReorgDetector>(sp =>
                 new ReorgDetector(sp.GetRequiredService<ICumulativeWorkComparer>()))
             .AddSingleton<IOrphanedTxIdReader, RavenOrphanedTxIdReader>()
             .AddSingleton<OrphanedTxRebroadcastRecorder>()
             .AddSingleton<IOutgoingRawLookup, OutgoingTransactionStoreRawLookup>()
             .AddSingleton<ITxAnnouncer>(sp => sp.GetRequiredService<TxRelayCoordinator>())
+            // W3 A2 H2 fix: explicit coinbase skip in the rebroadcaster.
+            .AddSingleton<ICoinbaseProbe, MetaTransactionCoinbaseProbe>()
             .AddSingleton<IOrphanedTxRebroadcaster, OrphanedTxRebroadcaster>()
+            // IProjectionRebuilder is registered in IndexerStateSetup
+            // next to the TxLifecycleProjectionRebuilder itself (W3 A2
+            // H1). ReorgPipeline takes it as an optional dependency so
+            // narrow DI tests without the full state-setup graph still
+            // resolve.
             .AddSingleton<IReorgPipeline, ReorgPipeline>();
 
     // Called from BsvP2pHostedService after PeerManager starts, so

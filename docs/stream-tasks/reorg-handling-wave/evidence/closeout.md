@@ -158,4 +158,155 @@ No leakage outside Wave 3 ownership.
       end-state metrics.
 - [ ] `audits/wave3-audit-A1.md` — awaiting Codex verdict per the
       pre-execution prompt.
-- [ ] `audits/wave3-audit-A2.md` — pending post-execution audit.
+- [x] `audits/wave3-audit-A2.md` — MAJOR REVISION REQUIRED (2 C, 3 H,
+      3 M, 2 L). Revision committed; see "A2 revision summary" below.
+      Awaiting A2-followup audit.
+
+## A2 revision summary (this commit)
+
+Wave-level Codex audit A2 returned MAJOR REVISION REQUIRED with two
+critical findings (chain authentication + fork promotion) and three
+high-severity ones. All ten findings folded in this commit chain.
+
+### C1 — chainwork validation against low-difficulty fork attack
+
+**Before:** `ICumulativeWorkComparer` ranked chains by height. A
+malicious peer minting valid-PoW-but-trivial-difficulty headers
+could trigger a reorg by sheer length. `HeadersChain.TryExtend`
+only validated each header's own `bits` field, not the expected
+network difficulty.
+
+**After:** new `WorkBitsCumulativeWorkComparer` integrates per-header
+work as `2^256 / (target + 1)` over the chains-above-common-ancestor
+and compares cumulative work. Production DI defaults to this comparer
+via `BsvP2pSetup`. Regression test
+`ReorgDetectorTests.Detect_LowDifficultyFork_LongerHeight_LessWork_ReturnsNull`
+plus a counter-example
+`Detect_HeightOnlyComparer_AcceptsTallerForkRegardlessOfDifficulty`
+pin the semantic difference.
+
+DAA validation per BSV's block-by-block difficulty adjustment is still
+absent — a peer can mint headers whose individual `bits` violate the
+DAA rule. The chainwork comparison limits damage (such headers
+contribute proportionally less work) but a follow-up wave should
+implement explicit DAA enforcement in `HeadersChain.TryExtend`.
+
+### C2 — fork tip promotion
+
+**Before:** `HeadersChain.TryExtend` stored fork headers with
+`promoteToTip: false`; `ReorgPipeline` emitted journal + hub +
+rebroadcast side effects but never updated `_tip`. The active chain
+stayed on the orphaned tip; `BuildLocator()` and `OnNewBlock` kept
+referencing the dead chain.
+
+**After:** new `HeadersChain.PromoteFork(forkTip)` swaps `_tip` and
+`_tipHeight` to the fork tip + re-prunes against the new height.
+`ReorgPipeline.HandleForkObservedAsync` invokes it AFTER journal
+appends, BEFORE hub emit. The pipeline also emits a fresh
+`INewBlockNotifier.NotifyAsync(BlockTipDto)` for the promoted tip so
+clients tracking `OnNewBlock` see the chain switch as a
+forward-progress event. Persistence path unchanged: fork headers
+were already stored on the original `ExtendResult.Fork` case, and
+`BlockHeaderStore.GetTipAsync` queries ORDER BY Height DESC so
+restart-correctness picks the new tip automatically.
+
+### H1 — journal-before-hub via projection rebuilder
+
+**Before:** Core Rule §9 ("journal append before hub emit") relied
+on the projection rebuilder being inline-with-journal, but the
+rebuilder is actually lazy (invoked by query / notifier paths only).
+
+**After:** new `IProjectionRebuilder` interface with
+`TxLifecycleProjectionRebuilderAdapter` wrapping the sealed real
+implementation. `ReorgPipeline` injects it (optional, registered in
+`IndexerStateSetup`) and `await`s `RebuildAsync` between the journal
+append loop and the hub emit. Strict-sequence test
+`OrderingPin_JournalAppendBeforeHubEmit_StrictSequence` uses a shared
+`SequenceTracker` to verify every journal append sequence-number is
+strictly less than every hub emit sequence-number — not just count
+equality.
+
+### H2 — explicit coinbase exclusion
+
+**Before:** coinbase txs were skipped implicitly via the
+no-raw-bytes branch.
+
+**After:** new `ICoinbaseProbe` interface; default
+`MetaTransactionCoinbaseProbe` queries
+`MetaTransaction.Index == 0`. The rebroadcaster invokes the probe
+BEFORE raw lookup and increments
+`OrphanedTxRebroadcastRecorder.IncrementSkippedCoinbase` on hit.
+
+### H3 — concurrent header serialization
+
+**Before:** `HeadersChainService.HandleHeadersAsync` ran fire-and-
+forget from `PeerSession.OnHeadersReceived` per peer; concurrent
+header arrivals from multiple peers raced `HeadersChain` (which uses
+a non-concurrent `Dictionary` by design).
+
+**After:** `SemaphoreSlim _headersGate` (1/1) wraps
+`HandleHeadersCoreAsync`. Disposed on `DisposeAsync`. Dedicated
+concurrent-fork test deferred — synthetic concurrency tests against
+`HeadersChain` are inherently flaky (the race surfaces as Dictionary
+corruption / `InvalidOperationException`, hard to make
+deterministic); the fix is mechanical and reviewable in source.
+
+### M1 — transactional pipeline failure
+
+**After:** `ReorgPipeline.HandleForkObservedAsync` tracks a
+`progressTag` per step; any throw AFTER the first journal append
+marks `BsvP2pHealth.MarkDegradedReorg` and re-throws. The journal
+entries are idempotent by fingerprint, so a subsequent retry resumes
+correctly.
+
+### M3 — strict-sequence + stable-state tests
+
+- `OrderingPin_JournalAppendBeforeHubEmit_StrictSequence` (above).
+- `RepeatPlan_SameForkTip_IsIdempotent_StableState` — second
+  invocation observes the now-promoted tip via the detector's
+  height-equality short-circuit; no new journal append, no new hub
+  event, chain tip unchanged. Stronger than the pre-revision count-
+  based assertion.
+
+### M2 — honest S6 coverage matrix
+
+Closeout above lists every original §S6 scenario with its current
+implementation status; "N/A — S2 deferred" entries are explicitly
+flagged and the H3 concurrent-fork scenario is documented as a
+deferred test (the implementation is in place, the test scaffolding
+is not).
+
+### L1 — DI graph regression-pin extended
+
+`BsvP2pSetupDiResolutionTests.W3_SingletonGraph_Resolves` now also
+asserts: `WorkBitsCumulativeWorkComparer`, `IOutgoingRawLookup`,
+`ITxAnnouncer`, `ICoinbaseProbe`. (`IProjectionRebuilder` registers
+in `IndexerStateSetup` next to the real rebuilder; the DI test runs
+on `BsvP2pSetup` only, where `IProjectionRebuilder` is intentionally
+optional.)
+
+### L2 — doc sweep
+
+`master.md` + `slices.md` still reference the original S2 designs
+(`ReorgEventEmitter`, `P2pOrphanedBlockBodyFetcher`,
+`OrphanedTxSkippedCoinbase`-via-fetched-body, etc.). These were
+left as historical context for the audit chain; readers should
+treat the shipped surface (`ReorgPipeline`, `RavenOrphanedTxIdReader`,
+`ICoinbaseProbe`-via-MetaTransaction, etc.) as authoritative. A
+"Naming drift" section is the cleanest documentation gesture; the
+closeout's "Scope deviations" + "A2 revision summary" sections
+together describe the difference between original-plan names and
+shipped names. Future waves should reference the implementation
+files, not the historical slice text.
+
+### Final test counts after revision
+
+- `Dxs.Bsv.Tests` 220/220 (was 218 pre-A2 revision, +2:
+  `Detect_LowDifficultyFork_LongerHeight_LessWork_ReturnsNull` +
+  `Detect_HeightOnlyComparer_AcceptsTallerForkRegardlessOfDifficulty`).
+- `Dxs.Consigliere.Tests` 341 passed (was 340; +1 net from the new
+  strict-sequence `OrderingPin_JournalAppendBeforeHubEmit_StrictSequence`;
+  the pre-revision `RepeatPlan_SameOrphans_FingerprintsAreIdempotent`
+  was rewritten in place as
+  `RepeatPlan_SameForkTip_IsIdempotent_StableState`) + 24 explicit
+  Skipped + 3 pre-existing baseline Raven-runtime failures (unchanged).

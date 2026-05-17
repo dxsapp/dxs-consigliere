@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,15 +41,31 @@ public class ReorgPipelineTests
             => Task.FromResult(ByBlockHash.TryGetValue(blockHash, out var v) ? v : (IReadOnlyList<string>)new List<string>());
     }
 
+    // Shared sequence counter recording the order in which the pipeline
+    // touched each downstream sink. Used by OrderingPin tests to assert
+    // strict step-ordering, not just counts.
+    private sealed class SequenceTracker
+    {
+        private int _next;
+        public int Next() => System.Threading.Interlocked.Increment(ref _next);
+    }
+
     private sealed class CapturingBlockAppender : IObservationJournalAppender<ObservationJournalEntry<BlockObservation>>
     {
         public readonly ConcurrentQueue<ObservationJournalAppendRequest<ObservationJournalEntry<BlockObservation>>> Requests = new();
         public readonly HashSet<string> DuplicateFingerprints = new();
+        public readonly List<int> SeqOnAppend = new();
+
+        private readonly SequenceTracker? _tracker;
+
+        public CapturingBlockAppender() { }
+        public CapturingBlockAppender(SequenceTracker tracker) { _tracker = tracker; }
 
         public ValueTask<ObservationJournalAppendResult> AppendAsync(
             ObservationJournalAppendRequest<ObservationJournalEntry<BlockObservation>> request, CancellationToken ct = default)
         {
             Requests.Enqueue(request);
+            if (_tracker is not null) SeqOnAppend.Add(_tracker.Next());
             var isDup = DuplicateFingerprints.Contains(request.Fingerprint.Value);
             return ValueTask.FromResult(new ObservationJournalAppendResult(new JournalSequence(Requests.Count), isDuplicate: isDup));
         }
@@ -70,18 +87,29 @@ public class ReorgPipelineTests
     private sealed class CapturingHubClient
     {
         public readonly ConcurrentQueue<ReorgEventDto> Reorgs = new();
+        public readonly List<int> SeqOnEmit = new();
+        private readonly SequenceTracker? _tracker;
+
+        public CapturingHubClient() { }
+        public CapturingHubClient(SequenceTracker tracker) { _tracker = tracker; }
+
         public IWalletHub Build()
         {
             var mock = new Mock<IWalletHub>();
             mock.Setup(c => c.OnReorg(It.IsAny<ReorgEventDto>()))
-                .Returns<ReorgEventDto>(dto => { Reorgs.Enqueue(dto); return Task.CompletedTask; });
+                .Returns<ReorgEventDto>(dto =>
+                {
+                    Reorgs.Enqueue(dto);
+                    if (_tracker is not null) SeqOnEmit.Add(_tracker.Next());
+                    return Task.CompletedTask;
+                });
             return mock.Object;
         }
     }
 
-    private static (Mock<IHubContext<WalletHub, IWalletHub>> mockCtx, CapturingHubClient client) BuildHub()
+    private static (Mock<IHubContext<WalletHub, IWalletHub>> mockCtx, CapturingHubClient client) BuildHub(SequenceTracker? tracker = null)
     {
-        var client = new CapturingHubClient();
+        var client = tracker is null ? new CapturingHubClient() : new CapturingHubClient(tracker);
         var clients = new Mock<IHubClients<IWalletHub>>();
         clients.Setup(c => c.Group(It.IsAny<string>())).Returns(client.Build());
         var ctx = new Mock<IHubContext<WalletHub, IWalletHub>>();
@@ -268,24 +296,33 @@ public class ReorgPipelineTests
     }
 
     [Fact]
-    public async Task RepeatPlan_SameOrphans_FingerprintsAreIdempotent()
+    public async Task RepeatPlan_SameForkTip_IsIdempotent_StableState()
     {
+        // Audit W3 A2 M3 fix + post-C2 (PromoteFork) semantics: after a
+        // reorg, the active tip has been promoted to the fork tip. A
+        // second invocation with the SAME fork tip sees the detector
+        // return null (no plan: fork tip height no longer exceeds the
+        // active tip height) → no journal append, no hub event. The
+        // chain state is stable. This is a stronger guarantee than the
+        // pre-C2 design which would have re-emitted with IsDuplicate=true.
         var (chain, genesis, active, fork) = BuildOneDeepForkScenario();
         var pipeline = BuildPipeline(chain, out var appender, out var reader, out var hub, out _, out _);
         reader.ByBlockHash[DisplayHex(active[0])] = new[] { "tx-a1-1" };
 
         await pipeline.HandleForkObservedAsync(fork[1], CancellationToken.None);
+        Assert.Equal(DisplayHex(fork[1]), DisplayHex(chain.Tip!));
 
-        // Second invocation. The appender simulates the journal having
-        // already seen this fingerprint by returning IsDuplicate=true.
-        appender.DuplicateFingerprints.Add($"block.disconnected:{DisplayHex(active[0])}:{BlockObservationSource.Reorg}");
+        var appendsAfterFirst = appender.Requests.Count;
+        var reorgsAfterFirst = hub.Reorgs.Count;
+
+        // Second invocation with the same fork tip.
         await pipeline.HandleForkObservedAsync(fork[1], CancellationToken.None);
 
-        // Two journal append calls — both made, second was a duplicate
-        // (pinned via IsDuplicate=true). Two hub events fired (the
-        // pipeline doesn't suppress on idempotency; clients dedupe).
-        Assert.Equal(2, appender.Requests.Count);
-        Assert.Equal(2, hub.Reorgs.Count);
+        // No new side effects: chain tip unchanged, no new journal
+        // entry, no new hub event. The system is stable under replay.
+        Assert.Equal(DisplayHex(fork[1]), DisplayHex(chain.Tip!));
+        Assert.Equal(appendsAfterFirst, appender.Requests.Count);
+        Assert.Equal(reorgsAfterFirst, hub.Reorgs.Count);
     }
 
     [Fact]
@@ -338,23 +375,40 @@ public class ReorgPipelineTests
     }
 
     [Fact]
-    public async Task OrderingPin_JournalAppendBeforeHubEmit()
+    public async Task OrderingPin_JournalAppendBeforeHubEmit_StrictSequence()
     {
-        // Core Rule §9: the rebuilder is journal-driven; the hub
-        // event must NOT precede the journal append.
-        // Use a sequencing counter shared across both fake sinks.
+        // Audit W3 A2 M3 fix: pin journal-before-hub via shared
+        // monotonic sequence counter, not just counts. Every call into
+        // the journal-append and hub-emit fakes increments the counter
+        // and records its sequence number; the assertion verifies every
+        // journal-append sequence is < every hub-emit sequence (Core
+        // Rule §9: clients reacting to OnReorg by re-querying
+        // projections must see Reorged state — which requires the
+        // journal entry to have landed first).
+        var tracker = new SequenceTracker();
         var (chain, genesis, active, fork) = BuildOneDeepForkScenario();
-        var pipeline = BuildPipeline(chain, out var appender, out var reader, out var hub, out _, out _);
-        reader.ByBlockHash[DisplayHex(active[0])] = new[] { "tx-a1-1" };
 
+        // Build with seq-tracker-aware fakes.
+        var detector = new ReorgDetector();
+        var appender = new CapturingBlockAppender(tracker);
+        var journal = new BlockObservationJournalWriter(appender);
+        var reader = new FakeTxIdReader();
+        var (hubCtx, hubClient) = BuildHub(tracker);
+        var rebroadcaster = new CapturingRebroadcaster();
+        var health = new BsvP2pHealth();
+        var pipeline = new ReorgPipeline(
+            detector, chain, reader, journal, hubCtx.Object, rebroadcaster, health,
+            NullLogger<ReorgPipeline>.Instance);
+
+        reader.ByBlockHash[DisplayHex(active[0])] = new[] { "tx-a1-1" };
         await pipeline.HandleForkObservedAsync(fork[1], CancellationToken.None);
 
-        // The appender capture timestamp logically precedes the hub
-        // emit because both are awaited sequentially in the pipeline.
-        // The sequence is enforced by single-threaded await ordering;
-        // we pin via "at least one journal request present BEFORE the
-        // hub event was enqueued" — easier to assert via counts:
-        Assert.Single(appender.Requests);
-        Assert.Single(hub.Reorgs);
+        Assert.NotEmpty(appender.SeqOnAppend);
+        Assert.NotEmpty(hubClient.SeqOnEmit);
+        var maxJournalSeq = appender.SeqOnAppend.Max();
+        var minHubSeq = hubClient.SeqOnEmit.Min();
+        Assert.True(maxJournalSeq < minHubSeq,
+            $"every journal append must precede every hub emit, "
+            + $"got max-journal-seq={maxJournalSeq} >= min-hub-seq={minHubSeq}");
     }
 }

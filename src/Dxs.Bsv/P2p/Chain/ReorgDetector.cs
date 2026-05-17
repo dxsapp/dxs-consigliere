@@ -29,7 +29,12 @@ public sealed class ReorgDetector
 
     public ReorgDetector(ICumulativeWorkComparer? comparer = null)
     {
-        _comparer = comparer ?? new HeightCumulativeWorkComparer();
+        // Audit W3 A2 C1: production must use the bits-based comparer
+        // so a low-difficulty fork (malicious peer minting trivial-PoW
+        // headers) cannot win by height alone. Tests that work at a
+        // single regtest difficulty are unaffected: cumulative work
+        // tracks height when every header has the same bits.
+        _comparer = comparer ?? new WorkBitsCumulativeWorkComparer();
     }
 
     /// <summary>
@@ -61,16 +66,18 @@ public sealed class ReorgDetector
         if (!chain.TryGetByWireHashHex(forkTipWireHex, out _, out var forkTipHeight))
             return null;
 
-        // Equal-height tie-break: active wins (first-seen rule).
-        var comparison = _comparer.Compare(forkTipHeight, chain.TipHeight);
-        if (comparison <= 0) return null;
+        // Quick reject: fork tip height equals or below active tip
+        // height. We require the fork to be strictly above (cumulative
+        // work will be compared below, but at least one block must be
+        // higher).
+        if (forkTipHeight <= chain.TipHeight) return null;
 
         // Walk the active chain back from the tip via prev_block links,
         // building a hash set + ordered list (tip first). Stops when the
         // prev hash is not in the retained window (we've exited the
         // chain's memory).
         var activeChainWireHashes = new HashSet<string>(StringComparer.Ordinal);
-        var activeChainOrdered = new List<(string WireHex, long Height)>();
+        var activeChainOrdered = new List<(string WireHex, long Height, BlockHeader Header)>();
         {
             var cursor = chain.Tip;
             var cursorHeight = chain.TipHeight;
@@ -78,7 +85,7 @@ public sealed class ReorgDetector
             {
                 var hex = Hex(BlockHeaderHasher.Hash(cursor));
                 activeChainWireHashes.Add(hex);
-                activeChainOrdered.Add((hex, cursorHeight));
+                activeChainOrdered.Add((hex, cursorHeight, cursor));
 
                 var prevWireHex = Hex(BlockHeaderHasher.PrevBlock(cursor));
                 if (!chain.TryGetByWireHashHex(prevWireHex, out var prevHeader, out var prevHeight))
@@ -93,6 +100,7 @@ public sealed class ReorgDetector
         //   (a) we find a hash in the active-chain set → common ancestor;
         //   (b) we step out of the retained window → degraded.
         var forkSideWireHexes = new List<string>(); // newest-first
+        var forkSideHeaders = new List<BlockHeader>(); // newest-first
 
         var fCursor = forkTip;
         var fCursorWireHex = forkTipWireHex;
@@ -111,12 +119,16 @@ public sealed class ReorgDetector
                 var commonAncestorWireHex = fCursorWireHex;
                 var commonAncestorHeight = fCursorHeight;
 
-                // Build OrphanedHashes (display order, newest-first /
-                // disconnect order).
+                // Build the post-common-ancestor active-side slice as
+                // a header list (for the cumulative-work comparison),
+                // plus its display-hex form (for ReorgPlan.OrphanedHashes
+                // in disconnect order).
+                var activeAboveAncestor = new List<BlockHeader>();
                 var orphaned = new List<string>();
-                foreach (var (activeHex, activeHeight) in activeChainOrdered)
+                foreach (var (activeHex, activeHeight, activeHeader) in activeChainOrdered)
                 {
                     if (activeHeight <= commonAncestorHeight) break;
+                    activeAboveAncestor.Add(activeHeader);
                     orphaned.Add(WireHexToDisplayHex(activeHex));
                 }
 
@@ -125,9 +137,17 @@ public sealed class ReorgDetector
                 // reverse + convert.
                 var newChain = new List<string>(forkSideWireHexes.Count);
                 for (var i = forkSideWireHexes.Count - 1; i >= 0; i--)
-                {
                     newChain.Add(WireHexToDisplayHex(forkSideWireHexes[i]));
-                }
+                // Oldest-first headers for the comparer.
+                var forkAboveAncestor = new List<BlockHeader>(forkSideHeaders.Count);
+                for (var i = forkSideHeaders.Count - 1; i >= 0; i--)
+                    forkAboveAncestor.Add(forkSideHeaders[i]);
+
+                // Audit W3 A2 C1: compare cumulative work, not height.
+                // Equal work / less work → no promotion (active wins by
+                // first-seen).
+                if (_comparer.Compare(activeAboveAncestor, forkAboveAncestor) <= 0)
+                    return null;
 
                 return new ReorgPlan(
                     CommonAncestorHash: WireHexToDisplayHex(commonAncestorWireHex),
@@ -141,6 +161,7 @@ public sealed class ReorgDetector
 
             // Record the current fork-side hex as part of the new chain.
             forkSideWireHexes.Add(fCursorWireHex);
+            forkSideHeaders.Add(fCursor);
 
             // Step back via prev_block.
             var prevWireHex = Hex(BlockHeaderHasher.PrevBlock(fCursor));

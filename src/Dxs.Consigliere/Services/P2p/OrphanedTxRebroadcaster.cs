@@ -42,6 +42,7 @@ public sealed class OrphanedTxRebroadcaster : IOrphanedTxRebroadcaster
     private readonly IOutgoingRawLookup _outgoingLookup;
     private readonly IRawTransactionPayloadStore _payloadStore;
     private readonly ITxAnnouncer _txAnnouncer;
+    private readonly ICoinbaseProbe _coinbaseProbe;
     private readonly OrphanedTxRebroadcastRecorder _recorder;
     private readonly ILogger<OrphanedTxRebroadcaster> _logger;
 
@@ -49,12 +50,14 @@ public sealed class OrphanedTxRebroadcaster : IOrphanedTxRebroadcaster
         IOutgoingRawLookup outgoingLookup,
         IRawTransactionPayloadStore payloadStore,
         ITxAnnouncer txAnnouncer,
+        ICoinbaseProbe coinbaseProbe,
         OrphanedTxRebroadcastRecorder recorder,
         ILogger<OrphanedTxRebroadcaster> logger)
     {
         _outgoingLookup = outgoingLookup;
         _payloadStore = payloadStore;
         _txAnnouncer = txAnnouncer;
+        _coinbaseProbe = coinbaseProbe;
         _recorder = recorder;
         _logger = logger;
     }
@@ -76,6 +79,17 @@ public sealed class OrphanedTxRebroadcaster : IOrphanedTxRebroadcaster
             {
                 if (string.IsNullOrEmpty(txId)) continue;
                 if (!seenTxIds.Add(txId)) continue;
+
+                // Audit W3 A2 H2: explicit coinbase skip BEFORE the raw
+                // lookup. Coinbases are block-bound; re-announcing them
+                // would always be rejected by the receiving peer and
+                // accidental hits would count against the
+                // AnnounceFailed metric, hiding the real signal.
+                if (await _coinbaseProbe.IsCoinbaseAsync(txId, cancellationToken))
+                {
+                    _recorder.IncrementSkippedCoinbase();
+                    continue;
+                }
 
                 var rawHex = await ResolveRawHexAsync(txId, cancellationToken);
                 if (rawHex is null)

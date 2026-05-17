@@ -220,6 +220,41 @@ public sealed class HeadersChain
     public int RetainedHeaderCount => _options.RetainedHeaderCount;
 
     /// <summary>
+    /// Wave 3 — switch the active chain tip to a fork-side header that's
+    /// already stored in the retained window (via <see cref="TryExtend"/>
+    /// → <see cref="ExtendResult.Fork"/>). After promotion, subsequent
+    /// <see cref="TryExtend"/> calls against descendants of
+    /// <paramref name="forkTip"/> follow the standard
+    /// <see cref="ExtendResult.Extended"/> path; pruning is re-run
+    /// relative to the new tip height.
+    ///
+    /// <para>Audit W3 A2 C2 fix: previously the W3 design left fork
+    /// headers stored with <c>promoteToTip = false</c> indefinitely;
+    /// <see cref="ReorgPipeline"/> emitted journal/hub/re-broadcast side
+    /// effects but the in-memory active tip stayed on the orphaned
+    /// chain, breaking all downstream "next-block extends tip" logic
+    /// (<c>BuildLocator</c>, <c>OnNewBlock</c>, etc.). This method is
+    /// the explicit promotion step.</para>
+    ///
+    /// <para>Throws when <paramref name="forkTip"/> is not in the
+    /// retained window. Idempotent on a re-promote of the current tip.</para>
+    /// </summary>
+    public void PromoteFork(BlockHeader forkTip)
+    {
+        if (forkTip is null) throw new ArgumentNullException(nameof(forkTip));
+        var hashKey = HashKey(forkTip);
+        if (!_byHash.TryGetValue(hashKey, out var entry))
+            throw new InvalidOperationException(
+                "PromoteFork: fork tip is not in the retained header window "
+                + $"(hash={hashKey}). The caller must store the fork via "
+                + "TryExtend before promoting it.");
+
+        _tip = entry.Header;
+        _tipHeight = entry.Height;
+        PruneIfNeeded();
+    }
+
+    /// <summary>
     /// Anchor the chain to a specific (header, height) pair. Used by the
     /// bootstrapper (Wave 1 S4) when an external height-aware source
     /// (e.g. WhatsOnChain /chain/info) provides the current tip. After

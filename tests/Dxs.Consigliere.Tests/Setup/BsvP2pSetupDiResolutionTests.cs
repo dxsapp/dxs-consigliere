@@ -118,11 +118,18 @@ public class BsvP2pSetupDiResolutionTests
         // Wave 3: pin every W3-registered singleton so a future
         // ctor-dep drift fails the build, not the host startup —
         // same pattern as W2 A2 C1.
+        // Audit W3 A2 L1 fix: added IOutgoingRawLookup + ITxAnnouncer
+        // + ICoinbaseProbe (which were previously missing from the
+        // pin and could ctor-drift silently).
         await using var sp = (ServiceProvider)BuildProvider();
         Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.HeightCumulativeWorkComparer>());
+        Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.WorkBitsCumulativeWorkComparer>());
         Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.ICumulativeWorkComparer>());
         Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.ReorgDetector>());
         Assert.NotNull(sp.GetRequiredService<IOrphanedTxIdReader>());
+        Assert.NotNull(sp.GetRequiredService<IOutgoingRawLookup>());
+        Assert.NotNull(sp.GetRequiredService<ITxAnnouncer>());
+        Assert.NotNull(sp.GetRequiredService<ICoinbaseProbe>());
         Assert.NotNull(sp.GetRequiredService<OrphanedTxRebroadcastRecorder>());
         Assert.NotNull(sp.GetRequiredService<IOrphanedTxRebroadcaster>());
         Assert.NotNull(sp.GetRequiredService<IReorgPipeline>());

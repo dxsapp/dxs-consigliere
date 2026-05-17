@@ -282,6 +282,85 @@ public class ReorgDetectorTests
     }
 
     [Fact]
+    public void Detect_LowDifficultyFork_LongerHeight_LessWork_ReturnsNull()
+    {
+        // Audit W3 A2 C1 regression: a malicious peer with valid-PoW
+        // but trivial-difficulty headers cannot win a reorg by height
+        // alone. The bits-based work comparer (the production default
+        // configured in BsvP2pSetup) integrates per-header work; if
+        // the fork's cumulative work is less than the active chain's,
+        // no plan should be returned even when the fork is taller.
+        //
+        // Setup: active chain has 2 headers at hard difficulty (low
+        // bits — a small target). Fork chain has 3 headers at easy
+        // difficulty (high bits — a large target, much less work each).
+        // The fork is taller (3 > 2) but represents far less work.
+        var chain = new HeadersChain(new HeadersChainOptions { RetainedHeaderCount = 20 });
+        var genesis = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x01,
+            bits: HeaderTestUtil.RegtestBits);
+        chain.Seed(genesis, height: 0);
+
+        // Hard active chain: bits that imply roughly more work per
+        // header than the trivial regtest bits. Using a smaller
+        // exponent gives a smaller target → more work.
+        // exponent=0x1d, mantissa=0x007fffff is the standard "1d" max
+        // target (slightly harder than 0x207fffff which is "max
+        // difficulty 1" regtest); we'll just use a slightly different
+        // bits to drive the work delta. For test stability use:
+        //   - active bits: 0x1f7fffff (smaller exponent → way more work)
+        //   - fork bits:   0x207fffff (regtest minimum → least work)
+        const uint hardBits = 0x1f7fffffu;
+        const uint easyBits = 0x207fffffu;
+
+        var active = new BlockHeader[2];
+        var p = genesis;
+        for (var i = 0; i < 2; i++)
+        {
+            active[i] = HeaderTestUtil.BuildChild(p, bits: hardBits, merkleFill: 0xA0);
+            Assert.IsType<ExtendResult.Extended>(chain.TryExtend(active[i]));
+            p = active[i];
+        }
+
+        var fork = new BlockHeader[3];
+        var fp = genesis;
+        for (var i = 0; i < 3; i++)
+        {
+            fork[i] = HeaderTestUtil.BuildChild(fp, bits: easyBits, merkleFill: 0xB0, timestamp: 1700000005);
+            Assert.IsType<ExtendResult.Fork>(chain.TryExtend(fork[i]));
+            fp = fork[i];
+        }
+
+        // Production-default detector (bits-based work comparer).
+        var detector = new ReorgDetector();
+        var plan = detector.TryDetect(chain, fork[2]);
+
+        Assert.Null(plan); // taller-but-trivial-difficulty fork rejected
+    }
+
+    [Fact]
+    public void Detect_HeightOnlyComparer_AcceptsTallerForkRegardlessOfDifficulty()
+    {
+        // Counter-example pin: the legacy HeightCumulativeWorkComparer
+        // ignores per-header difficulty, so the same setup IS accepted
+        // when using the height-only rule. Documents the comparer
+        // contract: the swap from height to work is what closes C1.
+        var chain = new HeadersChain(new HeadersChainOptions { RetainedHeaderCount = 20 });
+        var genesis = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x01);
+        chain.Seed(genesis, height: 0);
+        var active = HeaderTestUtil.BuildChild(genesis, bits: 0x1f7fffffu, merkleFill: 0xA0);
+        chain.TryExtend(active);
+        var f1 = HeaderTestUtil.BuildChild(genesis, bits: 0x207fffffu, merkleFill: 0xB0, timestamp: 1700000005);
+        chain.TryExtend(f1);
+        var f2 = HeaderTestUtil.BuildChild(f1, bits: 0x207fffffu, merkleFill: 0xB0, timestamp: 1700000006);
+        chain.TryExtend(f2);
+
+        var detector = new ReorgDetector(new HeightCumulativeWorkComparer());
+        var plan = detector.TryDetect(chain, f2);
+
+        Assert.NotNull(plan); // height-only would accept this
+    }
+
+    [Fact]
     public void Detect_AllHashesAreDisplayOrder_NotWireOrder()
     {
         // Pin Core Rule: ReorgPlan hashes are display-order

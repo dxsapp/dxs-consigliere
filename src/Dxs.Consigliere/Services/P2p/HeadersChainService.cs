@@ -58,6 +58,14 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
     // is reaped on the next reconcile.
     private readonly HashSet<PeerSession> _wired = new(ReferenceEqualityComparer.Instance);
 
+    // Audit W3 A2 H3 fix: PeerSession.OnHeadersReceived fires headers
+    // callbacks on the per-session receive task. Multiple peers can
+    // emit headers concurrently; HeadersChain + the in-memory state
+    // around it are NOT thread-safe. Serialise the entire
+    // TryExtend → PersistAsync → ReorgPipeline path through one
+    // semaphore. Async-friendly (no thread-block).
+    private readonly SemaphoreSlim _headersGate = new(initialCount: 1, maxCount: 1);
+
     private CancellationTokenSource? _cts;
     private Task? _loop;
 
@@ -237,6 +245,24 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
 
     private async Task HandleHeadersAsync(IReadOnlyList<BlockHeader> headers)
     {
+        // Audit W3 A2 H3 fix: serialise concurrent header arrivals from
+        // multiple peers. HeadersChain + the persistence path are NOT
+        // thread-safe; without this gate, two peers feeding fork
+        // headers at the same moment race the in-memory dictionary, the
+        // persistence, AND the reorg pipeline's plan + journal calls.
+        await _headersGate.WaitAsync();
+        try
+        {
+            await HandleHeadersCoreAsync(headers);
+        }
+        finally
+        {
+            _headersGate.Release();
+        }
+    }
+
+    private async Task HandleHeadersCoreAsync(IReadOnlyList<BlockHeader> headers)
+    {
         foreach (var header in headers)
         {
             ExtendResult result;
@@ -348,5 +374,6 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
     {
         await StopAsync(CancellationToken.None);
         _cts?.Dispose();
+        _headersGate.Dispose();
     }
 }

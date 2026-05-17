@@ -41,6 +41,12 @@ public static class IndexerStateSetup
             .AddSingleton<TokenProjectionRebuilder>()
             .AddSingleton<TxLifecycleProjectionReader>()
             .AddSingleton<TxLifecycleProjectionRebuilder>()
+            // W3 A2 H1 fix: ReorgPipeline drives the projection rebuilder
+            // before firing OnReorg so SignalR clients re-querying after
+            // the event observe Reorged. The rebuilder is sealed, so we
+            // expose it via a thin IProjectionRebuilder adapter.
+            .AddSingleton<Dxs.Consigliere.Services.P2p.IProjectionRebuilder,
+                          Dxs.Consigliere.Services.P2p.TxLifecycleProjectionRebuilderAdapter>()
             .AddSingleton<IRealtimeSourcePolicyOverrideStore, RealtimeSourcePolicyOverrideStore>()
             .AddSingleton<ISetupBootstrapStore, SetupBootstrapStore>()
             .AddSingleton<IAdminProviderConfigService, AdminProviderConfigService>()

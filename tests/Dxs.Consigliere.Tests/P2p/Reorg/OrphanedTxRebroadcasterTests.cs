@@ -56,20 +56,29 @@ public class OrphanedTxRebroadcasterTests
         }
     }
 
+    private sealed class FakeCoinbaseProbe : ICoinbaseProbe
+    {
+        public readonly HashSet<string> Coinbases = new();
+        public Task<bool> IsCoinbaseAsync(string txId, CancellationToken ct)
+            => Task.FromResult(Coinbases.Contains(txId));
+    }
+
     private static (OrphanedTxRebroadcaster broadcaster,
                     FakeOutgoingLookup outgoing,
                     FakePayloadStore payload,
                     FakeAnnouncer announcer,
+                    FakeCoinbaseProbe coinbase,
                     OrphanedTxRebroadcastRecorder recorder) Build()
     {
         var outgoing = new FakeOutgoingLookup();
         var payload = new FakePayloadStore();
         var announcer = new FakeAnnouncer();
+        var coinbase = new FakeCoinbaseProbe();
         var recorder = new OrphanedTxRebroadcastRecorder();
         var broadcaster = new OrphanedTxRebroadcaster(
-            outgoing, payload, announcer, recorder,
+            outgoing, payload, announcer, coinbase, recorder,
             NullLogger<OrphanedTxRebroadcaster>.Instance);
-        return (broadcaster, outgoing, payload, announcer, recorder);
+        return (broadcaster, outgoing, payload, announcer, coinbase, recorder);
     }
 
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> OrphansFor(
@@ -79,7 +88,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task EmptyInput_DoesNothing()
     {
-        var (broadcaster, _, _, announcer, recorder) = Build();
+        var (broadcaster, _, _, announcer, _, recorder) = Build();
         await broadcaster.RebroadcastAsync(
             new Dictionary<string, IReadOnlyList<string>>(), CancellationToken.None);
 
@@ -90,7 +99,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task TxInOutgoingStore_IsAnnounced_FromOutgoingRawHex()
     {
-        var (broadcaster, outgoing, _, announcer, recorder) = Build();
+        var (broadcaster, outgoing, _, announcer, _, recorder) = Build();
         outgoing.Hex["tx1"] = "rawhex1";
 
         await broadcaster.RebroadcastAsync(
@@ -105,7 +114,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task TxInPayloadStore_IsAnnounced_FromPayloadHex()
     {
-        var (broadcaster, _, payload, announcer, recorder) = Build();
+        var (broadcaster, _, payload, announcer, _, recorder) = Build();
         payload.PayloadHex["tx1"] = "rawhex_payload";
 
         await broadcaster.RebroadcastAsync(
@@ -119,7 +128,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task OutgoingStoreTakesPrecedenceOverPayloadStore()
     {
-        var (broadcaster, outgoing, payload, announcer, _) = Build();
+        var (broadcaster, outgoing, payload, announcer, _, _) = Build();
         outgoing.Hex["tx1"] = "outgoing-raw";
         payload.PayloadHex["tx1"] = "payload-raw";
 
@@ -133,7 +142,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task TxWithNoRaw_IsSkipped_NoAnnounce_CounterIncrements()
     {
-        var (broadcaster, _, _, announcer, recorder) = Build();
+        var (broadcaster, _, _, announcer, _, recorder) = Build();
 
         await broadcaster.RebroadcastAsync(
             OrphansFor("block1", "tx1"), CancellationToken.None);
@@ -146,7 +155,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task AnnounceThrows_CounterIncrements_LoopContinues()
     {
-        var (broadcaster, outgoing, _, announcer, recorder) = Build();
+        var (broadcaster, outgoing, _, announcer, _, recorder) = Build();
         outgoing.Hex["tx1"] = "raw1";
         outgoing.Hex["tx2"] = "raw2";
         announcer.ThrowOnAnnounce = true;
@@ -162,7 +171,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task NoReadyPeer_CounterIncrements_NotCountedAsAnnounced()
     {
-        var (broadcaster, outgoing, _, announcer, recorder) = Build();
+        var (broadcaster, outgoing, _, announcer, _, recorder) = Build();
         outgoing.Hex["tx1"] = "raw1";
         announcer.ReadyPeerCount = 0;
 
@@ -177,7 +186,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task SameTxInTwoOrphans_AnnouncedOnce()
     {
-        var (broadcaster, outgoing, _, announcer, recorder) = Build();
+        var (broadcaster, outgoing, _, announcer, _, recorder) = Build();
         outgoing.Hex["tx1"] = "raw1";
 
         var orphans = new Dictionary<string, IReadOnlyList<string>>
@@ -195,7 +204,7 @@ public class OrphanedTxRebroadcasterTests
     [Fact]
     public async Task MultipleOrphans_EachUniqueTxIdAnnouncedOnce()
     {
-        var (broadcaster, outgoing, _, announcer, recorder) = Build();
+        var (broadcaster, outgoing, _, announcer, _, recorder) = Build();
         outgoing.Hex["tx1"] = "raw1";
         outgoing.Hex["tx2"] = "raw2";
         outgoing.Hex["tx3"] = "raw3";
