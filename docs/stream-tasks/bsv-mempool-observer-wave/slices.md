@@ -347,9 +347,29 @@ must distinguish three outcomes per outstanding `getdata`:
 
 The recorder distinguishes these so an operator can tell a busted
 peer from a real oversize tx; W4's metrics surface will read all
-three counters. The one-shot dispatcher handler (S5) inspects
-the session's `Completion.Status` and `LastDisconnectReason` at
-timeout to classify between `OversizeRejected` and `Timeout`.
+three counters. Classification mechanism for the one-shot
+dispatcher handler (S5) at timeout — `PeerSession` exposes only
+`Task<DisconnectReason> Completion`, no separate
+`LastDisconnectReason` property, so the classifier reads
+`Completion`:
+
+- `session.Completion.IsCompletedSuccessfully &&
+   session.Completion.Result == DisconnectReason.ProtocolViolation`
+  → classify as `OversizeRejected` (the receive loop tripped the
+  payload-size guard and called `EndWith(ProtocolViolation, ...)`).
+  Note: not perfectly unambiguous — any frame decode failure also
+  ends with `ProtocolViolation` — so the classifier records the
+  oversize-bucket count only when the disconnect happened **within
+  the same `getdata` round** AND `session.PeerMaxRecvPayloadLength
+  >= MempoolMaxFetchedTxBytes` (i.e. the peer's negotiated cap was
+  high enough that we have plausible cause to believe the frame
+  exceeded *our* cap, not the peer's).
+- Otherwise (session still alive OR completed with any other
+  reason) → `Timeout`.
+
+The implementation lives inside the one-shot tx-frame handler's
+finally block; the recorder gets one counter increment per
+outstanding `getdata` that didn't get its `tx`.
 
 **Operator-warning rule.** Startup emits a warning if
 `BsvP2pConfig.MempoolMaxFetchedTxBytes` is set below 4 MiB —
@@ -362,6 +382,13 @@ most modern BSV mempools see legitimate tx beyond the legacy
 - `src/Dxs.Bsv/P2p/Observer/MempoolWatcherOptions.cs` (new — config
   record incl. `MaxGetDataPerSec`, `MaxFetchedTxBytes`,
   `GetDataTimeoutMs`)
+- `src/Dxs.Consigliere/Configs/BsvP2pConfig.cs` (extend — add
+  `MempoolMaxFetchedTxBytes` field per the payload-size policy
+  block above; audit W2 followup M4)
+- `src/Dxs.Consigliere/Services/P2p/BsvP2pHostedService.cs`
+  (extend lines ~66-80 — propagate `MempoolMaxFetchedTxBytes`
+  into `PeerSessionConfig.InitialMaxRecvPayloadLength` at session
+  construction; add startup warning if value < 4 MiB)
 - `src/Dxs.Consigliere/Services/P2p/SourceObservationRecorder.cs`
   (new — see §Ownership note below; placement reconciled with
   parent program per audit W2 M3)
@@ -433,7 +460,17 @@ Add `src/Dxs.Consigliere/Services/P2p/PerSessionFrameDispatcher.cs`
 public sealed class PerSessionFrameDispatcher
 {
     public PerSessionFrameDispatcher(PeerSession session, ILogger logger);
-    public IDisposable Subscribe(string command, Func<InboundFrame, Task> handler);
+
+    // Audit followup new-M1: subscriberTag is required and used in
+    // error log attribution + race-regression test assertions.
+    // Each invocation runs inside per-subscriber try/catch (see
+    // failure-isolation block below); a throwing handler does not
+    // stop RunAsync nor prevent later subscribers from firing.
+    public IDisposable Subscribe(
+        string command,
+        string subscriberTag,
+        Func<InboundFrame, Task> handler);
+
     public Task RunAsync(CancellationToken ct); // single reader loop
 }
 ```
