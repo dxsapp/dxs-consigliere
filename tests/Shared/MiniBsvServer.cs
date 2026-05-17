@@ -9,14 +9,17 @@ using System.Threading.Tasks;
 using Dxs.Bsv.P2p;
 using Dxs.Bsv.P2p.Messages;
 
-namespace Dxs.Bsv.Tests.P2p.Session;
+namespace Dxs.Tests.Shared;
 
 /// <summary>
 /// Minimal BSV-protocol-compatible test peer. Binds to a loopback ephemeral
 /// port; accepts ONE inbound connection; performs the server-side handshake;
 /// then exposes channels to drive arbitrary traffic in either direction.
+///
+/// Lives in tests/Shared so both Dxs.Bsv.Tests and Dxs.Consigliere.Tests
+/// can drive PeerSession-side behavior against a real loopback peer.
 /// </summary>
-internal sealed class MiniBsvServer : IAsyncDisposable
+public sealed class MiniBsvServer : IAsyncDisposable
 {
     private readonly TcpListener _listener;
     private readonly P2pNetwork _network;
@@ -170,4 +173,4 @@ internal sealed class MiniBsvServer : IAsyncDisposable
     }
 }
 
-internal sealed record InboundOnServer(string Command, byte[] Payload);
+public sealed record InboundOnServer(string Command, byte[] Payload);

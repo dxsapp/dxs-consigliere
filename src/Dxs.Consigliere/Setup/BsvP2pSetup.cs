@@ -1,3 +1,4 @@
+using Dxs.Bsv.P2p.Chain;
 using Dxs.Consigliere.BackgroundTasks.P2p;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.P2p;
@@ -26,6 +27,13 @@ public static class BsvP2pSetup
             .AddSingleton<TxRelayCoordinator>()
             .AddSingleton<OutgoingTransactionMonitor>()
             .AddHostedService(sp => sp.GetRequiredService<OutgoingTransactionMonitor>())
+            // Wave 1 — headers chain
+            .Configure<HeadersChainOptions>(configuration.GetSection("Consigliere:Broadcast:P2p:Headers"))
+            .AddSingleton<HeadersChain>(sp =>
+                new HeadersChain(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HeadersChainOptions>>().Value))
+            .AddSingleton<BlockHeaderStore>()
+            .AddSingleton<INewBlockNotifier, NullNewBlockNotifier>()
+            .AddHostedService<HeadersChainService>()
             // Wire P2P properties into BroadcastService after construction.
             .AddSingleton<BroadcastServiceP2pWirer>();
 

@@ -13,6 +13,7 @@
     <Compile Include="..\Shared\DstasConformanceVectorFixture.cs" Link="Shared/DstasConformanceVectorFixture.cs" />
     <Compile Include="..\Shared\DstasProtocolOwnerFixture.cs" Link="Shared/DstasProtocolOwnerFixture.cs" />
     <Compile Include="..\Shared\DstasNativeReplayProof.cs" Link="Shared/DstasNativeReplayProof.cs" />
+    <Compile Include="..\Shared\MiniBsvServer.cs" Link="Shared/MiniBsvServer.cs" />
   </ItemGroup>
 
   <ItemGroup>

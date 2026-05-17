@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Dxs.Bsv.P2p.Pool;
+using Dxs.Bsv.P2p.Session;
 
 namespace Dxs.Consigliere.Services.P2p;
 
@@ -39,6 +40,17 @@ public sealed class BsvP2pHealth
         _manager is null
             ? new List<string>()
             : _manager.ActiveSessions.Keys.OrderBy(k => k).ToList();
+
+    /// <summary>
+    /// Live read of <see cref="PeerManager.ActiveSessions"/> values.
+    /// Empty when not bound. Consumers iterating the result should filter
+    /// for <see cref="PeerSessionState.Ready"/> if they only want
+    /// handshake-complete peers.
+    /// </summary>
+    public IReadOnlyCollection<PeerSession> ActiveSessions =>
+        _manager is null
+            ? new List<PeerSession>()
+            : _manager.ActiveSessions.Values.ToList();
 
     public async Task<IReadOnlyList<PeerRecord>> ListAllAsync(CancellationToken ct)
     {

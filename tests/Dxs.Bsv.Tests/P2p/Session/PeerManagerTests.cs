@@ -9,6 +9,7 @@ using Dxs.Bsv.P2p;
 using Dxs.Bsv.P2p.Messages;
 using Dxs.Bsv.P2p.Pool;
 using Dxs.Bsv.P2p.Session;
+using Dxs.Tests.Shared;
 
 namespace Dxs.Bsv.Tests.P2p.Session;
 
