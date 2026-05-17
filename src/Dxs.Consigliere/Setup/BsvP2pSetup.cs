@@ -32,7 +32,7 @@ public static class BsvP2pSetup
             .AddSingleton<HeadersChain>(sp =>
                 new HeadersChain(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HeadersChainOptions>>().Value))
             .AddSingleton<BlockHeaderStore>()
-            .AddSingleton<INewBlockNotifier, NullNewBlockNotifier>()
+            .AddSingleton<INewBlockNotifier, HubNewBlockNotifier>()
             .AddSingleton<IHeadersBootstrapSource, NoopHeadersBootstrapSource>()
             .AddSingleton<HeadersChainBootstrapper>()
             .AddHostedService<HeadersChainService>()
