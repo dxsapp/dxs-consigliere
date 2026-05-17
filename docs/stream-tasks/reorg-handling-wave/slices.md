@@ -203,7 +203,15 @@ All unit tests; no I/O — feed the detector a fake
 - `src/Dxs.Bsv/P2p/Chain/{ReorgDetector,ReorgPlan,ReorgDetectorOptions,ICumulativeWorkComparer,HeightCumulativeWorkComparer}.cs` (new)
 - `tests/Dxs.Bsv.Tests/P2p/Chain/ReorgDetectorTests.cs` (new)
 
-## S2 — `P2pOrphanedBlockBodyFetcher`
+## S2 — `P2pOrphanedBlockBodyFetcher` <!-- OBSOLETE: deferred mid-wave -->
+
+> **OBSOLETE — DO NOT IMPLEMENT.** The block-body fetch over P2P was
+> deferred mid-wave (BSV mainnet blocks are GB-scale; the projection's
+> `BlockHash` index is sufficient). See `evidence/closeout.md` §"Scope
+> deviations §S2". The shipped substitute is
+> `RavenOrphanedTxIdReader` (queries projections directly).
+> The text below is retained as historical context for the audit chain
+> only.
 
 `src/Dxs.Consigliere/Services/P2p/P2pOrphanedBlockBodyFetcher.cs`
 implementing
@@ -280,7 +288,18 @@ block payload to control merkle validity / size / timeout.
 - `src/Dxs.Consigliere/Configs/BsvP2pConfig.cs` (extend — fetch caps)
 - `tests/Dxs.Consigliere.Tests/P2p/Reorg/P2pOrphanedBlockBodyFetcherTests.cs` (new)
 
-## S3 — `ReorgEventEmitter` hosted service
+## S3 — `ReorgEventEmitter` hosted service <!-- OBSOLETE: renamed -->
+
+> **OBSOLETE — DO NOT IMPLEMENT.** Shipped as `ReorgPipeline` (not a
+> hosted service; invoked synchronously by `HeadersChainService.case
+> ExtendResult.Fork`). The orchestration shape was updated per the
+> A2 + A2-followup revisions: detector → enumerate orphan txids →
+> journal-append → in-memory `HeadersChain.PromoteFork` → projection
+> rebuild → `OnReorg` hub emit → `OnNewBlock` notify → rebroadcast
+> → durable `SetActiveTipAsync` (last). The original
+> `IOrphanedBlockBodyFetcher` dependency was dropped (see S2 above);
+> the projection-query path via `IOrphanedTxIdReader` replaced it.
+> Text below is historical.
 
 `src/Dxs.Consigliere/Services/P2p/ReorgEventEmitter.cs`. Hosted
 service that drives the end-to-end reorg pipeline:
@@ -441,13 +460,17 @@ Mirror `SourceObservationRecorder` (W2 S4): one
 `Interlocked.Increment` per counter, expose `GetXCount()`
 readers.
 
-Counters:
+Counters (as shipped — names match the actual
+`OrphanedTxRebroadcastRecorder` methods after the A2 + A2-followup
+revisions):
 
-- `OrphanedTxAnnounced`
-- `OrphanedTxSkippedCoinbase`
-- `OrphanedTxSkippedNoRaw`
-- `OrphanedTxAnnounceNoReadyPeer`
-- `OrphanedTxAnnounceFailed`
+- `Announced` (`IncrementAnnounced` / `GetAnnouncedCount`)
+- `SkippedCoinbase` (`IncrementSkippedCoinbase` / `GetSkippedCoinbaseCount`,
+  added in A2 H2)
+- `SkippedNoRaw` (`IncrementSkippedNoRaw` / `GetSkippedNoRawCount`)
+- `AnnounceNoReadyPeer` (`IncrementAnnounceNoReadyPeer` /
+  `GetAnnounceNoReadyPeerCount`)
+- `AnnounceFailed` (`IncrementAnnounceFailed` / `GetAnnounceFailedCount`)
 
 ### Validation (S4)
 

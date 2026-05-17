@@ -107,8 +107,35 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
                 .Select(d => (new BlockHeader(d.HeaderBytes80), d.Height))
                 .ToList();
             _chain.LoadFromStore(seeds);
-            _logger.LogInformation("HeadersChainService replayed {Count} headers; tip height {Tip}",
+            _logger.LogInformation("HeadersChainService replayed {Count} headers; raw-max-height tip {Tip}",
                 seeds.Count, _chain.TipHeight);
+
+            // Audit W3 A2-followup N1: LoadFromStore picks the highest-
+            // height entry as the in-memory tip; that's wrong when the
+            // store also retains a rejected-but-taller fork. Override
+            // the in-memory tip via the persistent active-tip pointer.
+            // If the pointer is missing (legacy data from before this
+            // fix) we keep the height-based choice — best-effort backfill.
+            var activeTip = await _store.GetActiveTipAsync(cancellationToken);
+            if (activeTip is not null)
+            {
+                if (_chain.TryGetByWireHashHex(activeTip.BlockHashHex, out var tipHeader, out var tipHeight))
+                {
+                    _chain.PromoteFork(tipHeader);
+                    _logger.LogInformation(
+                        "HeadersChainService applied persistent active-tip pointer: {Hash}@{Height} "
+                        + "(raw-max was @{RawMax})",
+                        activeTip.BlockHashHex, activeTip.Height, seeds.Max(s => s.Item2));
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Persistent active-tip pointer references {Hash}@{Height} but the header is "
+                        + "no longer in the retained window; in-memory tip stays at raw-max height. "
+                        + "This is recoverable on next header arrival.",
+                        activeTip.BlockHashHex, activeTip.Height);
+                }
+            }
         }
         else
         {
@@ -277,12 +304,20 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
             {
                 case ExtendResult.Extended ext:
                     await PersistAsync(ext.Header, ext.Height);
+                    // Audit W3 A2-followup N1: the active-tip pointer
+                    // is updated ONLY on Extended (a successful active-
+                    // chain advance) and on a reorg promotion (in
+                    // ReorgPipeline). Fork persistence does NOT touch
+                    // the pointer — so a rejected taller fork cannot
+                    // become active after restart.
+                    await PersistActiveTipAsync(ext.Header, ext.Height);
                     await PruneIfNeededAsync();
                     await _notifier.NotifyAsync(BuildTipDto(ext.Header, ext.Height), CancellationToken.None);
                     break;
                 case ExtendResult.Fork fork:
                     await PersistAsync(fork.Header, fork.ParentHeight + 1);
-                    _logger.LogInformation("Stored fork header at height {H}", fork.ParentHeight + 1);
+                    _logger.LogInformation("Stored fork header at height {H} (not promoted; active tip unchanged)",
+                        fork.ParentHeight + 1);
                     // Wave 3: hand the fork tip to the reorg pipeline.
                     // Optional dependency — null in some test setups; in
                     // production DI it's always registered via
@@ -332,6 +367,17 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
             HeaderBytes80 = header.Bytes80,
         };
         await _store.SaveAsync(doc, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Audit W3 A2-followup N1 — write the persistent active-tip
+    /// pointer. Called by the Extended case in this service AND by
+    /// <c>ReorgPipeline</c>'s <c>promote-fork</c> step.
+    /// </summary>
+    private async Task PersistActiveTipAsync(BlockHeader header, long height)
+    {
+        var hash = ToHexLower(BlockHeaderHasher.Hash(header));
+        await _store.SetActiveTipAsync(hash, height, CancellationToken.None);
     }
 
     private async Task PruneIfNeededAsync()

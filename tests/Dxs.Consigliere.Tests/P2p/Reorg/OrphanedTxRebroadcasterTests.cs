@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -198,6 +199,47 @@ public class OrphanedTxRebroadcasterTests
         await broadcaster.RebroadcastAsync(orphans, CancellationToken.None);
 
         Assert.Single(announcer.Calls);
+        Assert.Equal(1, recorder.GetAnnouncedCount());
+    }
+
+    [Fact]
+    public async Task Coinbase_IsSkipped_NotAnnounced()
+    {
+        // Audit W3 A2-followup H2 test gap: pin the explicit
+        // coinbase-skip path. The probe is flipped so "tx1" reports
+        // as coinbase even though raw bytes are available. Expected:
+        // no announce, SkippedCoinbase counter = 1, no other counter
+        // incremented (the no-raw branch must NOT also fire).
+        var (broadcaster, outgoing, _, announcer, coinbase, recorder) = Build();
+        outgoing.Hex["tx1"] = "rawhex1";
+        coinbase.Coinbases.Add("tx1");
+
+        await broadcaster.RebroadcastAsync(
+            OrphansFor("block1", "tx1"), CancellationToken.None);
+
+        Assert.Empty(announcer.Calls);
+        Assert.Equal(1, recorder.GetSkippedCoinbaseCount());
+        Assert.Equal(0, recorder.GetAnnouncedCount());
+        Assert.Equal(0, recorder.GetSkippedNoRawCount());
+    }
+
+    [Fact]
+    public async Task NonCoinbase_FlowsThroughRawLookup_EvenWhenSomeOrphanIsCoinbase()
+    {
+        // Mixed orphan list: tx1 is coinbase, tx2 is not. Pin that
+        // the loop correctly classifies each, doesn't short-circuit,
+        // and counters are independent.
+        var (broadcaster, outgoing, _, announcer, coinbase, recorder) = Build();
+        outgoing.Hex["tx1"] = "raw1";
+        outgoing.Hex["tx2"] = "raw2";
+        coinbase.Coinbases.Add("tx1");
+
+        await broadcaster.RebroadcastAsync(
+            OrphansFor("block1", "tx1", "tx2"), CancellationToken.None);
+
+        Assert.Single(announcer.Calls);
+        Assert.Equal("tx2", announcer.Calls.First().TxId);
+        Assert.Equal(1, recorder.GetSkippedCoinbaseCount());
         Assert.Equal(1, recorder.GetAnnouncedCount());
     }
 

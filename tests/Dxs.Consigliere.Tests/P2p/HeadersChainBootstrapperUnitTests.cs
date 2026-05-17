@@ -43,6 +43,18 @@ public class HeadersChainBootstrapperUnitTests
         public Task<IReadOnlyList<BlockHeaderDocument>> RecentAsync(int count, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<BlockHeaderDocument>>(Array.Empty<BlockHeaderDocument>());
         public Task PruneBelowAsync(long minHeight, CancellationToken ct = default) => Task.CompletedTask;
+
+        // W3 A2-followup N1: persistent active-tip pointer. Stubs
+        // only — bootstrapper tests don't exercise restart-tip
+        // semantics.
+        private BlockHeaderActiveTip? _activeTip;
+        public Task SetActiveTipAsync(string blockHashHex, long height, CancellationToken ct = default)
+        {
+            _activeTip = new BlockHeaderActiveTip(blockHashHex, height);
+            return Task.CompletedTask;
+        }
+        public Task<BlockHeaderActiveTip?> GetActiveTipAsync(CancellationToken ct = default)
+            => Task.FromResult(_activeTip);
     }
 
     private sealed class StubSource(BootstrapSeed? seed) : IHeadersBootstrapSource

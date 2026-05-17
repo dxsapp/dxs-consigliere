@@ -79,7 +79,7 @@ watchlist) can land the fetcher then.
 | 7 | Tx in OutgoingStore re-broadcast | covered (`OrphanedTxRebroadcasterTests.TxInOutgoingStore_*`) |
 | 8 | Tx in PayloadStore re-broadcast | covered (`OrphanedTxRebroadcasterTests.TxInPayloadStore_*`) |
 | 9 | Tx with no raw skipped | covered (`OrphanedTxRebroadcasterTests.TxWithNoRaw_*`) |
-| 10 | Coinbase skipped | covered implicitly — coinbases lack raw bytes in both `OutgoingTransactionStore` and `IRawTransactionPayloadStore` (the thin-node observer doesn't fetch full bodies post S2 deferral), so they naturally fall into the `SkippedNoRaw` counter. No explicit coinbase-tagging required at the rebroadcaster |
+| 10 | Coinbase skipped | covered explicitly (A2 revision H2 + A2-followup N2): `ICoinbaseProbe` + `MetaTransactionCoinbaseProbe` runs the BSV-consensus check `Index == 0 AND Inputs.Count == 1 AND Inputs[0].TxId is all-zero` BEFORE the rebroadcaster's raw lookup; `OrphanedTxRebroadcastRecorder.IncrementSkippedCoinbase` fires on hit. Tests: `Coinbase_IsSkipped_NotAnnounced` + `NonCoinbase_FlowsThroughRawLookup_EvenWhenSomeOrphanIsCoinbase` |
 
 ### S7 deferral
 
@@ -128,11 +128,13 @@ No leakage outside Wave 3 ownership.
   open question for the post-execution audit.
 - **S7 live-mainnet validation** — deferred to operator session;
   evidence schema in `slices.md` §S7.
-- **Coinbase-explicit skip** — currently implicit via `no-raw`
-  counter. If projections ever record coinbase raw bytes, the
-  rebroadcaster will attempt to announce them and the peer will
-  reject (counter increments). Not a correctness issue; flagged
-  for the post-execution audit.
+- **Coinbase-explicit skip** — landed in the A2 revision (H2) via
+  `ICoinbaseProbe` and the explicit
+  `OrphanedTxRebroadcastRecorder.IncrementSkippedCoinbase` counter.
+  The `MetaTransactionCoinbaseProbe` (A2-followup N2) requires the
+  BSV consensus signature `Index == 0 AND Inputs.Count == 1 AND
+  Inputs[0].TxId is all-zero` so a default-`Index = 0` non-coinbase
+  cannot trip the probe.
 - **3 pre-existing baseline failures** in
   `TransactionStoreIntegrationTests` (Raven embedded runtime
   mismatch); unchanged by Wave 3.
@@ -299,7 +301,7 @@ together describe the difference between original-plan names and
 shipped names. Future waves should reference the implementation
 files, not the historical slice text.
 
-### Final test counts after revision
+### Final test counts after A2 revision
 
 - `Dxs.Bsv.Tests` 220/220 (was 218 pre-A2 revision, +2:
   `Detect_LowDifficultyFork_LongerHeight_LessWork_ReturnsNull` +
@@ -310,3 +312,101 @@ files, not the historical slice text.
   was rewritten in place as
   `RepeatPlan_SameForkTip_IsIdempotent_StableState`) + 24 explicit
   Skipped + 3 pre-existing baseline Raven-runtime failures (unchanged).
+
+## A2-followup revision summary (this commit)
+
+A2-followup audit returned MAJOR REVISION REQUIRED with 1 critical
+(persistence not restart-safe), 6 partials on the original A2 fixes,
+and 2 new findings. All ten items folded.
+
+### N1+C1+C2+M1 — persistent active-tip pointer
+
+**Before:** `HeadersChainService.PersistAsync` wrote every header
+(both `ExtendResult.Extended` and `ExtendResult.Fork`) to
+`BlockHeaderStore`. On startup, `LoadFromStore` picked the highest-
+height retained header as the in-memory tip. A taller-but-rejected
+low-work fork survived restart and became active despite the in-
+memory work-comparator having said no. C2's in-memory PromoteFork
+didn't survive restart either.
+
+**After:**
+
+- New `BlockHeaderActiveTipDocument` (single-row, constant ID
+  `block-headers/active-tip`) carrying `{ BlockHashHex (wire-order),
+  Height }`.
+- `IBlockHeaderStore.{Set,Get}ActiveTipAsync` interface members.
+- `HeadersChainService.PersistAsync` writes the pointer ONLY on
+  `ExtendResult.Extended` (and the legacy bootstrapper extension);
+  the Fork case persists the header doc but DOES NOT touch the
+  pointer.
+- `HeadersChainService.StartAsync`, after `LoadFromStore`, reads the
+  pointer and re-promotes the in-memory tip to the matching header
+  via `HeadersChain.PromoteFork(activeTipHeader)`. If the pointer is
+  absent (legacy data) the height-based selection is kept as the
+  best-effort fallback.
+- `ReorgPipeline` writes the pointer at the END of the pipeline
+  (after rebuild + hub emit + notify + rebroadcast) so a mid-
+  pipeline failure leaves durable state on the OLD tip. In-memory
+  `PromoteFork` runs mid-pipeline (so the detector doesn't re-fire
+  during the same reorg event); on a post-promote / pre-durable
+  exception the catch block rolls back in-memory via
+  `_chain.PromoteFork(preReorgTip)`. The journal entries are
+  idempotent so the next header arrival replays the full plan
+  correctly.
+- Restart test pin:
+  `ActiveTipPointerStartupTests.HeadersChain_PromoteFork_PromotesIfHashInRetention`
+  exercises the exact startup recipe (taller fork in retention,
+  active-tip pointer overrides the height-based selection).
+
+### N2 — `MetaTransactionCoinbaseProbe` consensus check
+
+**Before:** probe inferred coinbase from `MetaTransaction.Index == 0`.
+But `TransactionStore` defaults unknown `Index` to 0, so any block
+tx whose position-in-block wasn't recorded would be misclassified.
+
+**After:** probe requires the full BSV-consensus signature
+`Index == 0 AND Inputs.Count == 1 AND Inputs[0].TxId is all-zero`
+(the genesis-style coinbase outpoint). A defaulted-to-zero Index
+without the matching input shape no longer trips the probe.
+
+### H2 — explicit `Coinbase_IsSkipped_NotAnnounced` test
+
+`OrphanedTxRebroadcasterTests.Coinbase_IsSkipped_NotAnnounced` flips
+`FakeCoinbaseProbe.Coinbases.Add("tx1")` and asserts: no
+`announcer.Calls`, `SkippedCoinbaseCount == 1`, `AnnouncedCount == 0`,
+`SkippedNoRawCount == 0`. Companion test
+`NonCoinbase_FlowsThroughRawLookup_EvenWhenSomeOrphanIsCoinbase`
+pins mixed lists: coinbase skipped, non-coinbase announced; the
+loop doesn't short-circuit.
+
+### M1 — full retry semantics (rollback path)
+
+Reorder the pipeline so `SetActiveTipAsync` is the LAST step; on a
+post-in-memory-promote / pre-durable failure (rebuild / hub-emit /
+new-block-notify / rebroadcast steps), the catch block rolls back
+the in-memory `PromoteFork` to the pre-promote tip. The detector
+sees the fork again on next header arrival and retry runs through
+all idempotent journal-append + hub + rebroadcast steps cleanly.
+
+### M2 — closeout coinbase language
+
+The "implicit/no-raw" coinbase classification line was reworded to
+reflect the actual A2 H2 / A2-followup N2 explicit probe.
+
+### L2 — inline OBSOLETE markers
+
+`slices.md` §S2 (`P2pOrphanedBlockBodyFetcher`) and §S3
+(`ReorgEventEmitter`) carry inline `<!-- OBSOLETE -->` HTML comments
+plus prominent paragraph warnings at the top of each obsolete section
+pointing at the shipped surface (`RavenOrphanedTxIdReader`,
+`ReorgPipeline`). The counter list in §S4 was rewritten to match
+the shipped `OrphanedTxRebroadcastRecorder` method names exactly.
+
+### Final test counts after A2-followup revision
+
+- `Dxs.Bsv.Tests` 220/220 (no Bsv-side changes).
+- `Dxs.Consigliere.Tests` 346 passed (was 341 pre-A2-followup;
+  +2 from `OrphanedTxRebroadcasterTests.Coinbase_*` /
+  `NonCoinbase_*`, +3 from `ActiveTipPointerStartupTests`) + 24
+  explicit Skipped + 3 pre-existing baseline Raven-runtime failures
+  (unchanged).

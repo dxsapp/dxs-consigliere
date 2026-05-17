@@ -1,3 +1,4 @@
+#nullable enable
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -69,5 +70,37 @@ public sealed class BlockHeaderStore(IDocumentStore documentStore) : IBlockHeade
             .ToListAsync(ct);
         foreach (var doc in stale) session.Delete(doc);
         await session.SaveChangesAsync(ct);
+    }
+
+    public async Task SetActiveTipAsync(string blockHashHex, long height, CancellationToken ct = default)
+    {
+        using var session = documentStore.OpenAsyncSession();
+        var doc = await session.LoadAsync<BlockHeaderActiveTipDocument>(
+            BlockHeaderActiveTipDocument.DocumentId, ct);
+        if (doc is null)
+        {
+            doc = new BlockHeaderActiveTipDocument
+            {
+                Id = BlockHeaderActiveTipDocument.DocumentId,
+                BlockHashHex = blockHashHex,
+                Height = height,
+            };
+            await session.StoreAsync(doc, doc.Id, ct);
+        }
+        else
+        {
+            doc.BlockHashHex = blockHashHex;
+            doc.Height = height;
+        }
+        await session.SaveChangesAsync(ct);
+    }
+
+    public async Task<BlockHeaderActiveTip?> GetActiveTipAsync(CancellationToken ct = default)
+    {
+        using var session = documentStore.OpenAsyncSession();
+        var doc = await session.LoadAsync<BlockHeaderActiveTipDocument>(
+            BlockHeaderActiveTipDocument.DocumentId, ct);
+        if (doc is null) return null;
+        return new BlockHeaderActiveTip(doc.BlockHashHex, doc.Height);
     }
 }
