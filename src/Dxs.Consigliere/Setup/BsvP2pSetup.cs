@@ -1,4 +1,5 @@
 using Dxs.Bsv.P2p.Chain;
+using Dxs.Bsv.P2p.Observer;
 using Dxs.Consigliere.BackgroundTasks.P2p;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.P2p;
@@ -7,6 +8,7 @@ using Dxs.Consigliere.Services.P2p;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Dxs.Consigliere.Setup;
 
@@ -37,6 +39,15 @@ public static class BsvP2pSetup
             .AddSingleton<IHeadersBootstrapSource, WhatsOnChainHeadersBootstrapSource>()
             .AddSingleton<HeadersChainBootstrapper>()
             .AddHostedService<HeadersChainService>()
+            // Wave 2 — mempool observer (S2-S5)
+            .Configure<MempoolWatcherOptions>(configuration.GetSection("Consigliere:Broadcast:P2p:Mempool"))
+            .AddSingleton<PerSessionDispatcherRegistry>()
+            .AddSingleton<WatchlistMatcher>()
+            .AddSingleton<RavenWatchlistLoader>()
+            .AddSingleton<SourceObservationRecorder>()
+            .AddSingleton<MempoolWatcher>(sp =>
+                new MempoolWatcher(sp.GetRequiredService<IOptions<MempoolWatcherOptions>>().Value))
+            .AddHostedService<P2pMempoolIngestRunner>()
             // Wire P2P properties into BroadcastService after construction.
             .AddSingleton<BroadcastServiceP2pWirer>();
 

@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,37 +26,61 @@ namespace Dxs.Consigliere.Services.P2p;
 ///   we announced it, that's proof they're propagating it.
 /// - Drive state transitions: Dispatching → PeerAcked → PeerRelayed.
 ///
-/// The coordinator runs as a long-lived singleton and subscribes to
-/// inbound channel messages from every active <see cref="PeerSession"/>.
+/// Wave 2 S5.2 refactor: instead of running one
+/// <c>IncomingMessages</c> read loop per (txid, session) pair, the
+/// coordinator registers shared per-session handlers via
+/// <see cref="PerSessionFrameDispatcher"/> ONCE per session — every
+/// pending tx then reuses the same subscription. This eliminates the
+/// channel race between concurrent broadcast watchers AND between
+/// the coordinator and the W2 mempool runner (which is also a
+/// dispatcher consumer). Legacy path with the per-session read loop
+/// is preserved for tests that don't pass a dispatcher registry.
 /// </summary>
-public sealed class TxRelayCoordinator(
-    PeerManager peerManager,
-    OutgoingTransactionStore store,
-    ILogger<TxRelayCoordinator> logger)
+public sealed class TxRelayCoordinator
 {
+    private readonly PeerManager _peerManager;
+    private readonly OutgoingTransactionStore _store;
+    private readonly ILogger<TxRelayCoordinator> _logger;
+    private readonly PerSessionDispatcherRegistry? _dispatcherRegistry;
+
     // txid → raw hex bytes (populated during Dispatching)
     private readonly ConcurrentDictionary<string, byte[]> _pendingTx = new(StringComparer.OrdinalIgnoreCase);
 
-    // txid → (count of peers that sent relay-back inv)
+    // txid → count of peers that sent relay-back inv
     private readonly ConcurrentDictionary<string, int> _relayBackCount = new(StringComparer.OrdinalIgnoreCase);
+
+    // Sessions for which we've already attached dispatcher handlers.
+    private readonly ConcurrentDictionary<PeerSession, byte> _wiredSessions = new(ReferenceEqualityComparer.Instance);
+
+    public TxRelayCoordinator(
+        PeerManager peerManager,
+        OutgoingTransactionStore store,
+        ILogger<TxRelayCoordinator> logger,
+        PerSessionDispatcherRegistry? dispatcherRegistry = null)
+    {
+        _peerManager = peerManager;
+        _store = store;
+        _logger = logger;
+        _dispatcherRegistry = dispatcherRegistry;
+    }
 
     /// <summary>
     /// Announce a tx to all currently-ready peers, start listening for
     /// getdata on all their inbound channels, and update document state.
-    /// Returns when at least one peer has been served, or throws on total failure.
+    /// Returns the number of peers we successfully sent inv to.
     /// </summary>
     public async Task<int> AnnounceAsync(string txId, string rawHex, CancellationToken ct)
     {
         var rawBytes = Convert.FromHexString(rawHex);
         _pendingTx[txId] = rawBytes;
 
-        var sessions = peerManager.ActiveSessions.Values
+        var sessions = _peerManager.ActiveSessions.Values
             .Where(s => s.State == PeerSessionState.Ready)
             .ToList();
 
         if (sessions.Count == 0)
         {
-            logger.LogWarning("AnnounceAsync: no ready peers for {TxId}", txId);
+            _logger.LogWarning("AnnounceAsync: no ready peers for {TxId}", txId);
             return 0;
         }
 
@@ -71,12 +94,20 @@ public sealed class TxRelayCoordinator(
             {
                 await session.SendInvAsync(inv, ct);
                 served++;
-                // Subscribe the session's inbound channel to drive getdata / relay-back.
-                _ = WatchSessionAsync(session, txId, rawBytes, ct);
+
+                if (_dispatcherRegistry is not null)
+                {
+                    EnsureWiredViaDispatcher(session);
+                }
+                else
+                {
+                    // Legacy path: one read loop per (txid, session) pair.
+                    _ = WatchSessionLegacyAsync(session, txId, rawBytes, ct);
+                }
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Failed to announce {TxId} to {Peer}", txId, session.Remote);
+                _logger.LogDebug(ex, "Failed to announce {TxId} to {Peer}", txId, session.Remote);
             }
         }
 
@@ -90,11 +121,130 @@ public sealed class TxRelayCoordinator(
         _relayBackCount.TryRemove(txId, out _);
     }
 
-    private async Task WatchSessionAsync(PeerSession session, string txId, byte[] rawBytes, CancellationToken ct)
+    private void EnsureWiredViaDispatcher(PeerSession session)
+    {
+        if (!_wiredSessions.TryAdd(session, 0)) return; // already wired
+
+        var dispatcher = _dispatcherRegistry!.For(session);
+        dispatcher.Subscribe(P2pCommands.GetData, "tx-relay.getdata",
+            frame => HandleGetDataAsync(session, frame));
+        dispatcher.Subscribe(P2pCommands.Inv, "tx-relay.inv",
+            frame => HandleInvRelayBackAsync(session, frame));
+        dispatcher.Subscribe(P2pCommands.Reject, "tx-relay.reject",
+            frame => HandleRejectAsync(session, frame));
+    }
+
+    private async Task HandleGetDataAsync(PeerSession session, InboundFrame frame)
+    {
+        GetDataMessage getdata;
+        try { getdata = GetDataMessage.Parse(frame.Payload); }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "tx-relay: malformed getdata from {Peer}", session.Remote);
+            return;
+        }
+        foreach (var item in getdata.Items)
+        {
+            if (item.Type != InvType.Tx) continue;
+            var requestedTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
+            if (!_pendingTx.TryGetValue(requestedTxId, out var rawBytes)) continue;
+
+            session.Telemetry.RecordGetDataRequested(InvType.Tx, item.Hash);
+            var requestedAt = DateTime.UtcNow;
+            await session.SendTxAsync(rawBytes, CancellationToken.None);
+            session.Telemetry.RecordGetDataServed(InvType.Tx, item.Hash, DateTime.UtcNow - requestedAt);
+            _logger.LogInformation("Served {TxId} to {Peer}", requestedTxId, session.Remote);
+
+            await UpdatePeerAckedAsync(requestedTxId, session);
+        }
+    }
+
+    private async Task HandleInvRelayBackAsync(PeerSession session, InboundFrame frame)
+    {
+        InvMessage inv;
+        try { inv = InvMessage.Parse(frame.Payload); }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "tx-relay: malformed inv from {Peer}", session.Remote);
+            return;
+        }
+        foreach (var item in inv.Items)
+        {
+            if (item.Type != InvType.Tx) continue;
+            var seenTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
+            if (!_pendingTx.ContainsKey(seenTxId)) continue;
+
+            session.Telemetry.RecordRelayBackInv(item.Hash);
+
+            var count = _relayBackCount.AddOrUpdate(seenTxId, 1, (_, old) => old + 1);
+            _logger.LogDebug("Relay-back #{Count} for {TxId} from {Peer}", count, seenTxId, session.Remote);
+
+            if (count >= 2)
+            {
+                var doc = await _store.GetOrNullAsync(seenTxId);
+                if (doc is not null && doc.State == OutgoingTxState.PeerAcked)
+                {
+                    doc.State = OutgoingTxState.PeerRelayed;
+                    await _store.SaveAsync(doc);
+                }
+            }
+        }
+    }
+
+    private Task HandleRejectAsync(PeerSession session, InboundFrame frame)
     {
         try
         {
-            // Read messages from this session until it closes or tx is terminal.
+            var reject = RejectMessage.Parse(frame.Payload);
+            if (reject.Hash is not null)
+            {
+                var rejectedTxId = Convert.ToHexString(reject.Hash).ToLowerInvariant();
+                if (_pendingTx.ContainsKey(rejectedTxId))
+                {
+                    _logger.LogWarning("Peer {Peer} rejected {TxId}: {Code} {Reason}",
+                        session.Remote, rejectedTxId, reject.Code, reject.Reason);
+                    // OutgoingTransactionMonitor handles quorum-based terminal
+                    // classification.
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "tx-relay: malformed reject from {Peer}", session.Remote);
+        }
+        return Task.CompletedTask;
+    }
+
+    private async Task UpdatePeerAckedAsync(string txId, PeerSession session)
+    {
+        var doc = await _store.GetOrNullAsync(txId);
+        if (doc is null || doc.State != OutgoingTxState.Dispatching) return;
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var attempt = doc.PeerAttempts.Find(a => a.PeerEndpoint == session.Remote.ToString());
+        if (attempt is not null)
+        {
+            attempt.GetDataServedAtMs = nowMs;
+        }
+        else
+        {
+            doc.PeerAttempts.Add(new PeerAttempt
+            {
+                PeerEndpoint = session.Remote.ToString(),
+                AnnouncedAtMs = nowMs,
+                GetDataServedAtMs = nowMs,
+            });
+        }
+        doc.State = OutgoingTxState.PeerAcked;
+        await _store.SaveAsync(doc);
+    }
+
+    // --- Legacy per-session read loop, preserved for tests that
+    // instantiate the coordinator without a dispatcher registry.
+
+    private async Task WatchSessionLegacyAsync(PeerSession session, string txId, byte[] rawBytes, CancellationToken ct)
+    {
+        try
+        {
             await foreach (var frame in session.IncomingMessages.ReadAllAsync(ct))
             {
                 if (frame.Command == P2pCommands.GetData)
@@ -106,38 +256,17 @@ public sealed class TxRelayCoordinator(
                         var requestedTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
                         if (!requestedTxId.Equals(txId, StringComparison.OrdinalIgnoreCase)) continue;
 
-                        // Telemetry: peer asked us for this tx (per-session direct
-                        // sink call — see Wave 1 S0.7).
                         session.Telemetry.RecordGetDataRequested(InvType.Tx, item.Hash);
                         var requestedAt = DateTime.UtcNow;
-
-                        // Serve the tx
                         await session.SendTxAsync(rawBytes, ct);
                         session.Telemetry.RecordGetDataServed(InvType.Tx, item.Hash, DateTime.UtcNow - requestedAt);
-                        logger.LogInformation("Served {TxId} to {Peer}", txId, session.Remote);
+                        _logger.LogInformation("Served {TxId} to {Peer}", txId, session.Remote);
 
-                        // Update PeerAcked state in store
-                        var doc = await store.GetOrNullAsync(txId, ct);
-                        if (doc is not null && doc.State == OutgoingTxState.Dispatching)
-                        {
-                            var attempt = doc.PeerAttempts.Find(a => a.PeerEndpoint == session.Remote.ToString());
-                            if (attempt is not null)
-                                attempt.GetDataServedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                            else
-                                doc.PeerAttempts.Add(new PeerAttempt
-                                {
-                                    PeerEndpoint = session.Remote.ToString(),
-                                    AnnouncedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                                    GetDataServedAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                                });
-                            doc.State = OutgoingTxState.PeerAcked;
-                            await store.SaveAsync(doc, ct);
-                        }
+                        await UpdatePeerAckedAsync(txId, session);
                     }
                 }
                 else if (frame.Command == P2pCommands.Inv)
                 {
-                    // Check if peer is relaying our tx back to us.
                     var inv = InvMessage.Parse(frame.Payload);
                     foreach (var item in inv.Items)
                     {
@@ -145,20 +274,18 @@ public sealed class TxRelayCoordinator(
                         var seenTxId = Convert.ToHexString(item.Hash).ToLowerInvariant();
                         if (!_pendingTx.ContainsKey(seenTxId)) continue;
 
-                        // Telemetry: peer is relaying our tx back (per-session direct
-                        // sink call — see Wave 1 S0.7).
                         session.Telemetry.RecordRelayBackInv(item.Hash);
 
                         var count = _relayBackCount.AddOrUpdate(seenTxId, 1, (_, old) => old + 1);
-                        logger.LogDebug("Relay-back #{Count} for {TxId} from {Peer}", count, seenTxId, session.Remote);
+                        _logger.LogDebug("Relay-back #{Count} for {TxId} from {Peer}", count, seenTxId, session.Remote);
 
                         if (count >= 2)
                         {
-                            var doc = await store.GetOrNullAsync(seenTxId, ct);
+                            var doc = await _store.GetOrNullAsync(seenTxId, ct);
                             if (doc is not null && doc.State == OutgoingTxState.PeerAcked)
                             {
                                 doc.State = OutgoingTxState.PeerRelayed;
-                                await store.SaveAsync(doc, ct);
+                                await _store.SaveAsync(doc, ct);
                             }
                         }
                     }
@@ -171,9 +298,8 @@ public sealed class TxRelayCoordinator(
                         var rejectedTxId = Convert.ToHexString(reject.Hash).ToLowerInvariant();
                         if (rejectedTxId.Equals(txId, StringComparison.OrdinalIgnoreCase))
                         {
-                            logger.LogWarning("Peer {Peer} rejected {TxId}: {Code} {Reason}",
+                            _logger.LogWarning("Peer {Peer} rejected {TxId}: {Code} {Reason}",
                                 session.Remote, txId, reject.Code, reject.Reason);
-                            // Let OutgoingTransactionMonitor handle quorum-based terminal classification.
                         }
                     }
                 }
@@ -182,7 +308,7 @@ public sealed class TxRelayCoordinator(
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "WatchSessionAsync error for {TxId} on {Peer}", txId, session.Remote);
+            _logger.LogDebug(ex, "WatchSessionAsync error for {TxId} on {Peer}", txId, session.Remote);
         }
     }
 }
