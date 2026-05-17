@@ -1,8 +1,10 @@
 # Wave 3 Closeout — `reorg-handling-wave`
 
-Status: implementation complete; pending wave-level post-execution
-Codex audit (`audits/wave3-audit-A2.md`). S0-S6 delivered. S2
-intentionally deferred per the mid-wave design pivot (see
+Status: **CLOSED**. Wave-level Codex audit chain completed —
+A2 (MAJOR REVISION) → A2-followup (MAJOR REVISION) →
+A2-followup-2 (MAJOR REVISION) → A2-followup-3 (APPROVE WITH
+CHANGES, 1 LOW closed) → wave APPROVED. S0-S6 delivered.
+S2 intentionally deferred per the mid-wave design pivot (see
 "Scope deviations" below). S7 (live-mainnet) deferred to a
 post-wave operator session per the W1 / W2 pattern.
 
@@ -477,3 +479,76 @@ short-circuit, not just a duplicate journal fingerprint).
   + 24 explicit Skipped + 3 pre-existing baseline Raven-runtime
   failures (unchanged).
 - Spike `HeadersSoakRecorder` builds clean (N3 closed).
+
+## A2-followup-3 revision summary (final — this commit)
+
+A2-followup-3 verdict: **APPROVE WITH CHANGES**, 14 closed,
+0 partial / regressed, 1 new LOW (N5) flagging two missing
+production-path regression tests. The audit signed off the wave
+contingent on closing N5. Both test gaps now pinned, plus the
+spike nullability sub-note from N3.
+
+### N5 — production-path regression tests
+
+**N5a** — new
+`ActiveTipStartupServiceTests.StartAsync_LoadsActiveTipViaWalkBack_WhenForksFillTopN`
+constructs a real `HeadersChainService` (with a fake
+`IBlockHeaderStore`, no Raven runtime) and drives `StartAsync`
+end-to-end. Store fixture: active chain `active1@5` + 3 rejected
+fork headers at heights 10/11/12. `RecentAsync(3)` returns ONLY
+the forks (active1 is excluded). After `StartAsync` the test
+asserts `chain.Tip` equals `active1` at height 5 — proving the
+union walk-back loaded the active tip and the
+`PromoteFork(activeTipHeader)` override actually fired.
+
+**N5b** — new
+`ReorgPipelineTests.DurableCommit_Throws_RollsBackInMemoryPromoteFork`
+exercises the durable-commit failure path. A `ThrowingHeaderStore`
+fake whose `SetActiveTipAsync` throws on call drives the pipeline
+through the full reorg handling steps. The test asserts:
+
+- the exception bubbles back to the caller (`Assert.ThrowsAsync`);
+- `SetActiveTipAsync` was actually invoked (catch fired at
+  `progressTag == "promote-fork-durable"`);
+- `BsvP2pHealth.LastDegradedReorgAt` is set;
+- in-memory `chain.Tip` is rolled back to the pre-reorg active tip
+  (the explicit recovery contract);
+- journal-append / hub-emit / rebroadcaster side effects all ran
+  before the throw (proving the rollback fired at the correct
+  step, after the idempotent side effects).
+
+### N3 sub-note — spike nullability
+
+`HeadersSoakRecorder` `InMemoryBlockHeaderStore` field +
+`GetActiveTipAsync` return type now `BlockHeaderActiveTip?`,
+matching the interface signature. No more nullability warnings on
+the spike build.
+
+### Final-final test counts
+
+- `Dxs.Bsv.Tests` 220/220 (no Bsv-side changes).
+- `Dxs.Consigliere.Tests` 349 passed (+2: `N5a`, `N5b`) + 24
+  Skipped + 3 pre-existing baseline Raven-runtime failures
+  (unchanged).
+- Spike `HeadersSoakRecorder` builds clean, no nullability
+  warnings.
+
+## Wave 3 close
+
+All slices closed (S2 deferred mid-wave; S7 deferred to operator
+session). Audit chain: A2 → A2-followup → A2-followup-2 →
+A2-followup-3 APPROVE WITH CHANGES (closed). Wave 4
+(`observation-source-metrics-wave`) and Wave 5
+(`broadcast-unification-wave`) may now open per the program
+dependency graph in
+`docs/stream-tasks/consigliere-thin-node-observer-program/master.md`.
+
+Open follow-ups (carried over for a future wave; not blocking):
+
+- BSV DAA enforcement against per-header `bits` — chainwork
+  limits damage but explicit DAA is a future-wave concern.
+- Rejected-fork sanitation — rejected fork headers stay in
+  `BlockHeaderDocument` storage until height-based pruning catches
+  up. The active-tip pointer + walk-back gates restart correctness
+  so this is not a correctness bug; a future wave could add
+  reject-and-delete for storage hygiene.

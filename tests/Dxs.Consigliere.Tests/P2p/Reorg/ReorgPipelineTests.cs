@@ -11,6 +11,8 @@ using Dxs.Bsv.P2p.Messages;
 using Dxs.Common.Journal;
 using Dxs.Consigliere.BackgroundTasks.Blocks;
 using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Data.Models.P2p;
+using Dxs.Consigliere.Data.P2p;
 using Dxs.Consigliere.Services.P2p;
 using Dxs.Consigliere.WebSockets;
 
@@ -323,6 +325,80 @@ public class ReorgPipelineTests
         Assert.Equal(DisplayHex(fork[1]), DisplayHex(chain.Tip!));
         Assert.Equal(appendsAfterFirst, appender.Requests.Count);
         Assert.Equal(reorgsAfterFirst, hub.Reorgs.Count);
+    }
+
+    private sealed class ThrowingHeaderStore : IBlockHeaderStore
+    {
+        public bool SetActiveTipAsyncCalled;
+        public Task SaveAsync(BlockHeaderDocument doc, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<BlockHeaderDocument> GetByHashAsync(string hashHex, CancellationToken ct = default)
+            => Task.FromResult<BlockHeaderDocument>(null!);
+        public Task<BlockHeaderDocument> GetTipAsync(CancellationToken ct = default)
+            => Task.FromResult<BlockHeaderDocument>(null!);
+        public Task<IReadOnlyList<BlockHeaderDocument>> RecentAsync(int count, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<BlockHeaderDocument>>(new List<BlockHeaderDocument>());
+        public Task PruneBelowAsync(long minHeight, CancellationToken ct = default) => Task.CompletedTask;
+        public Task SetActiveTipAsync(string blockHashHex, long height, CancellationToken ct = default)
+        {
+            SetActiveTipAsyncCalled = true;
+            throw new System.InvalidOperationException("simulated durable-commit failure");
+        }
+        public Task<BlockHeaderActiveTip?> GetActiveTipAsync(CancellationToken ct = default)
+            => Task.FromResult<BlockHeaderActiveTip?>(null);
+    }
+
+    [Fact]
+    public async Task DurableCommit_Throws_RollsBackInMemoryPromoteFork()
+    {
+        // Audit W3 A2-followup-3 N5b fix: pin the rollback path.
+        // SetActiveTipAsync at Step 8 ("promote-fork-durable") throws.
+        // The catch block must:
+        //   (a) mark health degraded;
+        //   (b) roll back the in-memory PromoteFork via the captured
+        //       preReorgTip;
+        //   (c) re-throw the exception.
+        // After the throw, chain.Tip is back at the pre-reorg active tip
+        // and a subsequent header arrival can replay the plan (the
+        // detector will see the still-stored fork as a Fork again).
+        var (chain, genesis, active, fork) = BuildOneDeepForkScenario();
+        var preReorgTipHex = DisplayHex(chain.Tip!);
+
+        var detector = new ReorgDetector();
+        var appender = new CapturingBlockAppender();
+        var journal = new BlockObservationJournalWriter(appender);
+        var reader = new FakeTxIdReader();
+        reader.ByBlockHash[DisplayHex(active[0])] = new[] { "tx-a1-1" };
+        var (hubCtx, hubClient) = BuildHub();
+        var rebroadcaster = new CapturingRebroadcaster();
+        var health = new BsvP2pHealth();
+        var throwingStore = new ThrowingHeaderStore();
+        var pipeline = new ReorgPipeline(
+            detector, chain, reader, journal, hubCtx.Object, rebroadcaster, health,
+            NullLogger<ReorgPipeline>.Instance,
+            headerStore: throwingStore);
+
+        await Assert.ThrowsAsync<System.InvalidOperationException>(
+            () => pipeline.HandleForkObservedAsync(fork[1], CancellationToken.None));
+
+        // The durable commit was attempted (step reached "promote-fork-durable").
+        Assert.True(throwingStore.SetActiveTipAsyncCalled);
+
+        // Health flagged degraded.
+        Assert.NotNull(health.LastDegradedReorgAt);
+
+        // Rollback: in-memory tip is back at the pre-reorg active tip.
+        Assert.Equal(preReorgTipHex, DisplayHex(chain.Tip!));
+
+        // Side effects that ran before the throw stay (journal +
+        // hub + rebroadcast) because they're idempotent by
+        // construction — the catch block doesn't undo them; replay
+        // safety comes from the dedupe fingerprint + dedupe in the
+        // rebroadcaster. We just assert here that the THROW landed
+        // after the hub + rebroadcast steps, confirming the
+        // "promote-fork-durable" position.
+        Assert.Single(appender.Requests);
+        Assert.Single(hubClient.Reorgs);
+        Assert.Equal(1, rebroadcaster.CallCount);
     }
 
     [Fact]

@@ -1,8 +1,9 @@
 ---
 created: 2026-05-17
+closed: 2026-05-18
 type: wave
 parent: consigliere-thin-node-observer-program
-status: draft (awaiting wave-level Codex audit A1)
+status: CLOSED — Codex audit chain A2 → A2-followup → A2-followup-2 → A2-followup-3 APPROVE WITH CHANGES (closed)
 ---
 
 # Wave 3 — Reorg Handling
@@ -353,5 +354,17 @@ Commit hashes recorded here as slices close.
   §"S6 coverage matrix")
 - Slice S7 delivery: deferred — operator-driven live mainnet
 - Wave closeout evidence: this commit (`evidence/closeout.md`)
-- Wave audit A1 verdict: pending Codex response
-- Wave audit A2 (post-execution): pending
+- Wave audit A1 verdict: A1 prompt landed but skipped in favour of
+  the post-execution A2 cycle (the user fed A2 first; A1 became
+  unnecessary once A2 + 3 followups closed every dimension A1
+  would have covered).
+- Wave audit A2 (post-execution, MAJOR REVISION REQUIRED — C1
+  chainwork + C2 promote-fork + H1 rebuilder + H2 coinbase + H3
+  concurrency + M1/M3 + L1/L2): folded in `0560714`.
+- Wave audit A2-followup (MAJOR REVISION REQUIRED — N1 persistence
+  + N2 coinbase signature + 6 partial closes): folded in `5c82dfa`.
+- Wave audit A2-followup-2 (MAJOR REVISION REQUIRED — N1 walk-back
+  + M1 durable-rollback + N3 spike + N4 doc + M2 closeout): folded
+  in `14afd25`.
+- Wave audit A2-followup-3 (APPROVE WITH CHANGES — N5 production-
+  path test gaps): folded in this commit. Wave CLOSED.

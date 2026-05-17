@@ -293,13 +293,15 @@ file sealed class InMemoryBlockHeaderStore : IBlockHeaderStore
 
     // W3 A2-followup N1: persistent active-tip pointer. Spike doesn't
     // exercise restart-tip semantics — minimal in-memory backing field.
-    private BlockHeaderActiveTip _activeTip;
+    // Nullable per the interface signature (A2-followup-3 spike-
+    // nullability note).
+    private BlockHeaderActiveTip? _activeTip;
     public Task SetActiveTipAsync(string blockHashHex, long height, CancellationToken ct = default)
     {
         _activeTip = new BlockHeaderActiveTip(blockHashHex, height);
         return Task.CompletedTask;
     }
-    public Task<BlockHeaderActiveTip> GetActiveTipAsync(CancellationToken ct = default)
+    public Task<BlockHeaderActiveTip?> GetActiveTipAsync(CancellationToken ct = default)
         => Task.FromResult(_activeTip);
 }
 
