@@ -147,4 +147,43 @@ public class TxObservationJournalWriterSourceNeutralTests
         Assert.Single(appender.Requests);
         Assert.Equal(payload, appender.Requests[0].Observation.PayloadReference);
     }
+
+    private sealed class DuplicateAppender : IObservationJournalAppender<ObservationJournalEntry<TxObservation>>
+    {
+        public int CallCount;
+        public ValueTask<ObservationJournalAppendResult> AppendAsync(
+            ObservationJournalAppendRequest<ObservationJournalEntry<TxObservation>> request,
+            CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            // Simulate the journal recognising the entry as a duplicate.
+            return ValueTask.FromResult(new ObservationJournalAppendResult(new JournalSequence(CallCount), isDuplicate: true));
+        }
+    }
+
+    [Fact]
+    public async Task AppendAsync_SourceNeutral_ReturnsFalseWhenJournalReportsDuplicate()
+    {
+        // Audit W2 S0-A1 H1: the overload must propagate
+        // ObservationJournalAppendResult.IsDuplicate to the caller so
+        // dedupe semantics flow through. A duplicate write is a
+        // successful no-op at the journal but counts as "no new
+        // observation recorded" from the caller's perspective.
+        var appender = new DuplicateAppender();
+        var writer = new TxObservationJournalWriter(
+            appender,
+            new NullPayloadStore(),
+            Options.Create(new ConsigliereStorageConfig()),
+            NullLogger<TxObservationJournalWriter>.Instance);
+
+        var obs = new TxObservation(
+            TxObservationEventType.SeenInMempool,
+            TxObservationSource.P2p,
+            "tx-dup");
+
+        var ok = await writer.AppendAsync(obs, payload: null, TxObservationSource.P2p);
+
+        Assert.False(ok);
+        Assert.Equal(1, appender.CallCount);
+    }
 }

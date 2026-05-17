@@ -1,3 +1,4 @@
+#nullable enable
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.Journal;
 using Dxs.Consigliere.Configs;
@@ -55,7 +56,7 @@ public sealed class TxObservationJournalWriter(
     /// asserts the two agree.</param>
     public async Task<bool> AppendAsync(
         TxObservation observation,
-        RawTransactionPayloadReference payload,
+        RawTransactionPayloadReference? payload,
         string source,
         CancellationToken cancellationToken = default)
     {
@@ -76,8 +77,14 @@ public sealed class TxObservationJournalWriter(
             BuildFingerprint(observation)
         );
 
-        await observationJournal.AppendAsync(request, cancellationToken);
-        return true;
+        // Audit W2 S0-A1 H1: propagate IsDuplicate to the caller —
+        // a duplicate write is a successful no-op at the journal but
+        // an unsuccessful append from the caller's perspective (no new
+        // observation was recorded). Returning false also matches the
+        // S0.2 spec ("Returns true on append, false on duplicate or
+        // invalid input").
+        var result = await observationJournal.AppendAsync(request, cancellationToken);
+        return !result.IsDuplicate;
     }
 
     private async Task<RawTransactionPayloadReference> TryPersistPayloadAsync(TxMessage message, CancellationToken cancellationToken)
