@@ -74,15 +74,24 @@ public class HeadersChainServiceTests : RavenTestDriver
         HeadersChain chain,
         BlockHeaderStore store,
         INewBlockNotifier notifier,
-        HeadersChainOptions? options = null)
+        HeadersChainOptions? options = null,
+        IHeadersBootstrapSource? bootstrapSource = null)
     {
         var health = new BsvP2pHealth();
+        var opts = Options.Create(options ?? new HeadersChainOptions());
+        var bootstrapper = new HeadersChainBootstrapper(
+            chain,
+            store,
+            bootstrapSource ?? new NoopHeadersBootstrapSource(),
+            opts,
+            NullLogger<HeadersChainBootstrapper>.Instance);
         return new HeadersChainService(
             health,
             chain,
-            Options.Create(options ?? new HeadersChainOptions()),
+            opts,
             store,
             notifier,
+            bootstrapper,
             Options.Create(new BsvP2pConfig { Enabled = true }),
             NullLogger<HeadersChainService>.Instance);
     }

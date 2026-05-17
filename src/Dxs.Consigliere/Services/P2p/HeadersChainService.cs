@@ -48,6 +48,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
     private readonly HeadersChainOptions _options;
     private readonly BlockHeaderStore _store;
     private readonly INewBlockNotifier _notifier;
+    private readonly HeadersChainBootstrapper _bootstrapper;
     private readonly BsvP2pConfig _p2pConfig;
     private readonly ILogger<HeadersChainService> _logger;
 
@@ -65,6 +66,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
         IOptions<HeadersChainOptions> options,
         BlockHeaderStore store,
         INewBlockNotifier notifier,
+        HeadersChainBootstrapper bootstrapper,
         IOptions<BsvP2pConfig> p2pOptions,
         ILogger<HeadersChainService> logger)
     {
@@ -73,6 +75,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
         _options = options.Value;
         _store = store;
         _notifier = notifier;
+        _bootstrapper = bootstrapper;
         _p2pConfig = p2pOptions.Value;
         _logger = logger;
     }
@@ -102,6 +105,12 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
             // from "store unavailable".
             _chain.LoadFromStore(Array.Empty<(BlockHeader, long)>());
         }
+
+        // Optional warm-start bootstrap from an external source
+        // (Bitails REST). No-op when SeedFromBitails=false or chain is
+        // already populated. See HeadersChainBootstrapper for semantics.
+        try { await _bootstrapper.BootstrapAsync(cancellationToken); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Bootstrap pass failed; continuing with pure-P2P cold start"); }
 
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _loop = Task.Run(() => RunAsync(_cts.Token), CancellationToken.None);

@@ -33,6 +33,8 @@ public static class BsvP2pSetup
                 new HeadersChain(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<HeadersChainOptions>>().Value))
             .AddSingleton<BlockHeaderStore>()
             .AddSingleton<INewBlockNotifier, NullNewBlockNotifier>()
+            .AddSingleton<IHeadersBootstrapSource, NoopHeadersBootstrapSource>()
+            .AddSingleton<HeadersChainBootstrapper>()
             .AddHostedService<HeadersChainService>()
             // Wire P2P properties into BroadcastService after construction.
             .AddSingleton<BroadcastServiceP2pWirer>();
