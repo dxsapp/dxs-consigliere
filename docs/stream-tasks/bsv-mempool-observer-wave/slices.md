@@ -47,9 +47,11 @@ public async Task<bool> AppendAsync(
 Semantics:
 
 - The existing `AppendAsync(TxMessage, CancellationToken)` overload
-  stays. Bitails / JungleBus runners continue to use it in W2;
-  S6 only adjusts how they populate `TxMessage.Source` so it flows
-  through to the same fingerprint.
+  stays. Bitails / JungleBus runners continue to use it in W2
+  **without any production-code change** (audit W2 M2 reconciliation
+  — inspection confirmed both already construct `TxMessage` with
+  the correct source constant). S6 only adds source-tag regression
+  assertions to their existing test files; no migration.
 - The new overload takes an already-built `TxObservation` (caller
   populates `Source` to one of the `TxObservationSource` constants),
   an optional payload reference (null when raw bytes weren't
@@ -289,28 +291,70 @@ ticks.
     txid)`, call new journal overload, also persist raw bytes via
     `IRawTransactionPayloadStore` when configured.
 
-### Payload-size policy (audit W2 M4)
+### Payload-size policy (audit W2 M4 + followup)
 
 BSV transactions routinely exceed the legacy 2 MiB
 `PeerSessionConfig.InitialMaxRecvPayloadLength` default. W2 must
-have an explicit policy:
+have an explicit, fully-owned config path.
 
-- Add `MempoolWatcherOptions.MaxFetchedTxBytes` config knob,
-  default `32 * 1024 * 1024` (32 MiB — matches the BSV mainnet
-  default mempool acceptance limit; operators may raise it).
-- `BsvP2pSetup` propagates this value into the
-  `PeerSessionConfig.InitialMaxRecvPayloadLength` Consigliere uses
-  for outbound peer sessions, so the session-layer frame reader
-  accepts the larger payload.
-- Oversize-tx behaviour: if a peer's `tx` frame exceeds the
-  configured maximum, the session ends with
-  `DisconnectReason.ProtocolViolation` (existing Wave 1 behaviour);
-  the mempool runner's getdata-timeout path triggers and the
-  recorder increments `OversizePayloadCount` (new explicit counter
-  on `SourceObservationRecorder`).
-- Add a `MempoolWatcherOptions.MaxFetchedTxBytes` validation:
-  emit a startup warning if it's set below 4 MiB (most modern BSV
-  mempools see legitimate tx beyond the legacy 2 MiB cap).
+**Config knob ownership.** S4 adds a new config field to the
+existing `src/Dxs.Consigliere/Configs/BsvP2pConfig.cs`:
+
+```csharp
+public sealed class BsvP2pConfig
+{
+    // ... existing fields (PoolSize, Network, UserAgent, etc.) ...
+
+    /// <summary>
+    /// Maximum P2P tx payload accepted by mempool observation
+    /// (audit W2 M4). Default 32 MiB — matches BSV mainnet
+    /// typical mempool acceptance ceiling; operators may raise.
+    /// Propagates into PeerSessionConfig.InitialMaxRecvPayloadLength
+    /// at session construction time (see BsvP2pHostedService).
+    /// </summary>
+    public int MempoolMaxFetchedTxBytes { get; set; } = 32 * 1024 * 1024;
+}
+```
+
+**Propagation path.** S5 (the slice that wires the runner) also
+edits `src/Dxs.Consigliere/Services/P2p/BsvP2pHostedService.cs`
+lines ~66-80 where `PeerSessionConfig` is constructed:
+
+```csharp
+SessionConfig = new PeerSessionConfig
+{
+    ConnectTimeout = TimeSpan.FromMilliseconds(_config.ConnectTimeoutMs),
+    HandshakeTimeout = TimeSpan.FromMilliseconds(_config.HandshakeTimeoutMs),
+    SendProtoconfAfterVerack = _config.SendProtoconfAfterVerack,
+    // Audit W2 M4: raise the inbound payload cap so mempool tx
+    // beyond the legacy 2 MiB legacy default still get accepted.
+    InitialMaxRecvPayloadLength = _config.MempoolMaxFetchedTxBytes,
+},
+```
+
+`MempoolWatcherOptions.MaxFetchedTxBytes` mirrors the same value
+so the watcher's sanity-check is the same as the session's actual
+ceiling. Production DI binds them from the single config field.
+
+**Failure mode distinction (audit W2 M4 followup).** The runner
+must distinguish three outcomes per outstanding `getdata`:
+
+| Outcome | Trigger | Recorder counter | Session effect |
+|---|---|---|---|
+| `Served` | matching `tx` frame arrives within `GetDataTimeoutMs` | `ServedCount` | session stays alive |
+| `OversizeRejected` | inbound frame exceeds `MempoolMaxFetchedTxBytes` and `PeerSession.ReceiveLoopAsync` raises `P2pDecodeException("Inbound payload … exceeds limit …")` → session ends with `DisconnectReason.ProtocolViolation` | `OversizePayloadCount` | session disconnects (Wave 1 behaviour) |
+| `Timeout` | no `tx` frame and no disconnect within `GetDataTimeoutMs` (peer silently dropped or is slow) | `GetDataTimeoutCount` | session stays alive |
+
+The recorder distinguishes these so an operator can tell a busted
+peer from a real oversize tx; W4's metrics surface will read all
+three counters. The one-shot dispatcher handler (S5) inspects
+the session's `Completion.Status` and `LastDisconnectReason` at
+timeout to classify between `OversizeRejected` and `Timeout`.
+
+**Operator-warning rule.** Startup emits a warning if
+`BsvP2pConfig.MempoolMaxFetchedTxBytes` is set below 4 MiB —
+most modern BSV mempools see legitimate tx beyond the legacy
+2 MiB cap. The warning is in `BsvP2pHostedService.StartAsync`.
 
 ### Owned paths (S4)
 
@@ -398,6 +442,45 @@ public sealed class PerSessionFrameDispatcher
   creates one dispatcher per Ready session and starts its
   `RunAsync` task; tears down on session completion.
 
+#### Subscriber failure-isolation semantics (audit W2 followup new-M1)
+
+The dispatcher is the shared delivery path for `TxRelayCoordinator`
+AND `MempoolWatcher` (and future consumers). One handler throwing
+must not break the others or stop `RunAsync` — that would just
+swap the channel-race risk for a cross-subscriber coupling risk.
+
+Required dispatcher behaviour:
+
+- **Per-subscriber try/catch.** The dispatcher wraps every
+  `handler(frame)` invocation in `try { await handler(frame); }
+  catch (Exception ex) { logger.LogWarning(ex, ...); }`. The
+  exception is logged with the handler's command + a stable
+  subscriber-id (a short tag passed at `Subscribe()` time, e.g.
+  `"tx-relay"`, `"mempool-watcher.tx"`).
+- **A failed handler does not stop `RunAsync`.** The outer read
+  loop continues to the next frame. The only conditions that end
+  `RunAsync` are: the channel completing (session disconnect) or
+  `ct` being cancelled.
+- **A failed handler does not block later subscribers.** Fan-out
+  is sequential and each subscriber invocation is independent;
+  the next subscriber gets called regardless of the prior one's
+  outcome.
+- **Sequential fan-out is the policy.** Slow handlers do apply
+  backpressure to all subscribers on the same session (handler N+1
+  doesn't start until handler N completes), which is acceptable
+  for W2's tx-frame-handler workload — handlers are expected to
+  schedule async work (journal append, telemetry) and return
+  quickly. The runner's per-txid handler is one-shot and
+  unsubscribes after fire; it should not retain the dispatcher
+  for slow work.
+- **`Subscribe()` returns an `IDisposable`** whose `Dispose()` is
+  idempotent and thread-safe; un-subscription mid-frame is OK
+  (the in-flight invocation completes; subsequent frames skip it).
+- **Subscribe-time tag.** Update API: `Subscribe(string command,
+  string subscriberTag, Func<InboundFrame, Task> handler)`. The
+  tag is used in error logs and in race-regression test
+  assertions to verify the right handler fired.
+
 ### S5.2 — `TxRelayCoordinator` migrates to use the dispatcher
 
 `TxRelayCoordinator.WatchSessionAsync` currently reads
@@ -463,6 +546,17 @@ freeze).
     (proves fan-out, not channel race)
   - dispose handle stops delivery to that subscriber, other
     subscribers continue
+  - **throwing subscriber is isolated** (audit followup new-M1):
+    subscriber A throws on first frame; subscriber B is also
+    registered on the same command. Send two frames. Assert:
+    A got frame 1 (and threw); B got frame 1; both got frame 2;
+    `RunAsync` is still alive; error log emitted once with
+    subscriber-id `A`.
+  - **slow subscriber doesn't crash** but does apply per-session
+    backpressure: subscriber A awaits a `TaskCompletionSource`
+    before returning. Send frame 1. Subscriber B does not receive
+    frame 2 until A's task completes. (Documents the sequential
+    fan-out policy; not a defect.)
 - **Race regression test** (`TxRelayCoordinator` + mempool
   runner on the same session, runtime-gated):
   - drive a tx via `TxRelayCoordinator.AnnounceAsync` (Gate 3

@@ -155,15 +155,21 @@ Validation covers:
 - `src/Dxs.Consigliere/Services/P2p/P2pMempoolIngestRunner.cs` (new) —
   `IHostedService`, parallel to `BitailsRealtimeIngestRunner`
 - `src/Dxs.Consigliere/Services/P2p/RavenWatchlistLoader.cs` (new) —
-  initial load + Raven Subscription hot-reload of `WatchingAddress` /
-  `WatchingToken` into the in-memory matcher
+  initial load + **Raven Changes API** hot-reload of
+  `WatchingAddress` / `WatchingToken` into the in-memory matcher
+  (Raven Subscription API was the initial draft; replaced with
+  Changes API per audit W2 H2 — matches the existing
+  `StasAttributesChangeObserverTask` pattern)
 - `src/Dxs.Bsv/BitcoinMonitor/Models/TxObservation.cs` — add `P2p`
   source constant
 - `src/Dxs.Consigliere/BackgroundTasks/TxObservationJournalWriter.cs`
   — add source-neutral append overload
 - `src/Dxs.Consigliere/BackgroundTasks/Realtime/*` — Bitails/JBus
-  runners get a small adjustment to tag observations with explicit
-  source strings (cleanup; no behavioural change)
+  runner production code stays **unchanged** in W2; both runners
+  already construct `TxMessage` with the correct
+  `TxObservationSource.Bitails` / `TxObservationSource.JungleBus`
+  constants. W2 only adds source-tag regression assertions to
+  the existing runner test files (audit W2 M2 reconciliation)
 
 **Out of scope.** Per-source metrics dashboard (W4). Reorg state
 transitions (W3). Watchlist UI management (already exists in

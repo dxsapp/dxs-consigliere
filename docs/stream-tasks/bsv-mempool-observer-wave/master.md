@@ -56,8 +56,13 @@ In scope:
   outputs against `WatchingToken.TokenId` when any token is watched
   (same limitation as today's Bitails realtime scope).
 - `RavenWatchlistLoader` — initial bulk load from `WatchingAddress` /
-  `WatchingToken` and hot-reload via Raven Subscription API; pushes
-  add / remove deltas into the matcher.
+  `WatchingToken` and hot-reload via the **Raven Changes API** —
+  same primitive as
+  `src/Dxs.Consigliere/BackgroundTasks/StasAttributesChangeObserverTask.cs`,
+  listening for `DocumentChangeTypes.Put` and `DocumentChangeTypes.Delete`
+  on each collection. Pushes add / remove deltas into the matcher.
+  (Raven Subscription API was the initial draft but does not fit
+  the watchlist remove path — see `slices.md` §S3 and audit W2 H2.)
 - `TxScriptParser` — extracts P2PKH `Hash160` from outputs + inputs,
   and parses token outputs sufficient to read `TokenId`. Reuses
   primitives from `src/Dxs.Bsv/Script/` where they exist.
@@ -125,19 +130,34 @@ Out of scope:
    the (rare) 8-byte prefix collision. No bloom filter in this
    program — sized for ≤ 500 K addresses with 1 M as the soft
    upper-bound benchmark.
-4. **Watchlist is hot-reloaded from Raven.** `RavenWatchlistLoader`
-   uses Raven Subscription API to push add / remove deltas into the
-   in-memory matcher without restart. Removal of a watched address
-   while the observer is running must produce no false matches on
-   the next observed tx.
+4. **Watchlist is hot-reloaded from Raven via Changes API.**
+   `RavenWatchlistLoader` listens on
+   `store.Changes().ForDocumentsInCollection("WatchingAddresses")`
+   and the equivalent for `WatchingTokens`, filtering on
+   `DocumentChangeTypes.Put` and `DocumentChangeTypes.Delete` —
+   same pattern as the existing
+   `StasAttributesChangeObserverTask`. Removal of a watched
+   address while the observer is running must produce no false
+   matches on the next observed tx. Raven Subscription API is
+   NOT used (see audit W2 H2: its delete-stream semantics don't
+   fit the remove path; Changes API is the right primitive).
 5. **Token matching widens scope.** If any `WatchingToken` is
    present, the matcher parses every observed tx output for token
    markers (same as today's Bitails realtime scope provider). This
    is acceptable because token watchlists are typically small and
    the parsing cost is dominated by IO.
-6. **Bitails / JungleBus runners stay alive.** Their behaviour does
-   not change in W2 beyond explicit source-tagging through the new
-   journal overload. Per-source metrics (W4) will measure each
+6. **Bitails / JungleBus runners stay alive — no production-code
+   changes in W2.** Inspection (audit W2 M2) confirmed both
+   runners already construct `TxMessage` with the correct
+   `TxObservationSource.Bitails` / `TxObservationSource.JungleBus`
+   constants and route through the existing
+   `AppendAsync(TxMessage)` overload, which populates
+   `TxObservation.Source` correctly. Migrating them to the new
+   source-neutral overload would be churn for no behaviour change
+   AND would risk drifting the existing dedupe-fingerprint /
+   payload-reference semantics that the `TxMessage` path
+   normalizes. S6 is a regression-test-pin slice only — see
+   `slices.md` §S6. Per-source metrics (W4) will measure each
    source's contribution; W2 only ensures the data is source-tagged
    consistently.
 7. **Wave 1 prereq dependency.** Every slice in this wave has the

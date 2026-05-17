@@ -18,13 +18,18 @@ End state at wave close:
 - Source-neutral `TxObservationJournalWriter.AppendAsync(observation,
   payload, source, ct)` overload landed.
 - `WatchlistMatcher` (HashSet<ulong> 8-byte prefix + full hash160
-  verify) live with `RavenWatchlistLoader` hot reload via Raven
-  Subscription. 500 K addresses load ≤ 2 s; hot-path lookup
-  p99 ≤ 100 ns.
+  verify) live with `RavenWatchlistLoader` hot reload via the
+  **Raven Changes API** (matches the
+  `StasAttributesChangeObserverTask` pattern; Subscription API is
+  NOT used — see slices.md §S3). 500 K addresses load ≤ 2 s;
+  hot-path lookup p99 ≤ 100 ns.
 - `MempoolWatcher` + `P2pMempoolIngestRunner` hosted service wired
-  in DI, consuming the frozen Wave 1 S0 callbacks.
-- Bitails / JungleBus runners explicitly tag their observations
-  through the new overload.
+  in DI, consuming the frozen Wave 1 S0 callbacks; tx-frame await
+  goes through `PerSessionFrameDispatcher` (no parallel reader on
+  `IncomingMessages`).
+- Bitails / JungleBus runner production code **unchanged**. S6 is
+  a regression-test pin only — both runners already tag observations
+  correctly via `TxMessage.Source`.
 - Watchlist correctness fixture suite green (address-out, address-in,
   STAS / DSTAS token out, delete-during-observation, 8-byte prefix
   collision).
