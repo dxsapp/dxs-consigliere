@@ -14,6 +14,17 @@ public static class TxObservationSource
     public const string Node = "node";
     public const string JungleBus = "junglebus";
     public const string Bitails = "bitails";
+
+    /// <summary>
+    /// Wave 2 S0: BSV P2P peer-to-peer observation source.
+    /// Used when a transaction is observed via inv(MSG_TX) / getdata
+    /// from a connected BSV peer rather than through a REST / WebSocket
+    /// provider. Accumulated into
+    /// <c>TxLifecycleProjectionDocument.SeenBySources</c> alongside
+    /// <see cref="Bitails"/> / <see cref="JungleBus"/> when multiple
+    /// sources observe the same txid.
+    /// </summary>
+    public const string P2p = "p2p";
 }
 
 public sealed record TxObservation(
