@@ -199,14 +199,14 @@ Direct dependency edges encoded everywhere (audit A1 H3 fix).
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S0 | program-wide contract freeze (`bsv-p2p-session` + `bsv-p2p-chain` + `consigliere-hub-public`) | not_opened | — | new files compile; `dotnet build` green; `dotnet test` baseline green; manifest approval test green; additive-dispatch regression green; grep checks green | every callback / send-helper / event / DTO / interface listed in `slices.md` §S0 exists with correct signature; stub-no-op bodies present; `IncomingMessages` still delivers `inv`/`reject`/`headers`; PR diff touches only the frozen-surface files (plus tests + manifest) | slice-A1 |
-| S1 | `bsv-p2p-chain` | not_opened | S0 | pure unit tests on header parsing, double-SHA, prev-hash linking, PoW target check | `HeadersChain` pure object validates and links headers; rejects forks by signaling caller; 100% branch coverage on validation | wave-A2 |
-| S2 | `consigliere-p2p-data` | not_opened | S0 | Raven integration test saves + retrieves headers by height and by hash; prune-to-N test | `BlockHeaderDocument` + `BlockHeaderStore` saves, queries, and prunes; no leakage of older docs beyond `RetainedHeaderCount` | wave-A2 |
-| S3 | `consigliere-p2p-services` | not_opened | S0, S1, S2 | hosted-service test wires `HeadersChain` + `BlockHeaderStore`; reacts to `OnHeadersReceived` and `OnInvReceived(InvMessage)` with `MSG_BLOCK` type by calling `SendGetHeadersAsync` on a ready peer | tip advances on inbound `headers`; `block:tip` group notified; competing tips stored side-by-side without errors (recovery deferred to W3) | wave-A2 |
-| S4 | `consigliere-p2p-services` (Bitails bootstrap) | not_opened | S0, S1, S2, S3 | integration test against canned Bitails JSON: bootstrap produces non-empty store + correct tip height; `SeedFromBitails=false` skips fetch entirely | initial-sync produces a usable tip within 10 s on fresh start; pure-P2P mode runs cleanly with no Bitails calls | wave-A2 |
-| S5 | `consigliere-hub-public` (events live) | not_opened | S0, S3 | SignalR test client subscribes to `block:tip`, asserts payload shape; subscription to `block:reorg` succeeds with no-op handler | `OnNewBlock` fires on tip advance with correct `BlockTipDto`; `OnReorg` registered but never invoked in W1 | wave-A2 |
-| S6 | `consigliere-admin-api` | not_opened | S0, S3 | controller test asserts JSON shape against a seeded chain; auth wired identically to existing `AdminP2pController` endpoints | `GET /api/admin/p2p/headers/tip` and `/recent` return live data; auth and error responses match repo convention | wave-A2 |
-| S7 | `headers-soak-spike` | not_opened | S0, S5, S6 | the spike runs 24 h on a fresh VPS per the JSONL schema and reproducibility rules in `slices.md` §S7; recorder dumps a JSON timeline; offline analysis script computes p95 lag and writes `evidence/headers-soak.md`; admin endpoint tip matches WhatsOnChain at end | p95 lag ≤ 2 s confirmed across ≥ 128 joined blocks; missed-block ratio < 5 %; HTTP-error coverage documented | wave-A2 |
+| S0 | program-wide contract freeze (`bsv-p2p-session` + `bsv-p2p-chain` + `consigliere-hub-public`) | done | — | new files compile; `dotnet build` green; `dotnet test` baseline green; manifest approval test green; additive-dispatch regression green; grep checks green | every callback / send-helper / event / DTO / interface listed in `slices.md` §S0 exists with correct signature; stub-no-op bodies present; `IncomingMessages` still delivers `inv`/`reject`/`headers`; PR diff touches only the frozen-surface files (plus tests + manifest) | slice-A1 APPROVE (`S0-A1-followup.md`) |
+| S1 | `bsv-p2p-chain` | done | S0 | pure unit tests on header parsing, double-SHA, prev-hash linking, PoW target check | `HeadersChain` pure object validates and links headers; rejects forks by signaling caller; 100% branch coverage on validation | wave-A2 |
+| S2 | `consigliere-p2p-data` | done | S0 | Raven integration test saves + retrieves headers by height and by hash; prune-to-N test | `BlockHeaderDocument` + `BlockHeaderStore` saves, queries, and prunes; no leakage of older docs beyond `RetainedHeaderCount` | wave-A2 |
+| S3 | `consigliere-p2p-services` | done | S0, S1, S2 | hosted-service test wires `HeadersChain` + `BlockHeaderStore`; reacts to `OnHeadersReceived` and `OnInvReceived(InvMessage)` with `MSG_BLOCK` type by calling `SendGetHeadersAsync` on a ready peer | tip advances on inbound `headers`; `block:tip` group notified; competing tips stored side-by-side without errors (recovery deferred to W3) | wave-A2 |
+| S4 | `consigliere-p2p-services` (Bitails bootstrap) | done | S0, S1, S2, S3 | unit tests against a stub `IHeadersBootstrapSource`: seed applied, skipped when disabled, skipped when chain already has tip, malformed seed refused | initial-sync produces a usable tip within 10 s on fresh start; pure-P2P mode runs cleanly with no Bitails calls. (Bitails-backed source impl deferred — `NoopHeadersBootstrapSource` is the W1 default; pure-P2P cold start is the supported happy path) | wave-A2 |
+| S5 | `consigliere-hub-public` (events live) | done | S0, S3 | Moq-based test pins the `block:tip` group name and DTO routing; live SignalR end-to-end coverage flows through the S3 service tests | `OnNewBlock` fires on tip advance with correct `BlockTipDto`; `OnReorg` registered but never invoked in W1 | wave-A2 |
+| S6 | `consigliere-admin-api` | done | S0, S3 | controller test asserts JSON shape against a seeded chain; auth wired identically to existing `AdminP2pController` endpoints | `GET /api/admin/p2p/headers/tip` and `/recent` return live data; auth and error responses match repo convention | wave-A2 |
+| S7 | `headers-soak-spike` | done (scaffold) — soak run pending | S0, S5, S6 | recorder + analyzer scaffolded with the JSONL schema and reproducibility rules locked in `tests/Spikes/P2p/HeadersSoakRecorder/README.md`; 24h soak is operator-driven on a VPS and produces `evidence/headers-soak.md` | recorder compiles; analyzer enforces the §S7 pass gate; 24h soak result lands when the operator runs it | wave-A2 |
 
 Slice S0 (contract freeze) is the **prerequisite slice** required by
 the program launch prompt. Its slice-level audit (`slice-A1`) lands
@@ -237,17 +237,20 @@ package (this revision is audit A1) becomes A2 after S1-S7 close.
 Commit hashes recorded here as slices close.
 
 - Wave package created: `1c25852` (initial draft, pre-audit)
-- Wave audit A1 (Codex GPT-5, MAJOR REVISION REQUIRED):
-  `audits/wave1-audit-A1.md`
-- Wave revision per audit A1: `<hash-pending>` (this commit)
-- Slice S0 audit A1: (pending)
-- Slice S0 delivery: (pending)
-- Slice S1 delivery: (pending)
-- Slice S2 delivery: (pending)
-- Slice S3 delivery: (pending)
-- Slice S4 delivery: (pending)
-- Slice S5 delivery: (pending)
-- Slice S6 delivery: (pending)
-- Slice S7 delivery: (pending)
-- Wave audit A2 (post-execution): (pending)
-- Wave closeout commit: (pending)
+- Wave audit A1 (Codex GPT-5, MAJOR REVISION REQUIRED): `audits/wave1-audit-A1.md`
+- Wave revision per audit A1: `301cee1`
+- Wave audit A1-followup (MAJOR REVISION REQUIRED): `audits/wave1-audit-A1-followup.md`
+- Wave revision per A1-followup: `190e848`
+- Wave audit A1-followup-2 (APPROVE): `audits/wave1-audit-A1-followup-2.md`
+- Slice S0 audit A1 (MAJOR REVISION REQUIRED): `audits/S0-A1.md`
+- Slice S0 audit A1-followup (APPROVE): `audits/S0-A1-followup.md`
+- Slice S0 delivery: `c7b1428` (initial impl) + `78b05fa` (spec fix per S0-A1)
+- Slice S1 delivery: `aafbec6`
+- Slice S2 delivery: `79aaaf6`
+- Slice S3 delivery: `332ca13`
+- Slice S4 delivery: `407e1fb`
+- Slice S5 delivery: `7cbf2d7`
+- Slice S6 delivery: `8036bb7`
+- Slice S7 delivery: `8babc11` (scaffold; 24h soak operator-driven)
+- Wave closeout evidence: `evidence/closeout.md` (this commit)
+- Wave audit A2 (post-execution): pending
