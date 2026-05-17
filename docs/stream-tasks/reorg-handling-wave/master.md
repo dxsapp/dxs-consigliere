@@ -258,7 +258,7 @@ Program zones touched in this wave:
 | Program zone | Repo zone | Files (new unless noted) |
 |---|---|---|
 | `bsv-p2p-chain` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Chain/{ReorgDetector,ReorgPlan,ReorgDetectorOptions,IOrphanedBlockBodyFetcher}.cs`; `src/Dxs.Bsv/P2p/Chain/HeadersChain.cs` (no signature changes — read-only consumer of existing `ExtendResult.Fork`) |
-| `bsv-runtime-ingest` | `bsv-runtime-ingest` | `src/Dxs.Bsv/BitcoinMonitor/Models/BlockObservation.cs` (+ `Reorged` event type), `src/Dxs.Bsv/BitcoinMonitor/Models/BlockObservationSource.cs` (new — `Reorg` constant + Node / JungleBus stubs for symmetry with `TxObservationSource`) |
+| `bsv-runtime-ingest` | `bsv-runtime-ingest` | `src/Dxs.Bsv/BitcoinMonitor/Models/BlockObservationSource.cs` (new — `Reorg` constant + Node / JungleBus stubs for symmetry with `TxObservationSource`). The existing `BlockObservation` record + `BlockObservationEventType.{Connected,Disconnected}` already cover W3's needs; reorg-induced disconnects discriminate via `Source = "reorg"`, not a new event type. |
 | `consigliere-block-journal` | `indexer-state-and-storage` | `src/Dxs.Consigliere/BackgroundTasks/Blocks/BlockObservationJournalWriter.cs` (+ `AppendDisconnectedAsync` overload, `IsDuplicate` propagation) |
 | `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/{P2pOrphanedBlockBodyFetcher,ReorgEventEmitter,OrphanedTxRebroadcaster,OrphanedTxRebroadcastRecorder}.cs`; `src/Dxs.Consigliere/Services/P2p/BsvP2pHealth.cs` (+ `LastDegradedReorgAt` field) |
 | `consigliere-config` | `service-bootstrap-and-ops` | `src/Dxs.Consigliere/Configs/BsvP2pConfig.cs` (extend — `MaxFetchedBlockBytes`, `BlockFetchTimeoutMs`, `MaxBlockFetchRetries`) |
