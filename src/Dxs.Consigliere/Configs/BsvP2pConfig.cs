@@ -42,6 +42,18 @@ public sealed class BsvP2pConfig
     /// <summary>Gate 3 transaction policy. Null = defaults apply.</summary>
     public TxPolicyConfig TxPolicy { get; set; } = new();
 
+    /// <summary>
+    /// Wave 2 S4 — maximum P2P tx payload accepted by mempool
+    /// observation (audit W2 M4). Default 32 MiB matches BSV
+    /// mainnet typical mempool acceptance ceiling; raised from the
+    /// legacy 2 MiB session default. Propagates into
+    /// <c>PeerSessionConfig.InitialMaxRecvPayloadLength</c> at
+    /// session construction time (see
+    /// <c>BsvP2pHostedService.BuildSessionConfig</c>). Mirrored by
+    /// <c>MempoolWatcherOptions.MaxFetchedTxBytes</c>.
+    /// </summary>
+    public int MempoolMaxFetchedTxBytes { get; set; } = 32 * 1024 * 1024;
+
     public const int DefaultTxMaxSizeBytes = 2 * 1024 * 1024;
 }
 

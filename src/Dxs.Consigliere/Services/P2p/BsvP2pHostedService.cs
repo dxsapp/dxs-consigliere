@@ -77,8 +77,21 @@ public sealed class BsvP2pHostedService : IHostedService, IAsyncDisposable
                 ConnectTimeout = TimeSpan.FromMilliseconds(_config.ConnectTimeoutMs),
                 HandshakeTimeout = TimeSpan.FromMilliseconds(_config.HandshakeTimeoutMs),
                 SendProtoconfAfterVerack = _config.SendProtoconfAfterVerack,
+                // Audit W2 M4: raise the inbound payload cap so mempool
+                // tx beyond the legacy 2 MiB default still get accepted.
+                InitialMaxRecvPayloadLength = _config.MempoolMaxFetchedTxBytes,
             },
         };
+
+        if (_config.MempoolMaxFetchedTxBytes < 4 * 1024 * 1024)
+        {
+            // Audit W2 M4 operator-warning rule: most modern BSV
+            // mempools see legitimate tx beyond the legacy 2 MiB cap.
+            _logger.LogWarning(
+                "BsvP2pConfig.MempoolMaxFetchedTxBytes is set to {Bytes}B (<4 MiB). " +
+                "BSV mainnet mempool tx routinely exceed this; observation will silently drop oversize payloads.",
+                _config.MempoolMaxFetchedTxBytes);
+        }
 
         _manager = new PeerManager(network, discovery, _store, pmConfig, _loggerFactory.CreateLogger<PeerManager>());
         _health.Bind(_manager, _store);
