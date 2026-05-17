@@ -225,5 +225,15 @@ S7.
 
 Commit hashes recorded here as slices close.
 
-- Wave package created: this commit (initial draft)
-- Wave audit A1: pending
+- Wave package created: `26a823f` (initial draft)
+- Wave audit A1 pre-execution prompt: `26a823f`
+  (`audits/wave4-audit-A1-prompt.md`); user runs Codex async
+- Slices S0 + S1 + S2: `9fafd5a` (snapshot doc + tracker +
+  collector + 27 unit tests)
+- Slices S3 + S4 + S5 + S6 + S7: this commit (journal-writer
+  tail hook + hosted aggregator + admin endpoint + E2E fixture
+  suite + DI regression test + Startup wiring)
+- Slice S8 (SPA): deferred — see `evidence/closeout.md`
+  "Scope deviations"
+- Wave closeout evidence: `evidence/closeout.md`
+- Wave audit A2 (post-execution): pending

@@ -4,6 +4,7 @@ using Dxs.Common.Journal;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Journal;
+using Dxs.Consigliere.Services.Metrics;
 
 using Microsoft.Extensions.Options;
 
@@ -13,7 +14,8 @@ public sealed class TxObservationJournalWriter(
     IObservationJournalAppender<ObservationJournalEntry<TxObservation>> observationJournal,
     IRawTransactionPayloadStore rawTransactionPayloadStore,
     IOptions<ConsigliereStorageConfig> storageConfig,
-    ILogger<TxObservationJournalWriter> logger
+    ILogger<TxObservationJournalWriter> logger,
+    SourceVisibilityTracker? visibilityTracker = null
 )
 {
     private const string RavenPayloadProvider = "raven";
@@ -23,6 +25,14 @@ public sealed class TxObservationJournalWriter(
     {
         if (!TryCreateObservation(message, out var observation))
             return false;
+
+        // Wave 4 S3: hook the visibility tracker at the journal-writer
+        // tail (single chokepoint for both AppendAsync overloads — see
+        // wave master.md §"Open scope questions" #1, resolved in
+        // favour of the journal-tail position). The tracker's own
+        // dedupe (ConcurrentDictionary GetOrAdd + per-tx Sources set)
+        // handles repeat calls safely.
+        visibilityTracker?.RecordObservation(observation.TxId, message.Source, DateTimeOffset.UtcNow);
 
         var payloadReference = await TryPersistPayloadAsync(message, cancellationToken);
         var entry = new ObservationJournalEntry<TxObservation>(observation, payloadReference);
@@ -70,6 +80,11 @@ public sealed class TxObservationJournalWriter(
                 source);
             return false;
         }
+
+        // Wave 4 S3: see the TxMessage overload above. Same single-
+        // chokepoint hook on the source-neutral path. Bypasses dedupe
+        // since the tracker has its own.
+        visibilityTracker?.RecordObservation(observation.TxId, source, DateTimeOffset.UtcNow);
 
         var entry = new ObservationJournalEntry<TxObservation>(observation, payload);
         var request = new ObservationJournalAppendRequest<ObservationJournalEntry<TxObservation>>(

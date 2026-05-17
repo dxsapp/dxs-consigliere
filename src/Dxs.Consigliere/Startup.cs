@@ -17,7 +17,8 @@ public class Startup(IConfiguration configuration)
             .AddIndexerStateZoneServices()
             .AddRealtimeZoneServices()
             .AddIndexerOrchestrationZoneServices()
-            .AddHostedTaskZoneServices();
+            .AddHostedTaskZoneServices()
+            .AddMetricsZoneServices(configuration);
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
