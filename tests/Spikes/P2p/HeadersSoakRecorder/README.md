@@ -29,16 +29,18 @@ One JSON object per line:
 { "type":        "p2p"|"woc"|"http_error"|"decode_error",
   "ts_utc_ms":   <int64 UTC ms since epoch>,
   "height":      <int64|null>,
-  "tip_hash":    <string|null>, // wire-order lowercase hex, no 0x
-  "prev_hash":   <string|null>,
+  "tip_hash":    <string|null>, // DISPLAY-ORDER lowercase hex, no 0x
+  "prev_hash":   <string|null>, // display order
   "header_timestamp_ms": <int64|null>, // p2p only
   "source_seq":  <int64 monotonic per type>,
   "extra":       <object|null> }
 ```
 
-`woc` records use **wire-order** hashes (byte-reverse of
-WhatsOnChain's display order) so they join byte-equal against
-`p2p` records.
+Both `p2p` and `woc` records use **display-order** hashes
+(matches WhatsOnChain's `bestblockhash`, block explorers, and the
+`BlockTipDto.Hash` field surfaced by `IWalletHub.OnNewBlock`).
+This matches the API-boundary convention from audit A2 H3 and lets
+joins on `tip_hash` be byte-equal without any conversion.
 
 ## Reproducibility rules (slices.md §S7)
 
@@ -55,10 +57,10 @@ WhatsOnChain's display order) so they join byte-equal against
   calculation; raw values preserved in the JSONL for review.
 - **Missing samples.** If WhatsOnChain polling drops below 90 %
   uptime (per `http_error` density), the run is invalid.
-- **Quantile.** Linear-interpolation p95 (numpy `method='linear'`
-  or F# Stat equivalent within 1 ms).
+- **Quantile.** Linear-interpolation p95 (numpy `method='linear'`).
 - **Pass condition.** `p95 ≤ 2000 ms` over ≥ 128 joined blocks;
-  `missed < 5 %` of total `woc` height changes.
+  `missed < 5 %` of total `woc` height changes. Below 128 joined
+  blocks the run is **INCONCLUSIVE** (analyzer exit 2), not a fail.
 
 ## Run
 
@@ -85,10 +87,11 @@ Output: `headers-soak-<YYYYMMDD-HHMMSS>.jsonl` in `OUTPUT_DIR`.
 
 ## Analyze
 
-`analyze.fsx` (alongside `Program.cs`) reads the JSONL, joins by
+`analyze.py` (alongside `Program.cs`) reads the JSONL, joins by
 `tip_hash`, computes the metrics above, and writes
 `evidence/headers-soak.md` per
-`docs/stream-tasks/bsv-headers-chain-wave/`.
+`docs/stream-tasks/bsv-headers-chain-wave/`. Exit codes:
+`0` PASS, `1` FAIL, `2` INCONCLUSIVE (joined < 128).
 
 The analysis script intentionally lives in this folder rather than
 the wave package — it is operational tooling for one run, not a

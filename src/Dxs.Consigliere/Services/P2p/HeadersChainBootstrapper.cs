@@ -13,23 +13,26 @@ using Microsoft.Extensions.Options;
 namespace Dxs.Consigliere.Services.P2p;
 
 /// <summary>
-/// Wave 1 S4. Cold-start convenience: pre-populate the headers chain
-/// from a non-P2P source (e.g. Bitails REST `/chain/info`) so admin
-/// endpoints have a tip immediately, instead of waiting for the first
-/// P2P inv/headers.
+/// Wave 1 S4. Required cold-start step: anchor the headers chain to
+/// the authoritative current mainnet tip from a non-P2P source so
+/// W2/W6 see a real height, not a fabricated height 0.
 ///
-/// The bootstrapper is opt-in via
+/// The bootstrapper is gated by
 /// <see cref="HeadersChainOptions.SeedFromBitails"/>. When disabled,
-/// the chain stays empty on cold start; the first P2P signal populates
-/// it (typically &lt; 30 s on a healthy pool, capped by the
-/// GetHeadersIntervalMs baseline tick).
+/// the chain stays <see cref="ExtendResult.Unanchored"/> on cold
+/// start; arbitrary P2P headers arriving in that state are dropped
+/// (fail-closed semantics from audit A2 H1) rather than promoted to
+/// height 0.
 ///
-/// The actual Bitails integration is intentionally abstracted behind
-/// <see cref="IHeadersBootstrapSource"/>. W1 ships
-/// <see cref="NoopHeadersBootstrapSource"/> as the default DI binding —
-/// operators wire in a Bitails-backed source via a small REST shim when
-/// they need warm-start behavior. Pure-P2P cold start (the W1 happy
-/// path) works without any source.
+/// The bootstrap source is abstracted behind
+/// <see cref="IHeadersBootstrapSource"/>. W1 production ships
+/// <see cref="WhatsOnChainHeadersBootstrapSource"/> as the default DI
+/// binding (audit A2 followup new-H1); it fetches the live tip from
+/// WhatsOnChain's chain-info + block-header endpoints and reconstructs
+/// the 80-byte header from the JSON fields.
+/// <see cref="NoopHeadersBootstrapSource"/> remains available for
+/// tests / non-production hosts that intentionally start cold and
+/// will manually <see cref="HeadersChain.Seed"/>.
 /// </summary>
 public sealed class HeadersChainBootstrapper(
     HeadersChain chain,
@@ -115,16 +118,24 @@ public sealed class HeadersChainBootstrapper(
 public sealed record BootstrapSeed(byte[] HeaderBytes80, long Height);
 
 /// <summary>
-/// Pluggable source of bootstrap data. The W1 default
-/// (<see cref="NoopHeadersBootstrapSource"/>) returns no seed; a
-/// Bitails REST adapter can be substituted when warm-start matters.
+/// Pluggable source of bootstrap data. W1 production binds
+/// <see cref="WhatsOnChainHeadersBootstrapSource"/> as the default
+/// implementation (audit A2 followup new-H1).
+/// <see cref="NoopHeadersBootstrapSource"/> remains available for
+/// tests that want to start cold and inject anchor state manually.
 /// </summary>
 public interface IHeadersBootstrapSource
 {
     Task<BootstrapSeed?> FetchAsync(CancellationToken ct);
 }
 
-/// <summary>Default no-op source; pure-P2P cold start is the supported W1 path.</summary>
+/// <summary>
+/// No-op source. Not the production default — production uses
+/// <see cref="WhatsOnChainHeadersBootstrapSource"/>. Used by tests
+/// and by environments that intentionally start cold (the chain
+/// then stays <see cref="ExtendResult.Unanchored"/> until
+/// <see cref="HeadersChain.Seed"/> is called explicitly).
+/// </summary>
 public sealed class NoopHeadersBootstrapSource : IHeadersBootstrapSource
 {
     public Task<BootstrapSeed?> FetchAsync(CancellationToken ct) => Task.FromResult<BootstrapSeed?>(null);
