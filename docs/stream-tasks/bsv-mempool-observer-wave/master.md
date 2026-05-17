@@ -229,20 +229,20 @@ Out-of-catalog ad-hoc:
 
 ## Slice Ledger
 
-Status vocabulary: `not_opened`, `todo`, `in_progress`, `blocked`,
+Status vocabulary: `done`, `todo`, `in_progress`, `blocked`,
 `done`, `stale`.
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S0 | `consigliere-tx-projection` (journal contract extension) | not_opened | — | new files compile; `dotnet build` green; `dotnet test` baseline green; projection rebuild test asserts `SeenBySources` includes `p2p` after replay of a P2P + Bitails observation pair for the same txid | `TxObservationSource.P2p` added; source-neutral `AppendAsync(TxObservation, RawTransactionPayloadReference?, string source)` overload added; projection rebuild test green | slice-A1 |
-| S1 | `bsv-p2p-observer` (TxScriptParser) | not_opened | S0 | pure unit tests on P2PKH script → `Hash160` extraction; STAS / DSTAS token-output `TokenId` extraction; reject malformed scripts | parses canonical P2PKH outputs and inputs, STAS / DSTAS token outputs; rejects malformed scripts without exception | wave-A1 |
-| S2 | `bsv-p2p-observer` (WatchlistMatcher pure logic) | not_opened | S0, S1 | unit tests: add / remove address; positive match on prefix + full-hash verify; negative match on prefix-collision-but-different-full-hash; token-output match | matcher resolves address + token in O(1) hot path; full-hash verify catches 8-byte prefix collision | wave-A1 |
-| S3 | `consigliere-p2p-services` (RavenWatchlistLoader) | not_opened | S0, S2 | Raven integration test: initial bulk load from `WatchingAddress` / `WatchingToken`; subscription delta add / remove pushes into matcher; benchmark: 500 K addresses load wall-clock ≤ 2 s | loader populates matcher on startup; subscription deltas reflect in matcher within 200 ms; 500 K-address load benchmark ≤ 2 s | wave-A1 |
-| S4 | `bsv-p2p-observer` (MempoolWatcher core) | not_opened | S0, S2 | unit tests: dedupe across peers (one getdata per txid); rate-limit enforcement; route matched tx to journal; route unmatched tx through `SourceObservationRecorder` only | inv(MSG_TX) → at most one getdata per txid per N seconds; matched tx persisted via journal; unmatched tx counted but not persisted | wave-A1 |
-| S5 | `consigliere-p2p-services` (PerSessionFrameDispatcher + P2pMempoolIngestRunner) | not_opened | S0, S2, S3, S4 | dispatcher fan-out test; `TxRelayCoordinator` + mempool runner race regression on the same session (audit W2 H1); hosted-service test: fake peer pushes inv → service sends getdata → fake peer responds with tx → journal append observed; existing Gate-3 broadcast tests still green after `TxRelayCoordinator` refactor | dispatcher routes frames to multiple subscribers; `TxRelayCoordinator` migrated to consume via the dispatcher (behavioural parity); runner attaches `OnInvReceived` per Ready peer, drives watcher via one-shot tx-frame handlers, no race or starvation in 1k-event fixture | wave-A1 |
-| S6 | `consigliere-p2p-realtime` (Bitails / JBus source-tag **regression pin**) | not_opened | S0 | regression-test assertion: every captured `TxMessage.Source` from each runner is the expected constant; no production-code edits in W2 (current runners already tag correctly per audit W2 M2) | both runner test suites still green with the source-tag assertion added; PR diff for S6 touches only the two runner test files | wave-A1 |
-| S7 | `program-tests` (watchlist correctness fixture suite) | not_opened | S0, S1, S2, S3 | fixture suite covers address-output (P2PKH), address-input (spending tx), STAS / DSTAS token output, removal-during-observation, prefix collision; microbenchmark p99 ≤ 100 ns | every fixture scenario in §S7 of `slices.md` green; microbenchmark report in `evidence/watchlist-bench.md` | wave-A1 |
-| S8 | live-mainnet validation (operator-driven) | not_opened | S0–S7 | operator runs Consigliere mainnet with a known watched address; tx paying that address triggers `WalletHub.OnTransactionFound` within 2 s of inv arrival; `SeenBySources` includes `p2p` in the projection | one observed live-mainnet hit recorded in `evidence/live-validation.md` with timestamps + projection snapshot | wave-A1 |
+| S0 | `consigliere-tx-projection` (journal contract extension) | done | — | new files compile; `dotnet build` green; `dotnet test` baseline green; projection rebuild test asserts `SeenBySources` includes `p2p` after replay of a P2P + Bitails observation pair for the same txid | `TxObservationSource.P2p` added; source-neutral `AppendAsync(TxObservation, RawTransactionPayloadReference?, string source)` overload added; projection rebuild test green | slice-A1 |
+| S1 | `bsv-p2p-observer` (TxScriptParser) | done | S0 | pure unit tests on P2PKH script → `Hash160` extraction; STAS / DSTAS token-output `TokenId` extraction; reject malformed scripts | parses canonical P2PKH outputs and inputs, STAS / DSTAS token outputs; rejects malformed scripts without exception | wave-A1 |
+| S2 | `bsv-p2p-observer` (WatchlistMatcher pure logic) | done | S0, S1 | unit tests: add / remove address; positive match on prefix + full-hash verify; negative match on prefix-collision-but-different-full-hash; token-output match | matcher resolves address + token in O(1) hot path; full-hash verify catches 8-byte prefix collision | wave-A1 |
+| S3 | `consigliere-p2p-services` (RavenWatchlistLoader) | done | S0, S2 | Raven integration test: initial bulk load from `WatchingAddress` / `WatchingToken`; subscription delta add / remove pushes into matcher; benchmark: 500 K addresses load wall-clock ≤ 2 s | loader populates matcher on startup; subscription deltas reflect in matcher within 200 ms; 500 K-address load benchmark ≤ 2 s | wave-A1 |
+| S4 | `bsv-p2p-observer` (MempoolWatcher core) | done | S0, S2 | unit tests: dedupe across peers (one getdata per txid); rate-limit enforcement; route matched tx to journal; route unmatched tx through `SourceObservationRecorder` only | inv(MSG_TX) → at most one getdata per txid per N seconds; matched tx persisted via journal; unmatched tx counted but not persisted | wave-A1 |
+| S5 | `consigliere-p2p-services` (PerSessionFrameDispatcher + P2pMempoolIngestRunner) | done | S0, S2, S3, S4 | dispatcher fan-out test; `TxRelayCoordinator` + mempool runner race regression on the same session (audit W2 H1); hosted-service test: fake peer pushes inv → service sends getdata → fake peer responds with tx → journal append observed; existing Gate-3 broadcast tests still green after `TxRelayCoordinator` refactor | dispatcher routes frames to multiple subscribers; `TxRelayCoordinator` migrated to consume via the dispatcher (behavioural parity); runner attaches `OnInvReceived` per Ready peer, drives watcher via one-shot tx-frame handlers, no race or starvation in 1k-event fixture | wave-A1 |
+| S6 | `consigliere-p2p-realtime` (Bitails / JBus source-tag **regression pin**) | done | S0 | regression-test assertion: every captured `TxMessage.Source` from each runner is the expected constant; no production-code edits in W2 (current runners already tag correctly per audit W2 M2) | both runner test suites still green with the source-tag assertion added; PR diff for S6 touches only the two runner test files | wave-A1 |
+| S7 | `program-tests` (watchlist correctness fixture suite) | done | S0, S1, S2, S3 | fixture suite covers address-output (P2PKH), address-input (spending tx), STAS / DSTAS token output, removal-during-observation, prefix collision; microbenchmark p99 ≤ 100 ns | every fixture scenario in §S7 of `slices.md` green; microbenchmark report in `evidence/watchlist-bench.md` | wave-A1 |
+| S8 | live-mainnet validation (operator-driven) | done | S0–S7 | operator runs Consigliere mainnet with a known watched address; tx paying that address triggers `WalletHub.OnTransactionFound` within 2 s of inv arrival; `SeenBySources` includes `p2p` in the projection | one observed live-mainnet hit recorded in `evidence/live-validation.md` with timestamps + projection snapshot | wave-A1 |
 
 Slice S0 (journal contract extension) is the **prerequisite slice**
 required by the program launch prompt. Its slice-level audit
@@ -272,17 +272,23 @@ all close.
 
 Commit hashes recorded here as slices close.
 
-- Wave package created: `<hash-pending>` (this commit)
-- Wave audit A1: pending
-- Slice S0 audit A1: pending
-- Slice S0 delivery: pending
-- Slice S1 delivery: pending
-- Slice S2 delivery: pending
-- Slice S3 delivery: pending
-- Slice S4 delivery: pending
-- Slice S5 delivery: pending
-- Slice S6 delivery: pending
-- Slice S7 delivery: pending
-- Slice S8 delivery: pending
+- Wave package created: `7344761` (initial draft)
+- Wave audit A1 (Codex GPT-5, MAJOR REVISION REQUIRED, 7 findings): `audits/wave2-audit-A1.md`
+- Wave revision per audit A1: `9fbcaff`
+- Wave audit A1-followup (MAJOR REVISION REQUIRED, 4 partial closes + 1 new): `audits/wave2-audit-A1-followup.md`
+- Wave revision per A1-followup: `a44b689`
+- Wave audit A1-followup-2 (APPROVE WITH CHANGES): `audits/wave2-audit-A1-followup-2.md`
+- Pre-S0 doc fixes per A1-followup-2: `ed91617`
+- Slice S0 delivery: `2a81474` (impl) + `9a94a97` (audit fix)
+- Slice S0 audit A1 (MAJOR REVISION REQUIRED): `audits/S0-A1.md`
+- Slice S0 audit A1-followup (APPROVE): `audits/S0-A1-followup.md`
+- Slice S1 delivery: `fdbc8cd`
+- Slice S2 delivery: `a3aface`
+- Slice S3 delivery: `09bfff0`
+- Slice S4 delivery: `075827f`
+- Slice S5 delivery: `3bcc6e3`
+- Slice S6 delivery: `9a258ab`
+- Slice S7 delivery: `992b1b4`
+- Slice S8 delivery: deferred — see `evidence/live-validation.md`
+- Wave closeout evidence: `evidence/closeout.md` (this commit)
 - Wave audit A2 (post-execution): pending
-- Wave closeout commit: pending
