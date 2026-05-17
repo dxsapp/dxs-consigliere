@@ -9,18 +9,58 @@ namespace Dxs.Bsv.Tests.P2p.Chain;
 public class HeadersChainTests
 {
     [Fact]
-    public void Empty_FirstHeader_BecomesTip_AtHeightZero()
+    public void Empty_FirstHeader_IsUnanchored()
     {
+        // Audit A2 H1: we no longer auto-assign height 0 to the first
+        // arbitrary P2P header — that would yield a useless "tip"
+        // disconnected from real mainnet height. Bootstrapper or
+        // LoadFromStore must anchor the chain first.
         var chain = new HeadersChain();
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
 
         var result = chain.TryExtend(h0);
 
-        var ext = Assert.IsType<ExtendResult.Extended>(result);
-        Assert.Equal(0, ext.Height);
+        Assert.IsType<ExtendResult.Unanchored>(result);
+        Assert.Null(chain.Tip);
+        Assert.Equal(0, chain.Count);
+    }
+
+    [Fact]
+    public void Seed_AnchorsTheChain_SubsequentExtendsWork()
+    {
+        var chain = new HeadersChain();
+        var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
+
+        chain.Seed(h0, height: 123_456);
+
         Assert.Same(h0, chain.Tip);
-        Assert.Equal(0, chain.TipHeight);
-        Assert.Equal(1, chain.Count);
+        Assert.Equal(123_456, chain.TipHeight);
+        Assert.True(chain.IsLoaded);
+
+        var h1 = HeaderTestUtil.BuildChild(h0, merkleFill: 0x22);
+        var result = chain.TryExtend(h1);
+        var ext = Assert.IsType<ExtendResult.Extended>(result);
+        Assert.Equal(123_457, ext.Height);
+        Assert.Same(h1, chain.Tip);
+    }
+
+    [Fact]
+    public void Seed_Idempotent_OnSameHeader()
+    {
+        var chain = new HeadersChain();
+        var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
+        chain.Seed(h0, 100);
+        chain.Seed(h0, 100); // no-op
+        Assert.Equal(100, chain.TipHeight);
+    }
+
+    [Fact]
+    public void Seed_RejectsHeightConflict_ForSameHash()
+    {
+        var chain = new HeadersChain();
+        var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
+        chain.Seed(h0, 100);
+        Assert.Throws<InvalidOperationException>(() => chain.Seed(h0, 200));
     }
 
     [Fact]
@@ -28,7 +68,7 @@ public class HeadersChainTests
     {
         var chain = new HeadersChain();
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
-        chain.TryExtend(h0);
+        chain.Seed(h0, height: 0); // explicit anchor — test legacy semantics
 
         var h1 = HeaderTestUtil.BuildChild(h0, merkleFill: 0x22);
         var result = chain.TryExtend(h1);
@@ -44,7 +84,7 @@ public class HeadersChainTests
     {
         var chain = new HeadersChain();
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
-        chain.TryExtend(h0);
+        chain.Seed(h0, height: 0);
 
         var result = chain.TryExtend(h0);
 
@@ -59,7 +99,7 @@ public class HeadersChainTests
         var chain = new HeadersChain();
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
         var h1 = HeaderTestUtil.BuildChild(h0, merkleFill: 0x22);
-        chain.TryExtend(h0);
+        chain.Seed(h0, height: 0);
         chain.TryExtend(h1);
 
         // Feed h0 again — it is now a non-tip ancestor.
@@ -75,7 +115,7 @@ public class HeadersChainTests
         var chain = new HeadersChain();
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
         var h1 = HeaderTestUtil.BuildChild(h0, merkleFill: 0x22);
-        chain.TryExtend(h0);
+        chain.Seed(h0, height: 0);
         chain.TryExtend(h1);
 
         // Fork at height 0 → competing tip candidate at height 1, different merkle.
@@ -95,7 +135,7 @@ public class HeadersChainTests
     {
         var chain = new HeadersChain();
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
-        chain.TryExtend(h0);
+        chain.Seed(h0, height: 0);
 
         // Header whose parent is a completely unrelated hash.
         var unrelated = new byte[32];
@@ -162,7 +202,7 @@ public class HeadersChainTests
         var h0 = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x11);
         var h1 = HeaderTestUtil.BuildChild(h0, merkleFill: 0x22);
         var h2 = HeaderTestUtil.BuildChild(h1, merkleFill: 0x33);
-        chain.TryExtend(h0);
+        chain.Seed(h0, height: 0);
         chain.TryExtend(h1);
         chain.TryExtend(h2);
 
@@ -186,7 +226,7 @@ public class HeadersChainTests
         var chain = new HeadersChain(new HeadersChainOptions { RetainedHeaderCount = 3 });
         var headers = new BlockHeader[5];
         headers[0] = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x10);
-        chain.TryExtend(headers[0]);
+        chain.Seed(headers[0], height: 0);
         for (var i = 1; i < 5; i++)
         {
             headers[i] = HeaderTestUtil.BuildChild(headers[i - 1], merkleFill: (byte)(0x10 + i));

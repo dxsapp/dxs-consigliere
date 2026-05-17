@@ -36,6 +36,16 @@ public abstract record ExtendResult
 
     /// <summary>Header failed structural validation (size, PoW).</summary>
     public sealed record Invalid(string Reason) : ExtendResult;
+
+    /// <summary>
+    /// Chain is empty and no height-aware seed has been applied via
+    /// <see cref="HeadersChain.Seed"/>. We refuse to auto-assign height
+    /// 0 to the first arbitrary P2P header — that would yield a useless
+    /// "tip" miles off the real mainnet height. Caller (the hosted
+    /// service) should log a warning and wait for the bootstrapper or
+    /// operator to anchor the chain. Added per audit A2 H1.
+    /// </summary>
+    public sealed record Unanchored(BlockHeader Header) : ExtendResult;
 }
 
 /// <summary>
@@ -130,11 +140,13 @@ public sealed class HeadersChain
         var prevHash = BlockHeaderHasher.PrevBlock(header);
         var prevKey = HexLower(prevHash);
 
-        // 2) Empty chain — first header in: treat as height 0.
+        // 2) Empty chain and no height anchor → Unanchored (audit A2 H1).
+        // Auto-assigning height 0 on cold start would produce a useless
+        // "tip" disconnected from real mainnet height. Caller must seed
+        // via Seed(...) (bootstrapper) or LoadFromStore (restart).
         if (_tip is null)
         {
-            AddHeader(header, hashKey, height: 0);
-            return new ExtendResult.Extended(header, 0);
+            return new ExtendResult.Unanchored(header);
         }
 
         // 3) Extends current tip.
@@ -179,6 +191,33 @@ public sealed class HeadersChain
     /// "loaded but no headers persisted yet".
     /// </summary>
     public bool IsLoaded => _loaded;
+
+    /// <summary>
+    /// Anchor the chain to a specific (header, height) pair. Used by the
+    /// bootstrapper (Wave 1 S4) when an external height-aware source
+    /// (e.g. WhatsOnChain /chain/info) provides the current tip. After
+    /// seeding, subsequent P2P headers can extend the chain normally.
+    /// Idempotent on a re-seed of the same header; rejects a re-seed
+    /// with a different hash to prevent silent tip overwrite.
+    /// Added per audit A2 H1.
+    /// </summary>
+    public void Seed(BlockHeader header, long height)
+    {
+        if (header is null) throw new ArgumentNullException(nameof(header));
+        if (header.Bytes80.Length != BlockHeader.Size)
+            throw new ArgumentException($"header must be {BlockHeader.Size} bytes", nameof(header));
+        var key = HashKey(header);
+        if (_byHash.TryGetValue(key, out var existing))
+        {
+            if (existing.Height != height)
+                throw new InvalidOperationException($"Cannot re-seed: header already at height {existing.Height}");
+            return; // idempotent
+        }
+        _byHash[key] = (header, height);
+        _tip = header;
+        _tipHeight = height;
+        _loaded = true;
+    }
 
     private void AddHeader(BlockHeader header, string hashKey, long height, bool promoteToTip = true)
     {

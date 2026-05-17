@@ -9,9 +9,12 @@ docs/stream-tasks/bsv-headers-chain-wave/slices.md §S7
 Usage:
     python3 analyze.py <path-to.jsonl> [<output-md-path>]
 
-Exit code 0 = pass, 1 = fail. The decision matches §S7 pass condition:
-    p95_lag_ms <= 2000 AND missed_ratio < 0.05 AND joined_blocks >= 128
-    AND woc_uptime >= 0.90.
+Exit codes (audit A2 H2 alignment with §S7):
+    0 = PASS    — p95_lag_ms <= 2000 AND missed_ratio < 0.05
+                   AND joined_blocks >= 128 AND woc_uptime >= 0.90
+    2 = INCONCLUSIVE — soak too short: joined_blocks < 128
+                       (re-run for a longer window before fail/pass)
+    1 = FAIL    — joined_blocks >= 128 but one of the other gates missed
 """
 from __future__ import annotations
 
@@ -96,13 +99,16 @@ def main() -> int:
     # http_error density as a tolerance bound.
     uptime_proxy = 1.0 if (n_woc + http_errors) == 0 else (n_woc / (n_woc + http_errors))
 
-    # Pass gate per §S7.
-    passed = (
-        n_joined >= 128
-        and p95 <= 2000
-        and missed_ratio < 0.05
-        and uptime_proxy >= 0.90
-    )
+    # Pass gate per §S7. Below 128 joined blocks the run is INCONCLUSIVE
+    # (exit 2), not FAIL — audit A2 H2 split. Only with enough sample do
+    # we judge the run pass/fail.
+    if n_joined < 128:
+        verdict = "INCONCLUSIVE"
+        exit_code = 2
+    else:
+        passed = (p95 <= 2000 and missed_ratio < 0.05 and uptime_proxy >= 0.90)
+        verdict = "PASS" if passed else "FAIL"
+        exit_code = 0 if passed else 1
 
     report = format_report(
         jsonl=jsonl,
@@ -115,13 +121,13 @@ def main() -> int:
         http_errors=http_errors,
         decode_errors=decode_errors,
         uptime_proxy=uptime_proxy,
-        passed=passed,
+        verdict=verdict,
     )
     print(report)
     if out_md is not None:
         out_md.write_text(report + "\n")
 
-    return 0 if passed else 1
+    return exit_code
 
 
 def quantile_linear(xs: list[int], q: float) -> float:
@@ -149,8 +155,9 @@ def format_report(**kw) -> str:
         f"- decode errors: {kw['decode_errors']}\n"
         f"- woc uptime proxy: {kw['uptime_proxy']:.3f}\n\n"
         f"## Verdict\n"
-        f"{'PASS' if kw['passed'] else 'FAIL'} per slices.md §S7 pass condition "
-        f"(p95 <= 2000 ms AND missed_ratio < 0.05 AND joined >= 128 AND uptime >= 0.90).\n"
+        f"{kw['verdict']} per slices.md §S7 pass condition "
+        f"(p95 <= 2000 ms AND missed_ratio < 0.05 AND joined >= 128 AND uptime >= 0.90; "
+        f"INCONCLUSIVE when joined < 128).\n"
     )
 
 

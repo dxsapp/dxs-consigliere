@@ -38,10 +38,10 @@ public class BlockHeaderStoreTests : RavenTestDriver
         HeaderBytes80 = new byte[80],
     };
 
-    [Fact]
+    [SkippableFact]
     public async Task SaveAndGetByHash_RoundTripsDocument()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var store = GetDocumentStore();
         var sut = new BlockHeaderStore(store);
 
@@ -55,10 +55,10 @@ public class BlockHeaderStoreTests : RavenTestDriver
         Assert.Equal("1122", loaded.PrevHash);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetByHash_Unknown_ReturnsNull()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var store = GetDocumentStore();
         var sut = new BlockHeaderStore(store);
 
@@ -66,10 +66,10 @@ public class BlockHeaderStoreTests : RavenTestDriver
         Assert.Null(loaded);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetTipAsync_ReturnsHighestHeightDoc()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var store = GetDocumentStore();
         var sut = new BlockHeaderStore(store);
 
@@ -84,10 +84,10 @@ public class BlockHeaderStoreTests : RavenTestDriver
         Assert.Equal("h102", tip.Hash);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task GetTipAsync_Empty_ReturnsNull()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var store = GetDocumentStore();
         var sut = new BlockHeaderStore(store);
 
@@ -95,10 +95,10 @@ public class BlockHeaderStoreTests : RavenTestDriver
         Assert.Null(tip);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task RecentAsync_ReturnsTipFirst_LimitedByCount()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var store = GetDocumentStore();
         var sut = new BlockHeaderStore(store);
 
@@ -115,10 +115,10 @@ public class BlockHeaderStoreTests : RavenTestDriver
         Assert.Empty(await sut.RecentAsync(0));
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task PruneBelowAsync_DeletesOnlyHeadersBelowCutoff()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var store = GetDocumentStore();
         var sut = new BlockHeaderStore(store);
 

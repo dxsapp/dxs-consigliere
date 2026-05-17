@@ -88,6 +88,28 @@ public class BlockHeaderHasherTests
     }
 
     [Fact]
+    public void ToDisplayHex_OfGenesisHash_MatchesExplorerOrder()
+    {
+        // Audit A2 H3: external API must surface display order (what
+        // explorers show). Wire-order genesis hash reversed must equal
+        // the well-known display-order genesis hash.
+        var wire = Convert.FromHexString(GenesisHashWireHex);
+        var display = BlockHeaderHasher.ToDisplayHex(wire);
+        Assert.Equal("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f", display);
+    }
+
+    [Fact]
+    public void ToDisplayHex_IsReversibleRoundTrip()
+    {
+        var wire = new byte[32];
+        for (var i = 0; i < 32; i++) wire[i] = (byte)i;
+        var display = BlockHeaderHasher.ToDisplayHex(wire);
+        var displayBytes = Convert.FromHexString(display);
+        Array.Reverse(displayBytes);
+        Assert.Equal(wire, displayBytes);
+    }
+
+    [Fact]
     public void TryExpandTarget_GenesisBits_ExpandsToKnownTarget()
     {
         // 0x1d00ffff → target = 0x00000000 ffff 0000…0000 (24 trailing zero bytes

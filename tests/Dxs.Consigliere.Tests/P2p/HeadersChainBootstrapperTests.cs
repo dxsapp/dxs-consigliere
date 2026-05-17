@@ -82,10 +82,10 @@ public class HeadersChainBootstrapperTests : RavenTestDriver
             NullLogger<HeadersChainBootstrapper>.Instance);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SeedFromBitailsFalse_DoesNotCallSource()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();
@@ -99,10 +99,10 @@ public class HeadersChainBootstrapperTests : RavenTestDriver
         Assert.Null(chain.Tip);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ChainAlreadyHasTip_SkipsSource()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();
@@ -119,10 +119,10 @@ public class HeadersChainBootstrapperTests : RavenTestDriver
         Assert.Equal(42, chain.TipHeight);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task FetchedSeed_LoadsIntoChainAndStore()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();
@@ -142,10 +142,10 @@ public class HeadersChainBootstrapperTests : RavenTestDriver
         Assert.Equal(123_456, tipDoc.Height);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SourceReturnsNull_SkipsApply()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();
@@ -159,10 +159,10 @@ public class HeadersChainBootstrapperTests : RavenTestDriver
         Assert.Null(chain.Tip);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task SourceMalformedHeaderSize_SkipsApply()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();

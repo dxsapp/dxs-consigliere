@@ -33,7 +33,7 @@ namespace Dxs.Consigliere.Services.P2p;
 /// </summary>
 public sealed class HeadersChainBootstrapper(
     HeadersChain chain,
-    BlockHeaderStore store,
+    IBlockHeaderStore store,
     IHeadersBootstrapSource source,
     IOptions<HeadersChainOptions> options,
     ILogger<HeadersChainBootstrapper> logger)
@@ -96,7 +96,10 @@ public sealed class HeadersChainBootstrapper(
             HeaderBytes80 = seed.HeaderBytes80,
         };
         await store.SaveAsync(doc, ct);
-        chain.LoadFromStore(new[] { (header, seed.Height) });
+        // Audit A2 H1: use explicit Seed(...) to anchor the chain. The
+        // first P2P header now requires this anchor; otherwise it returns
+        // Unanchored and gets dropped.
+        chain.Seed(header, seed.Height);
 
         logger.LogInformation("Headers chain bootstrapped from external source: height={H} hash={Hash}",
             seed.Height, hash);

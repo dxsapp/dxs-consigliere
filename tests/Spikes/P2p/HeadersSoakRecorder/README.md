@@ -6,11 +6,20 @@ shipped in production artifacts.
 
 ## What it does
 
-Runs the BSV P2P peer pool (no Consigliere, no Raven) and, in
-parallel, polls WhatsOnChain `/v1/bsv/main/chain/info` once per
-second. For every new tip seen on either side it appends a JSONL
-record. After SOAK_MINUTES the recorder exits; analyze the JSONL
-offline with `analyze.fsx` to compute p50/p95/p99 lag.
+Runs the **production** `HeadersChainService` path (audit A2 H2
+fix): real `PeerManager`, real `HeadersChainService`, real
+`HeadersChainBootstrapper` with the WoC-backed bootstrap source,
+real `HeadersChain` and `BlockHeaderHasher`. The Raven persistence
+is substituted with an in-memory `IBlockHeaderStore` for the spike
+(production uses the Raven-backed implementation behind the same
+interface). A `JsonlEmittingNotifier` implements
+`INewBlockNotifier` and writes each new-tip event as a JSONL
+record. In parallel polls WhatsOnChain `/v1/bsv/main/chain/info`
+once per second; on each height change writes a `woc` record.
+After SOAK_MINUTES the recorder queries `store.GetTipAsync()` —
+the same call `AdminP2pController.HeadersTip` uses internally —
+and prints the final tip. Analyze the JSONL offline with
+`analyze.py` to compute p50/p95/p99 lag.
 
 ## JSONL schema (slices.md §S7)
 

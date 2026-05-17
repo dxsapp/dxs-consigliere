@@ -36,15 +36,27 @@ public class AdminP2pControllerHeadersTests : RavenTestDriver
         });
     }
 
-    private static BlockHeaderDocument Doc(long height, string hash, string prev = "00") => new()
+    /// <summary>
+    /// Build a doc with real 32-byte wire-order hex hashes. The controller
+    /// now hex-decodes doc.Hash / doc.PrevHash to convert them to display
+    /// order, so artificial strings like "h102" would fail (audit A2 H3).
+    /// </summary>
+    private static BlockHeaderDocument Doc(long height, byte fillHash, byte fillPrev = 0) => new()
     {
-        Id = BlockHeaderDocument.BuildId(hash),
-        Hash = hash,
+        Id = BlockHeaderDocument.BuildId(MakeHex(fillHash)),
+        Hash = MakeHex(fillHash),
         Height = height,
-        PrevHash = prev,
+        PrevHash = MakeHex(fillPrev),
         TimestampMs = 1_700_000_000_000L + height,
         HeaderBytes80 = new byte[80],
     };
+
+    private static string MakeHex(byte fill)
+    {
+        var b = new byte[32];
+        for (var i = 0; i < 32; i++) b[i] = fill;
+        return Convert.ToHexString(b).ToLowerInvariant();
+    }
 
     private static AdminP2pController Build(BlockHeaderStore store, int retainedHeaderCount = 200)
         => new(
@@ -52,10 +64,10 @@ public class AdminP2pControllerHeadersTests : RavenTestDriver
             store,
             Options.Create(new HeadersChainOptions { RetainedHeaderCount = retainedHeaderCount }));
 
-    [Fact]
+    [SkippableFact]
     public async Task HeadersTip_Empty_Returns404()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var controller = Build(store);
@@ -65,15 +77,15 @@ public class AdminP2pControllerHeadersTests : RavenTestDriver
         Assert.IsType<NotFoundResult>(result.Result);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task HeadersTip_ReturnsHighestHeight()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
-        await store.SaveAsync(Doc(100, "h100"));
-        await store.SaveAsync(Doc(102, "h102", prev: "h101"));
-        await store.SaveAsync(Doc(101, "h101"));
+        await store.SaveAsync(Doc(100, 0xaa));
+        await store.SaveAsync(Doc(102, 0xcc, fillPrev: 0xbb));
+        await store.SaveAsync(Doc(101, 0xbb));
         WaitForIndexing(docStore);
 
         var controller = Build(store);
@@ -82,17 +94,20 @@ public class AdminP2pControllerHeadersTests : RavenTestDriver
         var ok = Assert.IsType<OkObjectResult>(result.Result);
         var dto = Assert.IsType<HeadersTipDto>(ok.Value);
         Assert.Equal(102, dto.Height);
-        Assert.Equal("h102", dto.Hash);
-        Assert.Equal("h101", dto.PrevHash);
+        // Wire-order 0xcc * 32 reversed = display-order is also 0xcc * 32
+        // (all-same-byte case). Real headers differ; covered by the
+        // ToDisplayHex unit test on BSV genesis.
+        Assert.Equal(MakeHex(0xcc), dto.Hash);
+        Assert.Equal(MakeHex(0xbb), dto.PrevHash);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task HeadersRecent_ZeroOrNegativeCount_ReturnsEmpty()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
-        await store.SaveAsync(Doc(1, "h1"));
+        await store.SaveAsync(Doc(1, 0x01));
         WaitForIndexing(docStore);
 
         var controller = Build(store);
@@ -106,13 +121,13 @@ public class AdminP2pControllerHeadersTests : RavenTestDriver
         Assert.Empty((HeadersTipDto[])okNeg.Value!);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task HeadersRecent_ReturnsTipFirst_ClampsToRetainedCount()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
-        for (var h = 0; h < 5; h++) await store.SaveAsync(Doc(h, $"h{h}"));
+        for (var h = 0; h < 5; h++) await store.SaveAsync(Doc(h, (byte)(0x10 + h)));
         WaitForIndexing(docStore);
 
         // Retained = 3 → count=10 must clamp to 3.

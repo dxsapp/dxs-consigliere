@@ -20,7 +20,7 @@ namespace Dxs.Consigliere.Data.P2p;
 /// Reorg ancestor-walk reads happen via Recent + GetByHash; W3 may
 /// extend this surface when it lands.
 /// </summary>
-public sealed class BlockHeaderStore(IDocumentStore documentStore)
+public sealed class BlockHeaderStore(IDocumentStore documentStore) : IBlockHeaderStore
 {
     public async Task SaveAsync(BlockHeaderDocument doc, CancellationToken ct = default)
     {

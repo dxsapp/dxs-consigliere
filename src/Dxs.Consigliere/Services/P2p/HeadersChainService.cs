@@ -46,7 +46,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
     private readonly BsvP2pHealth _health;
     private readonly HeadersChain _chain;
     private readonly HeadersChainOptions _options;
-    private readonly BlockHeaderStore _store;
+    private readonly IBlockHeaderStore _store;
     private readonly INewBlockNotifier _notifier;
     private readonly HeadersChainBootstrapper _bootstrapper;
     private readonly BsvP2pConfig _p2pConfig;
@@ -64,7 +64,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
         BsvP2pHealth health,
         HeadersChain chain,
         IOptions<HeadersChainOptions> options,
-        BlockHeaderStore store,
+        IBlockHeaderStore store,
         INewBlockNotifier notifier,
         HeadersChainBootstrapper bootstrapper,
         IOptions<BsvP2pConfig> p2pOptions,
@@ -262,6 +262,12 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
                 case ExtendResult.Orphan:
                     _logger.LogDebug("Orphan header observed; missing parent");
                     break;
+                case ExtendResult.Unanchored:
+                    // Audit A2 H1: chain has no height anchor yet (bootstrap
+                    // failed or hasn't run). Don't persist arbitrary headers
+                    // at height 0; wait for the bootstrapper to seed.
+                    _logger.LogWarning("Header dropped: chain not yet anchored (bootstrap pending)");
+                    break;
                 case ExtendResult.Invalid bad:
                     _logger.LogWarning("Invalid header rejected: {Reason}", bad.Reason);
                     break;
@@ -307,11 +313,14 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
 
     private static BlockTipDto BuildTipDto(BlockHeader header, long height)
     {
+        // Audit A2 H3: external surface uses display-order hash so it
+        // matches WhatsOnChain / Bitails / explorers byte-for-byte.
+        // Internal Raven docs and chain linkage stay wire-order.
         return new BlockTipDto(
-            Hash: ToHexLower(BlockHeaderHasher.Hash(header)),
+            Hash: BlockHeaderHasher.ToDisplayHex(BlockHeaderHasher.Hash(header)),
             Height: height,
             TimestampMs: (long)BlockHeaderHasher.TimestampUnixSeconds(header) * 1000L,
-            PrevHash: ToHexLower(BlockHeaderHasher.PrevBlock(header)),
+            PrevHash: BlockHeaderHasher.ToDisplayHex(BlockHeaderHasher.PrevBlock(header)),
             HeaderSize: BlockHeader.Size);
     }
 

@@ -126,10 +126,10 @@ public class HeadersChainServiceTests : RavenTestDriver
         throw new InvalidOperationException("no PoW nonce found in 2^32");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Headers_FromPeer_AreStoredAndNotifierFires()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain(new HeadersChainOptions { RetainedHeaderCount = 200 });
@@ -142,12 +142,18 @@ public class HeadersChainServiceTests : RavenTestDriver
         var hs = await session.ConnectAsync(SampleVersion(), new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
         Assert.True(hs.Success, $"handshake failed: {hs.FailureReason} {hs.FailureDetail}");
 
+        // Pre-seed the chain at a realistic mainnet height — production
+        // path equivalent to the bootstrapper having anchored on cold
+        // start (audit A2 H1).
+        var anchor = BuildRegtestHeader(prev32: new byte[32], merkleFill: 0x10);
+        chain.Seed(anchor, height: 850_000);
+
         // Wire callbacks via the test seam.
         service.Reconcile(new[] { session });
 
-        // Push a valid headers message (single header at height 0).
-        var h0 = BuildRegtestHeader(prev32: new byte[32], merkleFill: 0x11);
-        await server.ServerSendAsync(P2pCommands.Headers, new HeadersMessage(new[] { h0 }).Serialize());
+        // Push the next header — extends the anchor.
+        var h1 = BuildRegtestHeader(prev32: BlockHeaderHasher.Hash(anchor), merkleFill: 0x11);
+        await server.ServerSendAsync(P2pCommands.Headers, new HeadersMessage(new[] { h1 }).Serialize());
 
         // Wait for notification.
         var deadline = DateTime.UtcNow.AddSeconds(3);
@@ -155,21 +161,20 @@ public class HeadersChainServiceTests : RavenTestDriver
             await Task.Delay(20);
 
         Assert.Single(notifier.Notifications);
-        Assert.Equal(0, notifier.Notifications[0].Height);
+        Assert.Equal(850_001, notifier.Notifications[0].Height);
         Assert.Equal(BlockHeader.Size, notifier.Notifications[0].HeaderSize);
 
         // Persisted to store.
         WaitForIndexing(docStore);
         var tipDoc = await store.GetTipAsync();
         Assert.NotNull(tipDoc);
-        Assert.Equal(0, tipDoc.Height);
-        Assert.Equal(notifier.Notifications[0].Hash, tipDoc.Hash);
+        Assert.Equal(850_001, tipDoc.Height);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Inv_MsgBlock_TriggersGetHeadersToAnnouncingPeer()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();
@@ -205,10 +210,10 @@ public class HeadersChainServiceTests : RavenTestDriver
         Assert.True(sawGetHeaders, "Service did not send getheaders after inv(MSG_BLOCK)");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task Fork_HeaderIsPersisted_TipUnchanged()
     {
-        if (!DotNetRuntimeFacts.HasRuntimeMajor(8)) return;
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8), "embedded Raven .NET 8 runtime not available locally");
         using var docStore = GetDocumentStore();
         var store = new BlockHeaderStore(docStore);
         var chain = new HeadersChain();
@@ -221,17 +226,18 @@ public class HeadersChainServiceTests : RavenTestDriver
         await session.ConnectAsync(SampleVersion(), new CancellationTokenSource(TimeSpan.FromSeconds(5)).Token);
         service.Reconcile(new[] { session });
 
-        // Build a chain: h0 → h1; then a fork h1' at h0.
+        // Build a chain: h0 (seeded) → h1; then a fork h1' at h0.
         var h0 = BuildRegtestHeader(new byte[32], 0x11);
+        chain.Seed(h0, height: 100);
         var h1 = BuildRegtestHeader(BlockHeaderHasher.Hash(h0), 0x22);
         var h1Fork = BuildRegtestHeader(BlockHeaderHasher.Hash(h0), 0x33);
 
-        await server.ServerSendAsync(P2pCommands.Headers, new HeadersMessage(new[] { h0, h1 }).Serialize());
-        // Wait for both notifications.
+        await server.ServerSendAsync(P2pCommands.Headers, new HeadersMessage(new[] { h1 }).Serialize());
+        // Wait for the h1 notification.
         var deadline = DateTime.UtcNow.AddSeconds(3);
-        while (notifier.Notifications.Count < 2 && DateTime.UtcNow < deadline)
+        while (notifier.Notifications.Count < 1 && DateTime.UtcNow < deadline)
             await Task.Delay(20);
-        Assert.Equal(2, notifier.Notifications.Count);
+        Assert.Single(notifier.Notifications);
 
         // Send fork — should be persisted but NOT notified (tip unchanged).
         var notifiedBefore = notifier.Notifications.Count;
@@ -243,6 +249,8 @@ public class HeadersChainServiceTests : RavenTestDriver
 
         WaitForIndexing(docStore);
         var allDocs = await store.RecentAsync(10);
-        Assert.Equal(3, allDocs.Count); // h0, h1, h1Fork all persisted
+        // h0 (seeded only — not persisted unless we explicitly persisted; the
+        // service persists Extended + Fork, so we expect h1 + h1Fork).
+        Assert.Equal(2, allDocs.Count);
     }
 }

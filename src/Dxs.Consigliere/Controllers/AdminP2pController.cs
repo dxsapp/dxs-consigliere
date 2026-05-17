@@ -79,21 +79,27 @@ public class AdminP2pController(
 
     /// <summary>
     /// Wave 1 S6 — current P2P chain tip. Returns 404 when the headers
-    /// chain has not yet been populated (cold start before first
-    /// inv/headers).
+    /// chain has not yet been populated (cold start before bootstrap or
+    /// first inv/headers).
+    ///
+    /// Hash and PrevHash are returned in **display order** (audit A2 H3),
+    /// matching what WhatsOnChain / Bitails / explorers show. Raven
+    /// documents store wire-order internally; conversion happens here at
+    /// the API boundary.
     /// </summary>
     [HttpGet("headers/tip")]
     public async Task<ActionResult<HeadersTipDto>> HeadersTip(CancellationToken ct)
     {
         var doc = await headerStore.GetTipAsync(ct);
         if (doc is null) return NotFound();
-        return Ok(new HeadersTipDto(doc.Hash, doc.Height, doc.TimestampMs, doc.PrevHash));
+        return Ok(ToDisplayDto(doc));
     }
 
     /// <summary>
     /// Wave 1 S6 — most recent N headers (tip first, height-descending).
     /// Count is clamped to <see cref="HeadersChainOptions.RetainedHeaderCount"/>;
-    /// values &lt;= 0 return an empty array.
+    /// values &lt;= 0 return an empty array. Same display-order convention
+    /// as <c>headers/tip</c>.
     /// </summary>
     [HttpGet("headers/recent")]
     public async Task<ActionResult<HeadersTipDto[]>> HeadersRecent([FromQuery] int count, CancellationToken ct)
@@ -101,10 +107,19 @@ public class AdminP2pController(
         if (count <= 0) return Ok(Array.Empty<HeadersTipDto>());
         var clamped = Math.Min(count, _headersOptions.RetainedHeaderCount);
         var docs = await headerStore.RecentAsync(clamped, ct);
-        var result = docs
-            .Select(d => new HeadersTipDto(d.Hash, d.Height, d.TimestampMs, d.PrevHash))
-            .ToArray();
+        var result = docs.Select(ToDisplayDto).ToArray();
         return Ok(result);
+    }
+
+    private static HeadersTipDto ToDisplayDto(Data.Models.P2p.BlockHeaderDocument doc)
+    {
+        // doc.Hash / doc.PrevHash are wire-order hex; convert each to
+        // display-order for the response.
+        var hashDisplay = BlockHeaderHasher.ToDisplayHex(Convert.FromHexString(doc.Hash));
+        var prevDisplay = string.IsNullOrEmpty(doc.PrevHash)
+            ? doc.PrevHash
+            : BlockHeaderHasher.ToDisplayHex(Convert.FromHexString(doc.PrevHash));
+        return new HeadersTipDto(hashDisplay, doc.Height, doc.TimestampMs, prevDisplay);
     }
 }
 

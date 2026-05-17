@@ -14,6 +14,21 @@ namespace Dxs.Bsv.P2p.Chain;
 /// </summary>
 public static class BlockHeaderHasher
 {
+    /// <summary>
+    /// Convert a wire-order (little-endian) 32-byte hash to the
+    /// **display-order** lowercase hex string used by block explorers
+    /// (WhatsOnChain, Bitails, etc.). Display order is the byte-reverse
+    /// of wire order. Added per audit A2 H3.
+    /// </summary>
+    public static string ToDisplayHex(ReadOnlySpan<byte> wireOrderHash)
+    {
+        if (wireOrderHash.Length != 32)
+            throw new ArgumentException("wireOrderHash must be 32 bytes", nameof(wireOrderHash));
+        Span<byte> reversed = stackalloc byte[32];
+        for (var i = 0; i < 32; i++) reversed[i] = wireOrderHash[31 - i];
+        return Convert.ToHexString(reversed).ToLowerInvariant();
+    }
+
     /// <summary>Computes double-SHA-256 over the 80 header bytes (wire-order output).</summary>
     public static byte[] Hash(BlockHeader header)
     {

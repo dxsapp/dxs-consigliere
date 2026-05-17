@@ -10,5 +10,10 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../../../src/Dxs.Bsv/Dxs.Bsv.csproj" />
+    <!-- Audit A2 H2: spike must drive the production HeadersChainService /
+         BlockHeaderStore / INewBlockNotifier path, not hand-rolled inline
+         logic. Pulls in Consigliere so the recorder exercises the same code
+         paths that ship. -->
+    <ProjectReference Include="../../../../src/Dxs.Consigliere/Dxs.Consigliere.csproj" />
   </ItemGroup>
 </Project>

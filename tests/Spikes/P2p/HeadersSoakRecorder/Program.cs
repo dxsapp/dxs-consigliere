@@ -1,34 +1,33 @@
 // Wave 1 S7 — Headers chain soak recorder.
 //
-// Standalone console app that runs the BSV P2P peer pool + an in-process
-// headers chain for >= 24h, records every observed-tip and every
-// WhatsOnChain chain-info poll as JSONL, and exits when SOAK_MINUTES
-// elapses. An offline script (analyze.fsx) joins the two streams by
-// tip_hash and computes p50/p95/p99 lag per slices.md §S7 reproducibility
-// rules.
+// Drives the production HeadersChainService path (audit A2 H2 fix):
+// real PeerManager + real HeadersChainService + in-memory
+// IBlockHeaderStore + JSONL-capturing INewBlockNotifier + the actual
+// WhatsOnChain bootstrap source. At end of soak queries
+// store.GetTipAsync() (same call AdminP2pController.HeadersTip uses).
 //
-// Run:
-//   dotnet run --project tests/Spikes/P2p/HeadersSoakRecorder
-//
-// Required env:
-//   none (defaults below); on a VPS run, ensure NTP is enabled and
-//   chrony / systemd-timesyncd reports offset < 50 ms.
-//
-// JSONL schema (each line one JSON object):
+// JSONL schema (each line one JSON object), per slices.md §S7:
 //   { type: "p2p"|"woc"|"http_error"|"decode_error",
 //     ts_utc_ms: int64,
 //     height: int64|null,
-//     tip_hash: string|null,         // lowercase hex, no 0x, wire order
+//     tip_hash: string|null,             // display order, lowercase hex
 //     prev_hash: string|null,
 //     header_timestamp_ms: int64|null,
 //     source_seq: int64,
 //     extra: object|null }
 //
-// This file lives under tests/Spikes/* — NOT shipped in production
-// artifacts.
+// Audit A2 H3: tip_hash is display-order (matches WhatsOnChain). Joins
+// against woc.bestblockhash are byte-equal without manual reversal.
+//
+// Run:
+//   dotnet run --project tests/Spikes/P2p/HeadersSoakRecorder
+//
+// On a VPS soak run, ensure NTP is enabled (chrony / systemd-timesyncd,
+// offset < 50 ms) before starting.
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -42,6 +41,15 @@ using Dxs.Bsv.P2p.Chain;
 using Dxs.Bsv.P2p.Messages;
 using Dxs.Bsv.P2p.Pool;
 using Dxs.Bsv.P2p.Session;
+using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Models.P2p;
+using Dxs.Consigliere.Data.P2p;
+using Dxs.Consigliere.Services.P2p;
+using Dxs.Consigliere.WebSockets;
+
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 // ── Config ─────────────────────────────────────────────────────────────
 var soakMinutes        = GetInt("SOAK_MINUTES",      1440); // 24h default
@@ -76,7 +84,7 @@ void Emit(string type, long? height, string? tipHash, string? prevHash, long? he
     lock (writeLock) File.AppendAllText(jsonlPath, line + "\n");
 }
 
-// ── P2P side ───────────────────────────────────────────────────────────
+// ── P2P pool ──────────────────────────────────────────────────────────
 var network = P2pNetwork.Mainnet;
 var peerStore = new InMemoryPeerStore();
 var discovery = new PeerDiscovery(network, peerStore);
@@ -94,62 +102,48 @@ var pmConfig = new PeerManagerConfig
 };
 var manager = new PeerManager(network, discovery, peerStore, pmConfig);
 await manager.StartAsync(CancellationToken.None);
+var health = new BsvP2pHealth();
+health.Bind(manager, peerStore);
 
-// Hand-roll a tiny chain: detect new tips via OnHeadersReceived, dedupe
-// by hash to avoid double-counting across peers.
-var seenHashes = new ConcurrentDictionary<string, byte>();
-long maxHeightSeen = 0;
-
-void WireSession(PeerSession session)
+// ── Production headers stack ──────────────────────────────────────────
+var headersOptions = Options.Create(new HeadersChainOptions
 {
-    session.OnInvReceived = inv =>
-    {
-        foreach (var item in inv.Items)
-        {
-            if (item.Type != InvType.Block) continue;
-            // Fire-and-forget getheaders; locator empty is fine for soak.
-            try { _ = session.SendGetHeadersAsync(new GetHeadersMessage(70016, Array.Empty<byte[]>(), new byte[32]), CancellationToken.None); }
-            catch { /* swallow */ }
-        }
-    };
-    session.OnHeadersReceived = headers =>
-    {
-        foreach (var hdr in headers)
-        {
-            byte[] hash;
-            try { hash = BlockHeaderHasher.Hash(hdr); }
-            catch { continue; }
-            var hashHex = Convert.ToHexString(hash).ToLowerInvariant();
-            if (!seenHashes.TryAdd(hashHex, 1)) continue; // already recorded
-
-            // We don't track height authoritatively here; assign monotonic
-            // best-effort height by counting new hashes off the last
-            // confirmed tip. The offline join uses tip_hash, not height,
-            // so this is a soft hint only.
-            var height = Interlocked.Increment(ref maxHeightSeen);
-            var prevHex = Convert.ToHexString(BlockHeaderHasher.PrevBlock(hdr)).ToLowerInvariant();
-            var headerTsMs = (long)BlockHeaderHasher.TimestampUnixSeconds(hdr) * 1000L;
-            var seq = Interlocked.Increment(ref p2pSeq);
-            Emit("p2p", height, hashHex, prevHex, headerTsMs, seq);
-        }
-    };
-}
-
-// Reconcile every 5 s — wire any new Ready sessions.
-var reconcileCts = new CancellationTokenSource();
-var reconcileLoop = Task.Run(async () =>
-{
-    var wired = new HashSet<PeerSession>(ReferenceEqualityComparer.Instance);
-    while (!reconcileCts.IsCancellationRequested)
-    {
-        foreach (var s in manager.ActiveSessions.Values)
-        {
-            if (s.State == PeerSessionState.Ready && wired.Add(s)) WireSession(s);
-        }
-        try { await Task.Delay(TimeSpan.FromSeconds(5), reconcileCts.Token); }
-        catch { break; }
-    }
+    RetainedHeaderCount = 200,
+    GetHeadersIntervalMs = 30_000,
+    SeedFromBitails = true,
+    BootstrapTimeoutMs = 10_000,
 });
+var chain = new HeadersChain(headersOptions.Value);
+var inMemoryStore = new InMemoryBlockHeaderStore();
+
+// JSONL-capturing notifier — sits where HubNewBlockNotifier sits in
+// production; same interface, no SignalR.
+var notifier = new JsonlEmittingNotifier((tip) =>
+{
+    Emit("p2p", tip.Height, tip.Hash, tip.PrevHash, tip.TimestampMs,
+        Interlocked.Increment(ref p2pSeq));
+});
+
+var bootstrapLogger = NullLogger<WhatsOnChainHeadersBootstrapSource>.Instance;
+var bootstrapSource = new WhatsOnChainHeadersBootstrapSource(bootstrapLogger);
+var bootstrapper = new HeadersChainBootstrapper(
+    chain,
+    inMemoryStore,
+    bootstrapSource,
+    headersOptions,
+    NullLogger<HeadersChainBootstrapper>.Instance);
+
+var service = new HeadersChainService(
+    health,
+    chain,
+    headersOptions,
+    inMemoryStore,
+    notifier,
+    bootstrapper,
+    Options.Create(new BsvP2pConfig { Enabled = true }),
+    NullLogger<HeadersChainService>.Instance);
+
+await service.StartAsync(CancellationToken.None);
 
 // ── WhatsOnChain poll side ─────────────────────────────────────────────
 using var http = new HttpClient { BaseAddress = new Uri("https://api.whatsonchain.com/") };
@@ -176,10 +170,9 @@ var wocLoop = Task.Run(async () =>
                 if (height >= 0 && height != lastWocHeight && tipHash is not null)
                 {
                     lastWocHeight = height;
-                    // WhatsOnChain returns display-order hash; reverse to wire-order
-                    // for join compatibility with our P2P emits.
-                    var wireHash = ReverseHex(tipHash);
-                    Emit("woc", height, wireHash, null, null, Interlocked.Increment(ref wocSeq));
+                    // WoC returns display-order; our p2p emits are also display-order
+                    // (audit A2 H3) so joins are byte-equal without any conversion.
+                    Emit("woc", height, tipHash.ToLowerInvariant(), null, null, Interlocked.Increment(ref wocSeq));
                 }
             }
         }
@@ -195,17 +188,40 @@ var wocLoop = Task.Run(async () =>
     }
 });
 
+// ── Reconcile loop — drive HeadersChainService.Reconcile periodically ──
+var reconcileCts = new CancellationTokenSource();
+var reconcileLoop = Task.Run(async () =>
+{
+    while (!reconcileCts.IsCancellationRequested)
+    {
+        try { service.Reconcile(); } catch { /* swallow */ }
+        try { await Task.Delay(TimeSpan.FromSeconds(5), reconcileCts.Token); } catch { break; }
+    }
+});
+
 // ── Run for soakMinutes ────────────────────────────────────────────────
 Console.WriteLine($"Soak will run for {soakMinutes} minutes; press Ctrl+C to stop early.");
 var stopCts = new CancellationTokenSource(TimeSpan.FromMinutes(soakMinutes));
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; stopCts.Cancel(); };
 try { await Task.Delay(Timeout.InfiniteTimeSpan, stopCts.Token); } catch (OperationCanceledException) { }
 
+// ── End-of-soak: query store tip (same call AdminP2pController makes) ──
+var finalTip = await inMemoryStore.GetTipAsync(CancellationToken.None);
+if (finalTip is not null)
+{
+    Console.WriteLine($"End-of-soak tip: height={finalTip.Height} hash={BlockHeaderHasher.ToDisplayHex(Convert.FromHexString(finalTip.Hash))}");
+}
+else
+{
+    Console.WriteLine("End-of-soak tip: store empty (chain never anchored)");
+}
+
 Console.WriteLine("Stopping soak…");
 wocCts.Cancel();
 reconcileCts.Cancel();
 try { await wocLoop; } catch { }
 try { await reconcileLoop; } catch { }
+await service.StopAsync(CancellationToken.None);
 await manager.DisposeAsync();
 Console.WriteLine($"Done. JSONL written to {jsonlPath}");
 
@@ -230,10 +246,57 @@ static VersionMessage BuildVersion() => new(
     Relay: true,
     AssociationId: null);
 
-static string ReverseHex(string hex)
+/// <summary>
+/// Thread-safe in-memory <see cref="IBlockHeaderStore"/> for the spike.
+/// The production path uses Raven-backed BlockHeaderStore; the spike
+/// substitutes this to avoid pulling in embedded Raven.
+/// </summary>
+file sealed class InMemoryBlockHeaderStore : IBlockHeaderStore
 {
-    if (string.IsNullOrEmpty(hex) || hex.Length % 2 != 0) return hex;
-    var bytes = Convert.FromHexString(hex);
-    Array.Reverse(bytes);
-    return Convert.ToHexString(bytes).ToLowerInvariant();
+    private readonly ConcurrentDictionary<string, BlockHeaderDocument> _byHash = new(StringComparer.OrdinalIgnoreCase);
+
+    public Task SaveAsync(BlockHeaderDocument doc, CancellationToken ct = default)
+    {
+        _byHash[doc.Hash] = doc;
+        return Task.CompletedTask;
+    }
+
+    public Task<BlockHeaderDocument> GetByHashAsync(string hashHex, CancellationToken ct = default)
+        => Task.FromResult(_byHash.TryGetValue(hashHex, out var doc) ? doc : null!);
+
+    public Task<BlockHeaderDocument> GetTipAsync(CancellationToken ct = default)
+    {
+        BlockHeaderDocument? tip = null;
+        foreach (var doc in _byHash.Values)
+        {
+            if (tip is null || doc.Height > tip.Height) tip = doc;
+        }
+        return Task.FromResult(tip!);
+    }
+
+    public Task<IReadOnlyList<BlockHeaderDocument>> RecentAsync(int count, CancellationToken ct = default)
+    {
+        if (count <= 0) return Task.FromResult<IReadOnlyList<BlockHeaderDocument>>(Array.Empty<BlockHeaderDocument>());
+        var sorted = new List<BlockHeaderDocument>(_byHash.Values);
+        sorted.Sort((a, b) => b.Height.CompareTo(a.Height));
+        IReadOnlyList<BlockHeaderDocument> top = sorted.GetRange(0, Math.Min(count, sorted.Count));
+        return Task.FromResult(top);
+    }
+
+    public Task PruneBelowAsync(long minHeight, CancellationToken ct = default)
+    {
+        var stale = new List<string>();
+        foreach (var (k, v) in _byHash) if (v.Height < minHeight) stale.Add(k);
+        foreach (var k in stale) _byHash.TryRemove(k, out _);
+        return Task.CompletedTask;
+    }
+}
+
+file sealed class JsonlEmittingNotifier(Action<BlockTipDto> onTip) : INewBlockNotifier
+{
+    public Task NotifyAsync(BlockTipDto tip, CancellationToken ct)
+    {
+        onTip(tip);
+        return Task.CompletedTask;
+    }
 }
