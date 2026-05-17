@@ -337,5 +337,21 @@ after the audit if operator-deferred — same pattern as W2 S8).
 
 Commit hashes recorded here as slices close.
 
-- Wave package created: this commit (initial draft)
-- Wave audit A1: pending
+- Wave package created: `92ead7d` (initial draft)
+- Wave audit A1 pre-execution prompt landed: `091299e`
+  (`audits/wave3-audit-A1-prompt.md`); user runs Codex async
+- Slice S0 delivery: `091299e` (block-journal contract extension)
+- Slice S1 delivery: `bfac702` (`ReorgDetector` pure logic)
+- Slice S2 delivery: deferred — see `evidence/closeout.md`
+  ("Scope deviations" §S2)
+- Slice S3 + S4 + S5 delivery: `9c64818`
+  (`ReorgPipeline` + `OrphanedTxRebroadcaster` + DI wiring +
+  regression test)
+- Slice S6 delivery: `9c64818` (depth scenario test in
+  `ReorgPipelineTests`; broader scenario coverage spans the
+  detector + pipeline + rebroadcaster suites — see closeout
+  §"S6 coverage matrix")
+- Slice S7 delivery: deferred — operator-driven live mainnet
+- Wave closeout evidence: this commit (`evidence/closeout.md`)
+- Wave audit A1 verdict: pending Codex response
+- Wave audit A2 (post-execution): pending

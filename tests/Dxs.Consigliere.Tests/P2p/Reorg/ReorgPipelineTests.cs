@@ -289,6 +289,55 @@ public class ReorgPipelineTests
     }
 
     [Fact]
+    public async Task FiveDeepFork_AppendsFiveDisconnectedEntries_FiresSingleOnReorg()
+    {
+        // S6 depth scenario: active chain 4 long, fork chain 5 long off
+        // the genesis (common ancestor). Pipeline must journal-append
+        // each orphan in disconnect order (newest first) and fire one
+        // OnReorg with all four orphan hashes in the DTO.
+        var chain = new HeadersChain(new HeadersChainOptions { RetainedHeaderCount = 20 });
+        var genesis = HeaderTestUtil.Build(prev: new byte[32], merkleFill: 0x01);
+        chain.Seed(genesis, 0);
+
+        var active = new BlockHeader[4];
+        var p = genesis;
+        for (var i = 0; i < 4; i++)
+        {
+            active[i] = HeaderTestUtil.BuildChild(p, merkleFill: 0xA5);
+            chain.TryExtend(active[i]);
+            p = active[i];
+        }
+        var fork = new BlockHeader[5];
+        var fp = genesis;
+        for (var i = 0; i < 5; i++)
+        {
+            fork[i] = HeaderTestUtil.BuildChild(fp, merkleFill: 0xB5, timestamp: 1700000005);
+            chain.TryExtend(fork[i]);
+            fp = fork[i];
+        }
+
+        var pipeline = BuildPipeline(chain, out var appender, out var reader, out var hub, out var rebroadcaster, out _);
+        for (var i = 0; i < 4; i++)
+            reader.ByBlockHash[DisplayHex(active[i])] = new[] { $"tx-active-{i}-1", $"tx-active-{i}-2" };
+
+        await pipeline.HandleForkObservedAsync(fork[4], CancellationToken.None);
+
+        // 4 journal entries (one per orphan), 1 hub event, 1 rebroadcast call.
+        Assert.Equal(4, appender.Requests.Count);
+        Assert.Single(hub.Reorgs);
+        var dto = hub.Reorgs.TryDequeue(out var d) ? d : null;
+        Assert.Equal(4, dto!.OrphanedHashes.Length);
+        // Disconnect order: newest active first.
+        Assert.Equal(DisplayHex(active[3]), dto.OrphanedHashes[0]);
+        Assert.Equal(DisplayHex(active[0]), dto.OrphanedHashes[3]);
+        Assert.Equal(DisplayHex(fork[4]), dto.NewTipHash);
+        Assert.Equal(5, dto.NewTipHeight);
+
+        Assert.Equal(1, rebroadcaster.CallCount);
+        Assert.Equal(4, rebroadcaster.Received!.Count);
+    }
+
+    [Fact]
     public async Task OrderingPin_JournalAppendBeforeHubEmit()
     {
         // Core Rule §9: the rebuilder is journal-driven; the hub
