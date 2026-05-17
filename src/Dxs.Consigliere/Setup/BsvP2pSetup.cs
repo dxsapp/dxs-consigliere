@@ -53,7 +53,19 @@ public static class BsvP2pSetup
             // Audit W2 A2 C1: a registered wirer is inert without a
             // host-side invoker. Schedule it via a one-shot hosted
             // service that runs Wire() right after DI is built.
-            .AddHostedService<BroadcastServiceP2pWirerHost>();
+            .AddHostedService<BroadcastServiceP2pWirerHost>()
+            // Wave 3 — reorg handling.
+            .AddSingleton<HeightCumulativeWorkComparer>()
+            .AddSingleton<ICumulativeWorkComparer>(sp =>
+                sp.GetRequiredService<HeightCumulativeWorkComparer>())
+            .AddSingleton<ReorgDetector>(sp =>
+                new ReorgDetector(sp.GetRequiredService<ICumulativeWorkComparer>()))
+            .AddSingleton<IOrphanedTxIdReader, RavenOrphanedTxIdReader>()
+            .AddSingleton<OrphanedTxRebroadcastRecorder>()
+            .AddSingleton<IOutgoingRawLookup, OutgoingTransactionStoreRawLookup>()
+            .AddSingleton<ITxAnnouncer>(sp => sp.GetRequiredService<TxRelayCoordinator>())
+            .AddSingleton<IOrphanedTxRebroadcaster, OrphanedTxRebroadcaster>()
+            .AddSingleton<IReorgPipeline, ReorgPipeline>();
 
     // Called from BsvP2pHostedService after PeerManager starts, so
     // BroadcastService can find the relay coordinator.

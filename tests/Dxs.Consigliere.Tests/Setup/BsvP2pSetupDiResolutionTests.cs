@@ -3,6 +3,7 @@ using System;
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Consigliere.BackgroundTasks;
+using Dxs.Consigliere.BackgroundTasks.Blocks;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data;
 using Dxs.Consigliere.Data.Journal;
@@ -58,6 +59,13 @@ public class BsvP2pSetupDiResolutionTests
         services.AddSingleton<IRawTransactionPayloadStore>(_ => Mock.Of<IRawTransactionPayloadStore>());
         services.AddSingleton<INetworkProvider>(_ => new FakeNetworkProvider());
         services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<TxObservation>>>());
+        // Wave 3: ReorgPipeline depends on BlockObservationJournalWriter
+        // (registered in production by HostedTasksSetup, not BsvP2pSetup).
+        // Stand up the writer over a mock block-observation appender so the
+        // DI graph resolves end-to-end without bringing in the full
+        // HostedTasksSetup chain.
+        services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<BlockObservation>>>());
+        services.AddSingleton<BlockObservationJournalWriter>();
         services.AddSingleton<Dxs.Common.BackgroundTasks.BackgroundTasksConfig>(
             _ => new Dxs.Common.BackgroundTasks.BackgroundTasksConfig());
         services.AddSingleton<TxObservationJournalWriter>();
@@ -102,6 +110,22 @@ public class BsvP2pSetupDiResolutionTests
         Assert.NotNull(sp.GetRequiredService<SourceObservationRecorder>());
         Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Observer.MempoolWatcher>());
         Assert.NotNull(sp.GetRequiredService<TxRelayCoordinator>());
+    }
+
+    [Fact]
+    public async Task W3_SingletonGraph_Resolves()
+    {
+        // Wave 3: pin every W3-registered singleton so a future
+        // ctor-dep drift fails the build, not the host startup —
+        // same pattern as W2 A2 C1.
+        await using var sp = (ServiceProvider)BuildProvider();
+        Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.HeightCumulativeWorkComparer>());
+        Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.ICumulativeWorkComparer>());
+        Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Chain.ReorgDetector>());
+        Assert.NotNull(sp.GetRequiredService<IOrphanedTxIdReader>());
+        Assert.NotNull(sp.GetRequiredService<OrphanedTxRebroadcastRecorder>());
+        Assert.NotNull(sp.GetRequiredService<IOrphanedTxRebroadcaster>());
+        Assert.NotNull(sp.GetRequiredService<IReorgPipeline>());
     }
 
     [Fact]

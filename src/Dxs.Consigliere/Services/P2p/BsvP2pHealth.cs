@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -57,4 +58,14 @@ public sealed class BsvP2pHealth
         if (_store is null) return new List<PeerRecord>();
         return await _store.ListAllAsync(ct);
     }
+
+    /// <summary>
+    /// Wave 3 S3 — timestamp of the last reorg that the detector flagged
+    /// as degraded (fork point below the retained header window). Null
+    /// until the first degraded reorg fires. Surfaced via admin / health
+    /// endpoints for operator alerting (W6 wires alarms).
+    /// </summary>
+    public DateTimeOffset? LastDegradedReorgAt { get; private set; }
+
+    public void MarkDegradedReorg(DateTimeOffset at) => LastDegradedReorgAt = at;
 }

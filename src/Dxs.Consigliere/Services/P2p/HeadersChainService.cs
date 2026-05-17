@@ -50,6 +50,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
     private readonly INewBlockNotifier _notifier;
     private readonly HeadersChainBootstrapper _bootstrapper;
     private readonly BsvP2pConfig _p2pConfig;
+    private readonly IReorgPipeline? _reorgPipeline;
     private readonly ILogger<HeadersChainService> _logger;
 
     // Sessions we've already wired callbacks for; tracked by reference so
@@ -68,7 +69,8 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
         INewBlockNotifier notifier,
         HeadersChainBootstrapper bootstrapper,
         IOptions<BsvP2pConfig> p2pOptions,
-        ILogger<HeadersChainService> logger)
+        ILogger<HeadersChainService> logger,
+        IReorgPipeline? reorgPipeline = null)
     {
         _health = health;
         _chain = chain;
@@ -78,6 +80,7 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
         _bootstrapper = bootstrapper;
         _p2pConfig = p2pOptions.Value;
         _logger = logger;
+        _reorgPipeline = reorgPipeline;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -253,8 +256,22 @@ public sealed class HeadersChainService : IHostedService, IAsyncDisposable
                     break;
                 case ExtendResult.Fork fork:
                     await PersistAsync(fork.Header, fork.ParentHeight + 1);
-                    _logger.LogInformation("Stored fork header at height {H}; reorg recovery is W3",
-                        fork.ParentHeight + 1);
+                    _logger.LogInformation("Stored fork header at height {H}", fork.ParentHeight + 1);
+                    // Wave 3: hand the fork tip to the reorg pipeline.
+                    // Optional dependency — null in some test setups; in
+                    // production DI it's always registered via
+                    // BsvP2pSetup.
+                    if (_reorgPipeline is not null)
+                    {
+                        try
+                        {
+                            await _reorgPipeline.HandleForkObservedAsync(fork.Header, CancellationToken.None);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "ReorgPipeline.HandleForkObservedAsync threw");
+                        }
+                    }
                     break;
                 case ExtendResult.AlreadyKnown:
                     // silent

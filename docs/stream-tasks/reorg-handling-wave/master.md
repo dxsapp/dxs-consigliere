@@ -65,18 +65,30 @@ In scope:
   the fork point falls below
   `HeadersChainOptions.RetainedHeaderCount` (default 200) — i.e.
   beyond our trailing-window memory.
-- **`IOrphanedBlockBodyFetcher`**
-  (`src/Dxs.Bsv/P2p/Chain/IOrphanedBlockBodyFetcher.cs` +
-  P2P implementation under `src/Dxs.Consigliere/Services/P2p/`)
-  — issues `getdata(MSG_BLOCK, blockHash)` to a Ready peer,
-  awaits the block frame via the W2-S5
-  `PerSessionDispatcherRegistry`, validates the body's merkle
-  root against the stored header, returns
-  `(BlockHeader header, IReadOnlyList<string> txIds)`. Size + time
-  caps: `MaxFetchedBlockBytes` (default 256 MiB) and
-  `BlockFetchTimeoutMs` (default 60_000). Mismatched-body
-  responses are rejected and the next Ready peer is tried (up to
-  3 attempts).
+- **Orphaned-block txid enumeration via projection query** (not
+  P2P block-body fetch). The original draft (S2) proposed
+  `IOrphanedBlockBodyFetcher` that would issue `getdata
+  MSG_BLOCK` over P2P to a Ready peer and parse the full block
+  body — needed to enumerate orphaned txids and validate merkle
+  root. On survey we confirmed: BSV mainnet blocks are
+  routinely > 1 GiB and can exceed 4 GiB; implementing reliable
+  block-body fetch over P2P (chunked receive, oversize caps,
+  GB-scale parsing) is a major engineering effort and is
+  unnecessary for W3's deliverables — the existing
+  `TxLifecycleProjectionDocument` is already indexed by
+  `BlockHash` (the rebuilder queries it on every Disconnected
+  event), so we already know which txids were in each
+  orphaned block from our own (already-validated) state.
+  Header-chain PoW validation in `HeadersChain.TryExtend.MeetsTarget`
+  is sufficient to authenticate the fork — a peer cannot force
+  a fake reorg without producing a longer PoW-valid chain.
+  **S2 deferred** to a future wave that needs full block
+  bodies (e.g. for replay against a different watchlist after
+  the fact). Documented as a mid-wave design pivot in the
+  audit-A1 prompt (open question #4); a future audit can
+  revisit if a security need arises. The simplification means
+  the emitter (S3) queries projections by `BlockHash` directly
+  via a small `TxLifecycleProjectionByBlockHashReader` service.
 - **`ReorgEventEmitter`**
   (`src/Dxs.Consigliere/Services/P2p/ReorgEventEmitter.cs`) —
   hosted-service that listens to `ReorgDetector` plans. For each
@@ -284,7 +296,7 @@ Status vocabulary: `done`, `todo`, `in_progress`, `blocked`,
 |---|---|---|---|---|---|---|
 | S0 | `consigliere-block-journal` (journal contract extension) | todo | — | new method compiles; `dotnet build` green; unit test asserts `IsDuplicate = false` on first append, `true` on repeat with same `(blockHash, source)` fingerprint | `BlockObservationJournalWriter.AppendDisconnectedAsync(blockHash, source, reason?, ct)` lands; `BlockObservationSource.Reorg` constant defined; dedupe fingerprint format documented in `slices.md` §S0 | slice-A1 |
 | S1 | `bsv-p2p-chain` (`ReorgDetector` pure logic) | todo | S0 | pure unit tests: 1-deep fork promotes, 2-deep fork promotes, 5-deep fork promotes, fork-point-below-retention returns `IsDegraded`; equal-height tie-break uses first-seen | detector inspects `HeadersChain` state + a new `Fork` candidate and returns a `ReorgPlan` (or `null` if no promotion); pure — no I/O | wave-A1 |
-| S2 | `consigliere-p2p-services` (`P2pOrphanedBlockBodyFetcher`) | todo | S0, S1 | integration test via `MiniBsvServer`: server advertises an alternate-chain header, replies to `getdata MSG_BLOCK` with a constructed body; fetcher returns parsed tx list; mismatched-merkle-root response triggers retry on next peer; oversize-block exceeds cap → rejected with counter; timeout → next peer | fetcher returns `(BlockHeader header, IReadOnlyList<string> txIds)` for a valid orphan body; rejects mismatched body; respects `MaxFetchedBlockBytes` + `BlockFetchTimeoutMs`; cycles through Ready peers up to `MaxBlockFetchRetries` | wave-A1 |
+| S2 | `consigliere-tx-projection` (txid enumeration via projection BlockHash query) | deferred | S0, S1 | mid-wave design pivot — full block-body fetch over P2P is GB-scale on BSV mainnet and unnecessary for W3's deliverables; orphaned-block txid enumeration uses the existing `TxLifecycleProjectionDocument.BlockHash` index instead. A small `TxLifecycleProjectionByBlockHashReader` (S3 sub-slice) replaces the `IOrphanedBlockBodyFetcher` design | replaced by the projection-query path in S3; original block-body fetcher deferred to a future wave that needs full block bodies | wave-A1 |
 | S3 | `consigliere-p2p-services` (`ReorgEventEmitter` hosted service) | todo | S0, S1, S2 | E2E fixture: `HeadersChain` extended via fixture; detector returns plan; emitter calls journal-append per orphan + `IWalletHub.OnReorg(dto)`; verify DTO field values match plan; verify journal calls are in orphan-order; degraded path skips body fetch + journal append, fires single `OnReorg` with `DegradedState = true` | for non-degraded reorg: every orphan block's body is fetched, journal-appended, and a single `OnReorg` fires with the correct DTO; for degraded reorg: single `OnReorg(DegradedState = true)` fires; `BsvP2pHealth.LastDegradedReorgAt` updated | wave-A1 |
 | S4 | `consigliere-p2p-services` (`OrphanedTxRebroadcaster` + counters) | todo | S0, S2 | unit tests with fake `OutgoingTransactionStore` + `IRawTransactionPayloadStore` + `TxRelayCoordinator`: tx in outgoing store → announce called; tx in payload store → announce called; coinbase → counter increments + announce NOT called; missing raw → counter increments + announce NOT called; announce failure → counter increments | per orphaned-block tx list, each non-coinbase tx is announced if raw bytes exist; counters increment exactly once per skip / failure / success; no double-announce on repeat reorg replay | wave-A1 |
 | S5 | `consigliere-setup` (DI + hosted-service wiring) | todo | S0-S4 | extension test resolves every new W3 singleton against a mocked DI graph (same shape as `BsvP2pSetupDiResolutionTests`); `ReorgEventEmitter` is in `services.GetServices<IHostedService>()` | `BsvP2pSetup.AddBsvP2pZoneServices` registers `ReorgDetector`, `P2pOrphanedBlockBodyFetcher`, `OrphanedTxRebroadcaster`, `OrphanedTxRebroadcastRecorder`, `ReorgEventEmitter` (hosted); all resolve from production DI graph | wave-A1 |

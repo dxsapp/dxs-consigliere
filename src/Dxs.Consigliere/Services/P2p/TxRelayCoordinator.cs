@@ -37,7 +37,7 @@ namespace Dxs.Consigliere.Services.P2p;
 /// dispatcher consumer). Legacy path with the per-session read loop
 /// is preserved for tests that don't pass a dispatcher registry.
 /// </summary>
-public sealed class TxRelayCoordinator
+public sealed class TxRelayCoordinator : ITxAnnouncer
 {
     private readonly BsvP2pHealth _health;
     private readonly OutgoingTransactionStore _store;
