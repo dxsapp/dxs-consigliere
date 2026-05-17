@@ -408,7 +408,7 @@ Commit hashes recorded here as waves close.
   `audits/program-audit-A1.md`
 - Program revision per A1: `<hash-pending>` (this commit)
 - Wave 1 delivery (`bsv-headers-chain-wave`): closed 2026-05-17 — final commit `f87da92` (full chain: c7b1428 S0, aafbec6 S1, 79aaaf6 S2, 332ca13 S3, 407e1fb S4, 7cbf2d7 S5, 8036bb7 S6, 8babc11 S7 scaffold, 557f8ad closeout, 4997122 A2 fix, 774aaa4 A2-followup fix, f87da92 ledger). Wave audit A2-followup-2 APPROVE.
-- Wave 2 delivery (`bsv-mempool-observer-wave`): 9 slices delivered (S8 deferred per `evidence/live-validation.md`); chain `7344761` (package) → `9fbcaff` / `a44b689` / `ed91617` (pre-S0 audit revisions) → `2a81474` / `9a94a97` (S0) → `fdbc8cd` (S1) → `a3aface` (S2) → `09bfff0` (S3) → `075827f` (S4) → `3bcc6e3` (S5) → `9a258ab` (S6) → `992b1b4` (S7). Wave A2 post-execution audit pending.
+- Wave 2 delivery (`bsv-mempool-observer-wave`): 9 slices delivered (S8 deferred per `evidence/live-validation.md`); chain `7344761` (package) → `9fbcaff` / `a44b689` / `ed91617` (pre-S0 audit revisions) → `2a81474` / `9a94a97` (S0) → `fdbc8cd` (S1) → `a3aface` (S2) → `09bfff0` (S3) → `075827f` (S4) → `3bcc6e3` (S5) → `9a258ab` (S6) → `992b1b4` (S7) → `1bd7ee2` (closeout) → `16515cf` (A2 revision: TxHashOrder display-order normalisation, runner uses S1 parser, TxRelayCoordinator depends on BsvP2pHealth, BroadcastServiceP2pWirerHost invoker, runner E2E tests). Wave A2-followup audit pending.
 - Wave 3 delivery: (pending)
 - Wave 4 delivery: (pending)
 - Wave 5 delivery: (pending)

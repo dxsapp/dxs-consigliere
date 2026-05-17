@@ -1,8 +1,8 @@
 # Wave 2 Closeout — `bsv-mempool-observer-wave`
 
-Status: ready for wave-level audit. S0-S7 implemented; S8
-operator-driven and deferred per `evidence/live-validation.md`
-(audit-locked follow-up plan documented inline).
+Status: revised per wave audit A2 (commit `16515cf`); ready for
+follow-up audit. S0-S7 implemented; S8 operator-driven and
+deferred per `evidence/live-validation.md`.
 
 ## Delivery summary
 
@@ -124,5 +124,57 @@ From `evidence/watchlist-bench.md`:
       CI with .NET 8 embedded runtime).
 - [x] `evidence/watchlist-bench.md` exists with the measured fields.
 - [x] `evidence/live-validation.md` documents the deferred S8 plan.
-- [ ] `audits/wave2-audit-A2.md` — to be written by Codex against
-      this evidence + the implementation commits.
+- [x] `audits/wave2-audit-A2.md` — MAJOR REVISION REQUIRED;
+      revision committed as `16515cf`. Awaiting A2-followup audit.
+
+## Audit A2 revision summary (commit `16515cf`)
+
+All five A2 findings addressed:
+
+- **C1** (P2P relay services not constructible from production DI):
+  `TxRelayCoordinator` now depends on `BsvP2pHealth` (registered
+  singleton) instead of `PeerManager` (which `BsvP2pHostedService`
+  constructs privately, not as a DI dependency). Added a one-shot
+  `BroadcastServiceP2pWirerHost` that calls
+  `BroadcastServiceP2pWirer.Wire()` on `StartAsync` so the Gate-3
+  property-wiring actually runs at host startup. New regression
+  test `BsvP2pSetupDiResolutionTests` (+3) builds the full P2P-zone
+  DI graph against mocked external deps and resolves every W2
+  singleton — failing the build instead of host startup the next
+  time a ctor dep drifts.
+- **H1** (P2P txids journaled in wire byte order): new
+  `TxHashOrder` helper (`WireToDisplayHex` / `DisplayHexToWire`)
+  cross-checked against `BitcoinHelpers.GetTxId`. Runner normalises
+  inv hashes to display-order BEFORE dedupe + before journal
+  append, so `TxObservation.TxId` byte-equals `Transaction.Id` and
+  matches the Bitails / JungleBus path — `SeenBySources`
+  accumulation now works across sources for the same tx.
+  `TxRelayCoordinator` (dispatcher + legacy paths) also normalises
+  inbound getdata / inv / reject hashes, closing a latent Gate-3
+  bug where wire-order vs display-order comparison could never
+  match.
+- **H2** (runner bypassed S1 parser): `ToParsedTx` now uses
+  `TxScriptParser.TryParseP2pkhOutput` /
+  `TryParseP2pkhInputPubkey` / `TryParseTokenId` against script
+  bytes materialised via `Slice.Materialize(rawBytes)`. Drops
+  the convenience-field shortcut that missed uncompressed P2PKH
+  inputs (UnlockingScriptReader only derives addresses for
+  33-byte compressed pubkeys).
+- **M1** (rate-limited inv permanently de-duped): runner calls
+  `watcher.Forget(txid)` on the `RateLimited` branch so a later
+  inv (after the 1 s window slides) can retry. Pinned by a new
+  runner integration test that exhausts the budget and asserts
+  the txid is not retained in the dedupe cache.
+- **M2** (no end-to-end runner test): new
+  `P2pMempoolIngestRunnerTests` (+3) drives the full production
+  path via `MiniBsvServer`: inv → assert getdata → reply with
+  raw tx → assert journal append with display-order `TxId`,
+  source = `"p2p"`, payload saved. Plus unmatched-tx test +
+  rate-limit retry test.
+
+Test counts after revision:
+
+- `Dxs.Bsv.Tests` 207/207 (was 201, +6 `TxHashOrderTests`).
+- `Dxs.Consigliere.Tests` 314 passed (was 308, +6: 3 DI
+  resolution + 3 runner integration) + 24 explicit Skipped +
+  3 pre-existing baseline (unchanged).

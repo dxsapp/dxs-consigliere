@@ -291,4 +291,6 @@ Commit hashes recorded here as slices close.
 - Slice S7 delivery: `992b1b4`
 - Slice S8 delivery: deferred — see `evidence/live-validation.md`
 - Wave closeout evidence: `evidence/closeout.md` (this commit)
-- Wave audit A2 (post-execution): pending
+- Wave audit A2 (post-execution, MAJOR REVISION REQUIRED — C1 DI, H1 txid order, H2 parser bypass, M1 rate-limit forget, M2 runner E2E): `audits/wave2-audit-A2.md`
+- Wave revision per A2: `16515cf` (TxHashOrder + runner refactors + DI/runner integration tests; TxRelayCoordinator depends on BsvP2pHealth not PeerManager; one-shot BroadcastServiceP2pWirerHost added; runner uses TxScriptParser + display-order txid + Forget on rate-limit)
+- Wave audit A2-followup: pending
