@@ -8,18 +8,30 @@ public interface IBroadcastService
 {
     Task<decimal> SatoshisPerByte();
 
+    // W5: legacy multi-provider broadcast — slated for removal in S2.
+    // Kept transitionally so unrelated callers compile while S0+S1 land.
     Task<Broadcast> Broadcast(string raw, string batchId = null);
     Task<Broadcast> Broadcast(Transaction transaction, string batchId = null);
 
     /// <summary>
-    /// Gate 3 P2P broadcast with lifecycle tracking.
-    /// Returns a receipt immediately after persistence; state transitions
-    /// are streamed via SignalR OnBroadcastStateChanged.
+    /// Wave 5 S0 — the canonical broadcast entrypoint. Validates the raw
+    /// tx, persists an <c>OutgoingTransaction</c>, and announces it via
+    /// <see cref="P2p.TxRelayCoordinator.AnnounceAsync"/> in the
+    /// background. Returns a receipt immediately after persistence; the
+    /// lifecycle worker streams state transitions via SignalR
+    /// <c>OnBroadcastStateChanged</c>.
+    /// <para>Renamed from the previous <c>SubmitAsync</c> per the W5
+    /// "single broadcast method" mandate. No HTTP fallback —
+    /// <see cref="P2p.TxRelayCoordinator"/> is the only announce
+    /// path.</para>
     /// </summary>
-    Task<BroadcastReceipt> SubmitAsync(string rawHex, string clientConnectionId = null, CancellationToken ct = default);
+    Task<BroadcastReceipt> BroadcastAsync(
+        string rawHex,
+        string clientConnectionId = null,
+        CancellationToken ct = default);
 }
 
-/// <summary>Immediate receipt returned by <see cref="IBroadcastService.SubmitAsync"/>.</summary>
+/// <summary>Immediate receipt returned by <see cref="IBroadcastService.BroadcastAsync"/>.</summary>
 public sealed record BroadcastReceipt(
     string TxId,
     OutgoingTxState State,

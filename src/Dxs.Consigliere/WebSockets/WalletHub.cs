@@ -142,7 +142,7 @@ public class WalletHub(
         string rawHex,
         [FromServices] IBroadcastService broadcastService)
     {
-        var receipt = await broadcastService.SubmitAsync(rawHex, Context.ConnectionId);
+        var receipt = await broadcastService.BroadcastAsync(rawHex, Context.ConnectionId);
         return new BroadcastReceiptDto(receipt.TxId, receipt.State.ToString(), receipt.CreatedAtMs, receipt.FailReason);
     }
 

@@ -269,7 +269,7 @@ public class BroadcastService(
     internal OutgoingTransactionStore OutgoingStore { get; set; }
     internal TxRelayCoordinator RelayCoordinator { get; set; }
 
-    public async Task<BroadcastReceipt> SubmitAsync(string rawHex, string clientConnectionId = null, CancellationToken ct = default)
+    public async Task<BroadcastReceipt> BroadcastAsync(string rawHex, string clientConnectionId = null, CancellationToken ct = default)
     {
         if (PolicyValidator is null || OutgoingStore is null)
         {
