@@ -4,6 +4,7 @@ import { PrefStore } from "@/stores/pref.store";
 import { ShellStore } from "@/stores/shell.store";
 import { EventBus } from "@/lib/events/bus";
 import { createApiClients, type ApiFactoryResult } from "@/lib/api/factory";
+import type { IAdminClient } from "@/lib/admin/admin-client";
 import type { IAuthClient } from "@/lib/auth/client";
 import type { ISignalRClient } from "@/lib/signalr/client";
 import type { AdminLoginRequest } from "@/types/auth";
@@ -32,6 +33,7 @@ export class RootStore {
   readonly shell: ShellStore;
   readonly bus: EventBus;
   readonly signalR: ISignalRClient;
+  readonly admin: IAdminClient;
   readonly mode: "real" | "mock";
 
   /** Disposers owned by the root; called on app teardown. */
@@ -48,6 +50,7 @@ export class RootStore {
     this.mode = built.mode;
     this.api = built.api;
     this.signalR = built.signalR;
+    this.admin = built.admin;
     this.auth = new AuthStore(built.auth);
 
     // Wire SignalR connection state → shell store.

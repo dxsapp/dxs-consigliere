@@ -8,9 +8,9 @@ import { AuthGuard } from "@/app/AuthGuard";
 import { AppShell } from "@/components/shell/AppShell";
 import { LANDING_PATH, LOGIN_PATH } from "@/app/routes";
 
-// S1-audit L3 + S2-audit (bundle headroom): dev-only theme demo
-// AND the LoginPage are lazy-loaded so their MUI imports stay out
-// of the authed-operator shell.
+// S1-audit L3 + S2-audit bundle-headroom + S3-audit M6: every
+// non-shell page is lazy-loaded so the cold-load shell stays
+// under A1 M3's 200 KB ceiling.
 const DevThemeDemoPage = lazy(() =>
   import("@/screens/dev-theme-demo/DevThemeDemoPage").then((m) => ({
     default: m.DevThemeDemoPage,
@@ -18,6 +18,9 @@ const DevThemeDemoPage = lazy(() =>
 );
 const LoginPage = lazy(() =>
   import("@/screens/login/LoginPage").then((m) => ({ default: m.LoginPage }))
+);
+const DashboardPage = lazy(() =>
+  import("@/screens/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage }))
 );
 
 const root = new RootStore();
@@ -104,7 +107,14 @@ function AuthedRoutes() {
       <Route path="/" element={<Navigate to={LANDING_PATH} replace />} />
 
       {/* Operator section. */}
-      <Route path="/dashboard" element={<PlaceholderPage id="dashboard" title="Dashboard" ownerSlice="S4" description="Always-open system health + activity stream + search prompt." />} />
+      <Route
+        path="/dashboard"
+        element={
+          <Suspense fallback={null}>
+            <DashboardPage admin={root.admin} bus={root.bus} />
+          </Suspense>
+        }
+      />
       <Route path="/transactions" element={<PlaceholderPage id="transactions" title="Transactions" ownerSlice="S5" description="Lookup + lifecycle viewer." />} />
       <Route path="/transactions/:txid" element={<PlaceholderPage id="transactions-detail" title="Transaction" ownerSlice="S5" description="Vertical stepper for the OutgoingTxState lifecycle." />} />
       <Route path="/broadcast-queue" element={<PlaceholderPage id="broadcast-queue" title="Broadcast Queue" ownerSlice="S6" description="3-column kanban with framer-motion state transitions." />} />

@@ -16,4 +16,7 @@ export const ADMIN_API_ROUTES = {
   authMe: "/api/admin/auth/me",
   authLogin: "/api/admin/auth/login",
   authLogout: "/api/admin/auth/logout",
+  // S4 — admin REST surface consumed by the Dashboard.
+  p2pHealth: "/api/admin/p2p/health",
+  metricsSources: "/api/admin/metrics/sources",
 } as const;

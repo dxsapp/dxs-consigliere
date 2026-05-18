@@ -1,6 +1,8 @@
+import { AdminClient, type IAdminClient } from "@/lib/admin/admin-client";
 import { ApiClient } from "@/lib/api/client";
 import { ADMIN_API_ROUTES } from "@/lib/api/routes";
 import { AuthClient, type IAuthClient } from "@/lib/auth/client";
+import { MockAdminClient } from "@/lib/mock/admin";
 import { MockAuthClient } from "@/lib/mock/auth";
 import { MockSignalRClient } from "@/lib/mock/signalr";
 import { SignalRClient, type ISignalRClient } from "@/lib/signalr/client";
@@ -31,6 +33,7 @@ export interface ApiFactoryResult {
   api: ApiClient;
   auth: IAuthClient;
   signalR: ISignalRClient;
+  admin: IAdminClient;
 }
 
 export interface ApiFactoryOptions {
@@ -51,6 +54,7 @@ export function createApiClients(opts: ApiFactoryOptions): ApiFactoryResult {
       api,
       auth: new MockAuthClient(),
       signalR: new MockSignalRClient(opts.bus),
+      admin: new MockAdminClient(),
     };
   }
   return {
@@ -60,5 +64,6 @@ export function createApiClients(opts: ApiFactoryOptions): ApiFactoryResult {
     signalR: new SignalRClient(opts.bus, {
       hubUrl: opts.hubUrl ?? ADMIN_API_ROUTES.walletHubPath,
     }),
+    admin: new AdminClient(api),
   };
 }
