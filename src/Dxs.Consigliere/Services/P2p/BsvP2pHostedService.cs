@@ -27,15 +27,21 @@ public sealed class BsvP2pHostedService : IHostedService, IAsyncDisposable
     private readonly BsvP2pHealth _health;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<BsvP2pHostedService> _logger;
+    private readonly IPeerScoringPolicy? _scoringPolicy;
     private PeerManager? _manager;
     private InMemoryPeerStore? _store;
 
-    public BsvP2pHostedService(IOptions<BsvP2pConfig> config, BsvP2pHealth health, ILoggerFactory loggerFactory)
+    public BsvP2pHostedService(
+        IOptions<BsvP2pConfig> config,
+        BsvP2pHealth health,
+        ILoggerFactory loggerFactory,
+        IPeerScoringPolicy? scoringPolicy = null)
     {
         _config = config.Value;
         _health = health;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<BsvP2pHostedService>();
+        _scoringPolicy = scoringPolicy;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -94,6 +100,12 @@ public sealed class BsvP2pHostedService : IHostedService, IAsyncDisposable
                 // tx beyond the legacy 2 MiB default still get accepted.
                 InitialMaxRecvPayloadLength = _config.MempoolMaxFetchedTxBytes,
             },
+            // Wave 6 S7 — score-aware rotation activates when both a
+            // scoring policy AND a non-null RotationPolicy are present.
+            // Defaults match master.md §"Per-peer scoring + rotation".
+            RotationPolicy = _scoringPolicy is null
+                ? null
+                : new PeerRotationPolicy(),
         };
 
         if (_config.MempoolMaxFetchedTxBytes < 4 * 1024 * 1024)
@@ -106,7 +118,10 @@ public sealed class BsvP2pHostedService : IHostedService, IAsyncDisposable
                 _config.MempoolMaxFetchedTxBytes);
         }
 
-        _manager = new PeerManager(network, discovery, _store, pmConfig, _loggerFactory.CreateLogger<PeerManager>());
+        _manager = new PeerManager(
+            network, discovery, _store, pmConfig,
+            _loggerFactory.CreateLogger<PeerManager>(),
+            scoringPolicy: _scoringPolicy);
         _health.Bind(_manager, _store);
         await _manager.StartAsync(cancellationToken);
 

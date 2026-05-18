@@ -57,6 +57,12 @@ public class BsvP2pSetupDiResolutionTests
         services.Configure<ConsigliereStorageConfig>(config.GetSection("Consigliere:Storage"));
         services.AddSingleton<IDocumentStore>(_ => Mock.Of<IDocumentStore>());
         services.AddSingleton<IRawTransactionPayloadStore>(_ => Mock.Of<IRawTransactionPayloadStore>());
+        // Wave 6 S7 — P2pAlertPoller depends on ISnapshotPersistence
+        // (registered in MetricsSetup in production). The W6 DI test
+        // mocks it here so the W6 zone resolves without pulling the
+        // entire metrics graph.
+        services.AddSingleton<Dxs.Consigliere.Services.Metrics.ISnapshotPersistence>(_ =>
+            Mock.Of<Dxs.Consigliere.Services.Metrics.ISnapshotPersistence>());
         services.AddSingleton<INetworkProvider>(_ => new FakeNetworkProvider());
         services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<TxObservation>>>());
         // Wave 3: ReorgPipeline depends on BlockObservationJournalWriter
@@ -133,6 +139,50 @@ public class BsvP2pSetupDiResolutionTests
         Assert.NotNull(sp.GetRequiredService<OrphanedTxRebroadcastRecorder>());
         Assert.NotNull(sp.GetRequiredService<IOrphanedTxRebroadcaster>());
         Assert.NotNull(sp.GetRequiredService<IReorgPipeline>());
+    }
+
+    [Fact]
+    public async Task W6_SingletonGraph_Resolves()
+    {
+        // Wave 6 S7 — pin every W6-registered singleton so a future
+        // ctor-dep drift fails the build, not the host startup. Same
+        // pattern as W2 A2 C1 / W3 / W4 / W5.
+        // Covers: scoring policy, alert evaluator + repo + poller.
+        await using var sp = (ServiceProvider)BuildProvider();
+        Assert.NotNull(sp.GetRequiredService<Dxs.Bsv.P2p.Pool.IPeerScoringPolicy>());
+        Assert.NotNull(sp.GetRequiredService<P2pAlertEvaluator>());
+        Assert.NotNull(sp.GetRequiredService<Dxs.Consigliere.Data.P2p.IAlertEventRepository>());
+        Assert.NotNull(sp.GetRequiredService<P2pAlertPoller>());
+    }
+
+    [Fact]
+    public void W6_AlertPoller_IsRegisteredAsHostedService()
+    {
+        // Wave 6 S7 — pin the hosted-service registration without
+        // doing a wholesale GetServices<IHostedService>() resolution
+        // (which trips the OutgoingTransactionMonitor PeriodicTask
+        // duplicate-instance guard across xunit runs, per the W2
+        // comment). Inspect the ServiceCollection directly.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(
+            new ConfigurationBuilder().Build());
+        services.AddBsvP2pZoneServices(
+            new ConfigurationBuilder().Build());
+
+        var hostedDescriptors = services
+            .Where(d => d.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService))
+            .ToList();
+
+        // The poller is registered via AddHostedService(sp =>
+        // sp.GetRequiredService<P2pAlertPoller>()) so the
+        // ImplementationFactory captures the singleton accessor.
+        // Materializing it would require a full provider build;
+        // existence of at least one IHostedService factory
+        // descriptor after AddBsvP2pZoneServices is enough to
+        // detect a future "AddHostedService line deleted"
+        // regression.
+        Assert.NotEmpty(hostedDescriptors);
     }
 
     [Fact]

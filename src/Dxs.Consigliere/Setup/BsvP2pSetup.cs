@@ -1,5 +1,6 @@
 using Dxs.Bsv.P2p.Chain;
 using Dxs.Bsv.P2p.Observer;
+using Dxs.Bsv.P2p.Pool;
 using Dxs.Consigliere.BackgroundTasks.P2p;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.P2p;
@@ -78,7 +79,18 @@ public static class BsvP2pSetup
             // H1). ReorgPipeline takes it as an optional dependency so
             // narrow DI tests without the full state-setup graph still
             // resolve.
-            .AddSingleton<IReorgPipeline, ReorgPipeline>();
+            .AddSingleton<IReorgPipeline, ReorgPipeline>()
+            // Wave 6 S7 — scoring policy + rotation are pure-logic
+            // singletons consumed by the PeerManager wirer in
+            // BsvP2pHostedService (not by direct DI resolution; the
+            // manager is constructed manually with the policy).
+            .AddSingleton<IPeerScoringPolicy, DefaultPeerScoringPolicy>()
+            // Wave 6 S2 — alert pipeline. Evaluator carries per-tick
+            // delta state so it MUST be singleton.
+            .AddSingleton<P2pAlertEvaluator>()
+            .AddSingleton<IAlertEventRepository, RavenAlertEventRepository>()
+            .AddSingleton<P2pAlertPoller>()
+            .AddHostedService(sp => sp.GetRequiredService<P2pAlertPoller>());
 
     // Called from BsvP2pHostedService after PeerManager starts, so
     // BroadcastService can find the relay coordinator.
