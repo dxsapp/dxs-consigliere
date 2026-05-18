@@ -2,7 +2,7 @@
 created: 2026-05-18
 type: wave
 parent: consigliere-thin-node-observer-program
-status: draft (A1 audit MAJOR REVISION applied — see audits/wave6-audit-A1-followup.md)
+status: draft (A1 pass-2 APPROVE WITH CHANGES — fixes applied; see audits/wave6-audit-A1-followup-2.md)
 ---
 
 # Wave 6 — Production Ops
@@ -86,9 +86,17 @@ In scope:
       **in-process previous-tick snapshot** of
       `(RelayBackInvCount, GetDataRequestedCount)` per peer
       (lifetime counters from `PeerTelemetry`). Each tick
-      computes per-peer deltas, sums across peers, and fires
-      when `sum(ΔRelayBackInv) / max(1, sum(ΔGetDataRequested))
-      < AlertConfig.MinRelayBackRate` (default 0.30). The
+      computes per-peer deltas and sums across peers. The
+      rule fires when **both** of the following hold:
+      (a) `sum(ΔGetDataRequested) > 0` (the window had at
+          least one inv-request — there is signal to
+          evaluate), and
+      (b) `sum(ΔRelayBackInv) / sum(ΔGetDataRequested) <
+          AlertConfig.MinRelayBackRate` (default 0.30).
+      A window with `sum(ΔGetDataRequested) == 0` is treated
+      as **no-signal** and the rule is a no-op for that tick
+      — suppresses false fires in quiet windows with no
+      broadcast/getdata activity (A1-pass-2 H1 fix). The
       first tick after startup records the baseline only —
       no fire (A1-followup C1 fix). No new counters in
       `PeerTelemetry`.
@@ -146,13 +154,22 @@ In scope:
     standalone document for downstream wallet teams.
 - **Fixture validation suite (S6).**
   - `peer rotation evicts low-scoring peer in fixture` — drives
-    `PeerManager.TickAsync` with seeded peer records at varying
-    scores; asserts the lowest is evicted on rotation.
+    **`PeerRotationPlanner.Plan`** with seeded `(Key, Score)`
+    tuples at varying scores (no sockets, no real
+    `PeerManager`); asserts the lowest-scoring key is in
+    `RotationDecision.EvictKeys`. Mirrors the
+    A1-pass-2 M1 fix: the planner is the test seam, not
+    `PeerManager.TickAsync`.
   - `alert fires when pool drops below threshold in fixture` —
     drives `P2pAlertPoller.TickOnceAsync` against a stubbed
     `BsvP2pHealth` returning `PoolSize = 1, MinPoolSize = 5`;
     asserts a `PoolSizeBelowThreshold` event lands in the fake
     document store.
+  - **`relay-back rule is a no-op in zero-sample windows`** —
+    drives the evaluator with `sum(ΔGetDataRequested) == 0`
+    across the poll window; asserts NO `RelayBackRateBelowThreshold`
+    event is written (A1-pass-2 H1 fix pin). Paired test:
+    non-zero requested + zero relay-back DOES fire.
   - Each of the other 3 alert rules also gets a deterministic
     fixture test.
 - **DI regression test (S7).**
@@ -265,9 +282,11 @@ defer pattern).
   (3 pre-existing Raven embedded-runtime failures unchanged
   from W5 close).
 - Fixture validation suite green:
-  - `PeerManager_Rotation_EvictsLowestScoringPeer`
+  - `PeerRotationPlanner_EvictsLowestScoringPeer`
   - `P2pAlertPoller_PoolBelowThreshold_FiresEvent`
   - `P2pAlertPoller_RelayBackRateBelowThreshold_FiresEvent`
+  - `P2pAlertPoller_RelayBackRate_ZeroSampleWindow_DoesNotFire`
+    (A1-pass-2 H1 fix pin)
   - `P2pAlertPoller_ReorgDepthExceeded_FiresEvent`
   - `P2pAlertPoller_SourceFirstDropout_FiresEvent`
 - DI regression test green:
@@ -293,7 +312,11 @@ Commit hashes recorded here as slices close.
 
 - Wave package created: commit `3daf4ce` (initial draft + A1
   audit prompt)
-- Wave audit A1: MAJOR REVISION REQUIRED — 1 C / 2 H / 3 M /
-  2 L findings; revisions applied per
-  `audits/wave6-audit-A1-followup.md` (this commit). Awaiting
-  second A1 pass.
+- Wave audit A1 pass-1 (commit `3daf4ce`): MAJOR REVISION
+  REQUIRED — 1 C / 2 H / 3 M / 2 L; revisions in commit
+  `4eeefd1` per `audits/wave6-audit-A1-followup.md`.
+- Wave audit A1 pass-2 (commit `4eeefd1`): APPROVE WITH
+  CHANGES — 0 C / 1 H / 1 M / 1 L; H1 (relay-back
+  zero-sample window suppression) + M1 (S6 wording aligned
+  to `PeerRotationPlanner`) applied in this commit per
+  `audits/wave6-audit-A1-followup-2.md`.
