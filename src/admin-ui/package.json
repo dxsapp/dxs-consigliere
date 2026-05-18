@@ -15,7 +15,8 @@
     "test:e2e": "playwright test",
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "budget": "node scripts/assert-shell-budget.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm budget"
+    "inventory": "node scripts/bundle-inventory.mjs",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm budget && pnpm inventory"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
