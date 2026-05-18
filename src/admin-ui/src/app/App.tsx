@@ -45,6 +45,9 @@ const BroadcastQueuePage = lazy(() =>
 const AlertsPage = lazy(() =>
   import("@/screens/alerts/AlertsPage").then((m) => ({ default: m.AlertsPage }))
 );
+const P2pPage = lazy(() =>
+  import("@/screens/p2p/P2pPage").then((m) => ({ default: m.P2pPage }))
+);
 
 // S6-audit M2: RootStore is constructed asynchronously because the
 // mock-mode factory dynamic-imports the mock module on demand. In
@@ -189,7 +192,14 @@ function AuthedRoutes({ root }: { root: RootStore }) {
       />
 
       {/* System section. */}
-      <Route path="/p2p" element={<PlaceholderPage id="p2p" title="P2P Pool" ownerSlice="S8" description="Peers DataGrid with ScoreBar + /24 diversity donut." />} />
+      <Route
+        path="/p2p"
+        element={
+          <Suspense fallback={null}>
+            <P2pPage admin={root.admin} />
+          </Suspense>
+        }
+      />
       <Route path="/metrics/sources" element={<PlaceholderPage id="source-metrics" title="Source Metrics" ownerSlice="S9" description="Per-source observation + visibility deltas." />} />
       <Route path="/headers" element={<PlaceholderPage id="headers" title="Headers Chain" ownerSlice="S9" description="Tip + recent headers + reorg log." />} />
       <Route path="/broadcast-inspector" element={<PlaceholderPage id="broadcast-inspector" title="Broadcast Inspector" ownerSlice="S9" description="Submit form + lifecycle watch." />} />
