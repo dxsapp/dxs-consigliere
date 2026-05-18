@@ -41,6 +41,7 @@ public sealed class P2pAlertPoller : IHostedService, IAsyncDisposable
 
     private CancellationTokenSource? _cts;
     private Task? _loop;
+    private readonly Func<DateTimeOffset, CancellationToken, Task<P2pAlertEvaluatorInput>>? _testInputBuilder;
 
     public P2pAlertPoller(
         P2pAlertEvaluator evaluator,
@@ -49,6 +50,24 @@ public sealed class P2pAlertPoller : IHostedService, IAsyncDisposable
         BsvP2pHealth health,
         IOptions<BsvP2pConfig> options,
         ILogger<P2pAlertPoller> logger)
+        : this(evaluator, repository, snapshotPersistence, health, options, logger, testInputBuilder: null) { }
+
+    /// <summary>
+    /// Wave 6 S6 — test-only ctor seam. Lets fixture tests bypass
+    /// the production input gather (which reads
+    /// <see cref="BsvP2pHealth.ActiveSessions"/> + the snapshot
+    /// store) by supplying the <see cref="P2pAlertEvaluatorInput"/>
+    /// directly. Production DI uses the public ctor, which passes
+    /// <c>null</c> and falls back to the live gather.
+    /// </summary>
+    internal P2pAlertPoller(
+        P2pAlertEvaluator evaluator,
+        IAlertEventRepository repository,
+        ISnapshotPersistence snapshotPersistence,
+        BsvP2pHealth health,
+        IOptions<BsvP2pConfig> options,
+        ILogger<P2pAlertPoller> logger,
+        Func<DateTimeOffset, CancellationToken, Task<P2pAlertEvaluatorInput>>? testInputBuilder)
     {
         _evaluator = evaluator;
         _repository = repository;
@@ -56,6 +75,7 @@ public sealed class P2pAlertPoller : IHostedService, IAsyncDisposable
         _health = health;
         _config = options.Value.Alert;
         _logger = logger;
+        _testInputBuilder = testInputBuilder;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -84,20 +104,32 @@ public sealed class P2pAlertPoller : IHostedService, IAsyncDisposable
     }
 
     /// <summary>Test seam — drive one tick deterministically without
-    /// waiting for the interval to elapse.</summary>
-    public async Task<int> TickOnceAsync(CancellationToken cancellationToken)
+    /// waiting for the interval to elapse. The optional
+    /// <paramref name="nowOverride"/> lets fixture tests pin the
+    /// evaluator's <c>Now</c> (and therefore document ids) at a
+    /// deterministic timestamp.</summary>
+    public async Task<int> TickOnceAsync(
+        CancellationToken cancellationToken,
+        DateTimeOffset? nowOverride = null)
     {
-        var now = DateTimeOffset.UtcNow;
-        var peerTelemetry = SnapshotPeerTelemetry();
-        var windowSnapshots = await LoadWindowSnapshotsAsync(now, cancellationToken);
-
-        var input = new P2pAlertEvaluatorInput(
-            PoolSize: _health.PoolSize,
-            LastDegradedReorgAt: _health.LastDegradedReorgAt,
-            PeerTelemetry: peerTelemetry,
-            WindowSnapshots: windowSnapshots,
-            Config: _config,
-            Now: now);
+        var now = nowOverride ?? DateTimeOffset.UtcNow;
+        P2pAlertEvaluatorInput input;
+        if (_testInputBuilder is not null)
+        {
+            input = await _testInputBuilder(now, cancellationToken);
+        }
+        else
+        {
+            var peerTelemetry = SnapshotPeerTelemetry();
+            var windowSnapshots = await LoadWindowSnapshotsAsync(now, cancellationToken);
+            input = new P2pAlertEvaluatorInput(
+                PoolSize: _health.PoolSize,
+                LastDegradedReorgAt: _health.LastDegradedReorgAt,
+                PeerTelemetry: peerTelemetry,
+                WindowSnapshots: windowSnapshots,
+                Config: _config,
+                Now: now);
+        }
 
         var events = _evaluator.Evaluate(input);
         foreach (var ev in events)
