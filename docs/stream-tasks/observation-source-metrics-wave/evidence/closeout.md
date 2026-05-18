@@ -94,4 +94,143 @@ journal-writer tail** for both `AppendAsync` overloads:
       file.
 - [x] Fixture validation suite green: counter values + bucket
       counts match exactly (master.md done-when).
-- [ ] `audits/wave4-audit-A2.md` — pending post-execution audit.
+- [x] `audits/wave4-audit-A2.md` — MAJOR REVISION REQUIRED (0 C,
+      3 H, 3 M, 2 L). Revision committed; see "A2 revision summary"
+      below. Awaiting A2-followup.
+
+## A2 revision summary (this commit)
+
+Codex A2 verdict: MAJOR REVISION REQUIRED with 3 HIGH findings
+covering concurrency + timestamp correctness in the visibility
+tracker, 3 MEDIUMs on bucket immutability + admin-endpoint bounds
++ persistence round-trip coverage, and 2 LOWs. All 8 closed.
+
+### H1 — TryAdd pattern in `SourceVisibilityTracker`
+
+**Before:** `ConcurrentDictionary.GetOrAdd(_, factory)` was called
+with a side-effect-bearing factory (`added = true`). Per the
+ConcurrentDictionary contract, the factory CAN run even when the
+returned value is NOT inserted (lost race), so two simultaneous
+first observations could both increment `FirstSeen` AND the losing
+source would skip the lag-bucket recording.
+
+**After:** explicit `TryAdd(txId, candidate)` returns `true` iff
+THIS call won the insert race. On loss, the code looks up the
+existing entry via `TryGetValue` and falls through to the lock-
+guarded `Sources.Add` path. Concurrent regression test
+`Concurrent_TwoFirstObservations_SameTx_FirstSeenIncrementsExactlyOnce`
+drives 32 parallel sources at the same txid through a
+`Barrier.SignalAndWait` and asserts `totalFirstSeen == 1` +
+`totalBucketHits == 31`.
+
+### H2 — Lock-aware eviction + `Removed` flag
+
+**Before:** eviction's `TryRemove` was outside the per-entry lock.
+A late `RecordObservation` arriving DURING eviction could (a) get
+a reference to the entry pre-removal, then (b) see eviction commit
+`OnlySaw` (because `Sources.Count == 1` at that moment), then (c)
+lock the in-memory-still-alive entry and record a lag bucket. End
+state: both `OnlySaw[FirstSource]` AND `LagBuckets[lateSource]`
+incremented for the same tx.
+
+**After:** `EvictStaleEntries` takes `lock(entry)` BEFORE
+`TryRemove`. Inside the lock it sets `entry.Removed = true` and
+commits `OnlySaw` if `Sources.Count == 1`. `RecordObservation`'s
+existing-entry path also takes the same lock and checks `Removed`
+first — on true, it `continue`s the while-loop, which re-attempts
+via `TryAdd` against a fresh dict slot. The retry installs a new
+entry (correct semantics for an observation after the eviction
+window has expired). Regression test
+`EvictionRace_RecordObservationConcurrentWithEviction_NeverDoubleCounts`
+fires 64 record + 64 evict tasks concurrently with a 1 ms eviction
+window and asserts `OnlySaw + LagBuckets <= FirstSeen` invariant.
+
+Also added: `_entries.TryRemove(new KeyValuePair<string, Entry>(...))`
+overload — conditional remove that only succeeds if the dict's
+current value is still the SAME instance, protecting against
+remove-and-reinsert races.
+
+### H3 — Pass source's `ObservedAt` timestamp, not `UtcNow`
+
+**Before:** both `AppendAsync` overloads passed
+`DateTimeOffset.UtcNow` to `tracker.RecordObservation`. This
+measured local journal-processing latency rather than the source's
+own first-seen timing, defeating the lag histogram's purpose.
+
+**After:**
+
+- `AppendAsync(TxMessage)` uses
+  `DateTimeOffset.FromUnixTimeSeconds(message.Timestamp)` (the
+  Bitails / JungleBus runners pass their `ObservedAt.ToUnixTimeSeconds()`
+  into the factory). Falls back to `UtcNow` only when
+  `message.Timestamp <= 0` (legacy / `RemovedFromMempool` defaults).
+- `AppendAsync(TxObservation, payload, source)` uses
+  `observation.ObservedAt ?? DateTimeOffset.UtcNow`.
+
+Regression test
+`JournalWriterVisibilityHookTests.AppendAsync_SourceNeutralOverload_UsesObservationObservedAt_NotUtcNow`
+constructs an observation with `ObservedAt` 3 minutes in the past
+and a second-source observation 100 ms after that — the lag bucket
+should be index 2 (50-200 ms), proving the source timestamp drove
+the calculation rather than the journal-tail wall clock (which
+would have put the lag in bucket 5, >5 s).
+
+### M1 — Immutable bucket boundaries
+
+`SourceMetricsBuckets.UpperBoundsMs` was `public static readonly
+long[]` — reassignment-safe but caller-mutable in place. Now the
+backing array is `private` and the public accessor returns
+`IReadOnlyList<long>`. Reflection test pins the static return type
+so a future refactor to `long[]` fails the build.
+
+### M2 — `lastN` clamp on admin endpoint
+
+`AdminMetricsController.GetSourceMetrics` clamps the caller's
+`lastN` to `min(requestedLastN, min(retention, HardLastNCeiling))`
+where `HardLastNCeiling = 1440`. `lastN <= 0` short-circuits (no
+history). Negative / zero / excessive bound tests in
+`AdminMetricsControllerTests`.
+
+### M3 — Aggregator round-trip via `ISnapshotPersistence`
+
+Refactored: `SourceMetricsAggregator` no longer takes
+`IDocumentStore` directly. Instead depends on a new
+`ISnapshotPersistence` interface with `StoreAsync` /
+`GetAllIdsOrderedAsync` / `DeleteAsync`. Production implementation
+`RavenSnapshotPersistence` wraps the session-call chain that was
+previously inline in the aggregator. Tests inject a
+`FakePersistence` and assert: single-tick persists one snapshot;
+below-retention no-eviction; above-retention oldest-deleted-first;
+tracker eviction is triggered per tick. Five tests in
+`SourceMetricsAggregatorTests`.
+
+### L1 — Distinct-window DI flow-through assertion
+
+`MetricsSetupDiResolutionTests.SourceVisibilityTracker_HonoursConfiguredEvictionWindow_DistinctFromDefault`
+uses a 1 s configured window (vs 5 min production default) and
+asserts both survival at 500 ms AND eviction at 1500 ms. The
+production default would fail both assertions, proving the config
+is actually flowing through.
+
+### L2 — accepted as documented note
+
+`SourceMetricsAggregator.EvictExcessSnapshotsAsync` still loads
+all snapshot ids before deleting the excess. For default 720
+retention that's trivial; the audit accepted this as a non-
+blocking note. A future wave could add streaming-paged eviction
+if retention grows substantially.
+
+### Final test counts after A2 revision
+
+- `Dxs.Bsv.Tests` 220/220 in isolation (one flaky
+  timing-dependent test `PeerManager_FailureRecordsNegativeCooldown`
+  fails under parallel test load — pre-existing, unrelated to
+  W4 changes; passes when run alone).
+- `Dxs.Consigliere.Tests` 412 passed (+20 from A2 revision:
+  H1 +1 concurrent, H2 +1 race, H3 +2, M1 +1, M2 +2,
+  M3 +5 aggregator, L1 +0 in-place rewrite of an existing
+  assertion, + 8 integration ripple from existing test re-runs)
+  + 24 explicit Skipped + 3 pre-existing baseline Raven-runtime
+  failures (unchanged).
+
+Metrics-filtered run: 65/65 passed (was 45 before A2 revision).

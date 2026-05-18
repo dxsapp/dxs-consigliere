@@ -21,6 +21,11 @@ namespace Dxs.Consigliere.Tests.Metrics;
 /// </summary>
 public class MetricsSetupDiResolutionTests
 {
+    /// <summary>A2 L1 fix: a distinct, non-default eviction window so
+    /// the config flow-through assertion is meaningful (not a tautology
+    /// against the production default).</summary>
+    private const long TestEvictionWindowMs = 1_000L;
+
     private static IServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();
@@ -31,7 +36,12 @@ public class MetricsSetupDiResolutionTests
             {
                 ["Consigliere:Metrics:Sources:SnapshotIntervalMs"] = "30000",
                 ["Consigliere:Metrics:Sources:SnapshotRetentionCount"] = "720",
-                ["Consigliere:Metrics:Sources:EvictionWindowMs"] = "300000",
+                // L1 fix: 1 s window (vs production default 5 min). The
+                // flow-through test below sleeps 1.5 s and asserts the
+                // entry is evicted — only true if the config-driven
+                // window is the small one. Production default would
+                // leave the entry intact.
+                ["Consigliere:Metrics:Sources:EvictionWindowMs"] = TestEvictionWindowMs.ToString(),
                 ["Consigliere:Metrics:Sources:Enabled"] = "false",
             }!)
             .Build();
@@ -70,18 +80,25 @@ public class MetricsSetupDiResolutionTests
     }
 
     [Fact]
-    public async Task SourceVisibilityTracker_HonoursConfiguredEvictionWindow()
+    public async Task SourceVisibilityTracker_HonoursConfiguredEvictionWindow_DistinctFromDefault()
     {
-        // Wire the tracker via DI and verify the EvictionWindowMs
-        // option flows through SourceMetricsConfig → tracker options.
-        // We don't have a public getter for the inner option, so
-        // this test asserts via behaviour: an entry younger than the
-        // configured window survives eviction.
+        // A2 L1 fix: the previous version of this test used a 5-min
+        // eviction window (production default) and asserted survival
+        // 10 s in — passes regardless of whether config flows through.
+        // The corrected test uses a 1 s configured window and:
+        //   - asserts SURVIVAL at 500 ms (well below the window);
+        //   - asserts EVICTION at 1500 ms (past the window).
+        // Both assertions fail if the production default leaked into
+        // the tracker.
         await using var sp = (ServiceProvider)BuildProvider();
         var tracker = sp.GetRequiredService<SourceVisibilityTracker>();
-        tracker.RecordObservation("tx1", "p2p",
-            DateTimeOffset.UtcNow);
-        tracker.EvictStaleEntries(DateTimeOffset.UtcNow.AddSeconds(10));
+        var basis = DateTimeOffset.FromUnixTimeMilliseconds(1_000);
+        tracker.RecordObservation("tx1", "p2p", basis);
+
+        tracker.EvictStaleEntries(basis.AddMilliseconds(500));
         Assert.Equal(1, tracker.InflightCount);
+
+        tracker.EvictStaleEntries(basis.AddMilliseconds(TestEvictionWindowMs + 500));
+        Assert.Equal(0, tracker.InflightCount);
     }
 }

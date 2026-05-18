@@ -6,14 +6,10 @@ using System.Threading.Tasks;
 
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.Metrics;
-using Dxs.Consigliere.Extensions;
 
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-
-using Raven.Client.Documents;
-using Raven.Client.Documents.Linq;
 
 namespace Dxs.Consigliere.Services.Metrics;
 
@@ -39,7 +35,7 @@ public sealed class SourceMetricsAggregator : IHostedService, IAsyncDisposable
 {
     private readonly ISourceMetricsCollector _collector;
     private readonly SourceVisibilityTracker _visibilityTracker;
-    private readonly IDocumentStore _documentStore;
+    private readonly ISnapshotPersistence _persistence;
     private readonly SourceMetricsConfig _config;
     private readonly ILogger<SourceMetricsAggregator> _logger;
 
@@ -49,13 +45,13 @@ public sealed class SourceMetricsAggregator : IHostedService, IAsyncDisposable
     public SourceMetricsAggregator(
         ISourceMetricsCollector collector,
         SourceVisibilityTracker visibilityTracker,
-        IDocumentStore documentStore,
+        ISnapshotPersistence persistence,
         IOptions<SourceMetricsConfig> config,
         ILogger<SourceMetricsAggregator> logger)
     {
         _collector = collector;
         _visibilityTracker = visibilityTracker;
-        _documentStore = documentStore;
+        _persistence = persistence;
         _config = config.Value;
         _logger = logger;
     }
@@ -118,34 +114,24 @@ public sealed class SourceMetricsAggregator : IHostedService, IAsyncDisposable
     }
 
     private async Task PersistAsync(SourceMetricsSnapshot snapshot, CancellationToken ct)
-    {
-        using var session = _documentStore.OpenAsyncSession();
-        await session.StoreAsync(snapshot, snapshot.Id, ct);
-        await session.SaveChangesAsync(ct);
-    }
+        => await _persistence.StoreAsync(snapshot, ct);
 
     private async Task EvictExcessSnapshotsAsync(CancellationToken ct)
     {
         if (_config.SnapshotRetentionCount <= 0) return;
 
-        using var session = _documentStore.OpenAsyncSession();
         // Take ascending order (oldest first) past the retention
         // count; delete them. The id format
         // (SourceMetricsBuckets.BuildId) is zero-padded D14 so
         // lex-order equals numeric-order on the snapshot timestamp.
-        var allIds = await session
-            .Query<SourceMetricsSnapshot>()
-            .OrderBy(x => x.Id)
-            .Select(x => x.Id)
-            .ToListAsync(token: ct);
+        var allIds = await _persistence.GetAllIdsOrderedAsync(ct);
 
         var excess = allIds.Count - _config.SnapshotRetentionCount;
         if (excess <= 0) return;
 
-        for (var i = 0; i < excess; i++)
-            session.Delete(allIds[i]);
-
-        await session.SaveChangesAsync(ct);
+        var toDelete = new List<string>(excess);
+        for (var i = 0; i < excess; i++) toDelete.Add(allIds[i]);
+        await _persistence.DeleteAsync(toDelete, ct);
     }
 
     public async ValueTask DisposeAsync()

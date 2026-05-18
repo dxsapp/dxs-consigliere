@@ -29,6 +29,7 @@ public static class MetricsSetup
                 });
             })
             .AddSingleton<ISourceMetricsCollector, SourceMetricsCollector>()
+            .AddSingleton<ISnapshotPersistence, RavenSnapshotPersistence>()
             .AddSingleton<SourceMetricsAggregator>()
             .AddHostedService(sp => sp.GetRequiredService<SourceMetricsAggregator>());
 }

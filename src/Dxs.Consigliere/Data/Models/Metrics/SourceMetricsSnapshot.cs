@@ -115,20 +115,28 @@ public static class SourceMetricsBuckets
 {
     public const int Count = 6;
 
+    // A2 M1 fix: the previous `public static readonly long[]` field
+    // was reassignment-safe but caller-mutable (array elements could
+    // be overwritten in place, violating Core Rule §4). The array is
+    // now private; the public accessor returns it as a read-only
+    // view (IReadOnlyList<long>) so callers can read the boundaries
+    // but cannot mutate them.
+    private static readonly long[] _upperBoundsMs = [10, 50, 200, 1_000, 5_000];
+
     /// <summary>Upper bound (exclusive, in ms) of each bucket. Index 5
-    /// (>5 s) is open-ended; the array holds 5 boundaries.</summary>
-    public static readonly long[] UpperBoundsMs = [10, 50, 200, 1_000, 5_000];
+    /// (>5 s) is open-ended; the list holds 5 boundaries.</summary>
+    public static IReadOnlyList<long> UpperBoundsMs => _upperBoundsMs;
 
     /// <summary>Returns the bucket index for a given lag in
     /// milliseconds. Negative inputs (clock skew per Core Rule §5)
     /// clamp to bucket 0.</summary>
     public static int IndexFor(long lagMs)
     {
-        if (lagMs < UpperBoundsMs[0]) return 0;
-        if (lagMs < UpperBoundsMs[1]) return 1;
-        if (lagMs < UpperBoundsMs[2]) return 2;
-        if (lagMs < UpperBoundsMs[3]) return 3;
-        if (lagMs < UpperBoundsMs[4]) return 4;
+        if (lagMs < _upperBoundsMs[0]) return 0;
+        if (lagMs < _upperBoundsMs[1]) return 1;
+        if (lagMs < _upperBoundsMs[2]) return 2;
+        if (lagMs < _upperBoundsMs[3]) return 3;
+        if (lagMs < _upperBoundsMs[4]) return 4;
         return 5;
     }
 

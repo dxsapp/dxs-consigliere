@@ -37,6 +37,15 @@ public sealed class SourceVisibilityTracker
         public required string FirstSource;
         public required long FirstSeenUnixMs;
         public required HashSet<string> Sources;
+
+        // A2 H2 fix: eviction sets Removed=true under the entry's
+        // own lock. RecordObservation re-acquires the lock and
+        // checks this flag before mutating — if true, the record
+        // path retries against a fresh dictionary lookup so the
+        // late observation either re-installs the entry (new
+        // FirstSeen for the late source) or attaches to whatever
+        // entry has been installed in the meantime.
+        public bool Removed;
     }
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
@@ -63,34 +72,56 @@ public sealed class SourceVisibilityTracker
         if (string.IsNullOrEmpty(source)) return;
         var observedUnixMs = observedAt.ToUnixTimeMilliseconds();
 
-        var added = false;
-        var entry = _entries.GetOrAdd(txId, _ =>
+        // A2 H1 fix: explicit TryAdd / lookup. The previous
+        // GetOrAdd-with-side-effect pattern was unsafe because
+        // ConcurrentDictionary.GetOrAdd's value factory CAN run even
+        // when the value is NOT inserted (lost race), so two
+        // simultaneous first observations could both increment
+        // FirstSeen. TryAdd has well-defined atomic semantics: the
+        // returned bool is true if and only if THIS call inserted.
+        while (true)
         {
-            added = true;
-            return new Entry
+            var candidate = new Entry
             {
                 FirstSource = source,
                 FirstSeenUnixMs = observedUnixMs,
                 Sources = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { source },
             };
-        });
+            if (_entries.TryAdd(txId, candidate))
+            {
+                Increment(_firstSeen, source);
+                return;
+            }
 
-        if (added)
-        {
-            Increment(_firstSeen, source);
-            return;
-        }
+            // Lost the insert race. Look up the winning entry and
+            // attach to it.
+            if (!_entries.TryGetValue(txId, out var entry))
+            {
+                // Race: another thread inserted then eviction removed
+                // before our TryGetValue. Retry.
+                continue;
+            }
 
-        // Existing entry; record the lag if this is a NEW source for
-        // this tx.
-        lock (entry)
-        {
-            if (!entry.Sources.Add(source)) return; // duplicate
+            // A2 H2 fix: take the entry's lock BEFORE mutating
+            // entry.Sources; eviction also takes this lock and sets
+            // Removed=true under it, so we see a consistent view.
+            // If the entry was evicted out from under us, retry —
+            // the next iteration's TryAdd will install a new entry
+            // with FirstSeen for this source (which is correct: any
+            // observation more than 5 min after the original is by
+            // definition a new "first-seen" window).
+            lock (entry)
+            {
+                if (entry.Removed) continue;
 
-            var lagMs = observedUnixMs - entry.FirstSeenUnixMs;
-            var bucketIndex = SourceMetricsBuckets.IndexFor(lagMs);
-            var buckets = _lagBuckets.GetOrAdd(source, _ => new long[SourceMetricsBuckets.Count]);
-            Interlocked.Increment(ref buckets[bucketIndex]);
+                if (!entry.Sources.Add(source)) return; // duplicate
+
+                var lagMs = observedUnixMs - entry.FirstSeenUnixMs;
+                var bucketIndex = SourceMetricsBuckets.IndexFor(lagMs);
+                var buckets = _lagBuckets.GetOrAdd(source, _ => new long[SourceMetricsBuckets.Count]);
+                Interlocked.Increment(ref buckets[bucketIndex]);
+                return;
+            }
         }
     }
 
@@ -98,8 +129,20 @@ public sealed class SourceVisibilityTracker
     /// Walks the in-flight tx → first-seen map and commits an
     /// <c>OnlySaw</c> increment for every entry past
     /// <see cref="SourceVisibilityTrackerOptions.EvictionWindowMs"/>
-    /// that was observed by exactly one source. Idempotent under
-    /// concurrent invocation (atomic remove gates the commit).
+    /// that was observed by exactly one source.
+    ///
+    /// <para>A2 H2 fix: race-free against concurrent RecordObservation
+    /// via the per-entry lock. Eviction takes the lock BEFORE
+    /// TryRemove + OnlySaw commit, so a RecordObservation thread
+    /// holding (or waiting for) the same lock either:
+    /// (a) ran fully BEFORE eviction acquired the lock — its source
+    ///     is in <c>entry.Sources</c>, so OnlySaw is NOT committed
+    ///     (Sources.Count &gt; 1); or
+    /// (b) blocked on the lock until eviction released — sees
+    ///     <c>Removed = true</c> and retries against a fresh dict
+    ///     entry, which is correct semantics for an observation
+    ///     arriving after the window closed (a new first-seen
+    ///     period starts for the late source).</para>
     /// </summary>
     public void EvictStaleEntries(DateTimeOffset now)
     {
@@ -110,9 +153,17 @@ public sealed class SourceVisibilityTracker
         {
             if (entry.FirstSeenUnixMs > cutoff) continue;
 
-            if (!_entries.TryRemove(txId, out var removed)) continue;
-            if (removed.Sources.Count == 1)
-                Increment(_onlySaw, removed.FirstSource);
+            lock (entry)
+            {
+                // Conditional remove that only succeeds if the dict's
+                // current value is still THIS entry instance —
+                // protects against a concurrent eviction having
+                // already removed-and-reinserted with a new Entry.
+                if (!_entries.TryRemove(new KeyValuePair<string, Entry>(txId, entry))) continue;
+                entry.Removed = true;
+                if (entry.Sources.Count == 1)
+                    Increment(_onlySaw, entry.FirstSource);
+            }
         }
     }
 

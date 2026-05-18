@@ -15,7 +15,7 @@ public class SourceMetricsSnapshotTests
     {
         // Frozen contract.
         Assert.Equal(6, SourceMetricsBuckets.Count);
-        Assert.Equal(5, SourceMetricsBuckets.UpperBoundsMs.Length);
+        Assert.Equal(5, SourceMetricsBuckets.UpperBoundsMs.Count);
     }
 
     [Fact]
@@ -23,7 +23,23 @@ public class SourceMetricsSnapshotTests
     {
         // Frozen: <10ms, 10-50ms, 50-200ms, 200ms-1s, 1s-5s, >5s.
         Assert.Equal(new long[] { 10, 50, 200, 1_000, 5_000 },
-            SourceMetricsBuckets.UpperBoundsMs);
+            SourceMetricsBuckets.UpperBoundsMs.ToArray());
+    }
+
+    [Fact]
+    public void SourceMetricsBuckets_UpperBounds_ExposedAsReadOnlyType()
+    {
+        // A2 M1 fix: the static public type is IReadOnlyList<long>,
+        // not long[]. Callers writing through the property will hit
+        // a compile error (an IReadOnlyList<long> has no indexer
+        // setter). Pin via reflection so a future refactor to long[]
+        // fails the build, not the audit.
+        var prop = typeof(SourceMetricsBuckets).GetProperty(
+            nameof(SourceMetricsBuckets.UpperBoundsMs));
+        Assert.NotNull(prop);
+        Assert.Equal(
+            typeof(System.Collections.Generic.IReadOnlyList<long>),
+            prop!.PropertyType);
     }
 
     [Theory]

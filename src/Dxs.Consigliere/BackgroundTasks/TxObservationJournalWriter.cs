@@ -30,9 +30,15 @@ public sealed class TxObservationJournalWriter(
         // tail (single chokepoint for both AppendAsync overloads — see
         // wave master.md §"Open scope questions" #1, resolved in
         // favour of the journal-tail position). The tracker's own
-        // dedupe (ConcurrentDictionary GetOrAdd + per-tx Sources set)
-        // handles repeat calls safely.
-        visibilityTracker?.RecordObservation(observation.TxId, message.Source, DateTimeOffset.UtcNow);
+        // TryAdd-based dedupe handles repeat calls safely.
+        // A2 H3 fix: use the source's own ObservedAt timestamp (carried
+        // as unix seconds on TxMessage.Timestamp) instead of UtcNow.
+        // Otherwise the lag histogram measures local journal latency
+        // rather than the true cross-source first-seen lag.
+        var observedAt = message.Timestamp > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(message.Timestamp)
+            : DateTimeOffset.UtcNow;
+        visibilityTracker?.RecordObservation(observation.TxId, message.Source, observedAt);
 
         var payloadReference = await TryPersistPayloadAsync(message, cancellationToken);
         var entry = new ObservationJournalEntry<TxObservation>(observation, payloadReference);
@@ -83,8 +89,11 @@ public sealed class TxObservationJournalWriter(
 
         // Wave 4 S3: see the TxMessage overload above. Same single-
         // chokepoint hook on the source-neutral path. Bypasses dedupe
-        // since the tracker has its own.
-        visibilityTracker?.RecordObservation(observation.TxId, source, DateTimeOffset.UtcNow);
+        // since the tracker has its own. A2 H3 fix: use the
+        // observation's own ObservedAt timestamp; fall back to UtcNow
+        // only when the source didn't populate one.
+        visibilityTracker?.RecordObservation(
+            observation.TxId, source, observation.ObservedAt ?? DateTimeOffset.UtcNow);
 
         var entry = new ObservationJournalEntry<TxObservation>(observation, payload);
         var request = new ObservationJournalAppendRequest<ObservationJournalEntry<TxObservation>>(
