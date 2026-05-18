@@ -12,6 +12,7 @@
 | `service-bootstrap-and-ops` | `src/Dxs.Consigliere/{Program.cs,Startup.cs,Configs/**,Extensions/**,Logging/**,Setup/**}`, `Dxs.Consigliere.sln`, `Dockerfile`, `README.md` | `operator/platform` | `operator/runtime` | composition root, DI wiring, config loading, logging, startup, deployment/runtime packaging | protocol semantics, Raven projection rules, endpoint business behavior | configuration keys, host startup sequence, DI boundaries | medium |
 | `verification-and-conformance` | `tests/**` | `operator/verification` | `operator/protocol` | parser tests, DSTAS conformance vectors, projection tests, API contract tests, backfill verification | production DI wiring, runtime provider code, release docs | test harnesses, fixtures, expected classification/state evidence | high |
 | `repo-governance` | `docs/**`, `.github/**` | `operator/governance` | `operator/platform` | repo instructions, ownership docs, routing conventions, review policy, CODEOWNERS templates | product code, runtime behavior | zone catalog, ownership matrix, handoff contract, governance policy | medium |
+| `admin-ui` | `src/admin-ui/**` | `operator/admin-ui` | `operator/api` | Consigliere admin SPA: React 19 + Vite 7 + TS + MUI + MUI X + MobX + framer-motion; routing, theme, MobX stores, API/SignalR clients, mocks, e2e | backend C# code, REST/SignalR contracts (consumed only), Raven persistence, BSV parsing | typed admin DTOs (parity with C# DTOs), MUI theme tokens, MobX store entrypoints | medium |
 
 ## Precedence Rules
 

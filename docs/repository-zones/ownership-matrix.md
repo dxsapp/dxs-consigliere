@@ -12,6 +12,7 @@
 | Change DI, config keys, startup, Docker/runtime packaging | `service-bootstrap-and-ops` | `operator` | `operator/platform` | handoff to all touched zones if registration or config shape changes | startup/build check + config migration note |
 | Add or update tests, conformance vectors, verification harnesses | `verification-and-conformance` | `operator` | `operator/verification` | handoff to owning production zone if failure reveals contract mismatch | test output, fixture changes, expected-result justification |
 | Change repository instructions, ownership docs, routing policy | `repo-governance` | `operator` | `operator/governance` | notify affected zone owners if boundaries changed | updated docs + path coverage review |
+| Build or modify admin UI (React + MUI + MobX) | `admin-ui` | `operator` | `operator/admin-ui` | handoff to `public-api-and-realtime` only when a NEW REST/SignalR contract is required (consume-only otherwise); handoff to `verification-and-conformance` for parity/e2e tests | `pnpm typecheck + lint + build + test + verify` + Playwright smoke + Lighthouse a11y/perf reports |
 
 ## Routing Rules
 

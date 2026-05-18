@@ -10,6 +10,8 @@
 /doc/AGENTS.md                              @replace-with-operator-governance
 /.github/                                   @replace-with-operator-governance
 
+/src/admin-ui/                              @replace-with-operator-admin-ui
+
 /src/Dxs.Common/                            @replace-with-operator-platform
 /src/Dxs.Bsv/BitcoinMonitor/                @replace-with-operator-runtime
 /src/Dxs.Bsv/Rpc/                           @replace-with-operator-runtime
