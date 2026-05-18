@@ -1,4 +1,5 @@
 import type { ApiClient } from "@/lib/api/client";
+import { ADMIN_API_ROUTES } from "@/lib/api/routes";
 import type {
   AdminAuthStatusResponse,
   AdminLoginRequest,
@@ -25,14 +26,14 @@ export class AuthClient implements IAuthClient {
   constructor(private readonly api: ApiClient) {}
 
   me(signal?: AbortSignal) {
-    return this.api.get<AdminAuthStatusResponse>("/api/admin/auth/me", { signal });
+    return this.api.get<AdminAuthStatusResponse>(ADMIN_API_ROUTES.authMe, { signal });
   }
 
   login(req: AdminLoginRequest, signal?: AbortSignal) {
-    return this.api.post<AdminAuthStatusResponse>("/api/admin/auth/login", req, { signal });
+    return this.api.post<AdminAuthStatusResponse>(ADMIN_API_ROUTES.authLogin, req, { signal });
   }
 
   logout(signal?: AbortSignal) {
-    return this.api.post<AdminAuthStatusResponse>("/api/admin/auth/logout", {}, { signal });
+    return this.api.post<AdminAuthStatusResponse>(ADMIN_API_ROUTES.authLogout, {}, { signal });
   }
 }

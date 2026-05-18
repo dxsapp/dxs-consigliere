@@ -48,7 +48,12 @@ describe("EventBus", () => {
     expect(bus.listenerCount("OnBroadcastStateChanged")).toBe(1);
     off();
     expect(bus.listenerCount("OnBroadcastStateChanged")).toBe(0);
-    bus.emit("OnBroadcastStateChanged", { txId: "aa", state: "Validated", updatedAtMs: 0 });
+    bus.emit("OnBroadcastStateChanged", {
+      txId: "aa",
+      state: "Validated",
+      updatedAtMs: 0,
+      failReason: null,
+    });
     expect(handler).not.toHaveBeenCalled();
   });
 

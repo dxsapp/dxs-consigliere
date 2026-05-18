@@ -63,8 +63,8 @@ describe("LoginPage (S3 cookie-mode form)", () => {
     });
   });
 
-  it("invalid credentials show an error and keep the form (S3)", async () => {
-    const { auth } = renderLogin();
+  it("invalid credentials render the backend error code (S3-audit M2)", async () => {
+    renderLogin();
     fireEvent.change(screen.getByLabelText(/operator name/i), {
       target: { value: "operator" },
     });
@@ -72,10 +72,13 @@ describe("LoginPage (S3 cookie-mode form)", () => {
       target: { value: "wrong" },
     });
     fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    // The mock auth client rejects with `invalid_credentials`; the
+    // AuthStore surfaces it via lastError and LoginPage renders it.
     await waitFor(() => {
-      expect(auth.status).toBe("anonymous");
+      expect(screen.getByText(/invalid_credentials/)).toBeInTheDocument();
     });
-    // Still on /login, no landing bounce.
+    // Form stays — no landing bounce; inputs are re-enabled.
     expect(screen.queryByTestId("landing-stub")).toBeNull();
+    expect(screen.getByLabelText(/operator name/i)).toBeEnabled();
   });
 });

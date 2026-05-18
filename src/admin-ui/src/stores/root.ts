@@ -99,14 +99,27 @@ export class AuthStore {
     return this.status === "authenticated";
   }
 
-  async hydrate(): Promise<void> {
-    this.status = "loading";
-    try {
-      const res = await this.client.me();
-      this.applyStatus(res);
-    } catch (err) {
-      this.applyError(err);
-    }
+  /**
+   * S3-audit M3 fix: idempotent hydrate. Concurrent / repeat calls
+   * (React StrictMode double-mount) share the same in-flight
+   * promise instead of racing two `GET /me` requests.
+   */
+  hydrate(): Promise<void> {
+    const existing = inflightHydrate.get(this);
+    if (existing) return existing;
+    const p = (async () => {
+      this.status = "loading";
+      try {
+        const res = await this.client.me();
+        this.applyStatus(res);
+      } catch (err) {
+        this.applySessionError(err);
+      } finally {
+        inflightHydrate.delete(this);
+      }
+    })();
+    inflightHydrate.set(this, p);
+    return p;
   }
 
   async signIn(creds: AdminLoginRequest): Promise<boolean> {
@@ -117,7 +130,11 @@ export class AuthStore {
       this.applyStatus(res);
       return this.isAuthenticated;
     } catch (err) {
-      this.applyError(err);
+      // S3-audit M2 fix: login errors are user-facing. A 401 on
+      // /login means invalid_credentials, NOT a session-expired
+      // anonymous flip. Surface the message via lastError so the
+      // form renders something the operator can act on.
+      this.applyLoginError(err);
       return false;
     }
   }
@@ -128,7 +145,17 @@ export class AuthStore {
       const res = await this.client.logout();
       this.applyStatus(res);
     } catch (err) {
-      this.applyError(err);
+      // S3-audit H2 fix: logout MUST clear the local user even
+      // when the network call fails. We then surface the error
+      // as lastError for visibility — but the user is signed out
+      // locally either way.
+      runInAction(() => {
+        const ae = err as AppError | undefined;
+        const message = typeof ae?.message === "string" ? ae.message : "Unknown error";
+        this.status = "anonymous";
+        this.user = null;
+        this.lastError = message;
+      });
     }
   }
 
@@ -165,11 +192,15 @@ export class AuthStore {
     });
   }
 
-  private applyError(err: unknown) {
+  /**
+   * Session-error handler (hydrate path). 401 here means "no
+   * cookie / session expired" — that's the canonical anonymous
+   * state, not a user-facing error.
+   */
+  private applySessionError(err: unknown) {
     runInAction(() => {
       const ae = err as AppError | undefined;
       const message = typeof ae?.message === "string" ? ae.message : "Unknown error";
-      // 401 / Unauthorized is just "anonymous", not a hard error.
       if (ae?.status === 401 || ae?.category === "Unauthorized") {
         this.status = "anonymous";
         this.user = null;
@@ -180,4 +211,25 @@ export class AuthStore {
       this.lastError = message;
     });
   }
+
+  /**
+   * Login-error handler (signIn path) — 401 here means
+   * `invalid_credentials` per AdminAuthController.cs. We surface
+   * the message to the login form so the operator sees feedback.
+   */
+  private applyLoginError(err: unknown) {
+    runInAction(() => {
+      const ae = err as AppError | undefined;
+      const message = typeof ae?.message === "string" ? ae.message : "Unknown error";
+      this.status = "anonymous";
+      this.user = null;
+      this.lastError = message;
+    });
+  }
 }
+
+/** Tracks the in-flight hydrate promise per AuthStore instance so a
+ *  concurrent / repeat hydrate (StrictMode double-mount) shares the
+ *  same promise. S3-audit M3 fix. Stored outside the MobX
+ *  observable graph. */
+const inflightHydrate = new WeakMap<AuthStore, Promise<void>>();

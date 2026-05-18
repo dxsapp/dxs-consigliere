@@ -24,6 +24,10 @@ export class MockSignalRClient implements ISignalRClient {
   constructor(private readonly bus: EventBus) {}
 
   async start(): Promise<void> {
+    // S3-audit M5 fix: same-instance double-start is a no-op so a
+    // StrictMode double-mount or accidental retry can't leak the
+    // first interval. Mirrors the real SignalRClient's early return.
+    if (this.blockTimer || this.broadcastTimer) return;
     this.bus.emit("ConnectionStateChanged", { status: "online" });
     this.blockTimer = setInterval(() => this.emitBlockTip(), 20_000);
     this.broadcastTimer = setInterval(() => this.emitNextBroadcastState(), 8_000);
@@ -81,6 +85,9 @@ export class MockSignalRClient implements ISignalRClient {
       txId: hex64("ff"),
       state,
       updatedAtMs: Date.now(),
+      // Matches the real backend null-literal serialization for
+      // happy-path transitions (S3-audit M4).
+      failReason: null,
     });
   }
 }

@@ -38,12 +38,16 @@ export interface EventMap {
     degradedState: boolean;
   };
 
-  /** W2 + W5 hub event. Tx lifecycle transition. */
+  /** W2 + W5 hub event. Tx lifecycle transition.
+   *  `failReason` is `string | null` (not optional) because
+   *  SignalR's default JSON protocol serializes the C#
+   *  `string FailReason = null` field as a literal null on the
+   *  wire — S3-audit M4. */
   OnBroadcastStateChanged: {
     txId: string;
     state: string;
     updatedAtMs: number;
-    failReason?: string;
+    failReason: string | null;
   };
 
   /** SignalR connection-state lifecycle. Synthesised by the
@@ -89,8 +93,8 @@ export class EventBus {
         (handler as Handler<K>)(payload);
       } catch (err) {
         // Per Core Rule §9 we don't log full payloads; surface the
-        // error category only.
-        // eslint-disable-next-line no-console
+        // error category only. (console.warn is allowed by the
+        // ESLint policy in eslint.config.js.)
         console.warn(`[EventBus] handler for ${key} threw`, err);
       }
     }

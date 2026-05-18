@@ -33,6 +33,10 @@ export interface SignalRClientOptions {
 export class SignalRClient implements ISignalRClient {
   private connection: HubConnection | null = null;
   private staleTimer: ReturnType<typeof setTimeout> | null = null;
+  /** S3-audit M1 fix: flipped to true only after `conn.start()`
+   *  resolves; flipped back on stop() or start() rejection. Avoids
+   *  invoking on a half-initialised HubConnection. */
+  private connected = false;
   private readonly hubUrl: string;
   private readonly staleAfterMs: number;
 
@@ -42,6 +46,12 @@ export class SignalRClient implements ISignalRClient {
   ) {
     this.hubUrl = options.hubUrl;
     this.staleAfterMs = options.staleAfterMs ?? 10_000;
+  }
+
+  /** Test seam — pins the configured hub URL against the backend
+   *  WalletHub.Route constant. */
+  get hubUrlForTests(): string {
+    return this.hubUrl;
   }
 
   async start(): Promise<void> {
@@ -64,15 +74,31 @@ export class SignalRClient implements ISignalRClient {
     conn.on("OnBroadcastStateChanged", (evt) => this.bus.emit("OnBroadcastStateChanged", evt));
 
     // Connection-state → bus, with a stale-after-disconnect timer.
-    conn.onreconnecting(() => this.markStaleSoon());
-    conn.onreconnected(() => this.markOnline());
-    conn.onclose(() => this.markOffline());
+    conn.onreconnecting(() => {
+      this.connected = false;
+      this.markStaleSoon();
+    });
+    conn.onreconnected(() => {
+      this.connected = true;
+      this.markOnline();
+    });
+    conn.onclose(() => {
+      this.connected = false;
+      this.markOffline();
+    });
 
     this.connection = conn;
     try {
       await conn.start();
+      this.connected = true;
       this.markOnline();
     } catch (err) {
+      // S3-audit M1 fix: failed start must null the connection so
+      // subsequent start() calls can retry, AND clear `connected`
+      // so requireConnected() doesn't allow invokes on the dead
+      // SDK object.
+      this.connected = false;
+      this.connection = null;
       this.markOffline();
       throw err;
     }
@@ -81,6 +107,7 @@ export class SignalRClient implements ISignalRClient {
   async stop(): Promise<void> {
     if (!this.connection) return;
     this.clearStaleTimer();
+    this.connected = false;
     try {
       await this.connection.stop();
     } finally {
@@ -103,13 +130,11 @@ export class SignalRClient implements ISignalRClient {
   }
 
   private requireConnected(): HubConnection {
-    if (!this.connection) {
-      throw new Error("SignalR connection not initialised; call start() first");
+    if (!this.connection || !this.connected) {
+      throw new Error(
+        "SignalR connection not in Connected state; call start() and await it before invoking"
+      );
     }
-    // We rely on `this.connection` being set after a successful
-    // start() to proxy "connected enough to invoke". The
-    // `HubConnectionState` enum lives in the dynamic-imported
-    // module so we don't import it eagerly.
     return this.connection;
   }
 

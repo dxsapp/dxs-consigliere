@@ -1,9 +1,12 @@
 import { ApiClient } from "@/lib/api/client";
+import { ADMIN_API_ROUTES } from "@/lib/api/routes";
 import { AuthClient, type IAuthClient } from "@/lib/auth/client";
 import { MockAuthClient } from "@/lib/mock/auth";
 import { MockSignalRClient } from "@/lib/mock/signalr";
 import { SignalRClient, type ISignalRClient } from "@/lib/signalr/client";
 import type { EventBus } from "@/lib/events/bus";
+
+export { ADMIN_API_ROUTES } from "@/lib/api/routes";
 
 /**
  * S3 wire factory. The `VITE_API_MODE` env switch picks the
@@ -35,7 +38,7 @@ export interface ApiFactoryOptions {
   /** Default: empty (same-origin via Vite proxy in dev / ASP.NET
    *  static serve in production). */
   apiBase?: string;
-  /** Default: `/wallethub`. */
+  /** Default: `ADMIN_API_ROUTES.walletHubPath` (= `/ws/consigliere`). */
   hubUrl?: string;
 }
 
@@ -54,6 +57,8 @@ export function createApiClients(opts: ApiFactoryOptions): ApiFactoryResult {
     mode,
     api,
     auth: new AuthClient(api),
-    signalR: new SignalRClient(opts.bus, { hubUrl: opts.hubUrl ?? "/wallethub" }),
+    signalR: new SignalRClient(opts.bus, {
+      hubUrl: opts.hubUrl ?? ADMIN_API_ROUTES.walletHubPath,
+    }),
   };
 }

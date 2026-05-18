@@ -101,8 +101,7 @@ export function hydratePrefStore(store: PrefStore): Promise<void> {
     } catch (err) {
       // Storage / persistence failure must NOT leave the app blank.
       // Reset to defaults and let the UI render with no persisted
-      // choice.
-      // eslint-disable-next-line no-console
+      // choice. (console.warn is allowed by the ESLint policy.)
       console.warn("[PrefStore] hydrate failed; resetting to defaults", err);
       store.reset();
     } finally {

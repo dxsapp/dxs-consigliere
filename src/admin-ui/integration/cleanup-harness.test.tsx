@@ -28,11 +28,21 @@ describe("cleanup harness — bus subscribers + SignalR timers", () => {
     const seen: string[] = [];
     const off = bus.on("OnBroadcastStateChanged", (e) => seen.push(e.state));
 
-    bus.emit("OnBroadcastStateChanged", { txId: "aa", state: "Validated", updatedAtMs: 0 });
+    bus.emit("OnBroadcastStateChanged", {
+      txId: "aa",
+      state: "Validated",
+      updatedAtMs: 0,
+      failReason: null,
+    });
     expect(seen).toEqual(["Validated"]);
 
     off();
-    bus.emit("OnBroadcastStateChanged", { txId: "aa", state: "Dispatching", updatedAtMs: 1 });
+    bus.emit("OnBroadcastStateChanged", {
+      txId: "aa",
+      state: "Dispatching",
+      updatedAtMs: 1,
+      failReason: null,
+    });
     expect(seen).toEqual(["Validated"]);
   });
 
@@ -46,18 +56,36 @@ describe("cleanup harness — bus subscribers + SignalR timers", () => {
   });
 
   it("SignalR client stop() halts emit cadence — even after many cycles", async () => {
+    // S3-audit L1 fix: keep the subscription active AFTER stop()
+    // so this case directly proves stop() clears the interval. If
+    // the interval leaked, the counter would keep advancing on
+    // every additional `advanceTimersByTime`.
     const bus = new EventBus();
     const tips: number[] = [];
-    const off = bus.on("OnNewBlock", (e) => tips.push(e.height));
+    bus.on("OnNewBlock", (e) => tips.push(e.height));
     const client = new MockSignalRClient(bus);
     await client.start();
     vi.advanceTimersByTime(60_000); // 3 block intervals
     expect(tips.length).toBe(3);
 
     await client.stop();
-    off();
+    // Subscription stays active; if stop() forgot to clear the
+    // interval the counter would advance below.
     vi.advanceTimersByTime(120_000);
-    expect(tips.length).toBe(3); // no more emits after stop + off
+    expect(tips.length).toBe(3);
+  });
+
+  it("same-instance double start() is a no-op (S3-audit M5 idempotent)", async () => {
+    const bus = new EventBus();
+    const tips: number[] = [];
+    bus.on("OnNewBlock", (e) => tips.push(e.height));
+    const client = new MockSignalRClient(bus);
+    await client.start();
+    await client.start(); // second start is a no-op
+    vi.advanceTimersByTime(20_000);
+    // Only one interval is running → one emit per 20s, not two.
+    expect(tips.length).toBe(1);
+    await client.stop();
   });
 
   it("subscribing AFTER stop() yields no events", async () => {
