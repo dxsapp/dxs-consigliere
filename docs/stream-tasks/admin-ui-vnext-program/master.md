@@ -193,7 +193,7 @@ backend program's residuals — A1 M1 + M8 + brief §12):
 15. **Testing pyramid locked at S0** (A1 M4): `unit =
     component/store render + state transitions` in
     `**/*.test.tsx`; `integration = store + API mock + route
-    hydration` in `src/admin-ui/src/integration/`; `e2e =
+    hydration` in `src/admin-ui/integration/`; `e2e =
     Playwright golden paths` in `src/admin-ui/tests/e2e/`;
     `contract = backend payload/schema parity` in
     `src/admin-ui/tests/contract/`.
@@ -205,7 +205,7 @@ backend program's residuals — A1 M1 + M8 + brief §12):
 | `admin-ui-foundation` | `admin-ui` (added to `docs/repository-zones/zone-catalog.md` in S0 — A1 H1) | New: `src/admin-ui/{package.json,vite.config.ts,tsconfig.json,index.html}` · `src/admin-ui/src/{main.tsx,app/{App,routes,theme,api,signalr,auth}.ts,stores/{root,shell,*}.ts,types/{api.generated,domain,errors}.ts,lib/{api-client,signalr-client,mock,auth-client}/}` |
 | `admin-ui-operator-screens` | `admin-ui` | `src/admin-ui/src/screens/{dashboard,transactions,broadcast-queue,addresses,tokens,alerts}/` (per screen: page + store + components) |
 | `admin-ui-system-screens` | `admin-ui` | `src/admin-ui/src/screens/{p2p-pool,source-metrics,headers,broadcast-inspector,configuration,logs,providers,setup}/` |
-| `admin-ui-tests` | `verification-and-conformance` | `src/admin-ui/src/**/*.test.tsx` · `src/admin-ui/src/integration/` · `src/admin-ui/tests/e2e/` · `src/admin-ui/tests/contract/` |
+| `admin-ui-tests` | `verification-and-conformance` | `src/admin-ui/src/**/*.test.tsx` · `src/admin-ui/integration/` · `src/admin-ui/tests/e2e/` · `src/admin-ui/tests/contract/` |
 | `admin-ui-docs` | `repo-governance` | `docs/admin-ui/design-handoff/*` · `docs/admin-ui/design-bundle/*` · `docs/stream-tasks/admin-ui-vnext-program/*` · zone-catalog + ownership-matrix + CODEOWNERS additions |
 
 ## Slice Ledger

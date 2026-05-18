@@ -1,8 +1,9 @@
 # Consigliere Admin UI
 
 The operator surface for the Consigliere BSV thin-node observer.
-Built on the workspace-default frontend stack per
-[`/Users/imighty/Code/docs/project-stack-profiles.md`](../../docs/admin-ui/design-bundle/project/uploads/01-stack-profile.md):
+Built on the workspace-default frontend stack per the workspace
+baseline at `Code/docs/project-stack-profiles.md` (mirrored in this
+repo at [`docs/admin-ui/design-bundle/project/uploads/01-stack-profile.md`](../../docs/admin-ui/design-bundle/project/uploads/01-stack-profile.md)):
 React 19 + Vite 7 + TypeScript + MUI + MUI X + MobX + framer-motion.
 
 ## Status
@@ -25,7 +26,7 @@ and quality gates.
 | Tests (unit/integration) | Vitest + Testing Library |
 | Tests (e2e) | Playwright |
 | Tests (contract) | Vitest against a live ASP.NET host |
-| Package manager | pnpm 9 |
+| Package manager | pnpm 10.15.0 (pinned via `packageManager`) |
 
 ## Scripts
 
@@ -87,7 +88,8 @@ src/admin-ui/
 
 GitHub Actions workflow `.github/workflows/ci-tests.yml` runs
 `pnpm install --frozen-lockfile && pnpm verify` from this directory
-on every push to `main` or `codex-*` branches.
+on every push to `main`, `codex-*`, or `codex/*` branches, and on
+every pull request.
 
 ## Design reference
 
