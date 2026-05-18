@@ -5,6 +5,7 @@ using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Common.BackgroundTasks;
 using Dxs.Common.Time;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Extensions;
 using Dxs.Consigliere.Services;
@@ -147,14 +148,23 @@ public class UnconfirmedTransactionsMonitor(
 
                     try
                     {
-                        var result = await broadcastService.Broadcast(data.Value.Hex);
-                        if (result.Success)
+                        // Wave 5 S2: legacy multi-provider Broadcast(...)
+                        // removed. Re-broadcast goes through the unified P2P
+                        // path; the receipt's State + FailReason capture
+                        // success / failure shape.
+                        var receipt = await broadcastService.BroadcastAsync(data.Value.Hex);
+                        if (receipt.State == OutgoingTxState.Validated
+                            || receipt.State == OutgoingTxState.Dispatching
+                            || receipt.State == OutgoingTxState.PeerAcked
+                            || receipt.State == OutgoingTxState.PeerRelayed)
                         {
-                            _logger.LogDebug("Transaction re-broadcasted: {TxId}: {@Attempts}", data.Value.TxId, result.Attempts);
+                            _logger.LogDebug("Transaction re-broadcasted: {TxId}: {State}",
+                                data.Value.TxId, receipt.State);
                             continue;
                         }
 
-                        _logger.LogDebug("Failed re-broadcast: {TxId}: {Message}", data.Value.TxId, result.Message);
+                        _logger.LogDebug("Failed re-broadcast: {TxId}: {State} {FailReason}",
+                            data.Value.TxId, receipt.State, receipt.FailReason);
                     }
                     catch (Exception exception)
                     {

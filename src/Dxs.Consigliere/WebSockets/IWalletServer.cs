@@ -35,7 +35,14 @@ public interface IWalletServer
 
     Task<Dictionary<string, string>> GetTransactions(List<string> ids, IDocumentStore store);
 
-    Task<bool> Broadcast(string transaction, IBroadcastService broadcastService);
+    /// <summary>
+    /// Wave 5 S1 — unified broadcast hub method. Returns the frozen
+    /// <see cref="BroadcastReceiptDto"/> (W1 S0.8 contract freeze).
+    /// Previously a <c>Task&lt;bool&gt;</c> from the legacy HTTP-provider
+    /// path AND a separate <c>BroadcastTracked</c> method for the P2P
+    /// path; both collapsed into this signature.
+    /// </summary>
+    Task<BroadcastReceiptDto> Broadcast(string rawHex, IBroadcastService broadcastService);
 
     #endregion
 

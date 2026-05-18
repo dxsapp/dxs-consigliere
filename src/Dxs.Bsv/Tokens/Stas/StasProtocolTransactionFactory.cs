@@ -9,7 +9,7 @@ using Dxs.Bsv.Transactions.Build;
 
 namespace Dxs.Bsv.Tokens.Stas;
 
-public class StasProtocolTransactionFactory(IBroadcastProvider broadcastProvider) : ITokenTransactionFactory
+public class StasProtocolTransactionFactory(IFeeRateProvider feeRateProvider) : ITokenTransactionFactory
 {
     public async Task<TransactionBuilder> CreateContract(
         ITokenSchema schema,
@@ -246,7 +246,7 @@ public class StasProtocolTransactionFactory(IBroadcastProvider broadcastProvider
     private async Task<decimal> GetSatoshisPerByte()
     {
         var fees = new List<decimal>();
-        var fee = await broadcastProvider.SatoshisPerByte();
+        var fee = await feeRateProvider.SatoshisPerByte();
         fees.Add(fee);
 
         return fees.Min();

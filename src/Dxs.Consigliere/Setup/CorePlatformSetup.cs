@@ -51,7 +51,12 @@ public static class CorePlatformSetup
             .AddHostedService<VNextStartupDiagnosticsHostedService>()
             .AddSingleton<INetworkProvider, NetworkProvider>()
             .AddTransient<IBitcoindService, BitcoindService>()
-            .AddTransient<IBroadcastProvider>(sp => sp.GetRequiredService<IBitcoindService>())
+            // W5 S3: legacy IBroadcastProvider renamed to IFeeRateProvider
+            // (broadcast moved to the unified P2P path in
+            // IBroadcastService.BroadcastAsync). The DI forwarder still
+            // points the fee-rate slot at BitcoindService (the only
+            // current IFeeRateProvider) — STAS tx factories consume it.
+            .AddTransient<IFeeRateProvider>(sp => sp.GetRequiredService<IBitcoindService>())
             .AddMediatR(cfg => { cfg.RegisterServicesFromAssemblyContaining<IMediator>(); });
 
         var cacheConfig = configuration.GetSection("Consigliere:Cache").Get<ConsigliereCacheConfig>() ?? new ConsigliereCacheConfig();

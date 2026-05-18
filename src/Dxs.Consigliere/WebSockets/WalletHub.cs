@@ -126,19 +126,17 @@ public class WalletHub(
         return result;
     }
 
-    public async Task<bool> Broadcast(string transaction, [FromServices] IBroadcastService broadcastService)
-    {
-        var result = await broadcastService.Broadcast(transaction);
-
-        return result.Success;
-    }
-
     /// <summary>
-    /// Gate 3: P2P broadcast with lifecycle tracking.
-    /// Returns a receipt immediately; state transitions are streamed via
-    /// OnBroadcastStateChanged to the caller's connection group.
+    /// Wave 5 S1 — unified broadcast hub method. Replaces the legacy
+    /// <c>Broadcast(string)</c> (which returned <c>bool</c> via the
+    /// multi-provider HTTP path) AND the W2 <c>BroadcastTracked</c>
+    /// transitional method (which returned the same DTO this method
+    /// now returns). External wallet clients calling either legacy
+    /// name will see runtime errors — see W5 closeout MIGRATION
+    /// snippet. State transitions stream via OnBroadcastStateChanged
+    /// to the caller's connection group.
     /// </summary>
-    public async Task<BroadcastReceiptDto> BroadcastTracked(
+    public async Task<BroadcastReceiptDto> Broadcast(
         string rawHex,
         [FromServices] IBroadcastService broadcastService)
     {

@@ -239,5 +239,15 @@ S7 may close after the audit if operator-deferred (W2 S8 / W3 S7
 
 Commit hashes recorded here as slices close.
 
-- Wave package created: this commit (initial draft)
-- Wave audit A1: pending
+- Wave package created: `0e87265` (initial draft + A1 audit prompt)
+- Wave audit A1: pending (Codex prompt staged for user; in-flight
+  implementation continues in parallel)
+- Slice S0 delivery: `8a999d9` (SubmitAsync → BroadcastAsync rename
+  + shape pin test)
+- Slices S1 + S2 + S3 + S4 + S5 + S6 delivery: this commit
+  (entrypoint replacement, BroadcastService collapse, IBroadcastProvider
+  → IFeeRateProvider rename, Bitails / WoC client cleanup, legacy test
+  removal, grep regression suite)
+- Slice S7: deferred — operator-driven live mainnet validation
+- Wave closeout evidence: `evidence/closeout.md`
+- Wave audit A2 (post-execution): pending

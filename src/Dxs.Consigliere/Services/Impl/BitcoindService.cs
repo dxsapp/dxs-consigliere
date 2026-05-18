@@ -14,26 +14,14 @@ public class BitcoindService(IRpcClient rpcClient, INetworkProvider networkProvi
 
     public Task<decimal> SatoshisPerByte() => Task.FromResult(0.05m);
 
-    public async Task<(bool success, string message, string code)> Broadcast(string hex)
-    {
-        try
-        {
-            var result = await rpcClient.SendRawTransaction(hex);
-
-            if (result.Error is { } error)
-                return (success: false, error.Message, error.Code.ToString());
-
-            logger.LogDebug("Broadcasted: {TxId}", result.RequestId);
-
-            return (success: true, message: null, code: null);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to broadcast transaction: {@Tx}", hex);
-
-            return (success: false, message: ex.Message, code: null);
-        }
-    }
+    // Wave 5 S3: Broadcast(string) deleted along with IBroadcastProvider
+    // (which previously dictated this method's shape). Tx submission now
+    // goes exclusively through IBroadcastService.BroadcastAsync (P2P).
+    // The class retains SatoshisPerByte for fee estimation and the
+    // GetMempoolTransactions / GetRawBlockFromTheTop helpers used by
+    // historical-data backfill jobs. There is no equivalent
+    // rpcClient.SendRawTransaction call in the codebase anymore — the
+    // ITxAnnouncer path is the only authoritative broadcaster.
 
     public async Task<BlockReader> GetRawBlockFromTheTop(int count)
     {

@@ -69,15 +69,9 @@ public class BitailsRestApiClient : IBitailsRestApiClient
             token: token);
     }
 
-    public async Task<BroadcastResponseDto> Broadcast(string txHex, CancellationToken token = default)
-    {
-        await RateLimiter;
-        return await _client.PostOrThrowAsync<BroadcastResponseDto>(
-            await BuildUrlAsync("tx/broadcast", token),
-            new { raw = txHex },
-            await BuildHeadersAsync(token),
-            token);
-    }
+    // W5 S4: Broadcast(string txHex, CancellationToken) deleted; the
+    // POST tx/broadcast Bitails REST endpoint is no longer called.
+    // Tx submission goes exclusively through IBroadcastService.BroadcastAsync.
 
     public async Task<bool> IsBroadcastedAsync(string txId, CancellationToken token = default)
     {

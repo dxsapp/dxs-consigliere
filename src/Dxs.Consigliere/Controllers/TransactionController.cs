@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using System.Threading;
 
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
+using Dxs.Consigliere.WebSockets;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -92,13 +94,36 @@ public class TransactionController : BaseController
         }
     }
 
-    [HttpPost("broadcast/{raw}")]
+    /// <summary>
+    /// Wave 5 S1 — unified broadcast endpoint. Replaces the legacy
+    /// <c>POST /api/tx/broadcast/{raw}</c> (which used the
+    /// multi-provider HTTP path and returned a Raven <c>Broadcast</c>
+    /// document); the new shape accepts a JSON body and returns the
+    /// frozen <see cref="BroadcastReceiptDto"/> shape. External
+    /// wallet clients must migrate — see W5 closeout MIGRATION
+    /// snippet.
+    /// </summary>
+    [HttpPost("broadcast")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Produces(typeof(Broadcast))]
+    [Produces(typeof(BroadcastReceiptDto))]
     public async Task<IActionResult> Broadcast(
-        string raw,
-        [FromServices] IBroadcastService broadcastService
-    ) => Ok(await broadcastService.Broadcast(raw));
+        [FromBody] BroadcastTxRequest body,
+        [FromServices] IBroadcastService broadcastService,
+        CancellationToken cancellationToken)
+    {
+        if (body is null || string.IsNullOrEmpty(body.RawHex))
+            return BadRequest(new { error = "rawHex required" });
+
+        var receipt = await broadcastService.BroadcastAsync(
+            body.RawHex, clientConnectionId: null, cancellationToken);
+        return Ok(new BroadcastReceiptDto(
+            receipt.TxId, receipt.State.ToString(), receipt.CreatedAtMs, receipt.FailReason));
+    }
+
+    /// <summary>
+    /// W5 S1 — body shape for <c>POST /api/tx/broadcast</c>.
+    /// </summary>
+    public sealed record BroadcastTxRequest(string RawHex);
 
     [HttpGet("stas/validate/{id}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

@@ -95,15 +95,9 @@ public class WhatsOnChainRestApiClient : IWhatsOnChainRestApiClient
             token);
     }
 
-    public async Task BroadcastAsync(string body, CancellationToken token = default)
-    {
-        await RateLimiter;
-        await _client.PostOrThrowAsync<object>(
-            await BuildUrlAsync("tx/raw", token),
-            new { txhex = body },
-            await BuildHeadersAsync(token),
-            token);
-    }
+    // W5 S4: BroadcastAsync(string, CancellationToken) deleted; the
+    // POST tx/raw WhatsOnChain REST endpoint is no longer called.
+    // Tx submission goes exclusively through IBroadcastService.BroadcastAsync.
 
     public async Task<Dictionary<string, decimal>> GetBalancesAsync(IEnumerable<string> addresses, CancellationToken token = default)
     {

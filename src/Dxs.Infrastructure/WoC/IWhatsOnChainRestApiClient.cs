@@ -38,14 +38,10 @@ public interface IWhatsOnChainRestApiClient
     /// <returns>multiple transactions raw data in hex</returns>
     Task<IList<TransactionDetailsSlimDto>> GetTransactionsAsync(IEnumerable<string> txIds, CancellationToken token = default);
 
-    /// <summary>
-    /// Broadcast transaction using this endpoint. Get tx id in response or error msg from the node with header content-type: text/plain.
-    /// https://developers.whatsonchain.com/#broadcast-transaction
-    /// </summary>
-    /// <param name="body">Raw transaction data in hex</param>
-    /// <param name="token">token</param>
-    /// <returns></returns>
-    Task BroadcastAsync(string body, CancellationToken token = default);
+    // W5 S4: BroadcastAsync(string body, CancellationToken) deleted.
+    // Tx submission goes exclusively through IBroadcastService.BroadcastAsync
+    // (the unified P2P path). WhatsOnChain remains a non-broadcast
+    // source of balance / UTXO / block / tx data only.
 
     /// <summary>
     /// Fetch confirmed and unconfirmed balance for multiple addresses in a single request
