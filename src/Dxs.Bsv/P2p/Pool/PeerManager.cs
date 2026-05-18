@@ -178,22 +178,14 @@ public sealed class PeerManager : IAsyncDisposable
         var snapshot = _active.ToArray();
         if (snapshot.Length == 0) return;
 
-        var scored = new List<ScoredPeer>(snapshot.Length);
-        foreach (var (key, session) in snapshot)
-        {
-            try
-            {
-                var telemetry = session.Telemetry.Snapshot();
-                scored.Add(new ScoredPeer(key, _scoringPolicy.Score(telemetry)));
-            }
-            catch (Exception ex)
-            {
-                // A telemetry-snapshot failure on one peer must not
-                // poison the entire rotation decision. We log + skip
-                // that peer for this tick.
-                _logger.LogDebug(ex, "Failed to score peer {Peer}; skipping rotation eval", key);
-            }
-        }
+        var peers = new (string, Chain.IPeerTelemetrySink)[snapshot.Length];
+        for (var i = 0; i < snapshot.Length; i++)
+            peers[i] = (snapshot[i].Key, snapshot[i].Value.Telemetry);
+
+        var scored = PeerRotationPlanner.ScoreActivePeers(
+            peers,
+            _scoringPolicy,
+            onFault: (key, ex) => _logger.LogDebug(ex, "Failed to score peer {Peer}; skipping rotation eval", key));
 
         var decision = _rotationPlanner.Plan(scored, _config.RotationPolicy);
         if (decision.EvictKeys.Count == 0) return;

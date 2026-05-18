@@ -1,5 +1,8 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
+
+using Dxs.Bsv.P2p.Chain;
 
 namespace Dxs.Bsv.P2p.Pool;
 
@@ -31,6 +34,43 @@ public sealed class PeerRotationPlanner
     /// <returns>A <see cref="RotationDecision"/> whose
     /// <see cref="RotationDecision.EvictKeys"/> is empty (no-op) or a
     /// single-key list.</returns>
+    /// <summary>
+    /// S1+S2 audit L1 — score a list of active peers, swallowing
+    /// per-peer telemetry-snapshot or scoring failures. One bad
+    /// peer must not poison the rotation decision for the rest.
+    /// Returns a <see cref="ScoredPeer"/> for each peer whose
+    /// telemetry snapshot + score evaluation succeeded.
+    ///
+    /// <para>Pure function: callers pass already-resolved telemetry
+    /// sinks, the helper has no I/O of its own. The optional
+    /// <paramref name="onFault"/> hook lets the caller log skipped
+    /// peers without leaking exceptions through.</para>
+    /// </summary>
+    public static IReadOnlyList<ScoredPeer> ScoreActivePeers(
+        IReadOnlyList<(string Key, IPeerTelemetrySink Telemetry)> peers,
+        IPeerScoringPolicy policy,
+        Action<string, Exception>? onFault = null)
+    {
+        if (peers is null || peers.Count == 0) return System.Array.Empty<ScoredPeer>();
+        ArgumentNullException.ThrowIfNull(policy);
+
+        var scored = new List<ScoredPeer>(peers.Count);
+        for (var i = 0; i < peers.Count; i++)
+        {
+            var (key, sink) = peers[i];
+            try
+            {
+                var telemetry = sink.Snapshot();
+                scored.Add(new ScoredPeer(key, policy.Score(telemetry)));
+            }
+            catch (Exception ex)
+            {
+                onFault?.Invoke(key, ex);
+            }
+        }
+        return scored;
+    }
+
     public RotationDecision Plan(IReadOnlyList<ScoredPeer> active, PeerRotationPolicy policy)
     {
         if (active is null || active.Count == 0)

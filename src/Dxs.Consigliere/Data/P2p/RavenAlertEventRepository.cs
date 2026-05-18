@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -29,7 +30,18 @@ public sealed class RavenAlertEventRepository : IAlertEventRepository
     public async Task SaveAsync(P2pAlertEvent alertEvent, CancellationToken cancellationToken)
     {
         using var session = _documentStore.OpenAsyncSession();
-        await session.StoreAsync(alertEvent, alertEvent.Id, cancellationToken);
+        // S1+S2 audit M1: alerts are append-only per master.md
+        // Core Rule §3. A second StoreAsync with the same id would
+        // silently overwrite the existing document; we refuse that.
+        // The poller stamps ids from monotonically-advancing
+        // unixMs + per-tick offset, so duplicates only ever happen
+        // through a real bug.
+        if (await session.Advanced.ExistsAsync(alertEvent.Id, cancellationToken))
+        {
+            throw new InvalidOperationException(
+                $"P2pAlertEvent id collision: '{alertEvent.Id}' already exists. Append-only invariant.");
+        }
+        await session.StoreAsync(alertEvent, changeVector: string.Empty, alertEvent.Id, cancellationToken);
         await session.SaveChangesAsync(cancellationToken);
     }
 

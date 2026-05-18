@@ -180,6 +180,14 @@ public sealed class P2pAlertEvaluator
         var newest = input.WindowSnapshots[input.WindowSnapshots.Count - 1];
         if (newest.SnapshotUnixMs <= oldest.SnapshotUnixMs) yield break;
 
+        // S1+S2-audit H1: the window must actually span the configured
+        // dropout window. Two snapshots 30 s apart in a sparsely-
+        // sampled store cannot be used to assert "zero first-seen
+        // across 1 h" — they just don't have the coverage. Inclusive
+        // `>=` so an exactly-windowMs span fires.
+        if (newest.SnapshotUnixMs - oldest.SnapshotUnixMs < input.Config.SourceFirstDropoutWindowMs)
+            yield break;
+
         // Per-source FirstSeen delta across [oldest, newest].
         var deltas = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         long maxDelta = 0;

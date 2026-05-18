@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 
+using Dxs.Bsv.P2p.Chain;
+using Dxs.Bsv.P2p.Messages;
 using Dxs.Bsv.P2p.Pool;
+using Dxs.Bsv.P2p.Session;
 
 namespace Dxs.Bsv.Tests.P2p.Pool;
 
@@ -132,6 +137,71 @@ public class PeerRotationPlannerTests
 
         Assert.Same(RotationDecision.NoOp, d1);
         Assert.Same(RotationDecision.NoOp, d2);
+    }
+
+    [Fact]
+    public void ScoreActivePeers_TelemetrySinkThrows_OtherPeersStillScored()
+    {
+        // S1+S2 audit L1 pin: one bad telemetry sink must not
+        // poison the rotation decision. The helper isolates the
+        // fault, invokes onFault, and proceeds with the remaining
+        // peers.
+        var policy = new DefaultPeerScoringPolicy();
+        var faults = new List<string>();
+        var peers = new (string Key, IPeerTelemetrySink Telemetry)[]
+        {
+            ("good-a:8333", new GoodSink(pingP95Ms: 0.0)),
+            ("bad:8333", new ThrowingSink()),
+            ("good-b:8333", new GoodSink(pingP95Ms: 200.0)),
+        };
+
+        var scored = PeerRotationPlanner.ScoreActivePeers(
+            peers,
+            policy,
+            onFault: (key, _) => faults.Add(key));
+
+        Assert.Equal(2, scored.Count);
+        Assert.Contains(scored, p => p.Key == "good-a:8333" && p.Score.Value == 100);
+        Assert.Contains(scored, p => p.Key == "good-b:8333" && p.Score.Value == 80);
+        Assert.Equal("bad:8333", Assert.Single(faults));
+    }
+
+    private sealed class GoodSink : IPeerTelemetrySink
+    {
+        private readonly double _pingP95Ms;
+        public GoodSink(double pingP95Ms) { _pingP95Ms = pingP95Ms; }
+        public PeerTelemetry Snapshot() => new(
+            BytesIn: 0, BytesOut: 0, LastRecvUtc: null, LastSendUtc: null,
+            PingRttP50Ms: 0.0, PingRttP95Ms: _pingP95Ms, PingSampleCount: 0,
+            GetDataRequestedCount: 0, GetDataServedCount: 0,
+            GetDataServeP50Ms: 0.0, GetDataServeP95Ms: 0.0,
+            RelayBackInvCount: 0,
+            RejectByClass: new Dictionary<RejectClass, long>(),
+            ProtocolViolationCount: 0, LastDisconnectReason: null);
+
+        public void RecordBytesIn(int n) { }
+        public void RecordBytesOut(int n) { }
+        public void RecordPingRtt(TimeSpan rtt) { }
+        public void RecordGetDataRequested(InvType type, ReadOnlySpan<byte> hash) { }
+        public void RecordGetDataServed(InvType type, ReadOnlySpan<byte> hash, TimeSpan serveLatency) { }
+        public void RecordRelayBackInv(ReadOnlySpan<byte> txid) { }
+        public void RecordRejectReceived(RejectClass cls) { }
+        public void RecordProtocolViolation(string reason) { }
+        public void RecordDisconnect(DisconnectReason reason) { }
+    }
+
+    private sealed class ThrowingSink : IPeerTelemetrySink
+    {
+        public PeerTelemetry Snapshot() => throw new InvalidOperationException("telemetry fault");
+        public void RecordBytesIn(int n) { }
+        public void RecordBytesOut(int n) { }
+        public void RecordPingRtt(TimeSpan rtt) { }
+        public void RecordGetDataRequested(InvType type, ReadOnlySpan<byte> hash) { }
+        public void RecordGetDataServed(InvType type, ReadOnlySpan<byte> hash, TimeSpan serveLatency) { }
+        public void RecordRelayBackInv(ReadOnlySpan<byte> txid) { }
+        public void RecordRejectReceived(RejectClass cls) { }
+        public void RecordProtocolViolation(string reason) { }
+        public void RecordDisconnect(DisconnectReason reason) { }
     }
 
     [Fact]

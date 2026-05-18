@@ -19,6 +19,12 @@ namespace Dxs.Consigliere.Data.P2p;
 /// </summary>
 public interface IAlertEventRepository
 {
+    /// <summary>
+    /// Persists an alert event. Implementations MUST enforce the
+    /// append-only invariant (master.md Core Rule §3): a second
+    /// <c>SaveAsync</c> with the same id throws and does NOT
+    /// overwrite the existing document.
+    /// </summary>
     Task SaveAsync(P2pAlertEvent alertEvent, CancellationToken cancellationToken);
 
     /// <summary>Returns every retained alert id in lexicographic

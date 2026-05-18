@@ -203,6 +203,37 @@ public class P2pAlertEvaluatorTests
     }
 
     [Fact]
+    public void Rule4_SourceFirstDropout_ShortSpanWindow_DoesNotFire()
+    {
+        // S1+S2 audit H1 pin: two snapshots 30 s apart cannot
+        // assert "zero first-seen across 1 h" — the coverage isn't
+        // there. Evaluator must short-circuit until the snapshot
+        // span is at least the configured window.
+        var snapshots = new[]
+        {
+            Snapshot(T0.AddSeconds(-30), p2pFirstSeen: 100, bitailsFirstSeen: 100, junglebusFirstSeen: 100),
+            Snapshot(T0, p2pFirstSeen: 100, bitailsFirstSeen: 110, junglebusFirstSeen: 130),
+        };
+        Assert.Empty(_evaluator.Evaluate(Input(windowSnapshots: snapshots)));
+    }
+
+    [Fact]
+    public void Rule4_SourceFirstDropout_ExactlyWindowSpan_Fires()
+    {
+        // The boundary is inclusive: a span of exactly the window
+        // length is enough coverage to evaluate.
+        var snapshots = new[]
+        {
+            Snapshot(T0.AddMilliseconds(-DefaultConfig.SourceFirstDropoutWindowMs),
+                p2pFirstSeen: 100, bitailsFirstSeen: 100, junglebusFirstSeen: 100),
+            Snapshot(T0, p2pFirstSeen: 100, bitailsFirstSeen: 110, junglebusFirstSeen: 130),
+        };
+        var alert = Assert.Single(_evaluator.Evaluate(Input(windowSnapshots: snapshots)));
+        Assert.Equal(P2pAlertType.SourceFirstDropout, alert.Type);
+        Assert.Equal(TxObservationSource.P2p, alert.Context["source"]);
+    }
+
+    [Fact]
     public void Rule4_TwoSourcesDropOut_FiresTwoEvents()
     {
         var snapshots = new[]
