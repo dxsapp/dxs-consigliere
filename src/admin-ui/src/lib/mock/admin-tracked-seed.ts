@@ -1,7 +1,31 @@
 import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
+  TrackedHistoryStatusResponse,
 } from "@/types/admin";
+
+function readyHistory(now: number): TrackedHistoryStatusResponse {
+  return {
+    historyReadiness: "Ready",
+    coverage: {
+      mode: "Full",
+      fullCoverage: true,
+      authoritativeFromBlockHeight: 850_000,
+      authoritativeFromObservedAt: now - 60 * 24 * 60 * 60 * 1000,
+    },
+    backfillStatus: {
+      status: "Completed",
+      requestedAt: now - 60 * 60 * 1000,
+      startedAt: now - 60 * 60 * 1000,
+      lastProgressAt: now - 30 * 60 * 1000,
+      completedAt: now - 30 * 60 * 1000,
+      itemsScanned: 12_840,
+      itemsApplied: 12_840,
+      errorCode: null,
+    },
+    rootedToken: null,
+  };
+}
 
 /**
  * Detail seeds for the MockAdminClient. Lives in a sibling file
@@ -29,7 +53,7 @@ export function seedAddress(address: string, now: number): AdminTrackedAddressRe
       degraded: false,
       lagBlocks: 0,
       progress: 1,
-      history: { status: "UpToDate", lastCheckpoint: now - 60_000, pendingCount: 0 },
+      history: readyHistory(now),
     },
     summary: {
       currentBsvBalanceSatoshis: 412_500_000,
@@ -42,9 +66,7 @@ export function seedAddress(address: string, now: number): AdminTrackedAddressRe
       lastTransactionAt: now - 30 * 60 * 1000,
       lastTransactionBlockHeight: 902_812,
       lastProjectionSequence: 124_512,
-      tokenBalances: [
-        { tokenId: "tok1", symbol: "DSTAS", balanceSatoshis: 100_000, utxoCount: 2 },
-      ],
+      tokenBalances: [{ tokenId: "tok1", satoshis: 100_000 }],
     },
   };
 }
@@ -69,7 +91,7 @@ export function seedToken(tokenId: string, now: number): AdminTrackedTokenRespon
       degraded: false,
       lagBlocks: 1,
       progress: 0.998,
-      history: { status: "UpToDate", lastCheckpoint: now - 30_000, pendingCount: 2 },
+      history: readyHistory(now),
     },
     summary: {
       protocolType: "DSTAS",

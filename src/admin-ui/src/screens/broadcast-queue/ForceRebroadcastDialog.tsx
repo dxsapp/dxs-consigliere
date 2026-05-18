@@ -10,7 +10,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { IAdminClient } from "@/lib/admin/admin-client";
 import type { BroadcastReceiptDto } from "@/types/admin";
 
@@ -46,6 +46,12 @@ export function ForceRebroadcastDialog({
   const [receipt, setReceipt] = useState<BroadcastReceiptDto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // S6-audit H3: an in-flight broadcastRaw POST is destructive — we
+  // cannot close the dialog (and lose the receipt) while it's still
+  // running. Track the controller in a ref so unmount + onClose can
+  // abort it deterministically.
+  const inflight = useRef<AbortController | null>(null);
+
   useEffect(() => {
     if (!open) {
       // Reset on close so the next opening starts clean.
@@ -57,24 +63,52 @@ export function ForceRebroadcastDialog({
     }
   }, [open, initialRawHex]);
 
+  // Abort any in-flight request if the component unmounts entirely.
+  useEffect(() => {
+    return () => {
+      inflight.current?.abort();
+      inflight.current = null;
+    };
+  }, []);
+
   const valid = useMemo(() => isPlausibleRaw(rawHex), [rawHex]);
 
   const onSubmit = async () => {
     if (!valid || submitting) return;
     setSubmitting(true);
     setError(null);
+    const ctl = new AbortController();
+    inflight.current = ctl;
     try {
-      const res = await admin.broadcastRaw(rawHex.trim());
+      const res = await admin.broadcastRaw(rawHex.trim(), ctl.signal);
+      if (ctl.signal.aborted) return;
       setReceipt(res);
     } catch (err) {
+      if (ctl.signal.aborted) return;
       setError(err instanceof Error ? err.message : "Broadcast failed");
     } finally {
+      if (inflight.current === ctl) inflight.current = null;
       setSubmitting(false);
     }
   };
 
+  /** Dialog close requested. Block while submit is in flight so the
+   *  operator can't accidentally discard the receipt mid-POST. */
+  const handleClose = () => {
+    if (submitting) return;
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      maxWidth="md"
+      fullWidth
+      // Avoid backdrop + escape closing while submit is in flight —
+      // explicit operator gesture only.
+      disableEscapeKeyDown={submitting}
+    >
       <DialogTitle>Force rebroadcast</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
@@ -140,7 +174,9 @@ export function ForceRebroadcastDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>{receipt ? "Close" : "Cancel"}</Button>
+        <Button onClick={handleClose} disabled={submitting}>
+          {receipt ? "Close" : "Cancel"}
+        </Button>
         {!receipt && !confirming && (
           <Button
             color="warning"

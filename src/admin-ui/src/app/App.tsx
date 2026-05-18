@@ -43,13 +43,16 @@ const BroadcastQueuePage = lazy(() =>
   }))
 );
 
-const root = new RootStore();
+// S6-audit M2: RootStore is constructed asynchronously because the
+// mock-mode factory dynamic-imports the mock module on demand. In
+// real mode the await resolves on the same tick (no UX delay).
+let rootInstance: RootStore | null = null;
 
 // Vite-injected env. Override via VITE_CONSIGLIERE_ENV at build time.
 const ENV_LABEL = (import.meta.env.VITE_CONSIGLIERE_ENV as string | undefined) ?? "mainnet";
 
 export function App() {
-  const [hydrated, setHydrated] = useState(false);
+  const [root, setRoot] = useState<RootStore | null>(rootInstance);
 
   useEffect(() => {
     // S1-audit M1: hydratePrefStore is idempotent (StrictMode double-
@@ -62,21 +65,24 @@ export function App() {
     // surfaces as `connection: "offline"` in the shell, not an app
     // crash.
     let cancelled = false;
-    void Promise.all([hydratePrefStore(root.prefs), root.auth.hydrate()]).then(() => {
+    void (async () => {
+      const r = rootInstance ?? (await RootStore.build());
+      rootInstance = r;
+      await Promise.all([hydratePrefStore(r.prefs), r.auth.hydrate()]);
       if (cancelled) return;
       // Kick off SignalR; failures bubble through the bus as
       // connection-offline. Do NOT block render on this.
-      void root.signalR.start().catch(() => {
+      void r.signalR.start().catch(() => {
         /* connection-offline already emitted by the client */
       });
-      setHydrated(true);
-    });
+      setRoot(r);
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!hydrated) return null;
+  if (!root) return null;
 
   return (
     <ThemeProvider prefs={root.prefs}>
@@ -106,7 +112,7 @@ export function App() {
             element={
               <AuthGuard auth={root.auth}>
                 <AppShell auth={root.auth} prefs={root.prefs} shell={root.shell} env={ENV_LABEL}>
-                  <AuthedRoutes />
+                  <AuthedRoutes root={root} />
                 </AppShell>
               </AuthGuard>
             }
@@ -121,7 +127,7 @@ export function App() {
  * All 14 authed screens wired to placeholders. Each S4-S10 slice
  * swaps the `element` for the real implementation in-place.
  */
-function AuthedRoutes() {
+function AuthedRoutes({ root }: { root: RootStore }) {
   return (
     <Routes>
       <Route path="/" element={<Navigate to={LANDING_PATH} replace />} />

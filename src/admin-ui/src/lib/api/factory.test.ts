@@ -18,9 +18,9 @@ describe("createApiClients (S3-audit H1)", () => {
     expect(ADMIN_API_ROUTES.walletHubPath).toBe("/ws/consigliere");
   });
 
-  it("real-mode SignalR client is configured with the canonical hub path", () => {
+  it("real-mode SignalR client is configured with the canonical hub path", async () => {
     const bus = new EventBus();
-    const clients = createApiClients({ bus });
+    const clients = await createApiClients({ bus });
     expect(clients.mode).toBe("real");
     expect(clients.signalR).toBeInstanceOf(SignalRClient);
     expect((clients.signalR as SignalRClient).hubUrlForTests).toBe(

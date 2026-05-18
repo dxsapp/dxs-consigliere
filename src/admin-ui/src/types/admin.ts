@@ -131,14 +131,41 @@ export function isTxStateFailure(s: OutgoingTxState): boolean {
   return TX_FAILURE_STATES.includes(s);
 }
 
-/** S5 — tracked-history snapshot embedded in the readiness DTO. */
+/** S5 — tracked-history snapshot embedded in the readiness DTO.
+ *  Mirrors `Dxs.Consigliere.Dto.Responses.History.TrackedHistoryStatusResponse`. */
 export interface TrackedHistoryStatusResponse {
+  historyReadiness: string;
+  coverage: TrackedHistoryCoverageResponse | null;
+  backfillStatus: TrackedHistoryBackfillStatusResponse | null;
+  rootedToken: RootedTokenHistoryStatusResponse | null;
+}
+
+export interface TrackedHistoryCoverageResponse {
+  mode: string;
+  fullCoverage: boolean;
+  authoritativeFromBlockHeight: number | null;
+  authoritativeFromObservedAt: number | null;
+}
+
+export interface TrackedHistoryBackfillStatusResponse {
   status: string;
-  rangeStart?: number | null;
-  rangeEnd?: number | null;
-  lastCheckpoint?: number | null;
-  authoritativeSeq?: number | null;
-  pendingCount?: number;
+  requestedAt: number | null;
+  startedAt: number | null;
+  lastProgressAt: number | null;
+  completedAt: number | null;
+  itemsScanned: number;
+  itemsApplied: number;
+  errorCode: string | null;
+}
+
+export interface RootedTokenHistoryStatusResponse {
+  trustedRoots: string[];
+  trustedRootCount: number;
+  completedTrustedRootCount: number;
+  unknownRootFindingCount: number;
+  rootedHistorySecure: boolean;
+  blockingUnknownRoot: boolean;
+  unknownRootFindings: string[];
 }
 
 /** S5 — readiness frame shared by Address + Token detail responses. */
@@ -155,11 +182,10 @@ export interface TrackedEntityReadinessResponse {
   history: TrackedHistoryStatusResponse | null;
 }
 
+/** S5 — wire shape; backend only exposes id + satoshis here. */
 export interface AdminTrackedTokenBalanceSummaryResponse {
   tokenId: string;
-  symbol: string;
-  balanceSatoshis: number;
-  utxoCount: number;
+  satoshis: number;
 }
 
 export interface AdminTrackedAddressSummaryResponse {

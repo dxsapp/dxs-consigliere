@@ -2,11 +2,12 @@ import { AdminClient, type IAdminClient } from "@/lib/admin/admin-client";
 import { ApiClient } from "@/lib/api/client";
 import { ADMIN_API_ROUTES } from "@/lib/api/routes";
 import { AuthClient, type IAuthClient } from "@/lib/auth/client";
-import { MockAdminClient } from "@/lib/mock/admin";
-import { MockAuthClient } from "@/lib/mock/auth";
-import { MockSignalRClient } from "@/lib/mock/signalr";
 import { SignalRClient, type ISignalRClient } from "@/lib/signalr/client";
 import type { EventBus } from "@/lib/events/bus";
+
+// S6-audit M2: mock implementations are NEVER statically imported.
+// Real-mode shell drops the ~5 KB of mock code via tree-shaking; in
+// mock mode the factory dynamic-imports them on demand.
 
 export { ADMIN_API_ROUTES } from "@/lib/api/routes";
 
@@ -45,25 +46,43 @@ export interface ApiFactoryOptions {
   hubUrl?: string;
 }
 
-export function createApiClients(opts: ApiFactoryOptions): ApiFactoryResult {
-  const mode = resolveApiMode();
+/**
+ * Real-mode factory — synchronous, no mock imports. Used by tests
+ * that inject their own clients and by `createApiClients` when the
+ * env switch resolves to real.
+ */
+function buildRealClients(opts: ApiFactoryOptions): ApiFactoryResult {
   const api = new ApiClient(opts.apiBase ?? "");
-  if (mode === "mock") {
-    return {
-      mode,
-      api,
-      auth: new MockAuthClient(),
-      signalR: new MockSignalRClient(opts.bus),
-      admin: new MockAdminClient(),
-    };
-  }
   return {
-    mode,
+    mode: "real",
     api,
     auth: new AuthClient(api),
     signalR: new SignalRClient(opts.bus, {
       hubUrl: opts.hubUrl ?? ADMIN_API_ROUTES.walletHubPath,
     }),
     admin: new AdminClient(api),
+  };
+}
+
+/**
+ * Async factory. Real mode returns synchronously-built clients
+ * (wrapped in a resolved Promise); mock mode dynamic-imports the
+ * mock implementations so they never land in the cold-load shell
+ * (S6-audit M2).
+ */
+export async function createApiClients(opts: ApiFactoryOptions): Promise<ApiFactoryResult> {
+  const mode = resolveApiMode();
+  if (mode === "real") return buildRealClients(opts);
+  const [{ MockAuthClient }, { MockSignalRClient }, { MockAdminClient }] = await Promise.all([
+    import("@/lib/mock/auth"),
+    import("@/lib/mock/signalr"),
+    import("@/lib/mock/admin"),
+  ]);
+  return {
+    mode: "mock",
+    api: new ApiClient(opts.apiBase ?? ""),
+    auth: new MockAuthClient(),
+    signalR: new MockSignalRClient(opts.bus),
+    admin: new MockAdminClient(),
   };
 }

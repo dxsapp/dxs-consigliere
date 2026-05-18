@@ -8,45 +8,36 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
+import { AddressDetailStore } from "@/screens/entity-detail/address-detail.store";
 import { EntityTimeline } from "@/screens/entity-detail/EntityTimeline";
 import { readinessStages } from "@/screens/entity-detail/tracking-stages";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { AdminTrackedAddressResponse } from "@/types/admin";
 
 /**
  * S5 — Address detail screen. Reuses the shared EntityTimeline for
  * the tracking-readiness lifecycle plus a summary card with the
- * key balance + UTXO counters.
+ * key balance + UTXO counters. Lifecycle owned by
+ * `AddressDetailStore` (S5-audit M1) — page is a render shell.
  */
-export function AddressDetailPage({ admin }: { admin: IAdminClient }) {
+export const AddressDetailPage = observer(function AddressDetailPage({
+  admin,
+}: {
+  admin: IAdminClient;
+}) {
   const { address = "" } = useParams<{ address: string }>();
-  const [state, setState] = useState<{
-    status: "loading" | "ready" | "error";
-    data: AdminTrackedAddressResponse | null;
-    error: string | null;
-  }>({ status: "loading", data: null, error: null });
-
+  const store = useMemo(
+    () => new AddressDetailStore({ admin, address }),
+    [admin, address]
+  );
   useEffect(() => {
-    if (!address) return;
-    const ctl = new AbortController();
-    setState({ status: "loading", data: null, error: null });
-    admin
-      .getTrackedAddress(address, ctl.signal)
-      .then((data) => setState({ status: "ready", data, error: null }))
-      .catch((err) => {
-        if (ctl.signal.aborted) return;
-        setState({
-          status: "error",
-          data: null,
-          error: err instanceof Error ? err.message : "Failed to load address",
-        });
-      });
-    return () => ctl.abort();
-  }, [address, admin]);
+    void store.start();
+    return () => store.dispose();
+  }, [store]);
 
-  const data = state.data;
+  const data = store.data;
   const stages = readinessStages(data?.readiness ?? null);
 
   return (
@@ -80,10 +71,10 @@ export function AddressDetailPage({ admin }: { admin: IAdminClient }) {
         </CardContent>
       </Card>
 
-      {state.status === "loading" && <LinearProgress />}
+      {store.status === "loading" && <LinearProgress />}
 
-      {state.status === "error" && state.error && (
-        <Alert severity="error">{state.error}</Alert>
+      {store.status === "error" && store.error && (
+        <Alert severity="error">{store.error}</Alert>
       )}
 
       <Card>
@@ -132,7 +123,7 @@ export function AddressDetailPage({ admin }: { admin: IAdminClient }) {
                     {data.summary.tokenBalances.map((tb) => (
                       <Chip
                         key={tb.tokenId}
-                        label={`${tb.symbol} · ${formatSats(tb.balanceSatoshis)}`}
+                        label={`${shortenTokenId(tb.tokenId)} · ${tb.satoshis.toLocaleString()} sats`}
                         size="small"
                         variant="outlined"
                       />
@@ -146,7 +137,7 @@ export function AddressDetailPage({ admin }: { admin: IAdminClient }) {
       )}
     </Stack>
   );
-}
+});
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
@@ -164,4 +155,8 @@ function formatSats(sats: number): string {
     minimumFractionDigits: 8,
     maximumFractionDigits: 8,
   });
+}
+
+function shortenTokenId(id: string): string {
+  return id.length > 16 ? `${id.slice(0, 8)}…${id.slice(-6)}` : id;
 }

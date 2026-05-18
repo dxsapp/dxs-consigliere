@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { BroadcastQueuePage } from "./BroadcastQueuePage";
@@ -40,11 +40,13 @@ describe("BroadcastQueuePage", () => {
 
   it("renders a card in the Validated lane after a matching event", async () => {
     const { bus } = renderPage();
-    bus.emit("OnBroadcastStateChanged", {
-      txId: TXID,
-      state: "Validated",
-      updatedAtMs: 1_000,
-      failReason: null,
+    act(() => {
+      bus.emit("OnBroadcastStateChanged", {
+        txId: TXID,
+        state: "Validated",
+        updatedAtMs: 1_000,
+        failReason: null,
+      });
     });
     await waitFor(() => {
       expect(screen.getByTestId(`queue-card-${TXID}`)).toBeInTheDocument();

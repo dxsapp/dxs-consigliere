@@ -8,45 +8,36 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { EntityTimeline } from "@/screens/entity-detail/EntityTimeline";
 import { readinessStages } from "@/screens/entity-detail/tracking-stages";
+import { TokenDetailStore } from "@/screens/entity-detail/token-detail.store";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { AdminTrackedTokenResponse } from "@/types/admin";
 
 /**
  * S5 — Token detail screen. Same shape as Address detail: shared
  * vertical timeline drives readiness, summary card carries the
- * protocol-level counters.
+ * protocol-level counters. Lifecycle owned by `TokenDetailStore`
+ * (S5-audit M1) — page is a render shell.
  */
-export function TokenDetailPage({ admin }: { admin: IAdminClient }) {
+export const TokenDetailPage = observer(function TokenDetailPage({
+  admin,
+}: {
+  admin: IAdminClient;
+}) {
   const { tokenId = "" } = useParams<{ tokenId: string }>();
-  const [state, setState] = useState<{
-    status: "loading" | "ready" | "error";
-    data: AdminTrackedTokenResponse | null;
-    error: string | null;
-  }>({ status: "loading", data: null, error: null });
-
+  const store = useMemo(
+    () => new TokenDetailStore({ admin, tokenId }),
+    [admin, tokenId]
+  );
   useEffect(() => {
-    if (!tokenId) return;
-    const ctl = new AbortController();
-    setState({ status: "loading", data: null, error: null });
-    admin
-      .getTrackedToken(tokenId, ctl.signal)
-      .then((data) => setState({ status: "ready", data, error: null }))
-      .catch((err) => {
-        if (ctl.signal.aborted) return;
-        setState({
-          status: "error",
-          data: null,
-          error: err instanceof Error ? err.message : "Failed to load token",
-        });
-      });
-    return () => ctl.abort();
-  }, [tokenId, admin]);
+    void store.start();
+    return () => store.dispose();
+  }, [store]);
 
-  const data = state.data;
+  const data = store.data;
   const stages = readinessStages(data?.readiness ?? null);
 
   return (
@@ -76,9 +67,9 @@ export function TokenDetailPage({ admin }: { admin: IAdminClient }) {
         </CardContent>
       </Card>
 
-      {state.status === "loading" && <LinearProgress />}
-      {state.status === "error" && state.error && (
-        <Alert severity="error">{state.error}</Alert>
+      {store.status === "loading" && <LinearProgress />}
+      {store.status === "error" && store.error && (
+        <Alert severity="error">{store.error}</Alert>
       )}
 
       <Card>
@@ -125,7 +116,7 @@ export function TokenDetailPage({ admin }: { admin: IAdminClient }) {
       )}
     </Stack>
   );
-}
+});
 
 function Row({ k, v }: { k: string; v: string }) {
   return (

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { DashboardPage } from "./DashboardPage";
@@ -54,11 +54,13 @@ describe("DashboardPage (S4 smoke)", () => {
 
   it("renders a live broadcast row when the bus emits OnBroadcastStateChanged", async () => {
     const { bus } = renderDashboard();
-    bus.emit("OnBroadcastStateChanged", {
-      txId: "aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccdd",
-      state: "PeerRelayed",
-      updatedAtMs: Date.now(),
-      failReason: null,
+    act(() => {
+      bus.emit("OnBroadcastStateChanged", {
+        txId: "aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccdd",
+        state: "PeerRelayed",
+        updatedAtMs: Date.now(),
+        failReason: null,
+      });
     });
     await waitFor(() => {
       expect(screen.getByText(/PeerRelayed/)).toBeInTheDocument();

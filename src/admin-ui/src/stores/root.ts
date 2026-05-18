@@ -39,19 +39,21 @@ export class RootStore {
   /** Disposers owned by the root; called on app teardown. */
   private readonly disposers: Array<() => void> = [];
 
-  constructor(clients?: ApiFactoryResult) {
+  /**
+   * Construct directly when callers (tests) already hold a bus + a
+   * pre-built `ApiFactoryResult`. Production code goes through
+   * `RootStore.build()` which awaits the async factory.
+   */
+  constructor(bus: EventBus, clients: ApiFactoryResult) {
     this.prefs = new PrefStore();
     this.shell = new ShellStore();
-    this.bus = new EventBus();
+    this.bus = bus;
 
-    // Tests inject a pre-built ApiFactoryResult (or pass nothing and
-    // let the factory read the env). Production uses the latter.
-    const built = clients ?? createApiClients({ bus: this.bus });
-    this.mode = built.mode;
-    this.api = built.api;
-    this.signalR = built.signalR;
-    this.admin = built.admin;
-    this.auth = new AuthStore(built.auth);
+    this.mode = clients.mode;
+    this.api = clients.api;
+    this.signalR = clients.signalR;
+    this.admin = clients.admin;
+    this.auth = new AuthStore(clients.auth);
 
     // Wire SignalR connection state → shell store.
     this.disposers.push(
@@ -59,6 +61,16 @@ export class RootStore {
         this.shell.setConnection(status)
       )
     );
+  }
+
+  /**
+   * Production builder — async because mock clients are dynamic
+   * imports (S6-audit M2). Real-mode resolves on the same tick.
+   */
+  static async build(): Promise<RootStore> {
+    const bus = new EventBus();
+    const clients = await createApiClients({ bus });
+    return new RootStore(bus, clients);
   }
 
   /** Tear down bus subscriptions + close the SignalR connection.

@@ -1,5 +1,8 @@
 import type { EntityTimelineStage } from "@/screens/entity-detail/EntityTimeline";
-import type { TrackedEntityReadinessResponse } from "@/types/admin";
+import type {
+  TrackedEntityReadinessResponse,
+  TrackedHistoryBackfillStatusResponse,
+} from "@/types/admin";
 
 /**
  * Maps an admin `TrackedEntityReadinessResponse` onto the shared
@@ -17,9 +20,18 @@ export function readinessStages(r: TrackedEntityReadinessResponse | null): Entit
     return BASE.map((b) => ({ ...b, status: "pending" }));
   }
 
+  // Backend history surface: `historyReadiness` is the headline
+  // string ("Ready" / "Catchup" / "Behind"); `backfillStatus.status`
+  // names the pipeline state; `backfillStatus.itemsScanned/Applied`
+  // gives an in-flight gauge.
   const history = r.history;
-  const historyCaught = history?.status === "UpToDate";
-  const historyPending = (history?.pendingCount ?? 0) > 0;
+  const readiness = history?.historyReadiness ?? null;
+  const backfill = history?.backfillStatus ?? null;
+  const historyCaught = readiness === "Ready" || readiness === "UpToDate";
+  const backfillRunning =
+    backfill !== null &&
+    backfill.status !== "Idle" &&
+    backfill.status !== "Completed";
 
   return [
     {
@@ -43,14 +55,12 @@ export function readinessStages(r: TrackedEntityReadinessResponse | null): Entit
         ? "pending"
         : historyCaught
         ? "done"
-        : historyPending
+        : backfillRunning
         ? "active"
         : "warning",
-      timestampMs: history?.lastCheckpoint ?? null,
+      timestampMs: backfill?.lastProgressAt ?? null,
       detail: history
-        ? `${history.status}${
-            historyPending ? ` · ${history.pendingCount} pending` : ""
-          }`
+        ? formatHistoryDetail(readiness, backfill)
         : "No history snapshot yet",
     },
     {
@@ -80,6 +90,19 @@ export function readinessStages(r: TrackedEntityReadinessResponse | null): Entit
       detail: r.lifecycleStatus,
     },
   ];
+}
+
+function formatHistoryDetail(
+  readiness: string | null,
+  backfill: TrackedHistoryBackfillStatusResponse | null
+): string {
+  const head = readiness ?? "unknown";
+  if (!backfill) return head;
+  const progress =
+    backfill.itemsApplied > 0 || backfill.itemsScanned > 0
+      ? ` · ${backfill.itemsApplied}/${backfill.itemsScanned} applied`
+      : "";
+  return `${head} · ${backfill.status}${progress}`;
 }
 
 const BASE: Omit<EntityTimelineStage, "status">[] = [
