@@ -62,7 +62,22 @@ public class AdminP2pControllerHeadersTests : RavenTestDriver
         => new(
             new BsvP2pHealth(),
             store,
-            Options.Create(new HeadersChainOptions { RetainedHeaderCount = retainedHeaderCount }));
+            Options.Create(new HeadersChainOptions { RetainedHeaderCount = retainedHeaderCount }),
+            // Wave 6 S3 — headers tests do not exercise alerts; the
+            // injected repo is a no-op stand-in.
+            new NoopAlertRepository(),
+            Options.Create(new Dxs.Consigliere.Configs.BsvP2pConfig()));
+
+    private sealed class NoopAlertRepository : IAlertEventRepository
+    {
+        public Task SaveAsync(P2pAlertEvent ev, CancellationToken ct) => Task.CompletedTask;
+        public Task<System.Collections.Generic.IReadOnlyList<string>> GetAllIdsOrderedAsync(CancellationToken ct)
+            => Task.FromResult<System.Collections.Generic.IReadOnlyList<string>>(System.Array.Empty<string>());
+        public Task DeleteAsync(System.Collections.Generic.IReadOnlyList<string> ids, CancellationToken ct) => Task.CompletedTask;
+        public Task<System.Collections.Generic.IReadOnlyList<P2pAlertEvent>> GetRecentAsync(
+            int limit, long? sinceUnixMs, CancellationToken ct)
+            => Task.FromResult<System.Collections.Generic.IReadOnlyList<P2pAlertEvent>>(System.Array.Empty<P2pAlertEvent>());
+    }
 
     [SkippableFact]
     public async Task HeadersTip_Empty_Returns404()

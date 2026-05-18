@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 using Dxs.Bsv.P2p.Chain;
+using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
 using Dxs.Consigliere.Services.P2p;
 using Dxs.Consigliere.Setup;
@@ -25,10 +28,42 @@ namespace Dxs.Consigliere.Controllers;
 public class AdminP2pController(
     BsvP2pHealth health,
     BlockHeaderStore headerStore,
-    IOptions<HeadersChainOptions> headersOptions)
+    IOptions<HeadersChainOptions> headersOptions,
+    IAlertEventRepository alertRepository,
+    IOptions<BsvP2pConfig> p2pOptions)
     : ControllerBase
 {
     private readonly HeadersChainOptions _headersOptions = headersOptions.Value;
+    private readonly AlertConfig _alertConfig = p2pOptions.Value.Alert;
+
+    /// <summary>
+    /// Wave 6 S3 (master.md A1-followup) — default page size for
+    /// <c>GET /api/admin/p2p/alerts</c> when <c>lastN</c> is omitted.
+    /// </summary>
+    internal const int DefaultAlertLastN = 20;
+
+    /// <summary>
+    /// Wave 6 S3 — hard ceiling on the alert-history scan,
+    /// regardless of caller-provided <c>lastN</c> or the configured
+    /// retention. Mirrors the W5 A2 M2 / W4 metrics-controller
+    /// pattern. 1440 = 24 h at 60 s cadence; bounded for any
+    /// realistic dashboard.
+    /// </summary>
+    internal const int HardAlertLastNCeiling = 1440;
+
+    /// <summary>
+    /// Wave 6 S3 (W5 A2 M2 pattern) — clamp the caller-provided
+    /// <c>lastN</c> against the alert retention budget and the
+    /// hard ceiling. Negative / zero falls back to
+    /// <see cref="DefaultAlertLastN"/>; positive values are
+    /// upper-bounded by <c>min(retention, HardAlertLastNCeiling)</c>.
+    /// </summary>
+    internal static int ClampAlertLastN(int? requestedLastN, int retentionCount)
+    {
+        var requested = requestedLastN is int n && n > 0 ? n : DefaultAlertLastN;
+        var ceiling = retentionCount > 0 ? retentionCount : HardAlertLastNCeiling;
+        return Math.Min(requested, Math.Min(ceiling, HardAlertLastNCeiling));
+    }
     /// <summary>Live pool overview — counts and diversity metrics.</summary>
     [HttpGet("health")]
     public ActionResult<P2pHealthDto> Health()
@@ -111,6 +146,36 @@ public class AdminP2pController(
         return Ok(result);
     }
 
+    /// <summary>
+    /// Wave 6 S3 — <c>GET /api/admin/p2p/alerts</c>: latest N
+    /// alert events written by the W6 alert poller, newest-first.
+    /// <paramref name="lastN"/> defaults to
+    /// <see cref="DefaultAlertLastN"/> when omitted; clamped to
+    /// the configured retention + the hard ceiling.
+    /// <paramref name="since"/> (Unix ms) filters for alerts fired
+    /// strictly after that timestamp — incremental polling for
+    /// future dashboards.
+    /// </summary>
+    [HttpGet("alerts")]
+    public async Task<ActionResult<P2pAlertResponse>> GetAlerts(
+        [FromQuery] int? lastN,
+        [FromQuery] long? since,
+        CancellationToken ct)
+    {
+        var bounded = ClampAlertLastN(lastN, _alertConfig.AlertRetentionEvents);
+        var events = await alertRepository.GetRecentAsync(bounded, since, ct);
+        var dtos = events.Select(ToDto).ToList();
+        return Ok(new P2pAlertResponse(dtos));
+    }
+
+    private static P2pAlertEventDto ToDto(P2pAlertEvent e) =>
+        new(
+            Id: e.Id,
+            AlertUnixMs: e.AlertUnixMs,
+            Type: e.Type.ToString(),
+            Detail: e.Detail,
+            Context: e.Context);
+
     private static HeadersTipDto ToDisplayDto(Data.Models.P2p.BlockHeaderDocument doc)
     {
         // doc.Hash / doc.PrevHash are wire-order hex; convert each to
@@ -135,3 +200,22 @@ public sealed record HeadersTipDto(
     long Height,
     long TimestampMs,
     string PrevHash);
+
+/// <summary>
+/// Wave 6 S3 — frozen response shape for
+/// <c>GET /api/admin/p2p/alerts</c>. Renames require a contract-
+/// amendment slice per master.md handoff table.
+/// </summary>
+public sealed record P2pAlertResponse(IReadOnlyList<P2pAlertEventDto> Alerts);
+
+/// <summary>
+/// Wave 6 S3 — wire shape for a single alert. <c>Type</c> is the
+/// <see cref="P2pAlertType"/> string name so a future enum addition
+/// is forwards-compatible at the JSON layer.
+/// </summary>
+public sealed record P2pAlertEventDto(
+    string Id,
+    long AlertUnixMs,
+    string Type,
+    string Detail,
+    IDictionary<string, string> Context);
