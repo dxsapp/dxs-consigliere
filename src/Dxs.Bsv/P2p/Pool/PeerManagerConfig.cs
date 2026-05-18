@@ -37,4 +37,13 @@ public sealed record PeerManagerConfig
     /// path when DNS seeds return only banned nodes. Tests should set <c>false</c>.
     /// </summary>
     public bool EnableFallbackSeeds { get; init; } = true;
+
+    /// <summary>
+    /// Wave 6 S1 — rotation thresholds the maintenance tick passes to
+    /// the <see cref="PeerRotationPlanner"/>. <c>null</c> disables
+    /// score-aware rotation entirely (legacy behaviour); the W6
+    /// consigliere wirer constructs a non-null instance with the
+    /// operator-tuned floor.
+    /// </summary>
+    public PeerRotationPolicy? RotationPolicy { get; init; }
 }

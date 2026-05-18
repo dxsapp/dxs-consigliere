@@ -27,6 +27,8 @@ public sealed class PeerManager : IAsyncDisposable
     private readonly IPeerStore _store;
     private readonly PeerManagerConfig _config;
     private readonly ILogger _logger;
+    private readonly IPeerScoringPolicy? _scoringPolicy;
+    private readonly PeerRotationPlanner _rotationPlanner = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly ConcurrentDictionary<string, PeerSession> _active = new();
     private readonly SemaphoreSlim _bootstrapGate;
@@ -34,13 +36,23 @@ public sealed class PeerManager : IAsyncDisposable
     private Task? _dnsRefreshLoop;
     private int _disposed;
 
-    public PeerManager(P2pNetwork network, PeerDiscovery discovery, IPeerStore store, PeerManagerConfig config, ILogger? logger = null)
+    public PeerManager(
+        P2pNetwork network,
+        PeerDiscovery discovery,
+        IPeerStore store,
+        PeerManagerConfig config,
+        ILogger? logger = null,
+        IPeerScoringPolicy? scoringPolicy = null)
     {
         _network = network ?? throw new ArgumentNullException(nameof(network));
         _discovery = discovery ?? throw new ArgumentNullException(nameof(discovery));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _logger = logger ?? NullLogger.Instance;
+        // Score-aware rotation is enabled iff both a policy AND a
+        // rotation config are present. Either-or → legacy behaviour
+        // (no proactive eviction), preserving pre-W6 wiring.
+        _scoringPolicy = config.RotationPolicy is null ? null : scoringPolicy;
         _bootstrapGate = new SemaphoreSlim(_config.BootstrapMaxConcurrency, _config.BootstrapMaxConcurrency);
     }
 
@@ -133,6 +145,12 @@ public sealed class PeerManager : IAsyncDisposable
             }
         }
 
+        // Wave 6 S1 — score-aware proactive rotation. At most one
+        // peer evicted per tick (Core Rule §5). The planner is pure
+        // logic; we hand it (key, score) tuples and act on its
+        // decision.
+        EvictByRotationPlanner();
+
         var deficit = _config.TargetPoolSize - _active.Count;
         if (deficit <= 0) return;
 
@@ -151,6 +169,47 @@ public sealed class PeerManager : IAsyncDisposable
 
         if (tasks.Count > 0)
             await Task.WhenAll(tasks);
+    }
+
+    private void EvictByRotationPlanner()
+    {
+        if (_scoringPolicy is null || _config.RotationPolicy is null) return;
+
+        var snapshot = _active.ToArray();
+        if (snapshot.Length == 0) return;
+
+        var scored = new List<ScoredPeer>(snapshot.Length);
+        foreach (var (key, session) in snapshot)
+        {
+            try
+            {
+                var telemetry = session.Telemetry.Snapshot();
+                scored.Add(new ScoredPeer(key, _scoringPolicy.Score(telemetry)));
+            }
+            catch (Exception ex)
+            {
+                // A telemetry-snapshot failure on one peer must not
+                // poison the entire rotation decision. We log + skip
+                // that peer for this tick.
+                _logger.LogDebug(ex, "Failed to score peer {Peer}; skipping rotation eval", key);
+            }
+        }
+
+        var decision = _rotationPlanner.Plan(scored, _config.RotationPolicy);
+        if (decision.EvictKeys.Count == 0) return;
+
+        foreach (var key in decision.EvictKeys)
+        {
+            if (_active.TryRemove(key, out var session))
+            {
+                _logger.LogInformation("Peer evicted by rotation policy: {Peer}", key);
+                _ = Task.Run(async () =>
+                {
+                    try { await session.DisposeAsync(); }
+                    catch (Exception ex) { _logger.LogDebug(ex, "Eviction dispose failed for {Peer}", key); }
+                });
+            }
+        }
     }
 
     private async Task TryConnectAsync(PeerRecord candidate, CancellationToken ct)
