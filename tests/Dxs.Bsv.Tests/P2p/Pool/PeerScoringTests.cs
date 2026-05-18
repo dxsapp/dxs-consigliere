@@ -94,6 +94,65 @@ public class PeerScoringTests
     }
 
     [Fact]
+    public void RelayBackBonus_CapsAtFifty_WhenPenaltiesPreventCeilingClamp()
+    {
+        // S0-audit L1 fix — surface the bonus cap without the ceiling
+        // clamp absorbing it. With max latency (-60) + max rejects
+        // (-50) the bonus is the ONLY positive contribution, so the
+        // cap shows in the final score.
+        // bonus capped at 50: raw = 100 - 60 - 50 + 50 = 40.
+        var capped = new DefaultPeerScoringPolicy().Score(
+            Telemetry(pingP95Ms: 600.0, rejectCount: 10, relayBack: 70));
+        Assert.Equal(40, capped.Value);
+
+        // Higher input → same score (cap holds). Without the cap the
+        // raw would be 100 - 60 - 50 + 1_000 = 990 → ceiling-clamp to
+        // 100, masking the bug.
+        var farAboveCap = new DefaultPeerScoringPolicy().Score(
+            Telemetry(pingP95Ms: 600.0, rejectCount: 10, relayBack: 1_000));
+        Assert.Equal(40, farAboveCap.Value);
+    }
+
+    [Fact]
+    public void NegativeRelayBackInvCount_IsTreatedAsZeroBonus()
+    {
+        // S0-audit L2 fix — corrupted / underflowed telemetry must
+        // not yield a negative bonus that subtracts from the score.
+        var score = new DefaultPeerScoringPolicy().Score(Telemetry(relayBack: -5));
+        Assert.Equal(100, score.Value);
+    }
+
+    [Fact]
+    public void NegativeRejectCount_IsIgnored_NoBonusEffect()
+    {
+        // S0-audit M1 fix — negative reject counts (corrupted data)
+        // must not subtract from the positive total.
+        var rejects = new Dictionary<RejectClass, long>
+        {
+            { RejectClass.PolicyRejected, 3 },
+            { RejectClass.Invalid, -100 },
+        };
+        // 3 positive rejects → 15 penalty → 85.
+        var score = new DefaultPeerScoringPolicy().Score(Telemetry(rejectByClass: rejects));
+        Assert.Equal(85, score.Value);
+    }
+
+    [Fact]
+    public void RejectCount_NearLongMaxValue_DoesNotOverflow()
+    {
+        // S0-audit M1 pin — saturating sum must keep the policy
+        // total-bounded even if a single class is long.MaxValue.
+        var rejects = new Dictionary<RejectClass, long>
+        {
+            { RejectClass.PolicyRejected, long.MaxValue },
+            { RejectClass.Invalid, long.MaxValue },
+        };
+        var score = new DefaultPeerScoringPolicy().Score(Telemetry(rejectByClass: rejects));
+        // Saturates at MaxRejectPenalty (50) → score = 100 - 50 = 50.
+        Assert.Equal(50, score.Value);
+    }
+
+    [Fact]
     public void PeerScore_Constructor_ClampsValues()
     {
         Assert.Equal(0, new PeerScore(-50).Value);

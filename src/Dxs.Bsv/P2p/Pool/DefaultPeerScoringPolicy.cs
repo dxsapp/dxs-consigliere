@@ -45,9 +45,23 @@ public sealed class DefaultPeerScoringPolicy : IPeerScoringPolicy
 
         var latencyPenalty = ClampDouble(telemetry.PingRttP95Ms / LatencyDivisorMs, 0.0, MaxLatencyPenalty);
 
+        // S0-audit M1 fix: saturating sum + per-step cap so a corrupted
+        // counter near long.MaxValue cannot overflow before the clamp.
+        // Anything ≥ rejectSaturate is already at MaxRejectPenalty, so
+        // we stop accumulating once we cross it.
+        const long rejectSaturate = MaxRejectPenalty / RejectWeight + 1; // 11
         long rejectTotal = 0;
         foreach (var (_, count) in telemetry.RejectByClass)
-            rejectTotal += count;
+        {
+            if (count <= 0) continue;
+            var contribution = count >= rejectSaturate ? rejectSaturate : count;
+            rejectTotal += contribution;
+            if (rejectTotal >= rejectSaturate)
+            {
+                rejectTotal = rejectSaturate;
+                break;
+            }
+        }
         var rejectPenalty = ClampDouble(RejectWeight * (double)rejectTotal, 0.0, MaxRejectPenalty);
 
         var relayBackBonus = telemetry.RelayBackInvCount < 0
