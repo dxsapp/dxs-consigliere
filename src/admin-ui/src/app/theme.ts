@@ -20,6 +20,13 @@ export type Density = "comfortable" | "dense";
 
 // ─── shared (mode-independent) ────────────────────────────────────────────────
 
+/** Monospace stack used by the `typography.code` variant; also
+ *  exported for inline `<Box sx={{ fontFamily: codeFontFamily }}>`
+ *  usage (e.g. DataGrid renderCell). Mirrors the design bundle's
+ *  `typography.codeFontFamily` token. */
+export const codeFontFamily =
+  '"JetBrains Mono","Roboto Mono",ui-monospace,monospace';
+
 const sharedTypography: NonNullable<ThemeOptions["typography"]> = {
   fontFamily: '"Roboto","Helvetica","Arial",sans-serif',
   h1: { fontWeight: 300, fontSize: "3.75rem", lineHeight: 1.167, letterSpacing: "-0.5px" },
@@ -41,7 +48,7 @@ const sharedTypography: NonNullable<ThemeOptions["typography"]> = {
     textTransform: "uppercase",
   },
   code: {
-    fontFamily: '"JetBrains Mono","Roboto Mono",ui-monospace,monospace',
+    fontFamily: codeFontFamily,
     fontWeight: 400,
     fontSize: "0.8125rem",
     lineHeight: 1.5,
@@ -121,6 +128,12 @@ export function buildTheme(mode: ThemeMode, density: Density): Theme {
       },
       MuiAppBar: {
         defaultProps: { color: "transparent", elevation: 0 },
+        // S1-audit L1 intentional deviation: the design bundle's
+        // theme.jsx writes `borderBottom: '1px solid var(--divider)'`,
+        // assuming a CSS-variable wired separately. We resolve the
+        // divider colour from the palette at theme-construction time
+        // so the AppBar is correct without any extra CSS-var plumbing.
+        // Documented here as an intentional implementation deviation.
         styleOverrides: {
           root: {
             backdropFilter: "blur(8px)",

@@ -59,7 +59,8 @@ export class PrefStore {
   }
 
   /** Wipe local prefs back to defaults. Used by the version-mismatch
-   *  recovery path and exposed for tests. */
+   *  recovery path, the storage-failure recovery path in
+   *  hydratePrefStore, and the test suite. */
   reset() {
     this.mode = systemPreferredMode();
     this.density = "comfortable";
@@ -70,18 +71,46 @@ export class PrefStore {
   }
 }
 
+/** Tracks the in-flight hydrate promise per store instance so a
+ *  concurrent or repeat hydrate (StrictMode double-mount) shares the
+ *  same promise instead of double-wiring mobx-persist-store against
+ *  the same store. Stored outside the MobX observable graph so it
+ *  doesn't leak into reactions. */
+const inflightHydrate = new WeakMap<PrefStore, Promise<void>>();
+
 /**
- * Activate persistence for a store. Separated from the constructor
- * so unit tests can choose to opt-in.
+ * Activate persistence for a store. Idempotent per store: a
+ * concurrent or repeat call returns the SAME promise (matters
+ * under React StrictMode, which double-fires `useEffect`).
+ *
+ * Failure-safe: a storage / persistence error logs at warn and
+ * resets the store to defaults before marking it hydrated, so the
+ * UI never deadlocks rendering `null`.
  */
-export async function hydratePrefStore(store: PrefStore): Promise<void> {
-  await makePersistable(store, {
-    name: PREF_STORAGE_KEY,
-    properties: ["mode", "density"],
-    // Manual hydrate so we can guard with the version check below.
-    storage: resolveStorage(),
-  });
-  store.markHydrated();
+export function hydratePrefStore(store: PrefStore): Promise<void> {
+  const existing = inflightHydrate.get(store);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    try {
+      await makePersistable(store, {
+        name: PREF_STORAGE_KEY,
+        properties: ["mode", "density"],
+        storage: resolveStorage(),
+      });
+    } catch (err) {
+      // Storage / persistence failure must NOT leave the app blank.
+      // Reset to defaults and let the UI render with no persisted
+      // choice.
+      // eslint-disable-next-line no-console
+      console.warn("[PrefStore] hydrate failed; resetting to defaults", err);
+      store.reset();
+    } finally {
+      store.markHydrated();
+    }
+  })();
+  inflightHydrate.set(store, promise);
+  return promise;
 }
 
 /** Resolve the configured storage adapter or a no-op fallback. */

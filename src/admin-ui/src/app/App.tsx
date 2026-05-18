@@ -1,10 +1,17 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { LoginPage } from "@/screens/login/LoginPage";
-import { DevThemeDemoPage } from "@/screens/dev-theme-demo/DevThemeDemoPage";
 import { RootStore } from "@/stores/root";
 import { hydratePrefStore } from "@/stores/pref.store";
 import { ThemeProvider } from "@/app/ThemeProvider";
+
+// S1-audit L3: dev-only theme demo route is lazy-loaded so its
+// MUI primitives + icon imports don't fatten the production shell.
+const DevThemeDemoPage = lazy(() =>
+  import("@/screens/dev-theme-demo/DevThemeDemoPage").then((m) => ({
+    default: m.DevThemeDemoPage,
+  }))
+);
 
 const root = new RootStore();
 
@@ -26,6 +33,9 @@ export function App() {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    // S1-audit M1: hydratePrefStore is idempotent (StrictMode double-
+    // mount safe) and failure-safe (storage error resets defaults +
+    // marks hydrated). No additional catch needed here.
     void hydratePrefStore(root.prefs).then(() => setHydrated(true));
   }, []);
 
@@ -38,7 +48,14 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/dev/theme-demo" element={<DevThemeDemoPage prefs={root.prefs} />} />
+          <Route
+            path="/dev/theme-demo"
+            element={
+              <Suspense fallback={null}>
+                <DevThemeDemoPage prefs={root.prefs} />
+              </Suspense>
+            }
+          />
           {/* S0: every authed route is a placeholder. S2 wires the
               real shell + per-screen routes. The 401 redirect from
               the API client (lib/api/client.ts) sends the user back
