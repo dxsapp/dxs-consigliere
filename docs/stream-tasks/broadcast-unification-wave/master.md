@@ -1,8 +1,9 @@
 ---
 created: 2026-05-18
+closed: 2026-05-18
 type: wave
 parent: consigliere-thin-node-observer-program
-status: draft (awaiting wave-level Codex audit A1)
+status: CLOSED — Codex audit chain A2 → A2-followup APPROVE WITH CHANGES (closed)
 ---
 
 # Wave 5 — Broadcast Unification
@@ -79,10 +80,14 @@ In scope:
             CancellationToken cancellationToken = default);
     }
     ```
-  - The ctor drops `IBitcoindService`, `IBitailsRestApiClient`,
-    `IWhatsOnChainRestApiClient` dependencies. Only the P2P-side
-    deps (`TxPolicyValidator`, `OutgoingTransactionStore`,
-    `TxRelayCoordinator` via property-injection from W2) remain.
+  - The ctor drops `IBitailsRestApiClient`,
+    `IWhatsOnChainRestApiClient`, and (post A2 L1)
+    `IDocumentStore` dependencies. Survivors: `IBitcoindService`
+    (fee-rate forwarder for `SatoshisPerByte`) + `ILogger`
+    (2 deps total, down from 10). The P2P-side dependencies
+    (`IBroadcastPolicyValidator`, `IOutgoingTransactionRepository`,
+    `ITxAnnouncer` — interface-typed post A2 M1) are property-
+    injected from W2 via the wirer.
 - **HTTP broadcaster client removal (S3)**.
   - `IBroadcastProvider` interface in `Dxs.Bsv` — REMOVED. The
     interface had a single concrete impl (`BitcoindService`)
@@ -250,4 +255,12 @@ Commit hashes recorded here as slices close.
   removal, grep regression suite)
 - Slice S7: deferred — operator-driven live mainnet validation
 - Wave closeout evidence: `evidence/closeout.md`
-- Wave audit A2 (post-execution): pending
+- Wave audit A2 (post-execution): folded in `1592fdb` (8/8
+  findings closed — H1 no-ready-peer Dispatching fix +
+  M1 5 behavioral tests via IBroadcastPolicyValidator +
+  IOutgoingTransactionRepository abstractions + M2 production
+  DI graph test + L1-L5 cleanup)
+- Wave audit A2-followup (APPROVE WITH CHANGES — 7 closed, 1
+  partial, 2 new LOW): folded in this commit. M1 duplicate test
+  added; M2 class-comment fixed; N1 master.md ctor-drift
+  corrected; N2 nullable annotations fixed. Wave CLOSED.

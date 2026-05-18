@@ -40,13 +40,16 @@ namespace Dxs.Consigliere.Tests.Broadcast;
 /// <c>PolicyValidator</c> / <c>OutgoingStore</c> / <c>Announcer</c>
 /// slots are populated.
 ///
-/// <para>Marked with <c>[Collection]</c> to disable xunit parallel
-/// execution against itself / against
-/// <c>BsvP2pSetupDiResolutionTests</c>. Both suites build distinct
-/// service providers, but a few of the W2 hosted services
-/// (<c>OutgoingTransactionMonitor</c>, etc.) carry static guards
-/// against duplicate-instance creation; running concurrently
-/// triggers those guards.</para>
+/// <para>A2-followup note: an earlier draft of this test resolved
+/// the wirer via <c>GetServices&lt;IHostedService&gt;()</c>, which
+/// forced construction of every hosted service in the graph —
+/// including <c>OutgoingTransactionMonitor</c> whose static
+/// duplicate-instance guard fires across parallel xunit fixtures.
+/// The current version resolves <see cref="BroadcastServiceP2pWirer"/>
+/// DIRECTLY (see <see cref="BroadcastServiceP2pWirerHost_RunsStartAsync_AndWiresInternalProperties"/>),
+/// which keeps the rest of the hosted-service graph un-constructed
+/// and lets the suite run safely under xunit's default parallel
+/// execution — no <c>[Collection]</c> attribute needed.</para>
 /// </summary>
 public class BroadcastServiceProductionDiTests
 {

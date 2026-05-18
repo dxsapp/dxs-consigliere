@@ -1,7 +1,9 @@
 # Wave 5 Closeout — `broadcast-unification-wave`
 
-Status: implementation complete; awaiting wave-level Codex
-post-execution audit A2. S0-S6 delivered; S7 (live mainnet)
+Status: **CLOSED**. Wave-level Codex audit chain completed —
+A2 (APPROVE WITH CHANGES — 1 H, 2 M, 5 L; revision folded) →
+A2-followup (APPROVE WITH CHANGES — 1 PARTIAL + 2 LOW; folded) →
+wave APPROVED. S0-S6 delivered; S7 (live mainnet)
 operator-deferred per the W2 / W3 / W4 pattern.
 
 ## Delivery summary
@@ -212,3 +214,88 @@ post-A2-L1; `IBitcoindService` + `ILogger` are the survivors.
 - `Dxs.Consigliere.Tests` 432 passed (was 424 pre-A2 revision,
   +8: 5 M1 + 2 M2 + 1 ripple). 24 explicit Skipped + 3
   pre-existing baseline Raven-runtime failures (unchanged).
+
+## A2-followup revision summary (final — this commit)
+
+A2-followup verdict: **APPROVE WITH CHANGES** — 7 closed,
+1 PARTIAL (M1 missing duplicate-receipt test), 0 regressed,
+2 new LOW (N1 doc drift, N2 nullable warnings). All 4 items
+folded.
+
+### M1 (PARTIAL → CLOSED) — duplicate-receipt test added
+
+The A2 revision shipped 5 behavioral tests but the
+`FakePolicyValidator.IsDuplicateResult` was hard-coded to
+`false`, so the duplicate branch in
+`BroadcastService.BroadcastAsync` never executed under test.
+The validator fake now has overridable
+`IsDuplicateOverride` / `ExtractTxIdOverride` callbacks, and
+the new
+`BroadcastAsync_DuplicateSubmission_ReturnsExistingReceipt_NoPersistOrAnnounce`
+test:
+- Seeds `FakeOutgoingRepo.PreExisting` with an existing tx
+  document at `OutgoingTxState.PeerRelayed`.
+- Configures the validator to flag the next submission as
+  duplicate + extract the seeded txid.
+- Calls `BroadcastAsync` and asserts the returned receipt
+  mirrors the existing doc's `TxId` / `State` / `CreatedAtMs`,
+  AND that the repo's `SaveAsync` was NOT called, AND the
+  announcer was NOT called (duplicate path is read-only).
+
+### M2 (CLOSED WITH NOTE → CLOSED) — class comment corrected
+
+The A2 revision dropped the `[Collection]` attribute when the
+direct-wirer-resolve change removed the static-guard race,
+but left a class-level XML comment claiming `[Collection]` was
+present. The comment now accurately describes the
+direct-resolve approach + explicitly notes "no `[Collection]`
+attribute needed".
+
+### N1 (LOW new → CLOSED) — wave docs ctor drift
+
+`master.md` §S2 + parent program ledger row #5 still carried
+pre-A2 claims ("ctor drops `IBitcoindService`", "ctor 10 → 3
+deps", "A2 pending"). Updated to reflect the post-A2 reality:
+ctor 10 → 2 deps with `IBitcoindService` + `ILogger`
+surviving; property-injected slots interface-typed
+(`IBroadcastPolicyValidator` + `IOutgoingTransactionRepository`
++ `ITxAnnouncer`); A2-followup status reflected.
+
+### N2 (LOW new → CLOSED) — test nullable annotations
+
+`BroadcastServiceBehaviorTests.FakeOutgoingRepo`:
+- `LastSaved` is now `OutgoingTransaction?` (was non-nullable;
+  null until first Save landed).
+- `GetOrNullAsync` returns `Task<OutgoingTransaction?>`
+  matching the `IOutgoingTransactionRepository` interface
+  signature.
+
+The `PreExisting` slot (added for M1 duplicate test) is
+nullable by construction, so the `Task.FromResult(PreExisting)`
+return infers `Task<OutgoingTransaction?>` cleanly.
+
+### Wave 5 close
+
+All slices closed (S2 / S7 deferred with documented rationale).
+Audit chain: A2 → A2-followup APPROVE WITH CHANGES (closed).
+Wave 6 (`production-ops-wave`) may now open per the program
+dependency graph (depends on W2; W5 recommended).
+
+Open follow-ups (carried for a future wave; not blocking):
+
+- **S7 live-mainnet validation** — operator-driven.
+- **Raven `Broadcast` document archival** — historical-only,
+  no current writer; storage-hygiene concern.
+- **Flaky parallel-load tests** — pre-existing
+  `RateLimited_Inv_*` + `PeerManager_FailureRecordsNegativeCooldown`;
+  not introduced by W5.
+
+### Final-final test counts
+
+- `Dxs.Bsv.Tests` 220/220 (unchanged).
+- `Dxs.Consigliere.Tests` 433 passed (was 432 pre-A2-followup,
+  +1 from the new duplicate-receipt test) + 24 explicit
+  Skipped + 3 pre-existing baseline Raven-runtime failures
+  (unchanged).
+- Broadcast-filtered: 35/35 passed (was 27 pre-A2 revision,
+  +8 from A2 + A2-followup).

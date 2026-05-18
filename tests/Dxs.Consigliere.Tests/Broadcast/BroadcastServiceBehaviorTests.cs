@@ -47,7 +47,14 @@ public class BroadcastServiceBehaviorTests
     private sealed class FakeOutgoingRepo : IOutgoingTransactionRepository
     {
         public readonly ConcurrentBag<OutgoingTransaction> SaveCalls = new();
-        public OutgoingTransaction LastSaved;
+        // A2-followup N2: nullable; LastSaved is null until first Save.
+        public OutgoingTransaction? LastSaved;
+
+        // M1 duplicate-receipt test injects a pre-existing tx the repo
+        // returns from GetOrNullAsync; the BroadcastService's duplicate
+        // branch then returns an existing receipt without persisting.
+        public OutgoingTransaction? PreExisting;
+
         public Task SaveAsync(OutgoingTransaction tx, CancellationToken ct = default)
         {
             // Capture a SNAPSHOT — production mutates the same instance
@@ -65,8 +72,8 @@ public class BroadcastServiceBehaviorTests
             LastSaved = snap;
             return Task.CompletedTask;
         }
-        public Task<OutgoingTransaction> GetOrNullAsync(string txId, CancellationToken ct = default)
-            => Task.FromResult<OutgoingTransaction>(null);
+        public Task<OutgoingTransaction?> GetOrNullAsync(string txId, CancellationToken ct = default)
+            => Task.FromResult(PreExisting);
     }
 
     private sealed class FakeAnnouncer : ITxAnnouncer
@@ -99,11 +106,16 @@ public class BroadcastServiceBehaviorTests
                         .Substring(0, 64),
                     size: hex.Length / 2);
 
+        // A2-followup M1 fix: tests override these to exercise the
+        // duplicate-result branch in BroadcastService.BroadcastAsync.
+        public Func<PolicyValidationResult, bool> IsDuplicateOverride { get; set; } = _ => false;
+        public Func<PolicyValidationResult, string> ExtractTxIdOverride { get; set; } = _ => string.Empty;
+
         public Task<PolicyValidationResult> ValidateAsync(string rawHex, CancellationToken ct = default)
             => Task.FromResult(ResultFor(rawHex));
 
-        public bool IsDuplicateResult(PolicyValidationResult result) => false;
-        public string ExtractTxIdFromDuplicate(PolicyValidationResult result) => string.Empty;
+        public bool IsDuplicateResult(PolicyValidationResult result) => IsDuplicateOverride(result);
+        public string ExtractTxIdFromDuplicate(PolicyValidationResult result) => ExtractTxIdOverride(result);
     }
 
     private static (BroadcastService service, FakeOutgoingRepo repo, FakeAnnouncer announcer,
@@ -182,6 +194,48 @@ public class BroadcastServiceBehaviorTests
         var call = Assert.Single(announcer.Calls);
         Assert.Equal(SampleTxHex, call.RawHex);
         Assert.False(string.IsNullOrEmpty(call.TxId));
+    }
+
+    [Fact]
+    public async Task BroadcastAsync_DuplicateSubmission_ReturnsExistingReceipt_NoPersistOrAnnounce()
+    {
+        // Audit W5 A2-followup M1 fix: pin the
+        // duplicate-detection branch in
+        // BroadcastService.BroadcastAsync. When PolicyValidator
+        // returns IsDuplicateResult=true, the service:
+        // (a) extracts the existing txid via ExtractTxIdFromDuplicate,
+        // (b) loads the existing OutgoingTransaction from the repo,
+        // (c) returns a BroadcastReceipt mirroring the existing
+        //     document's TxId / State / CreatedAtMs — WITHOUT
+        //     re-persisting and WITHOUT re-announcing.
+        var (service, repo, announcer, validator) = Build();
+
+        // Seed the repo with an existing receipt; configure the
+        // validator to flag the next submission as duplicate.
+        var existing = new OutgoingTransaction
+        {
+            Id = OutgoingTransaction.BuildId("aabbccdd"),
+            TxId = "aabbccdd",
+            RawHex = SampleTxHex,
+            State = OutgoingTxState.PeerRelayed,
+            CreatedAtMs = 1700000000_000L,
+            ParsedSizeBytes = SampleTxHex.Length / 2,
+        };
+        repo.PreExisting = existing;
+        validator.ResultFor = _ => PolicyValidationResult.Fail("duplicate:aabbccdd");
+        validator.IsDuplicateOverride = _ => true;
+        validator.ExtractTxIdOverride = _ => "aabbccdd";
+
+        var receipt = await service.BroadcastAsync(SampleTxHex);
+
+        // Receipt mirrors the existing document.
+        Assert.Equal("aabbccdd", receipt.TxId);
+        Assert.Equal(OutgoingTxState.PeerRelayed, receipt.State);
+        Assert.Equal(1700000000_000L, receipt.CreatedAtMs);
+
+        // No persistence, no announce — duplicate path is read-only.
+        Assert.Empty(repo.SaveCalls);
+        Assert.Empty(announcer.Calls);
     }
 
     [Fact]
