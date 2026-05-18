@@ -1,15 +1,32 @@
 import { render, screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { describe, expect, it } from "vitest";
 import { LoginPage } from "./LoginPage";
+import { ApiClient } from "@/lib/api/client";
+import { AuthStore } from "@/stores/root";
 
-describe("LoginPage (S0 scaffold smoke)", () => {
-  it("renders the brand header", () => {
-    render(<LoginPage />);
-    expect(screen.getByRole("heading", { name: /consigliere admin/i })).toBeInTheDocument();
+function renderLogin() {
+  const auth = new AuthStore(new ApiClient());
+  return {
+    auth,
+    ...render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <LoginPage auth={auth} />
+      </MemoryRouter>
+    ),
+  };
+}
+
+describe("LoginPage (S2 form)", () => {
+  it("renders the brand header + sign-in CTA", () => {
+    renderLogin();
+    expect(screen.getByText(/consigliere admin/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/operator name/i)).toBeInTheDocument();
   });
 
-  it("notes that the real form lands in S2", () => {
-    render(<LoginPage />);
-    expect(screen.getByText(/login form ships in s2/i)).toBeInTheDocument();
+  it("notes that real auth wires in S3", () => {
+    renderLogin();
+    expect(screen.getByText(/S2 placeholder/i)).toBeInTheDocument();
   });
 });

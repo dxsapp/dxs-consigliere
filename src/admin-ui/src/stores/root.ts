@@ -30,16 +30,42 @@ export class RootStore {
 }
 
 /**
- * Auth slice — S0 placeholder. S3 wires:
+ * Auth slice — S2 synthetic. S3 wires:
  *   GET /api/admin/auth/me     → hydrate session
  *   POST /api/admin/auth/login → mutate session
  *   POST /api/admin/auth/logout
+ *
+ * For S2 the status transitions are operator-driven by the login
+ * form / logout button so the route guard + shell can be built and
+ * tested without backend coupling. `signInSynthetic` and
+ * `signOutSynthetic` are the seams S3 will replace with real
+ * fetches.
  */
 export class AuthStore {
-  status: "idle" | "loading" | "authenticated" | "anonymous" | "error" = "idle";
+  status: "idle" | "loading" | "authenticated" | "anonymous" | "error" = "anonymous";
+  user: { name: string } | null = null;
+  lastError: string | null = null;
 
   constructor(_api: ApiClient) {
     void _api;
-    makeAutoObservable(this);
+    makeAutoObservable(this, {}, { autoBind: true });
+  }
+
+  get isAuthenticated() {
+    return this.status === "authenticated";
+  }
+
+  /** S2 placeholder for POST /api/admin/auth/login. */
+  signInSynthetic(name: string) {
+    this.status = "authenticated";
+    this.user = { name: name || "operator" };
+    this.lastError = null;
+  }
+
+  /** S2 placeholder for POST /api/admin/auth/logout. */
+  signOutSynthetic() {
+    this.status = "anonymous";
+    this.user = null;
+    this.lastError = null;
   }
 }

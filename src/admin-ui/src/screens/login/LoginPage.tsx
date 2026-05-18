@@ -1,25 +1,92 @@
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { observer } from "mobx-react-lite";
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import type { AuthStore } from "@/stores/root";
+import { LANDING_PATH } from "@/app/routes";
+
 /**
- * S0 placeholder login screen. Real form + auth client integration
- * lands in S2 (route guard + form) + S3 (POST /api/admin/auth/login
- * via the auth client). For now this just exists so the 401-redirect
- * target from the API client has somewhere to land.
+ * Login screen.
+ *
+ * S2 ships the form + the auth-status flip via the synthetic
+ * `signInSynthetic` seam in AuthStore. The placeholder is
+ * intentionally minimal (no password, no validation) — the visual
+ * shape is real but the auth wire happens in S3 when the API
+ * client gets `me / login / logout`.
+ *
+ * Redirect: after sign-in, navigate to the `from` location that
+ * the AuthGuard captured, falling back to the landing path.
  */
-export function LoginPage() {
+export const LoginPage = observer(function LoginPage({
+  auth,
+}: {
+  auth: AuthStore;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [name, setName] = useState("");
+  const fromState = (location.state as { from?: string } | null)?.from;
+
+  // If a user lands on /login while already authenticated, bounce
+  // them to the landing path.
+  if (auth.isAuthenticated) {
+    return null;
+  }
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    auth.signInSynthetic(name);
+    navigate(fromState ?? LANDING_PATH, { replace: true });
+  };
+
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        height: "100vh",
-        color: "white",
-        background: "#0E1116",
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background: (theme) => theme.palette.background.default,
       }}
     >
-      <div style={{ textAlign: "center" }}>
-        <h1 style={{ margin: 0 }}>Consigliere Admin</h1>
-        <p style={{ opacity: 0.6 }}>Login form ships in S2.</p>
-      </div>
-    </div>
+      <Card sx={{ width: 380 }}>
+        <CardHeader title="Consigliere Admin" subheader="Sign in" />
+        <CardContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            S2 placeholder. The real <code>/api/admin/auth/login</code> wire
+            lands in S3 (cookie auth).
+          </Alert>
+          <form onSubmit={onSubmit}>
+            <Stack spacing={2}>
+              <TextField
+                label="Operator name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+                fullWidth
+                size="small"
+              />
+              <Button type="submit" variant="contained" fullWidth>
+                Sign in
+              </Button>
+              {auth.lastError && (
+                <Typography variant="caption" color="error">
+                  {auth.lastError}
+                </Typography>
+              )}
+            </Stack>
+          </form>
+        </CardContent>
+      </Card>
+    </Box>
   );
-}
+});
