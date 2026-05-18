@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consigliere Admin — Hi-Fi Mockups</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,400,0,0&display=block">
+
+  <style>
+    html, body { margin:0; padding:0; height: 100%; background:#f0eee9; font-family: 'Roboto', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+    #root { width:100%; height:100%; }
+    /* Material Symbols Outlined — Google's CSS only ships @font-face, helper class is on us */
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal; font-style: normal;
+      line-height: 1; letter-spacing: normal; text-transform: none;
+      display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr;
+      font-feature-settings: 'liga'; -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased; font-smoothing: antialiased;
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      user-select: none;
+    }
+    /* The artboard children need their own block boundaries; reset some of design-canvas's inherited * styles */
+    .dc-card { background: transparent; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="theme.jsx"></script>
+  <script type="text/babel" src="mui-primitives.jsx"></script>
+  <script type="text/babel" src="mui-complex.jsx"></script>
+  <script type="text/babel" src="frames-dashboard.jsx"></script>
+  <script type="text/babel" src="frames-tx-detail.jsx"></script>
+  <script type="text/babel" src="frames-broadcast.jsx"></script>
+  <script type="text/babel" src="frames-alerts.jsx"></script>
+  <script type="text/babel" src="frames-p2p.jsx"></script>
+  <script type="text/babel" src="frames-tokens.jsx"></script>
+  <script type="text/babel" src="frames-notes.jsx"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react">
+    const { useState, useEffect } = React;
+
+    function App() {
+      return (
+        <DesignCanvas>
+          <DCSection id="overview" title="Consigliere Admin — Hi-Fi" subtitle="MUI-native mockups · 5 screens · light + dark · comfortable + dense · desktop + mobile">
+            <DCArtboard id="readme" label="00 · Read me" width={680} height={760}>
+              <ReadmeFrame />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="dashboard" title="1 · Dashboard" subtitle="Always-open on a second monitor · 4 required variants">
+            <DCArtboard id="dash-dark"        label="1a · dark + comfortable (canonical)" width={1440} height={900}><DashboardFrame mode="dark"  density="comfortable" viewport="desktop" /></DCArtboard>
+            <DCArtboard id="dash-light"       label="1b · light + comfortable"            width={1440} height={900}><DashboardFrame mode="light" density="comfortable" viewport="desktop" /></DCArtboard>
+            <DCArtboard id="dash-dense"       label="1c · dark + dense"                   width={1440} height={900}><DashboardFrame mode="dark"  density="dense"       viewport="desktop" /></DCArtboard>
+            <DCArtboard id="dash-mobile"      label="1d · mobile · 375 viewport · drawer collapsed" width={375} height={812}><DashboardFrame mode="dark" density="comfortable" viewport="mobile" width={375} height={812} /></DCArtboard>
+            <DCArtboard id="dash-1920"        label="1e · 1920 layout test (dark + comfortable)" width={1920} height={1080}><DashboardFrame mode="dark" density="comfortable" viewport="desktop" width={1920} height={1080} /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="tx" title="2 · Transaction detail" subtitle="Stepper-based vertical timeline · OutgoingTxState lifecycle">
+            <DCArtboard id="tx-detail" label="2 · dark + comfortable" width={1440} height={1180}><TxDetailFrame mode="dark" density="comfortable" height={1180} /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="queue" title="3 · Broadcast Queue" subtitle="3-column kanban · framer-motion AnimatePresence on state transition · one stale card">
+            <DCArtboard id="queue-kanban" label="3 · dark + comfortable" width={1440} height={920}><BroadcastQueueFrame mode="dark" density="comfortable" /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="alerts" title="4 · Alerts" subtitle="Active alert Cards + history DataGrid · read-only journal">
+            <DCArtboard id="alerts-screen" label="4 · dark + comfortable" width={1440} height={1100}><AlertsFrame mode="dark" density="comfortable" height={1100} /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="p2p" title="5 · P2P Pool" subtitle="DataGrid 60-70% + donut 30-40% · score-graded · /24 diversity">
+            <DCArtboard id="p2p-screen" label="5 · dark + comfortable" width={1440} height={1080}><P2pPoolFrame mode="dark" density="comfortable" height={1080} /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="tokens" title="Design tokens" subtitle="createTheme({ palette, typography, shape, spacing, components }) — drop-in for both palettes">
+            <DCArtboard id="tokens-frame" label="Tokens · light + dark" width={1440} height={2240}><TokensFrame /></DCArtboard>
+          </DCSection>
+
+          <DCSection id="notes" title="Interaction notes" subtitle="Per-screen MUI variants, framer-motion transitions, stale-state behaviour">
+            <DCArtboard id="notes-frame" label="Engineering handoff" width={1200} height={2880}><NotesFrame /></DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    function ReadmeFrame() {
+      return (
+        <ThemeCtx.Provider value={{ p: ConsigliereThemeConfig.palette.dark, t: ConsigliereThemeConfig.typography, density: 'comfortable' }}>
+          <div style={{ width:'100%', height:'100%', background:'#0E1116', color:'rgba(255,255,255,0.92)', padding: 36, fontFamily:'Roboto, sans-serif', display:'flex', flexDirection:'column', gap: 16, overflow:'auto' }}>
+            <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
+              <div style={{ width:44, height:44, borderRadius:10, background:'linear-gradient(135deg, #8C9EFF, #26DFC6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 24, color:'#0E1116' }}>memory</span>
+              </div>
+              <div>
+                <div style={{ fontSize:'0.6875rem', textTransform:'uppercase', letterSpacing:'1px', color:'rgba(255,255,255,0.6)' }}>Consigliere Admin · vNext</div>
+                <div style={{ fontSize:'1.5rem', fontWeight: 500 }}>Hi-Fi Design Handoff</div>
+              </div>
+            </div>
+            <p style={{ margin:0, color:'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
+              Five hi-fi screens + design tokens + per-screen interaction notes, all MUI-native. Every element maps onto a primitive in the brief's §8 mapping table. Real MUI sizing throughout: AppBar 64/56/48 (default/mobile/dense), Drawer 240, DataGrid rows 36 (compact) / 52 (standard), spacing 8.
+            </p>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginTop: 4 }}>
+              <Tile icon="palette"        title="Tokens"     body="palette (light+dark) · severity · score gradient · typography (incl. code) · shape:8 · density rule" />
+              <Tile icon="dashboard"      title="Dashboard"  body="4 variants — dark+comfortable canonical · light · dense · mobile · plus 1920 layout test" />
+              <Tile icon="swap_horiz"     title="Tx detail"  body="Stepper vertical · Validated → Dispatching → PeerRelayed → Mined → Confirmed" />
+              <Tile icon="cell_tower"     title="Broadcast Q"body="3-col kanban · stale card · Force-rebroadcast toast (only destructive action)" />
+              <Tile icon="notifications"  title="Alerts"     body="Active Cards + history DataGrid · all 4 P2pAlertType rules represented" />
+              <Tile icon="hub"            title="P2P Pool"   body="Peers DataGrid + /24 diversity donut · ScoreBar + MiniBar component breakdown" />
+            </div>
+            <div style={{ marginTop: 4, padding: 16, background:'#161B22', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, fontSize:'0.8125rem', lineHeight:1.6, color:'rgba(255,255,255,0.7)' }}>
+              <strong style={{ color:'#8C9EFF' }}>How to read this canvas:</strong> drag to pan, scroll to zoom. Click the expand icon on any artboard's hover header to view it fullscreen. The "Design tokens" and "Interaction notes" artboards at the bottom are tall scrollables — open them fullscreen.
+            </div>
+            <div style={{ padding: 16, background:'rgba(140,158,255,0.08)', border:'1px solid rgba(140,158,255,0.3)', borderRadius:8, fontSize:'0.8125rem', lineHeight:1.6 }}>
+              <strong style={{ color:'#8C9EFF' }}>Things flagged:</strong> two intentional deviations to call out, both defensible:
+              <ul style={{ margin:'8px 0 0 18px', padding:0, color:'rgba(255,255,255,0.7)' }}>
+                <li><code style={{ fontFamily:'"JetBrains Mono",monospace' }}>typography.code</code> uses <strong>JetBrains Mono</strong>, not Roboto — the UI shows a lot of hex/txid/config keys and Roboto is poor at fixed-width hex alignment.</li>
+                <li><code style={{ fontFamily:'"JetBrains Mono",monospace' }}>shape.borderRadius: 8</code> — upgrade from MUI default 4, for a more modern observability-tool feel (Grafana / Datadog adjacent).</li>
+              </ul>
+            </div>
+          </div>
+        </ThemeCtx.Provider>
+      );
+    }
+
+    function Tile({ icon, title, body }) {
+      return (
+        <div style={{ padding: 14, background:'#161B22', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, display:'flex', gap:12 }}>
+          <div style={{ width:32, height:32, borderRadius:8, background:'rgba(140,158,255,0.16)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 18, color:'#8C9EFF' }}>{icon}</span>
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize:'0.875rem', fontWeight: 600, color:'rgba(255,255,255,0.92)' }}>{title}</div>
+            <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.6)', marginTop: 2, lineHeight: 1.5 }}>{body}</div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
