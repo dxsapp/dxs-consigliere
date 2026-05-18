@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "budget": "node scripts/assert-shell-budget.mjs",
     "inventory": "node scripts/bundle-inventory.mjs",
