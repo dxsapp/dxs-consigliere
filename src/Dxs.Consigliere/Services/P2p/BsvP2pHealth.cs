@@ -68,4 +68,16 @@ public sealed class BsvP2pHealth
     public DateTimeOffset? LastDegradedReorgAt { get; private set; }
 
     public void MarkDegradedReorg(DateTimeOffset at) => LastDegradedReorgAt = at;
+
+    /// <summary>
+    /// Wave 6 S4 — operator-visible inbound-listener decision. Read by
+    /// the admin health page so operators can confirm the inbound stub
+    /// reflects their config. The W6 release does NOT ship an actual
+    /// listener thread; this flag mirrors
+    /// <c>BsvP2pConfig.Inbound.Enabled</c> and is set by the hosted
+    /// service at startup.
+    /// </summary>
+    public bool InboundEnabled { get; private set; }
+
+    public void SetInboundEnabled(bool enabled) => InboundEnabled = enabled;
 }

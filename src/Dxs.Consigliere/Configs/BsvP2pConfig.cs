@@ -46,6 +46,16 @@ public sealed class BsvP2pConfig
     public AlertConfig Alert { get; set; } = new();
 
     /// <summary>
+    /// Wave 6 S4 — inbound P2P listener decision. Config-only stub:
+    /// the W6 implementation does NOT ship listener code. Setting
+    /// <c>Enabled=true</c> logs a warning + leaves
+    /// <see cref="Configs.AlertConfig"/> behaviour unchanged. The
+    /// flag exists so a future wave can land inbound without a
+    /// contract amendment.
+    /// </summary>
+    public InboundConfig Inbound { get; set; } = new();
+
+    /// <summary>
     /// Wave 2 S4 — maximum P2P tx payload accepted by mempool
     /// observation (audit W2 M4). Default 32 MiB matches BSV
     /// mainnet typical mempool acceptance ceiling; raised from the
@@ -73,6 +83,24 @@ public sealed class TxPolicyConfig
 /// P2P alert poller. Defaults match master.md §"Critical alert
 /// poller" (A1-followup M3).
 /// </summary>
+/// <summary>
+/// Wave 6 S4 — inbound P2P listener config stub. <see cref="Enabled"/>
+/// is a no-op flag in the W6 release: the hosted service logs a
+/// one-line warning at startup and never spins a listener thread.
+/// The shape is frozen for a future inbound-listener wave (master.md
+/// handoff table).
+/// </summary>
+public sealed class InboundConfig
+{
+    /// <summary>Default false — see master.md §"Product Decision".</summary>
+    public bool Enabled { get; set; } = false;
+
+    /// <summary>Reserved TCP port for the future listener.
+    /// Default 8333 matches mainnet conventions; ignored while
+    /// <see cref="Enabled"/> is false.</summary>
+    public int ListenPort { get; set; } = 8333;
+}
+
 public sealed class AlertConfig
 {
     /// <summary>Master switch. Default false — operator enables in production.</summary>

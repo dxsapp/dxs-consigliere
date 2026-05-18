@@ -40,6 +40,19 @@ public sealed class BsvP2pHostedService : IHostedService, IAsyncDisposable
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Wave 6 S4 — record the operator's inbound-listener decision
+        // on the health surface, regardless of whether the broader
+        // P2P subsystem is enabled. If the flag is on, emit a single
+        // operator warning: the W6 release ships no listener thread.
+        _health.SetInboundEnabled(_config.Inbound.Enabled);
+        if (_config.Inbound.Enabled)
+        {
+            _logger.LogWarning(
+                "BsvP2pConfig.Inbound.Enabled = true on port {Port}, but inbound listener is NOT implemented in this release. " +
+                "The flag is reserved for a future wave; no accept thread will spin.",
+                _config.Inbound.ListenPort);
+        }
+
         if (!_config.Enabled)
         {
             _logger.LogInformation("BSV P2P thin-node disabled (Consigliere:Broadcast:P2p:Enabled = false). Skipping startup.");

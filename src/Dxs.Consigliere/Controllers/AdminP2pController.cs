@@ -73,7 +73,8 @@ public class AdminP2pController(
             PoolSize: health.PoolSize,
             TargetPoolSize: health.TargetPoolSize,
             Subnet24Diversity: health.Subnet24Diversity,
-            ActivePeers: health.ActivePeerKeys));
+            ActivePeers: health.ActivePeerKeys,
+            InboundEnabled: health.InboundEnabled));
     }
 
     /// <summary>Every peer we have seen, with stats. Useful for soak reports.</summary>
@@ -193,7 +194,8 @@ public sealed record P2pHealthDto(
     int PoolSize,
     int TargetPoolSize,
     int Subnet24Diversity,
-    System.Collections.Generic.IReadOnlyCollection<string> ActivePeers);
+    System.Collections.Generic.IReadOnlyCollection<string> ActivePeers,
+    bool InboundEnabled);
 
 public sealed record HeadersTipDto(
     string Hash,
