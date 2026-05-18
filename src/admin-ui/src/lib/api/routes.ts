@@ -49,3 +49,6 @@ export const adminP2pHeadersRecentPath = (count: number) =>
 
 /** S10 — providers config (read-only consumption in S10). */
 export const ADMIN_PROVIDERS_PATH = "/api/admin/providers";
+
+/** S10 — setup wizard status (`AllowAnonymous`). */
+export const SETUP_STATUS_PATH = "/api/setup/status";

@@ -4,6 +4,7 @@ import {
   ADMIN_P2P_HEADERS_TIP_PATH,
   ADMIN_P2P_PEERS_PATH,
   ADMIN_PROVIDERS_PATH,
+  SETUP_STATUS_PATH,
   adminAlertsPath,
   adminP2pHeadersRecentPath,
   adminTrackedAddressPath,
@@ -19,6 +20,7 @@ import type {
   HeadersTipDto,
   P2pAlertResponse,
   P2pHealthDto,
+  SetupStatusResponse,
   SourceMetricsResponse,
 } from "@/types/admin";
 
@@ -50,6 +52,8 @@ export interface IAdminClient {
   getHeadersRecent(count: number, signal?: AbortSignal): Promise<HeadersTipDto[]>;
   /** S10 — providers (config/recommendations/catalog). */
   getProviders(signal?: AbortSignal): Promise<AdminProvidersResponse>;
+  /** S10 — setup wizard status. */
+  getSetupStatus(signal?: AbortSignal): Promise<SetupStatusResponse>;
 }
 
 export class AdminClient implements IAdminClient {
@@ -118,5 +122,9 @@ export class AdminClient implements IAdminClient {
 
   getProviders(signal?: AbortSignal) {
     return this.api.get<AdminProvidersResponse>(ADMIN_PROVIDERS_PATH, { signal });
+  }
+
+  getSetupStatus(signal?: AbortSignal) {
+    return this.api.get<SetupStatusResponse>(SETUP_STATUS_PATH, { signal });
   }
 }

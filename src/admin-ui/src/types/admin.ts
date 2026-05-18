@@ -232,6 +232,15 @@ export interface AdminTrackedTokenSummaryResponse {
   lastProjectionSequence: number | null;
 }
 
+/** S10 — setup wizard status (`GET /api/setup/status`). Mirrors
+ *  `Dxs.Consigliere.Dto.Responses.Setup.SetupStatusResponse`. */
+export interface SetupStatusResponse {
+  setupRequired: boolean;
+  setupCompleted: boolean;
+  adminEnabled: boolean;
+  adminUsername: string | null;
+}
+
 /** S10 — providers config + catalog (`GET /api/admin/providers`).
  *  Mirrors `Dxs.Consigliere.Dto.Responses.Admin.AdminProvidersResponse`. */
 export interface AdminProvidersResponse {

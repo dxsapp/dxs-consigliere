@@ -8,6 +8,7 @@ import type {
   HeadersTipDto,
   P2pAlertResponse,
   P2pHealthDto,
+  SetupStatusResponse,
   SourceMetricsResponse,
   SourceMetricsSnapshot,
 } from "@/types/admin";
@@ -78,6 +79,15 @@ export class MockAdminClient implements IAdminClient {
   async getProviders(): Promise<AdminProvidersResponse> {
     const { seedProviders } = await import("@/lib/mock/admin-systems-seed");
     return seedProviders();
+  }
+
+  async getSetupStatus(): Promise<SetupStatusResponse> {
+    return {
+      setupRequired: false,
+      setupCompleted: true,
+      adminEnabled: true,
+      adminUsername: "operator",
+    };
   }
 
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {

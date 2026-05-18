@@ -21,6 +21,7 @@ function adminStub(overrides: Partial<IAdminClient>): IAdminClient {
     getHeadersTip: mock.getHeadersTip.bind(mock),
     getHeadersRecent: mock.getHeadersRecent.bind(mock),
     getProviders: mock.getProviders.bind(mock),
+    getSetupStatus: mock.getSetupStatus.bind(mock),
     ...overrides,
   };
 }

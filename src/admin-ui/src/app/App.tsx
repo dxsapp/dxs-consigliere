@@ -61,6 +61,22 @@ const BroadcastInspectorPage = lazy(() =>
     default: m.BroadcastInspectorPage,
   }))
 );
+const ConfigurationPage = lazy(() =>
+  import("@/screens/configuration/ConfigurationPage").then((m) => ({
+    default: m.ConfigurationPage,
+  }))
+);
+const ProvidersPage = lazy(() =>
+  import("@/screens/providers/ProvidersPage").then((m) => ({
+    default: m.ProvidersPage,
+  }))
+);
+const LogsPage = lazy(() =>
+  import("@/screens/logs/LogsPage").then((m) => ({ default: m.LogsPage }))
+);
+const SetupPage = lazy(() =>
+  import("@/screens/setup/SetupPage").then((m) => ({ default: m.SetupPage }))
+);
 
 // S6-audit M2: RootStore is constructed asynchronously because the
 // mock-mode factory dynamic-imports the mock module on demand. In
@@ -237,10 +253,38 @@ function AuthedRoutes({ root }: { root: RootStore }) {
           </Suspense>
         }
       />
-      <Route path="/configuration" element={<PlaceholderPage id="configuration" title="Configuration" ownerSlice="S10" description="Read-only sectioned view of BsvP2pConfig + Alert + Inbound." />} />
-      <Route path="/logs" element={<PlaceholderPage id="logs" title="Logs / Raw" ownerSlice="S10" description="Journal browser + raw doc viewer with sanitizer." />} />
-      <Route path="/providers" element={<PlaceholderPage id="providers" title="Providers" ownerSlice="S10" description="Source-policy capability matrix." />} />
-      <Route path="/setup" element={<PlaceholderPage id="setup" title="Setup" ownerSlice="S10" description="First-run / environment configuration." />} />
+      <Route
+        path="/configuration"
+        element={
+          <Suspense fallback={null}>
+            <ConfigurationPage admin={root.admin} />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/logs"
+        element={
+          <Suspense fallback={null}>
+            <LogsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/providers"
+        element={
+          <Suspense fallback={null}>
+            <ProvidersPage admin={root.admin} />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/setup"
+        element={
+          <Suspense fallback={null}>
+            <SetupPage admin={root.admin} />
+          </Suspense>
+        }
+      />
 
       <Route path="*" element={<Navigate to={LANDING_PATH} replace />} />
     </Routes>
