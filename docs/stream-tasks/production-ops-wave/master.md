@@ -2,7 +2,7 @@
 created: 2026-05-18
 type: wave
 parent: consigliere-thin-node-observer-program
-status: draft (awaiting wave-level Codex audit A1)
+status: draft (A1 audit MAJOR REVISION applied — see audits/wave6-audit-A1-followup.md)
 ---
 
 # Wave 6 — Production Ops
@@ -55,38 +55,73 @@ React renderer is a thin follow-up.
 In scope:
 
 - **Per-peer scoring + rotation (S1).**
-  - New `PeerScore` value-type carried in `PeerRecord`. Score
-    formula:
-    `score = 100 - latency_penalty - reject_penalty + relay_back_bonus`,
-    clamped to `[0, 100]`.
+  - New `PeerScore` value-type (0-100 integer, clamped).
+    **Derived per tick** from current `PeerTelemetry`, NOT
+    persisted on `PeerRecord` (which stays storage-only).
   - `IPeerScoringPolicy` interface (pure logic) +
-    `DefaultPeerScoringPolicy` implementation. Pluggable so a
-    future wave can swap in operator-tuned weights.
-  - `PeerManager.TickAsync` rotation: when the pool is full and
-    a fresh-peer slot is needed, evict the **lowest-scoring**
-    active peer (instead of an arbitrary one).
-  - **`MinimumScoreToRetain` config knob** (default 30). Peers
-    scoring below this threshold are eligible for proactive
-    eviction even when the pool isn't full, to drain bad peers
-    quickly.
+    `DefaultPeerScoringPolicy` implementation with documented
+    fixed weights:
+    - `latency_penalty = clamp(PingRttP95Ms / 10.0, 0, 60)` —
+      600 ms p95 caps the penalty.
+    - `reject_penalty = clamp(5 * sum(RejectByClass), 0, 50)` —
+      10 rejects caps the penalty.
+    - `relay_back_bonus = min(RelayBackInvCount, 50)`.
+    - Final: `clamp(100 - latency_penalty - reject_penalty + relay_back_bonus, 0, 100)`.
+  - New `PeerRotationPlanner` (pure-logic) takes
+    `(active peers + their scores, RotationPolicy)` and
+    returns a `RotationDecision(evictKeys)`. This is the unit
+    of test for "evicts lowest-scoring peer in fixture"; no
+    sockets touched (A1-followup H2 fix).
+  - `PeerManager.TickAsync` delegates the eviction decision
+    to the planner; rotation evicts the lowest-scoring active
+    peer when the pool is full, and proactively evicts peers
+    below `MinimumScoreToRetain` (default 30) even when the
+    pool isn't full, to drain bad peers quickly.
 - **Critical alert poller (S2).**
   - New `P2pAlertPoller` (`IHostedService`) ticks every
     `AlertPollIntervalMs` (default 60_000 ms).
   - Rule set (4 rules per master.md §"Wave 6"):
     - `PoolSizeBelowThreshold`: `BsvP2pHealth.PoolSize < AlertThreshold.MinPoolSize`.
-    - `RelayBackRateBelowThreshold`: averaged across peers via
-      `PeerTelemetry.RelayBackInvCount`. Threshold: relay-back
-      rate < 30 % in the last poll window means the network
-      isn't picking up our announcements.
+    - `RelayBackRateBelowThreshold`: the evaluator carries an
+      **in-process previous-tick snapshot** of
+      `(RelayBackInvCount, GetDataRequestedCount)` per peer
+      (lifetime counters from `PeerTelemetry`). Each tick
+      computes per-peer deltas, sums across peers, and fires
+      when `sum(ΔRelayBackInv) / max(1, sum(ΔGetDataRequested))
+      < AlertConfig.MinRelayBackRate` (default 0.30). The
+      first tick after startup records the baseline only —
+      no fire (A1-followup C1 fix). No new counters in
+      `PeerTelemetry`.
     - `ReorgDepthExceeded`: `BsvP2pHealth.LastDegradedReorgAt`
       within the last 5 minutes signals a degraded-state reorg
       requiring operator action.
-    - `SourceFirstDropout`: any of the 3 known sources (P2p /
-      Bitails / JungleBus) reports zero `FirstSeen` increments
-      in the last hour (via the W4 visibility tracker).
+    - `SourceFirstDropout`: evaluator reads the **last two
+      W4 `SourceMetricsSnapshot` documents** spanning at
+      least `AlertConfig.SourceFirstDropoutWindowMs` (default
+      1 h) via a new read-only query
+      `ISnapshotPersistence.GetSnapshotsInWindowAsync`. For
+      each source, fires when `FirstSeen(T_now) -
+      FirstSeen(T_window_start) == 0` AND at least one other
+      source's delta is > 0 (a dropout that's not a
+      system-wide quiet period) (A1-followup H1 fix). No new
+      counter; the tracker stays cumulative.
   - Each fire writes a `P2pAlertEvent` Raven document (append-
     only, doc id `p2p/alerts/{unixMs:D14}`). Retention via doc-
     id eviction (default keep 720 events = ~12 h at 1-min poll).
+  - **All thresholds operator-tunable via `BsvP2pConfig.Alert`**
+    (A1-followup M3 fix):
+
+    ```csharp
+    AlertConfig {
+      MinPoolSize                = 5;
+      MinRelayBackRate           = 0.30;
+      ReorgDepthWindowMs         = 5 * 60_000;
+      SourceFirstDropoutWindowMs = 60 * 60_000;
+      AlertPollIntervalMs        = 60_000;
+      AlertRetentionEvents       = 720;
+    }
+    ```
+
 - **Admin alerts endpoint (S3).**
   - `GET /api/admin/p2p/alerts` returns the latest N alert
     events (default 20; clamped via `ClampLastN` pattern from
@@ -158,7 +193,11 @@ Out of scope:
    eviction, not in-place update.
 4. **Alert rules read from already-shipped surfaces.** No new
    counters or recorders in W6 — the poller composes from
-   W2 / W3 / W4 outputs.
+   W2 / W3 / W4 outputs. The evaluator MAY hold in-process
+   previous-tick state for delta arithmetic (e.g. lifetime
+   counter Δ between ticks); this is not a "new counter"
+   because nothing new is recorded into a peer's lifetime
+   telemetry (A1-followup C1).
 5. **Eviction is single-peer-per-tick.** `PeerManager.TickAsync`
    evicts at most one low-scoring peer per maintenance tick so
    the pool can refill before the next eviction decision —
@@ -178,13 +217,13 @@ Out of scope:
 
 | Program zone | Repo zone | Files (new unless noted) |
 |---|---|---|
-| `bsv-p2p-pool` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Pool/{PeerScore,IPeerScoringPolicy,DefaultPeerScoringPolicy}.cs`; `src/Dxs.Bsv/P2p/Pool/PeerManager.cs` (edit — score-aware rotation in `TickAsync`); `src/Dxs.Bsv/P2p/Pool/PeerRecord.cs` (edit — `Score` field) |
-| `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/{P2pAlertPoller,P2pAlertEvaluator,IAlertEventRepository,RavenAlertEventRepository}.cs`; `src/Dxs.Consigliere/Services/P2p/BsvP2pHealth.cs` (edit — `InboundEnabled` accessor) |
+| `bsv-p2p-pool` | `bsv-protocol-core` | `src/Dxs.Bsv/P2p/Pool/{PeerScore,IPeerScoringPolicy,DefaultPeerScoringPolicy,PeerRotationPlanner,RotationDecision}.cs`; `src/Dxs.Bsv/P2p/Pool/PeerManager.cs` (edit — score-aware rotation in `TickAsync`, delegates eviction to planner). **No edit to `PeerRecord.cs`** — score is derived per-tick, not persisted (A1-followup M1 fix). |
+| `consigliere-p2p-services` | `indexer-ingest-orchestration` | `src/Dxs.Consigliere/Services/P2p/{P2pAlertPoller,P2pAlertEvaluator,IAlertEventRepository,RavenAlertEventRepository}.cs`; `src/Dxs.Consigliere/Services/P2p/BsvP2pHealth.cs` (edit — `InboundEnabled` accessor); `src/Dxs.Consigliere/Services/Metrics/ISnapshotPersistence.cs` (edit — adds read-only `GetSnapshotsInWindowAsync` for H1 fix) |
 | `consigliere-config` | `service-bootstrap-and-ops` | `src/Dxs.Consigliere/Configs/BsvP2pConfig.cs` (edit — `Alert` + `Inbound` nested configs + `MinimumScoreToRetain`) |
 | `consigliere-admin-api` | `public-api-and-realtime` | `src/Dxs.Consigliere/Controllers/AdminP2pController.cs` (edit — `GET /api/admin/p2p/alerts`); `src/Dxs.Consigliere/Data/Models/P2p/P2pAlertEvent.cs` (new doc) |
 | `consigliere-setup` | `service-bootstrap-and-ops` | `src/Dxs.Consigliere/Setup/BsvP2pSetup.cs` (edit — register S2-S4 services + hosted poller) |
 | `admin-ui` (out of catalog) | `admin-ui` | `src/admin-ui/src/pages/AlertsPage.tsx` + store (DEFERRED per S8) |
-| `program-tests` | `verification-and-conformance` | `tests/Dxs.Bsv.Tests/P2p/Pool/PeerScoringTests.cs`; `tests/Dxs.Consigliere.Tests/Ops/{P2pAlertPollerTests,P2pAlertEvaluatorTests}.cs`; `tests/Dxs.Consigliere.Tests/Setup/W6_SingletonGraph_Resolves` |
+| `program-tests` | `verification-and-conformance` | `tests/Dxs.Bsv.Tests/P2p/Pool/{PeerScoringTests,PeerRotationPlannerTests}.cs`; `tests/Dxs.Consigliere.Tests/Ops/{P2pAlertPollerTests,P2pAlertEvaluatorTests}.cs`; `tests/Dxs.Consigliere.Tests/Setup/W6_SingletonGraph_Resolves` |
 | `program-docs` | `repo-governance` | `docs/platform-api/{thin-node-prod-runbook,broadcast-w5-changeout}.md`; `docs/stream-tasks/production-ops-wave/` |
 
 ### Handoff facts → next program
@@ -200,15 +239,16 @@ Out of scope:
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S0 | `bsv-p2p-pool` (`PeerScore` + `IPeerScoringPolicy` shape) | todo | — | new types compile; unit test pins clamp + formula; no `PeerManager` rotation change yet | data model + interface land with frozen contract; rotation still arbitrary | slice-A1 |
-| S1 | `bsv-p2p-pool` (`PeerManager.TickAsync` score-aware rotation) | todo | S0 | unit + integration tests: seed pool with peers of varying score; assert lowest-scoring is evicted first; assert MinimumScoreToRetain proactive evict | rotation evicts lowest-scoring peer on full-pool + sub-floor peers proactively | wave-A1 |
-| S2 | `consigliere-p2p-services` (`P2pAlertPoller` + evaluator + Raven repo) | todo | S0 | unit tests for evaluator (4 rules); integration test for poller via fake repo + mocked health | poller ticks, evaluator fires rules, repo writes alert events with append-only id | wave-A1 |
+| S0 | `bsv-p2p-pool` (`PeerScore` + `IPeerScoringPolicy` shape + `DefaultPeerScoringPolicy` with fixed weights) | todo | — | new types compile; unit test pins clamp + each weight component (latency / reject / relay-back) + final formula | data model + interface + default policy land with frozen contract; rotation still arbitrary | slice-A1 |
+| S1 | `bsv-p2p-pool` (`PeerRotationPlanner` + `PeerManager.TickAsync` integration) | todo | S0 | planner unit tests: golden eviction set for varying-score fixtures; `MinimumScoreToRetain` proactive evict; `PeerManager` test exercises planner contract — no sockets opened | rotation evicts lowest-scoring peer on full-pool + sub-floor peers proactively; planner is the testable seam | wave-A1 |
+| S2 | `consigliere-p2p-services` (`P2pAlertPoller` + evaluator + Raven repo + `ISnapshotPersistence.GetSnapshotsInWindowAsync`) | todo | S0 | unit tests for evaluator (4 rules) including delta-based RelayBackRate + snapshot-history-delta SourceFirstDropout; integration test for poller via fake repo + mocked health | poller ticks, evaluator fires rules via in-process delta state + W4 snapshot history, repo writes alert events with append-only id | wave-A1 |
 | S3 | `consigliere-admin-api` (`GET /api/admin/p2p/alerts`) | todo | S2 | controller test resolves through DI; returns latest N; `?since=` filter works; `lastN` clamped via the W5 helper pattern | endpoint live; DTO frozen for SPA + W7+ consumers | wave-A1 |
 | S4 | `consigliere-config` (`Inbound.Enabled` opt-in stub) | todo | — | unit test: `Enabled=true` logs warning + `BsvP2pHealth.InboundEnabled = true`; no listener thread starts | config flag in place; admin health surface reflects it | wave-A1 |
 | S5 | `program-docs` (runbook + change notes) | todo | S1, S2, S3 | manual review of `thin-node-prod-runbook.md` + `broadcast-w5-changeout.md`; cross-ref to `thin-node-gate2-soak-runbook.md` present | both docs land; cover scoring + alerts + Broadcast migration | wave-A1 |
 | S6 | `program-tests` (fixture suite — done-when pins) | todo | S0-S4 | "alert fires when pool drops below threshold in fixture" + "rotation evicts low-scoring peer in fixture" plus the other 3 alert rules | every program-stated done-when scenario green in the fixture suite | wave-A1 |
 | S7 | `consigliere-setup` (DI wiring + regression test) | todo | S1, S2, S3, S4 | `W6_SingletonGraph_Resolves` against the production DI graph; admin endpoint reachable | every W6 singleton resolves; hosted poller registers | wave-A1 |
 | S8 | `admin-ui` (Alerts SPA page) | todo (deferrable) | S3 | manual smoke test in dev: SPA renders alerts from the fixture-driven endpoint | new page + store + API extension | wave-A1 |
+| S9 | `program-docs` (final program closeout) | todo | S1-S7 | manual review of `docs/stream-tasks/consigliere-thin-node-observer-program/evidence/closeout.md` — every program-level done-when from master.md verified green; commit hashes per wave (W1-W6); handoff notes | program-level closeout doc lands; program closed (A1-followup L2 fix) | wave-A1 |
 
 S0 (`PeerScore` data model + scoring interface) is the
 **prerequisite slice** required by the program launch rule. Its
@@ -240,11 +280,20 @@ defer pattern).
   APPROVE (or APPROVE WITH CHANGES addressed in-wave).
 - `evidence/closeout.md` lists delivery hashes per slice and
   end-state metrics.
+- **Program closeout** at
+  `docs/stream-tasks/consigliere-thin-node-observer-program/evidence/closeout.md`
+  exists and verifies every program-level done-when (S9).
+- `thin-node-prod-runbook.md` includes the "Status of
+  `thin-node-gate2-soak-runbook.md`" paragraph clarifying
+  the two documents' respective roles (A1-followup L1).
 
 ## Delivery Notes
 
 Commit hashes recorded here as slices close.
 
-- Wave package created: this commit (initial draft + A1 audit
-  prompt)
-- Wave audit A1: pending
+- Wave package created: commit `3daf4ce` (initial draft + A1
+  audit prompt)
+- Wave audit A1: MAJOR REVISION REQUIRED — 1 C / 2 H / 3 M /
+  2 L findings; revisions applied per
+  `audits/wave6-audit-A1-followup.md` (this commit). Awaiting
+  second A1 pass.
