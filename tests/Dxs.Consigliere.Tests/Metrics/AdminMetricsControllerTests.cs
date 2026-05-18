@@ -28,37 +28,28 @@ namespace Dxs.Consigliere.Tests.Metrics;
 /// </summary>
 public class AdminMetricsControllerTests
 {
-    // For the M3 round-trip we don't have an embedded Raven; the
-    // controller's session call chain is too complex to mock through
-    // Moq's IAsyncDocumentSession. We pin the clamp logic via a
-    // direct integer-arithmetic regression test that mirrors the
-    // controller's bounds expression.
+    // A2-followup N2 fix: the controller's clamp logic was extracted
+    // to AdminMetricsController.ClampLastN — a testable static helper.
+    // The theory below exercises the SAME helper the production code
+    // path uses (not a parallel reimplementation), so it actually
+    // covers the controller's behaviour.
     [Theory]
-    [InlineData(0, 720, 0)]      // lastN=0 → no history (handled upstream of clamp)
-    [InlineData(-5, 720, -5)]    // negative → no history
-    [InlineData(50, 720, 50)]    // below retention → unclamped
-    [InlineData(720, 720, 720)]  // equal retention → unclamped
-    [InlineData(721, 720, 720)]  // one above retention → clamped to retention
-    [InlineData(5000, 720, 720)] // far above retention → clamped to retention
-    [InlineData(50, 0, 50)]      // retention=0 → fall back to hard ceiling (1440)
-    [InlineData(1500, 0, 1440)]  // retention=0 + above ceiling → clamped to ceiling
+    [InlineData(null, 720, 0)]    // lastN omitted → no history
+    [InlineData(0, 720, 0)]       // lastN=0 → no history
+    [InlineData(-5, 720, 0)]      // negative → no history (clamped to 0)
+    [InlineData(int.MinValue, 720, 0)] // extreme negative → no history
+    [InlineData(50, 720, 50)]     // below retention → unclamped
+    [InlineData(720, 720, 720)]   // equal retention → unclamped
+    [InlineData(721, 720, 720)]   // one above retention → clamped to retention
+    [InlineData(5000, 720, 720)]  // far above retention → clamped to retention
+    [InlineData(50, 0, 50)]       // retention=0 → fall back to hard ceiling (1440)
+    [InlineData(1500, 0, 1440)]   // retention=0 + above ceiling → clamped to ceiling
     [InlineData(1500, 2000, 1440)] // retention > ceiling + far-above → ceiling wins
-    public void LastN_ClampLogic_MatchesControllerSpec(int requestedLastN, int retention, int expectedBounded)
+    [InlineData(int.MaxValue, 720, 720)] // int.MaxValue → retention wins
+    [InlineData(int.MaxValue, 0, 1440)]  // int.MaxValue + no retention → hard ceiling
+    public void ClampLastN_HelperReturnsExpectedBoundedValue(int? requestedLastN, int retention, int expectedBounded)
     {
-        // Direct algebraic mirror of AdminMetricsController bounds:
-        //   ceiling = retention > 0 ? retention : HardCeiling
-        //   bounded = min(requestedLastN, min(ceiling, HardCeiling))
-        const int HardLastNCeiling = 1440;
-        if (requestedLastN <= 0)
-        {
-            // Upstream short-circuit; bounded is irrelevant. The
-            // expected value carries the original (negative) for
-            // the table; we just don't apply the algebra.
-            Assert.True(requestedLastN <= 0);
-            return;
-        }
-        var ceiling = retention > 0 ? retention : HardLastNCeiling;
-        var bounded = Math.Min(requestedLastN, Math.Min(ceiling, HardLastNCeiling));
+        var bounded = AdminMetricsController.ClampLastN(requestedLastN, retention);
         Assert.Equal(expectedBounded, bounded);
     }
 
@@ -67,10 +58,6 @@ public class AdminMetricsControllerTests
     {
         // Pin the hard ceiling so a future relaxation requires
         // explicit code change + audit re-pass.
-        var ctrlType = typeof(AdminMetricsController);
-        var ceilingField = ctrlType.GetField("HardLastNCeiling",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        Assert.NotNull(ceilingField);
-        Assert.Equal(1440, (int)ceilingField!.GetValue(null)!);
+        Assert.Equal(1440, AdminMetricsController.HardLastNCeiling);
     }
 }

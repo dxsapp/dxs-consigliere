@@ -36,6 +36,13 @@
       <ProjectReference Include="..\Dxs.Infrastructure\Dxs.Infrastructure.csproj" />
     </ItemGroup>
 
+    <!-- W4 A2-followup N2: tests need to call internal helpers like
+         AdminMetricsController.ClampLastN to exercise the production
+         clamp logic directly (not a parallel reimplementation). -->
+    <ItemGroup>
+      <InternalsVisibleTo Include="Dxs.Consigliere.Tests" />
+    </ItemGroup>
+
     <PropertyGroup>
       <AdminUiRoot>..\admin-ui</AdminUiRoot>
       <SkipAdminUiBuild>false</SkipAdminUiBuild>

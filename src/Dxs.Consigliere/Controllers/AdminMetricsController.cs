@@ -33,12 +33,30 @@ public sealed class AdminMetricsController : ControllerBase
     /// <summary>
     /// A2 M2 cap: the endpoint refuses to scan more snapshots than
     /// this in a single response, regardless of any caller-provided
-    /// <c>lastN</c>. Defaults to the configured retention count
-    /// (which is itself bounded by <see cref="SourceMetricsConfig"/>);
-    /// falls back to <see cref="HardLastNCeiling"/> if retention is
-    /// unconfigured. Documented for W6 + external consumers.
+    /// <c>lastN</c>. 1440 = 12 hours @ 30 s snapshots, or 24 hours
+    /// @ 60 s snapshots — a generous-but-bounded ceiling for any
+    /// realistic dashboard use case. Defaults to the configured
+    /// retention count (which is itself bounded by
+    /// <see cref="SourceMetricsConfig"/>); falls back to this hard
+    /// ceiling if retention is unconfigured. Documented for W6 +
+    /// external consumers.
     /// </summary>
-    private const int HardLastNCeiling = 1440;
+    internal const int HardLastNCeiling = 1440;
+
+    /// <summary>
+    /// A2-followup N2 fix: clamp logic extracted to a testable
+    /// helper. Returns 0 when the caller requested no history (or a
+    /// non-positive value); otherwise returns
+    /// <c>min(requestedLastN, min(ceiling, HardLastNCeiling))</c>
+    /// where <c>ceiling = retention &gt; 0 ? retention :
+    /// HardLastNCeiling</c>.
+    /// </summary>
+    internal static int ClampLastN(int? requestedLastN, int retentionCount)
+    {
+        if (requestedLastN is not int n || n <= 0) return 0;
+        var ceiling = retentionCount > 0 ? retentionCount : HardLastNCeiling;
+        return Math.Min(n, Math.Min(ceiling, HardLastNCeiling));
+    }
 
     private readonly IDocumentStore _documentStore;
     private readonly SourceMetricsConfig _config;
@@ -71,17 +89,9 @@ public sealed class AdminMetricsController : ControllerBase
             .FirstOrDefaultAsync(token: cancellationToken);
 
         IReadOnlyList<SourceMetricsSnapshot> history = [];
-        if (lastN is > 0)
+        var bounded = ClampLastN(lastN, _config.SnapshotRetentionCount);
+        if (bounded > 0)
         {
-            // A2 M2 fix: clamp the caller's requested window. Cap at
-            // the configured retention count (or the hard ceiling if
-            // retention is unconfigured / extreme) so a single call
-            // can never scan more than what's actually retained.
-            var ceiling = _config.SnapshotRetentionCount > 0
-                ? _config.SnapshotRetentionCount
-                : HardLastNCeiling;
-            var bounded = System.Math.Min(lastN.Value, System.Math.Min(ceiling, HardLastNCeiling));
-
             // Take the most-recent N (bounded), then reverse to deliver
             // oldest-first for natural time-series rendering on the
             // SPA client.

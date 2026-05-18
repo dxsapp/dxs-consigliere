@@ -1,8 +1,9 @@
 ---
 created: 2026-05-18
+closed: 2026-05-18
 type: wave
 parent: consigliere-thin-node-observer-program
-status: draft (awaiting wave-level Codex audit A1)
+status: CLOSED — Codex audit chain A2 → A2-followup APPROVE WITH CHANGES (closed)
 ---
 
 # Wave 4 — Observation Source Metrics
@@ -236,4 +237,16 @@ Commit hashes recorded here as slices close.
 - Slice S8 (SPA): deferred — see `evidence/closeout.md`
   "Scope deviations"
 - Wave closeout evidence: `evidence/closeout.md`
-- Wave audit A2 (post-execution): pending
+- Wave audit A2 (post-execution): folded in `bca6f7c`
+  (8/8 findings closed: H1 TryAdd, H2 lock-aware eviction, H3
+  source-observed-at timestamp, M1 immutable bucket bounds, M2
+  lastN clamp, M3 ISnapshotPersistence abstraction, L1 distinct-
+  window DI flow-through assertion, L2 documented note)
+- Wave audit A2-followup (APPROVE WITH CHANGES — 8 closed, 2
+  new LOW for test-evidence gaps): folded in this commit.
+  N1 — TxMessage overload regression test
+  (`AppendAsync_TxMessageOverload_UsesMessageTimestamp_NotUtcNow`)
+  + zero-timestamp fallback test. N2 — `ClampLastN` extracted to
+  internal-static helper + direct theory-test covers
+  `int.MaxValue`, `int.MinValue`, null, equal-retention, above-
+  retention, above-ceiling, retention-unconfigured. Wave CLOSED.

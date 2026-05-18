@@ -1,8 +1,9 @@
 # Wave 4 Closeout — `observation-source-metrics-wave`
 
-Status: implementation complete; awaiting wave-level Codex
-post-execution audit A2. S0-S7 delivered; S8 (SPA page) deferred
-per the W2 / W3 pattern.
+Status: **CLOSED**. Wave-level Codex audit chain completed —
+A2 (MAJOR REVISION REQUIRED) → A2-followup (APPROVE WITH CHANGES,
+2 LOW closed) → wave APPROVED. S0-S7 delivered; S8 (SPA page)
+operator-deferred per the W2 / W3 pattern.
 
 ## Delivery summary
 
@@ -234,3 +235,88 @@ if retention grows substantially.
   failures (unchanged).
 
 Metrics-filtered run: 65/65 passed (was 45 before A2 revision).
+
+## A2-followup revision summary (final — this commit)
+
+A2-followup verdict: **APPROVE WITH CHANGES**, 8 closed,
+0 partial / regressed, 2 new LOW for test-evidence gaps. Both
+closed in this commit.
+
+### N1 — TxMessage overload regression test
+
+The A2 H3 test only covered the source-neutral `AppendAsync`
+overload; the `TxMessage` path was unverified post-fix.
+`JournalWriterVisibilityHookTests` now adds:
+
+- `AppendAsync_TxMessageOverload_UsesMessageTimestamp_NotUtcNow`:
+  builds two `TxMessage.AddedToMempool` messages with the same
+  txid — P2p from 5 seconds ago, Bitails from 4 seconds ago — and
+  asserts the Bitails lag bucket is index 4 (1 s - 5 s), proving
+  `message.Timestamp` (unix seconds) drove the lag math.
+- `AppendAsync_TxMessageOverload_FallsBackToUtcNow_WhenTimestampIsZero`:
+  pins the `> 0` threshold (default-zero from `RemovedFromMempool`
+  falls back to UtcNow).
+- `TestTransaction(seed)` helper builds a minimal valid serialized
+  transaction so each test case hashes to a distinct txid without
+  needing to mock the parser.
+
+### N2 — `ClampLastN` extracted to internal helper
+
+The pre-fix `AdminMetricsControllerTests` mirrored the clamp
+arithmetic in a separate `Theory` rather than exercising the
+production code. Now the controller exposes
+`internal static int ClampLastN(int? requestedLastN, int retentionCount)`
+and the test theory invokes it directly:
+
+```text
+[Theory]
+[InlineData(null,         720, 0)]
+[InlineData(0,            720, 0)]
+[InlineData(-5,           720, 0)]
+[InlineData(int.MinValue, 720, 0)]
+[InlineData(50,           720, 50)]
+[InlineData(720,          720, 720)]
+[InlineData(721,          720, 720)]
+[InlineData(5000,         720, 720)]
+[InlineData(50,           0,   50)]
+[InlineData(1500,         0,   1440)]
+[InlineData(1500,         2000, 1440)]
+[InlineData(int.MaxValue, 720, 720)]
+[InlineData(int.MaxValue, 0,   1440)]
+```
+
+`Dxs.Consigliere` now grants `InternalsVisibleTo` to
+`Dxs.Consigliere.Tests` so the test can call the internal helper +
+read the internal `HardLastNCeiling` constant directly. The
+controller's `GetSourceMetrics` body now reads
+`var bounded = ClampLastN(lastN, _config.SnapshotRetentionCount);`
++ `if (bounded > 0)` — so the helper is the actual production
+code path, not a parallel implementation.
+
+### Wave 4 close
+
+All slices closed (S2 / S8 deferred with documented rationale).
+Audit chain: A2 → A2-followup APPROVE WITH CHANGES (closed).
+Wave 5 (`broadcast-unification-wave`) and Wave 6
+(`production-ops-wave`) may now open per the program dependency
+graph in
+`docs/stream-tasks/consigliere-thin-node-observer-program/master.md`.
+
+Open follow-ups (not blocking; carried for a future wave):
+
+- BSV-side flaky parallel-load test
+  (`PeerManager_FailureRecordsNegativeCooldown`) — pre-existing,
+  unrelated to W4.
+- Streaming-paged retention eviction (A2 L2 note) — fine at
+  default 720 retention; pathological config would benefit from
+  paging.
+- SPA `SourceMetricsPage.tsx` (S8) — deferred; admin REST endpoint
+  is sufficient for ops + external dashboards.
+
+### Final-final test counts
+
+- `Dxs.Bsv.Tests` 220/220.
+- `Dxs.Consigliere.Tests` 418 passed (+6 from A2-followup: 2 N1
+  + 4 N2 expanded edge-case theory cases) + 24 explicit Skipped +
+  3 pre-existing baseline Raven-runtime failures (unchanged).
+- Metrics-filtered: 71/71 passed (was 65 pre-A2-followup, +6).
