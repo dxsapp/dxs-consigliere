@@ -5,23 +5,26 @@ import { AppDrawer } from "@/components/shell/AppDrawer";
 import { AppHeader } from "@/components/shell/AppHeader";
 import type { AuthStore } from "@/stores/root";
 import type { PrefStore } from "@/stores/pref.store";
+import type { ShellStore } from "@/stores/shell.store";
 
 /**
  * Authenticated app shell — AppBar + Drawer + scrollable content.
  * Wraps every authed route (see AppGuardedRoutes).
  *
- * Connection + alert-count are passed in as props (S2: placeholder
- * values; S3 wires the real signals from the SignalR client + the
- * alert store).
+ * S2-audit L4: header globals (alert count + connection status) are
+ * read from the ShellStore observable slice, not hard-coded here.
+ * S3 wires real signals; S7 wires the alert-count source.
  */
 export const AppShell = observer(function AppShell({
   auth,
   prefs,
+  shell,
   env,
   children,
 }: {
   auth: AuthStore;
   prefs: PrefStore;
+  shell: ShellStore;
   env: string;
   children: ReactNode;
 }) {
@@ -34,8 +37,8 @@ export const AppShell = observer(function AppShell({
           auth={auth}
           prefs={prefs}
           env={env}
-          alertCount={0 /* S7 wires this from the alerts store */}
-          connection={"online" /* S3 wires this from the SignalR client */}
+          alertCount={shell.alertCount}
+          connection={shell.connection}
           onToggleDrawer={() => setMobileOpen((v) => !v)}
         />
         <Box component="main" sx={{ flex: 1, p: { xs: 2, md: 3 }, minWidth: 0 }}>

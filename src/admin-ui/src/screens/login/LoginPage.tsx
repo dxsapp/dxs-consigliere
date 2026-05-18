@@ -11,7 +11,7 @@ import {
 } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { AuthStore } from "@/stores/root";
 import { LANDING_PATH } from "@/app/routes";
 
@@ -37,10 +37,11 @@ export const LoginPage = observer(function LoginPage({
   const [name, setName] = useState("");
   const fromState = (location.state as { from?: string } | null)?.from;
 
-  // If a user lands on /login while already authenticated, bounce
-  // them to the landing path.
+  // S2-audit L1: an already-authenticated visitor on /login
+  // bounces to the saved `from` location (if any) or the landing
+  // path — not a blank screen.
   if (auth.isAuthenticated) {
-    return null;
+    return <Navigate to={fromState ?? LANDING_PATH} replace />;
   }
 
   const onSubmit = (e: React.FormEvent) => {

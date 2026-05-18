@@ -13,6 +13,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import MemoryIcon from "@mui/icons-material/Memory";
 import { NavLink } from "react-router-dom";
 import {
   OPERATOR_ROUTES,
@@ -56,9 +57,7 @@ export function AppDrawer({
             justifyContent: "center",
           }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: 20, color: theme.palette.background.paper }}>
-            memory
-          </span>
+          <MemoryIcon fontSize="small" sx={{ color: theme.palette.background.paper }} />
         </Box>
         <Stack>
           <Typography variant="subtitle2">Consigliere</Typography>
@@ -128,35 +127,42 @@ function NavList({
 }) {
   return (
     <List dense>
-      {routes.map((r) => (
-        <ListItemButton
-          key={r.id}
-          component={NavLink}
-          to={r.path}
-          onClick={onItemClick}
-          sx={{
-            mx: 1,
-            borderRadius: 1,
-            "&.active": (theme) => ({
-              backgroundColor: theme.palette.action.selected,
-              color: theme.palette.primary.main,
-              "& .MuiListItemIcon-root": { color: theme.palette.primary.main },
-            }),
-          }}
-        >
-          <ListItemIcon sx={{ minWidth: 36 }}>
-            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-              {r.icon}
-            </span>
-          </ListItemIcon>
-          <ListItemText
-            primary={r.label}
-            primaryTypographyProps={{ variant: "body2" }}
-            secondary={devChip ? "advanced" : undefined}
-            secondaryTypographyProps={{ variant: "caption" }}
-          />
-        </ListItemButton>
-      ))}
+      {routes.map((r) => {
+        const IconComponent = r.icon;
+        return (
+          <ListItemButton
+            key={r.id}
+            component={NavLink}
+            to={r.path}
+            // S2-audit M1: NavLink's default `end` is false, which
+            // matches by prefix; passing `end={!prefix}` flips it
+            // for non-prefix routes (e.g. `/dashboard` won't claim
+            // active state for `/dashboard/whatever`) while keeping
+            // `/transactions` highlighted for `/transactions/:txid`.
+            end={!r.prefix}
+            onClick={onItemClick}
+            sx={{
+              mx: 1,
+              borderRadius: 1,
+              "&.active": (theme) => ({
+                backgroundColor: theme.palette.action.selected,
+                color: theme.palette.primary.main,
+                "& .MuiListItemIcon-root": { color: theme.palette.primary.main },
+              }),
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <IconComponent fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary={r.label}
+              primaryTypographyProps={{ variant: "body2" }}
+              secondary={devChip ? "advanced" : undefined}
+              secondaryTypographyProps={{ variant: "caption" }}
+            />
+          </ListItemButton>
+        );
+      })}
     </List>
   );
 }

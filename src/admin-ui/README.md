@@ -8,11 +8,20 @@ React 19 + Vite 7 + TypeScript + MUI + MUI X + MobX + framer-motion.
 
 ## Status
 
-**S0 scaffold** — atomic delete + new project + CI integration +
-auth-aware skeleton landed in one commit per the
-[program plan](../../docs/stream-tasks/admin-ui-vnext-program/master.md).
-S1-S12 ship the theme, shell, API/SignalR/mock layer, 14 screens,
-and quality gates.
+**Foundation S0 + S1 + S2 done.** Per the
+[program plan](../../docs/stream-tasks/admin-ui-vnext-program/master.md):
+
+- S0 — Vite scaffold + CI integration + `/login` placeholder + AppError.
+- S1 — design tokens + MUI theme + `mobx-persist-store` prefs + `/dev/theme-demo`.
+- S2 — AppShell (AppBar + Drawer + main), route inventory for all 14
+  screens with placeholders, AuthGuard with `state.from` preservation
+  (full URL incl. query / hash), smart-search grammar with ambiguity
+  dropdown, LoginPage form, AuthStore synthetic flows.
+
+Next: S3 ships the API + SignalR + mock layer, replaces the synthetic
+auth with real `/api/admin/auth/*` cookie-mode calls, adds the root
+event-bus + cleanup harness. S4-S10 replace placeholders with real
+screens.
 
 ## Stack
 
@@ -41,7 +50,7 @@ and quality gates.
 | `pnpm test:contract` | Backend payload parity against a live ASP.NET host (S3) |
 | `pnpm verify` | typecheck → lint → test → build (CI gate) |
 
-## Layout (S0 — fills in over S1-S10)
+## Layout (current state)
 
 ```
 src/admin-ui/
@@ -55,12 +64,20 @@ src/admin-ui/
 ├── src/
 │   ├── main.tsx
 │   ├── app/
-│   │   ├── App.tsx           # ThemeProvider + Router
-│   │   └── theme.ts          # S1 fills with bundle tokens
+│   │   ├── App.tsx           # ThemeProvider + Router + AuthGuard + AppShell
+│   │   ├── AuthGuard.tsx     # auth gate (S2)
+│   │   ├── ThemeProvider.tsx # reactive theme (S1)
+│   │   ├── theme.ts          # design-bundle tokens (S1)
+│   │   ├── theme-augmentation.ts
+│   │   └── routes.ts         # 14-screen nav inventory (S2)
+│   ├── components/
+│   │   └── shell/            # S2: AppShell + AppHeader + AppDrawer + HeaderSearch
 │   ├── stores/
-│   │   └── root.ts           # root store; event bus lands in S3
+│   │   ├── root.ts           # RootStore (prefs + auth + api); event bus lands in S3
+│   │   └── pref.store.ts     # theme + density + versioned persistence (S1)
 │   ├── lib/
-│   │   ├── api/client.ts     # fetch wrapper with 401-redirect
+│   │   ├── api/client.ts     # fetch wrapper with 401-redirect (S0)
+│   │   ├── search/grammar.ts # smart-search decision table (S2)
 │   │   ├── auth-client/      # S3
 │   │   ├── signalr-client/   # S3
 │   │   └── mock/             # S3
@@ -69,7 +86,9 @@ src/admin-ui/
 │   │   ├── domain.ts         # S2+
 │   │   └── errors.ts
 │   ├── screens/
-│   │   └── login/            # S0 placeholder; real form in S2
+│   │   ├── _placeholder/     # shared PlaceholderPage for S4-S10
+│   │   ├── dev-theme-demo/   # /dev/theme-demo (S1, lazy)
+│   │   └── login/            # LoginPage form (S2)
 │   └── test-setup.ts
 ├── integration/              # S3+: store + mock API integration tests
 └── tests/

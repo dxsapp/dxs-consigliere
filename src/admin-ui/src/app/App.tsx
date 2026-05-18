@@ -1,6 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
-import { LoginPage } from "@/screens/login/LoginPage";
 import { PlaceholderPage } from "@/screens/_placeholder/PlaceholderPage";
 import { RootStore } from "@/stores/root";
 import { hydratePrefStore } from "@/stores/pref.store";
@@ -9,12 +8,16 @@ import { AuthGuard } from "@/app/AuthGuard";
 import { AppShell } from "@/components/shell/AppShell";
 import { LANDING_PATH, LOGIN_PATH } from "@/app/routes";
 
-// S1-audit L3: dev-only theme demo route is lazy-loaded so its
-// MUI primitives + icon imports don't fatten the production shell.
+// S1-audit L3 + S2-audit (bundle headroom): dev-only theme demo
+// AND the LoginPage are lazy-loaded so their MUI imports stay out
+// of the authed-operator shell.
 const DevThemeDemoPage = lazy(() =>
   import("@/screens/dev-theme-demo/DevThemeDemoPage").then((m) => ({
     default: m.DevThemeDemoPage,
   }))
+);
+const LoginPage = lazy(() =>
+  import("@/screens/login/LoginPage").then((m) => ({ default: m.LoginPage }))
 );
 
 const root = new RootStore();
@@ -38,7 +41,14 @@ export function App() {
     <ThemeProvider prefs={root.prefs}>
       <BrowserRouter>
         <Routes>
-          <Route path={LOGIN_PATH} element={<LoginPage auth={root.auth} />} />
+          <Route
+            path={LOGIN_PATH}
+            element={
+              <Suspense fallback={null}>
+                <LoginPage auth={root.auth} />
+              </Suspense>
+            }
+          />
 
           <Route
             path="/dev/theme-demo"
@@ -54,7 +64,7 @@ export function App() {
             path="/*"
             element={
               <AuthGuard auth={root.auth}>
-                <AppShell auth={root.auth} prefs={root.prefs} env={ENV_LABEL}>
+                <AppShell auth={root.auth} prefs={root.prefs} shell={root.shell} env={ENV_LABEL}>
                   <AuthedRoutes />
                 </AppShell>
               </AuthGuard>

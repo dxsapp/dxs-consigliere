@@ -24,7 +24,12 @@ export const AuthGuard = observer(function AuthGuard({
 }) {
   const location = useLocation();
   if (!auth.isAuthenticated) {
-    return <Navigate to={LOGIN_PATH} state={{ from: location.pathname }} replace />;
+    // S2-audit M3: preserve the full URL (path + search + hash)
+    // so post-login redirect returns the operator to the exact
+    // page they tried to visit, including smart-search query
+    // strings like `/headers?height=42`.
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={LOGIN_PATH} state={{ from }} replace />;
   }
   return <>{children}</>;
 });

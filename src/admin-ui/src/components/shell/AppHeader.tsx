@@ -1,6 +1,7 @@
 import {
   AppBar,
   Badge,
+  Box,
   Chip,
   IconButton,
   Stack,
@@ -56,18 +57,32 @@ export const AppHeader = observer(function AppHeader({
 
   return (
     <AppBar position="sticky">
-      <Toolbar sx={{ gap: 2 }}>
+      {/* S2-audit M2: responsive composition.
+          xs/sm: menu + compact search + alert + theme + logout only;
+                 connection chip, env tag, and density toggle hidden.
+          md+:   full stack as designed.
+          Toolbar + search container both `minWidth: 0` so the
+          search can shrink instead of overflowing the row. */}
+      <Toolbar sx={{ gap: 1, minWidth: 0 }}>
         <IconButton
           aria-label="open navigation drawer"
           onClick={onToggleDrawer}
+          edge="start"
           sx={{ display: { xs: "inline-flex", md: "none" } }}
         >
           <MenuIcon />
         </IconButton>
 
-        <HeaderSearch />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <HeaderSearch />
+        </Box>
 
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ ml: "auto" }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ flexShrink: 0 }}
+        >
           <Tooltip title={`SignalR ${connection}`}>
             <Chip
               icon={<WifiIcon fontSize="small" />}
@@ -75,10 +90,16 @@ export const AppHeader = observer(function AppHeader({
               size="small"
               color={connection === "online" ? "success" : connection === "stale" ? "warning" : "error"}
               variant="outlined"
+              sx={{ display: { xs: "none", md: "inline-flex" } }}
             />
           </Tooltip>
 
-          <Chip label={env} size="small" variant="outlined" />
+          <Chip
+            label={env}
+            size="small"
+            variant="outlined"
+            sx={{ display: { xs: "none", sm: "inline-flex" } }}
+          />
 
           <Tooltip title={`${alertCount} active alert${alertCount === 1 ? "" : "s"}`}>
             <IconButton onClick={() => navigate("/alerts")} aria-label="alerts">
@@ -95,7 +116,11 @@ export const AppHeader = observer(function AppHeader({
           </Tooltip>
 
           <Tooltip title={`Density: ${prefs.density}`}>
-            <IconButton onClick={prefs.toggleDensity} aria-label="toggle density">
+            <IconButton
+              onClick={prefs.toggleDensity}
+              aria-label="toggle density"
+              sx={{ display: { xs: "none", md: "inline-flex" } }}
+            >
               {prefs.density === "comfortable" ? <ViewCompactIcon /> : <ViewComfyIcon />}
             </IconButton>
           </Tooltip>
