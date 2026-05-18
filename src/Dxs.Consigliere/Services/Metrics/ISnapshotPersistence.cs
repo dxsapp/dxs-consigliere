@@ -24,4 +24,16 @@ public interface ISnapshotPersistence
 
     /// <summary>Deletes the given snapshot ids in one batch.</summary>
     Task DeleteAsync(IReadOnlyList<string> ids, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Wave 6 S2 (A1-followup H1) — read every retained snapshot whose
+    /// <c>SnapshotUnixMs</c> is in <c>[fromUnixMs, toUnixMs]</c>,
+    /// ordered ascending. The P2pAlertEvaluator picks the oldest +
+    /// newest to compute a per-source FirstSeen delta across the
+    /// configured dropout window. Pure read; no in-memory state.
+    /// </summary>
+    Task<IReadOnlyList<SourceMetricsSnapshot>> GetSnapshotsInWindowAsync(
+        long fromUnixMs,
+        long toUnixMs,
+        CancellationToken cancellationToken);
 }

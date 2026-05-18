@@ -56,6 +56,18 @@ public class SourceMetricsAggregatorTests
             }
             return Task.CompletedTask;
         }
+
+        // Wave 6 S2 — required by the extended ISnapshotPersistence
+        // surface (A1-followup H1). Not exercised by W4 tests.
+        public Task<IReadOnlyList<SourceMetricsSnapshot>> GetSnapshotsInWindowAsync(
+            long fromUnixMs, long toUnixMs, CancellationToken ct)
+        {
+            var hits = Stored.Values
+                .Where(s => s.SnapshotUnixMs >= fromUnixMs && s.SnapshotUnixMs <= toUnixMs)
+                .OrderBy(s => s.SnapshotUnixMs)
+                .ToList();
+            return Task.FromResult<IReadOnlyList<SourceMetricsSnapshot>>(hits);
+        }
     }
 
     private static (SourceMetricsAggregator aggregator,

@@ -4,32 +4,32 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-using Dxs.Consigliere.Data.Models.Metrics;
+using Dxs.Consigliere.Data.Models.P2p;
 
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
 
-namespace Dxs.Consigliere.Services.Metrics;
+namespace Dxs.Consigliere.Data.P2p;
 
 /// <summary>
-/// Wave 4 A2 M3 fix — production Raven-backed
-/// <see cref="ISnapshotPersistence"/>. Mirrors the aggregator's
-/// pre-refactor session calls verbatim so a future audit can
-/// diff the two and confirm semantic equivalence.
+/// Wave 6 S2 — production Raven-backed <see cref="IAlertEventRepository"/>.
+/// Mirrors the W4 <c>RavenSnapshotPersistence</c> patterns verbatim
+/// (D14-padded id ordering = numeric time ordering, single-session
+/// per call).
 /// </summary>
-public sealed class RavenSnapshotPersistence : ISnapshotPersistence
+public sealed class RavenAlertEventRepository : IAlertEventRepository
 {
     private readonly IDocumentStore _documentStore;
 
-    public RavenSnapshotPersistence(IDocumentStore documentStore)
+    public RavenAlertEventRepository(IDocumentStore documentStore)
     {
         _documentStore = documentStore;
     }
 
-    public async Task StoreAsync(SourceMetricsSnapshot snapshot, CancellationToken cancellationToken)
+    public async Task SaveAsync(P2pAlertEvent alertEvent, CancellationToken cancellationToken)
     {
         using var session = _documentStore.OpenAsyncSession();
-        await session.StoreAsync(snapshot, snapshot.Id, cancellationToken);
+        await session.StoreAsync(alertEvent, alertEvent.Id, cancellationToken);
         await session.SaveChangesAsync(cancellationToken);
     }
 
@@ -37,7 +37,7 @@ public sealed class RavenSnapshotPersistence : ISnapshotPersistence
     {
         using var session = _documentStore.OpenAsyncSession();
         return await session
-            .Query<SourceMetricsSnapshot>()
+            .Query<P2pAlertEvent>()
             .OrderBy(x => x.Id)
             .Select(x => x.Id)
             .ToListAsync(token: cancellationToken);
@@ -51,16 +51,19 @@ public sealed class RavenSnapshotPersistence : ISnapshotPersistence
         await session.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<SourceMetricsSnapshot>> GetSnapshotsInWindowAsync(
-        long fromUnixMs,
-        long toUnixMs,
+    public async Task<IReadOnlyList<P2pAlertEvent>> GetRecentAsync(
+        int limit,
+        long? sinceUnixMs,
         CancellationToken cancellationToken)
     {
+        if (limit <= 0) return System.Array.Empty<P2pAlertEvent>();
         using var session = _documentStore.OpenAsyncSession();
-        return await session
-            .Query<SourceMetricsSnapshot>()
-            .Where(x => x.SnapshotUnixMs >= fromUnixMs && x.SnapshotUnixMs <= toUnixMs)
-            .OrderBy(x => x.SnapshotUnixMs)
+        var query = session.Query<P2pAlertEvent>();
+        if (sinceUnixMs is { } since)
+            query = query.Where(x => x.AlertUnixMs > since);
+        return await query
+            .OrderByDescending(x => x.Id)
+            .Take(limit)
             .ToListAsync(token: cancellationToken);
     }
 }
