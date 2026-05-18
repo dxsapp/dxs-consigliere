@@ -48,6 +48,19 @@ const AlertsPage = lazy(() =>
 const P2pPage = lazy(() =>
   import("@/screens/p2p/P2pPage").then((m) => ({ default: m.P2pPage }))
 );
+const SourceMetricsPage = lazy(() =>
+  import("@/screens/source-metrics/SourceMetricsPage").then((m) => ({
+    default: m.SourceMetricsPage,
+  }))
+);
+const HeadersPage = lazy(() =>
+  import("@/screens/headers/HeadersPage").then((m) => ({ default: m.HeadersPage }))
+);
+const BroadcastInspectorPage = lazy(() =>
+  import("@/screens/broadcast-inspector/BroadcastInspectorPage").then((m) => ({
+    default: m.BroadcastInspectorPage,
+  }))
+);
 
 // S6-audit M2: RootStore is constructed asynchronously because the
 // mock-mode factory dynamic-imports the mock module on demand. In
@@ -200,9 +213,30 @@ function AuthedRoutes({ root }: { root: RootStore }) {
           </Suspense>
         }
       />
-      <Route path="/metrics/sources" element={<PlaceholderPage id="source-metrics" title="Source Metrics" ownerSlice="S9" description="Per-source observation + visibility deltas." />} />
-      <Route path="/headers" element={<PlaceholderPage id="headers" title="Headers Chain" ownerSlice="S9" description="Tip + recent headers + reorg log." />} />
-      <Route path="/broadcast-inspector" element={<PlaceholderPage id="broadcast-inspector" title="Broadcast Inspector" ownerSlice="S9" description="Submit form + lifecycle watch." />} />
+      <Route
+        path="/metrics/sources"
+        element={
+          <Suspense fallback={null}>
+            <SourceMetricsPage admin={root.admin} />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/headers"
+        element={
+          <Suspense fallback={null}>
+            <HeadersPage admin={root.admin} bus={root.bus} />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/broadcast-inspector"
+        element={
+          <Suspense fallback={null}>
+            <BroadcastInspectorPage admin={root.admin} bus={root.bus} signalR={root.signalR} />
+          </Suspense>
+        }
+      />
       <Route path="/configuration" element={<PlaceholderPage id="configuration" title="Configuration" ownerSlice="S10" description="Read-only sectioned view of BsvP2pConfig + Alert + Inbound." />} />
       <Route path="/logs" element={<PlaceholderPage id="logs" title="Logs / Raw" ownerSlice="S10" description="Journal browser + raw doc viewer with sanitizer." />} />
       <Route path="/providers" element={<PlaceholderPage id="providers" title="Providers" ownerSlice="S10" description="Source-policy capability matrix." />} />
