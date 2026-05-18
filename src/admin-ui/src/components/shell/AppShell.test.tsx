@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { AppShell } from "./AppShell";
 import { AuthGuard } from "@/app/AuthGuard";
 import { ThemeProvider } from "@/app/ThemeProvider";
-import { ApiClient } from "@/lib/api/client";
+import { MockAuthClient } from "@/lib/mock/auth";
 import { AuthStore } from "@/stores/root";
 import { PrefStore } from "@/stores/pref.store";
 import { ShellStore } from "@/stores/shell.store";
@@ -12,9 +12,9 @@ import { LOGIN_PATH } from "@/app/routes";
 
 function build(authed: boolean) {
   const prefs = new PrefStore();
-  const auth = new AuthStore(new ApiClient());
+  const auth = new AuthStore(new MockAuthClient());
   const shell = new ShellStore();
-  if (authed) auth.signInSynthetic("op");
+  if (authed) auth.forceAuthenticatedForTests("op");
   return { prefs, auth, shell };
 }
 

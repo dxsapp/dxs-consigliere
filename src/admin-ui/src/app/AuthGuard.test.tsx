@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { AuthGuard } from "./AuthGuard";
-import { ApiClient } from "@/lib/api/client";
+import { MockAuthClient } from "@/lib/mock/auth";
 import { AuthStore } from "@/stores/root";
 import { LOGIN_PATH } from "@/app/routes";
 
@@ -19,8 +19,8 @@ function LoginProbe() {
 }
 
 function renderAt(path: string, authed: boolean) {
-  const auth = new AuthStore(new ApiClient());
-  if (authed) auth.signInSynthetic("op");
+  const auth = new AuthStore(new MockAuthClient());
+  if (authed) auth.forceAuthenticatedForTests("op");
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>

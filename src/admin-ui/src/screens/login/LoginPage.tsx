@@ -18,14 +18,11 @@ import { LANDING_PATH } from "@/app/routes";
 /**
  * Login screen.
  *
- * S2 ships the form + the auth-status flip via the synthetic
- * `signInSynthetic` seam in AuthStore. The placeholder is
- * intentionally minimal (no password, no validation) — the visual
- * shape is real but the auth wire happens in S3 when the API
- * client gets `me / login / logout`.
- *
- * Redirect: after sign-in, navigate to the `from` location that
- * the AuthGuard captured, falling back to the landing path.
+ * S3 ships the cookie-mode POST: `auth.signIn({ username, password })`
+ * calls the AuthClient, which hits `POST /api/admin/auth/login`
+ * (or the MockAuthClient seed in `VITE_API_MODE=mock`). On success
+ * navigate to the captured `state.from` location, falling back to
+ * the landing path.
  */
 export const LoginPage = observer(function LoginPage({
   auth,
@@ -34,7 +31,9 @@ export const LoginPage = observer(function LoginPage({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const fromState = (location.state as { from?: string } | null)?.from;
 
   // S2-audit L1: an already-authenticated visitor on /login
@@ -44,10 +43,12 @@ export const LoginPage = observer(function LoginPage({
     return <Navigate to={fromState ?? LANDING_PATH} replace />;
   }
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    auth.signInSynthetic(name);
-    navigate(fromState ?? LANDING_PATH, { replace: true });
+    setSubmitting(true);
+    const ok = await auth.signIn({ username, password });
+    setSubmitting(false);
+    if (ok) navigate(fromState ?? LANDING_PATH, { replace: true });
   };
 
   return (
@@ -62,22 +63,38 @@ export const LoginPage = observer(function LoginPage({
       <Card sx={{ width: 380 }}>
         <CardHeader title="Consigliere Admin" subheader="Sign in" />
         <CardContent>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            S2 placeholder. The real <code>/api/admin/auth/login</code> wire
-            lands in S3 (cookie auth).
-          </Alert>
+          {auth.setupRequired && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Setup required — finish first-run configuration before signing in.
+            </Alert>
+          )}
+          {!auth.enabled && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Auth is disabled in this environment.
+            </Alert>
+          )}
           <form onSubmit={onSubmit}>
             <Stack spacing={2}>
               <TextField
                 label="Operator name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 autoFocus
                 fullWidth
                 size="small"
+                disabled={submitting}
               />
-              <Button type="submit" variant="contained" fullWidth>
-                Sign in
+              <TextField
+                label="Password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                fullWidth
+                size="small"
+                disabled={submitting}
+              />
+              <Button type="submit" variant="contained" fullWidth disabled={submitting}>
+                {submitting ? "Signing in…" : "Sign in"}
               </Button>
               {auth.lastError && (
                 <Typography variant="caption" color="error">

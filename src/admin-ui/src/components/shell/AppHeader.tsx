@@ -50,8 +50,8 @@ export const AppHeader = observer(function AppHeader({
   onToggleDrawer: () => void;
 }) {
   const navigate = useNavigate();
-  const handleLogout = () => {
-    auth.signOutSynthetic();
+  const handleLogout = async () => {
+    await auth.signOut();
     navigate(LOGIN_PATH);
   };
 

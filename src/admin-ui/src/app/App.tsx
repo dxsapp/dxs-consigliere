@@ -32,7 +32,25 @@ export function App() {
     // S1-audit M1: hydratePrefStore is idempotent (StrictMode double-
     // mount safe) and failure-safe (storage error resets defaults +
     // marks hydrated). No additional catch needed here.
-    void hydratePrefStore(root.prefs).then(() => setHydrated(true));
+    // S3: auth.hydrate() resolves the cookie session (anonymous if
+    // none) before the route guard renders, so the user doesn't
+    // bounce to /login during a fresh page load. SignalR is started
+    // best-effort after both prefs + auth complete — its failure
+    // surfaces as `connection: "offline"` in the shell, not an app
+    // crash.
+    let cancelled = false;
+    void Promise.all([hydratePrefStore(root.prefs), root.auth.hydrate()]).then(() => {
+      if (cancelled) return;
+      // Kick off SignalR; failures bubble through the bus as
+      // connection-offline. Do NOT block render on this.
+      void root.signalR.start().catch(() => {
+        /* connection-offline already emitted by the client */
+      });
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!hydrated) return null;

@@ -1,14 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { LoginPage } from "./LoginPage";
-import { ApiClient } from "@/lib/api/client";
+import { MockAuthClient } from "@/lib/mock/auth";
 import { AuthStore } from "@/stores/root";
 import { LANDING_PATH, LOGIN_PATH } from "@/app/routes";
 
 function renderLogin(opts?: { authed?: boolean; from?: string }) {
-  const auth = new AuthStore(new ApiClient());
-  if (opts?.authed) auth.signInSynthetic("op");
+  const auth = new AuthStore(new MockAuthClient());
+  if (opts?.authed) auth.forceAuthenticatedForTests("op");
   const initialEntry = opts?.from
     ? { pathname: LOGIN_PATH, state: { from: opts.from } }
     : LOGIN_PATH;
@@ -29,17 +29,13 @@ function renderLogin(opts?: { authed?: boolean; from?: string }) {
   };
 }
 
-describe("LoginPage (S2 form)", () => {
-  it("renders the brand header + sign-in CTA", () => {
+describe("LoginPage (S3 cookie-mode form)", () => {
+  it("renders the brand header + sign-in CTA + username + password inputs", () => {
     renderLogin();
     expect(screen.getByText(/consigliere admin/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/operator name/i)).toBeInTheDocument();
-  });
-
-  it("notes that real auth wires in S3", () => {
-    renderLogin();
-    expect(screen.getByText(/S2 placeholder/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
   });
 
   it("authed visitor on /login bounces to landing (S2-audit L1)", () => {
@@ -51,5 +47,35 @@ describe("LoginPage (S2 form)", () => {
   it("authed visitor on /login with state.from bounces to the captured path (S2-audit L1)", () => {
     renderLogin({ authed: true, from: "/headers?height=42" });
     expect(screen.getByTestId("headers-stub")).toBeInTheDocument();
+  });
+
+  it("valid credentials sign in via the auth client and bounce to landing (S3)", async () => {
+    renderLogin();
+    fireEvent.change(screen.getByLabelText(/operator name/i), {
+      target: { value: "operator" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "consigliere" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("landing-stub")).toBeInTheDocument();
+    });
+  });
+
+  it("invalid credentials show an error and keep the form (S3)", async () => {
+    const { auth } = renderLogin();
+    fireEvent.change(screen.getByLabelText(/operator name/i), {
+      target: { value: "operator" },
+    });
+    fireEvent.change(screen.getByLabelText(/password/i), {
+      target: { value: "wrong" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+    await waitFor(() => {
+      expect(auth.status).toBe("anonymous");
+    });
+    // Still on /login, no landing bounce.
+    expect(screen.queryByTestId("landing-stub")).toBeNull();
   });
 });
