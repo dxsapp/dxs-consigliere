@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - "codex-*"
+      - "codex/*"
   pull_request:
 
 jobs:
-  test:
+  backend:
+    name: backend (.NET)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -26,3 +28,29 @@ jobs:
 
       - name: Test
         run: dotnet test ./Dxs.Consigliere.sln -c Release --no-restore /m:1 -v minimal
+
+  admin-ui:
+    name: admin-ui (Vite + MUI + MobX)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/admin-ui
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify (typecheck + lint + test + build)
+        run: pnpm verify

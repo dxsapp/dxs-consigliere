@@ -1,0 +1,18 @@
+node_modules
+dist
+*.local
+
+# Editor
+.vscode
+.idea
+
+# Test artifacts
+coverage
+playwright-report
+test-results
+
+# OS
+.DS_Store
+
+# Logs
+*.log
