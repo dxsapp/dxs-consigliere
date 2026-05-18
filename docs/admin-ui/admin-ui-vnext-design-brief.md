@@ -259,50 +259,201 @@ existing state.
 
 ## 8. Design system constraints
 
-| Constraint | Decision |
+**The frontend is built on MUI.** Anchor every design decision
+to MUI primitives + theme tokens; do not invent new component
+shapes when an MUI equivalent exists. Reference:
+`/Users/imighty/Code/docs/project-stack-profiles.md` §"Default
+Frontend Baseline" + `/Users/imighty/Code/docs/frontend-principles.md`.
+
+### Stack the designer must respect
+
+- **React 19 + TypeScript + Vite 7** (engineering)
+- **MUI**: `@mui/material`, `@mui/icons-material`
+- **MUI X**: `@mui/x-data-grid` (every table), `@mui/x-charts`
+  (every chart / sparkline)
+- **Animations**: `framer-motion` (state transitions, kanban
+  card moves, timeline progression)
+- **State**: MobX stores; UI is a render of store state.
+
+### Concrete MUI mappings (use these, do not redesign)
+
+| UI element | MUI primitive |
 |---|---|
-| Theme | Both with toggle; system-default → dark. |
-| Density | Dense ↔ Comfortable toggle, per-user pref persisted client-side. Dense = Linear/Bloomberg; Comfortable = Stripe. |
-| Devices | Desktop primary (1440px+) + responsive mobile (sidebar drawer + screen stack). No dedicated tablet layout. |
-| Real-time chrome | Stale per-widget overlay (gray semi-transparent), not a global banner. |
-| Font stack | Open — designer's call. Code-spans for hashes / hex / config keys. |
-| Iconography | Open — designer's call, prefer minimal monoline. |
-| Accessibility | WCAG AA contrast in both themes; keyboard navigation on all interactive elements. |
+| Sidebar (desktop) | `Drawer` variant `permanent` + `List` / `ListItemButton` |
+| Sidebar (mobile) | `Drawer` variant `temporary` opened from `AppBar`'s `IconButton` |
+| Header bar | `AppBar` + `Toolbar` |
+| Header search | `Autocomplete` (`freeSolo`, controlled) with smart-recognition logic |
+| Alert badge in header | `Badge` overlapping an `IconButton` |
+| Theme toggle | `IconButton` flipping `ThemeProvider` mode in MobX store |
+| Density toggle | `IconButton` flipping the MUI `density` token in the theme (DataGrid `density` + custom `--row-height` token for non-grid rows) |
+| Stale-per-widget overlay | `Box` with `sx={{ opacity: 0.4, pointerEvents: 'none' }}` over the widget body; corner `Chip` "stale" |
+| Toast | `Snackbar` + `Alert` (auto-hide 8s; severity colour matches the alert) |
+| Confirmation modal (Force rebroadcast) | `Dialog` + `DialogActions` |
+| Card containers | `Card` + `CardHeader` + `CardContent` |
+| Status / severity chip | `Chip` with `color` mapped from theme `palette.error/warning/success/info` |
+| KPI / metric value | `Typography variant="h3"` over `Typography variant="caption"` label |
+| Sparklines | `LineChart` from `@mui/x-charts` in compact mode (no axis labels) |
+| Full charts (Source Metrics) | `LineChart` / `BarChart` from `@mui/x-charts` with toolbar + zoom |
+| Tables (peers, alerts journal, recent broadcasts) | `DataGrid` from `@mui/x-data-grid` — sortable, filterable, density-aware |
+| Vertical timeline (Tx / Address / Token detail) | `Stepper` orientation `vertical` + custom `StepIcon` per state + `StepContent` for metadata |
+| Kanban (Broadcast Queue) | Three `Card` columns with `Stack` of `Card`-cards; framer-motion `AnimatePresence` for the move animation |
+| Activity stream | `List` + `ListItem` with `ListItemAvatar` (source icon) + `ListItemText` (primary/secondary) |
+| Tab navigation (where used) | `Tabs` + `Tab` |
+| Recent-lookup chips | `Chip` row inside a `Stack direction="row"` |
+| Connection status indicator | small `Chip` with status colour in `Toolbar` right side |
+
+### Theme tokens (designer ships these)
+
+The brief expects design tokens that map 1:1 onto an MUI
+`createTheme({...})` config:
+
+- **`palette.mode`** — `'light' | 'dark'` with toggle
+- **`palette.primary` / `secondary`** — brand colours
+- **`palette.severity`** — extended scale beyond MUI defaults:
+  `info` / `success` / `warning` / `error` for alert
+  severity; a custom `palette.score` gradient (red → amber →
+  green) for the 0-100 peer score
+- **`palette.background`** — `default` + `paper`
+- **`typography`** — full MUI typography scale (`h1`-`h6`,
+  `body1`, `body2`, `caption`, `overline`, plus a `code` for
+  hashes / hex)
+- **`shape.borderRadius`** — single value
+- **`spacing`** — 8px MUI default unless overridden
+- **`components.MuiDataGrid.defaultProps.density`** —
+  switchable
+- **`zIndex`** — stick with MUI defaults
+
+The designer must NOT design custom CSS-only flourishes that
+can't be expressed via `sx` / theme overrides — engineering
+discipline rule from `project-stack-profiles.md`: "UI layer:
+MUI-only components, styling via `sx`/theme overrides. No
+CSS/SCSS files for feature styling."
+
+### Density
+
+Dense ↔ Comfortable toggle is implemented as:
+- `DataGrid` `density` prop flips between `'compact'` and
+  `'standard'`.
+- Non-grid rows: a custom theme token (e.g. `spacing.row`)
+  flips between two values; cards / lists honour it via `sx`.
+
+### Theme
+
+Both light + dark, toggle in header, default = system
+preference → dark fallback. Designer ships both palettes; the
+toggle persists in MobX store via `mobx-persist-store`.
+
+### Devices
+
+Desktop primary (`md` and up: 900px+ MUI default; design at
+1440px reference, layout-test at 1920px). Mobile responsive
+via MUI `Drawer` swap + `Stack` reorder; **tablet UX is out
+of scope** per `project-stack-profiles.md`.
+
+### Iconography
+
+`@mui/icons-material` — the designer picks from this set; do
+not commission custom icons. Code/data icons that aren't in
+MUI Material Icons should use Lucide as a fallback (engineer
+will wire if needed), but prefer MUI.
+
+### Typography
+
+MUI default = **Roboto**. Designer can override the
+typography scale via `createTheme({ typography: { fontFamily }
+})` but should ship a justifying reason if deviating from
+Roboto.
+
+### Accessibility
+
+WCAG AA contrast in both palettes; keyboard navigation
+(MUI gives this for free if you stick to primitives);
+`aria-label` on every icon-only button.
+
+### Animations
+
+`framer-motion` only. Kanban card moves, timeline-stage
+progression, toast slide-in. No CSS keyframes.
 
 ## 9. Deliverable from design agent
 
-**Hi-fi Figma mockups (3-5 screens):**
+The design agent ships **MUI-native** mockups — every screen
+is composed of MUI primitives listed in §8 above. Do not draw
+custom buttons / inputs / dialogs / tables that don't map onto
+an MUI component.
 
-1. **Dashboard** (default theme + dark, dense + comfortable
-   density variations — 4 frames)
-2. **Transaction detail** with timeline (single frame, dark
-   theme, comfortable density)
-3. **Broadcast Queue** kanban (single frame, dark, comfortable)
-4. **Alerts** (single frame, dark, comfortable)
-5. **P2P Pool** (single frame, dark, comfortable — layout
-   challenge: two visuals on one screen)
+**Hi-fi Figma mockups (5 screens):**
 
-**Design tokens (for engineering to apply to screens 6-14):**
+1. **Dashboard** — 4 frames: (a) light + comfortable density,
+   (b) dark + comfortable, (c) dark + dense, (d) mobile
+   (375px viewport with drawer collapsed).
+2. **Transaction detail** with `Stepper`-based vertical
+   timeline — dark + comfortable.
+3. **Broadcast Queue** kanban using 3 `Card` columns +
+   framer-motion move semantics — dark + comfortable. Include
+   one stale-highlight card (>5 min in Dispatching).
+4. **Alerts** (active section using `Card` stack + history
+   journal using `DataGrid`) — dark + comfortable.
+5. **P2P Pool** (`DataGrid` of peers with inline score-component
+   mini-bars + `@mui/x-charts` donut for subnet/24 diversity)
+   — dark + comfortable. Show how the two visuals share the
+   page.
 
-- Colour palette (light + dark; severity scale for alerts;
-  score gradient 0-100; status colours: healthy/degraded/stale)
-- Typography scale + line-height + weights
-- Spacing rhythm (dense + comfortable)
-- Shadow / elevation
-- Border-radius
-- Icon set + sizing
-- Component primitives: card, table-row, badge, chip,
-  tab, modal, drawer, toast, sparkline, timeline-stage,
-  kanban-card, stale-overlay
+Each frame must be drawn with **real MUI component sizing**
+(`Toolbar` height 64px desktop / 56px mobile, `Drawer` width
+240px, `DataGrid` row 36px compact / 52px standard,
+`spacing(1)` = 8px). The implementer should be able to read
+the frame and map every element back to a concrete `<Card>`
+/ `<DataGrid>` / `<Snackbar>` / etc.
 
-**Interaction notes (per-screen short prose):** hover / focus /
-active / disabled states; transitions on real-time data
-arrival; what animates and what doesn't.
+**Design tokens (Figma → MUI theme transferable):**
+
+The token list must be ready to drop into a
+`createTheme({...})` call. Required:
+
+- `palette.mode = light | dark` (both palettes)
+- `palette.primary` + `palette.secondary`
+- Extended `palette.severity.{info|success|warning|error}`
+  matched to alert severity
+- Custom `palette.score` gradient (5 stops for the 0-100
+  score scale on P2P Pool)
+- `palette.background.{default,paper}`
+- `palette.text.{primary,secondary,disabled}`
+- `typography.fontFamily` (Roboto unless justified
+  deviation)
+- Full `typography.{h1..h6,body1,body2,caption,overline}`
+  scale + a custom `typography.code` for hashes / hex / config
+  keys
+- `shape.borderRadius`
+- `spacing` (default MUI 8px unit, override if needed)
+- Density rule: two values per row-height token (compact /
+  standard) flipped via the user toggle
+
+**Interaction notes (per-screen short prose):**
+
+For each of the 5 hi-fi screens, document:
+
+- MUI variant chosen for each interactive component (e.g.
+  `Button variant="contained" color="primary"`).
+- Hover / focus / active / disabled states (MUI handles most,
+  but call out anything custom).
+- framer-motion transitions: which element animates on what
+  event (e.g. kanban card uses `layout` + `AnimatePresence`
+  on state change).
+- Real-time data arrival behaviour (e.g. dashboard sparkline
+  receives a new tick → animates smoothly; new toast slides
+  in from top-right).
+- Stale-state appearance per widget (the `Box sx={{ opacity:
+  0.4, pointerEvents: 'none' }}` overlay + "stale" `Chip`).
 
 **Out of scope for design:**
-- Component library code (engineering picks the framework)
-- Per-screen mockups for 6-14 (tokens + patterns sufficient)
+
+- Component library code (engineering wires the MUI components)
+- Per-screen mockups for screens 6-14 in §4 (engineers build
+  them from tokens + the §8 MUI mapping table + the 5 hi-fi
+  references)
 - Brand identity / logo
+- Custom CSS / non-MUI components
 
 ## 10. Backend reference
 
@@ -360,7 +511,26 @@ rule-specific keys (e.g. `poolSize`, `threshold`, `rate`,
 - SPA-side log streaming for the System / Logs page — depends
   on backend log-streaming endpoint.
 
-## 13. Reference docs (for designer's deep-dive, optional)
+## 13. Reference docs
+
+### Required reading (frontend engineering standards)
+
+These are workspace-wide rulebooks every frontend project
+inherits. Read before designing — they constrain what the
+designer can ship.
+
+- `/Users/imighty/Code/docs/project-stack-profiles.md` —
+  default frontend baseline: React 19 + Vite 7 + MUI + MUI X
+  + MobX + framer-motion. The §"Default Frontend Baseline"
+  section defines the stack and architectural rules.
+- `/Users/imighty/Code/docs/frontend-principles.md` — universal
+  engineering principles (layered architecture, MobX-owned
+  business logic, MUI-only UI, route-driven hydration).
+- `/Users/imighty/Code/docs/frontend-audits-playbook.md` —
+  audit cadence + criteria the implementation will be measured
+  against.
+
+### Domain context (optional deep-dive)
 
 - `docs/platform-api/thin-node-prod-runbook.md` — operator
   recovery procedures + full configuration reference.
