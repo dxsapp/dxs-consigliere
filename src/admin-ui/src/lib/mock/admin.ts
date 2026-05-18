@@ -1,5 +1,7 @@
 import type { IAdminClient } from "@/lib/admin/admin-client";
 import type {
+  AdminTrackedAddressResponse,
+  AdminTrackedTokenResponse,
   P2pHealthDto,
   SourceMetricsResponse,
   SourceMetricsSnapshot,
@@ -36,6 +38,16 @@ export class MockAdminClient implements IAdminClient {
       ],
       inboundEnabled: false,
     };
+  }
+
+  async getTrackedAddress(address: string): Promise<AdminTrackedAddressResponse> {
+    const { seedAddress } = await import("@/lib/mock/admin-tracked-seed");
+    return seedAddress(address, this.nowMs());
+  }
+
+  async getTrackedToken(tokenId: string): Promise<AdminTrackedTokenResponse> {
+    const { seedToken } = await import("@/lib/mock/admin-tracked-seed");
+    return seedToken(tokenId, this.nowMs());
   }
 
   async getSourceMetrics(opts: { lastN?: number } = {}): Promise<SourceMetricsResponse> {

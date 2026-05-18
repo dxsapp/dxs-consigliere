@@ -22,6 +22,21 @@ const LoginPage = lazy(() =>
 const DashboardPage = lazy(() =>
   import("@/screens/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage }))
 );
+const TransactionDetailPage = lazy(() =>
+  import("@/screens/entity-detail/TransactionDetailPage").then((m) => ({
+    default: m.TransactionDetailPage,
+  }))
+);
+const AddressDetailPage = lazy(() =>
+  import("@/screens/entity-detail/AddressDetailPage").then((m) => ({
+    default: m.AddressDetailPage,
+  }))
+);
+const TokenDetailPage = lazy(() =>
+  import("@/screens/entity-detail/TokenDetailPage").then((m) => ({
+    default: m.TokenDetailPage,
+  }))
+);
 
 const root = new RootStore();
 
@@ -115,13 +130,34 @@ function AuthedRoutes() {
           </Suspense>
         }
       />
-      <Route path="/transactions" element={<PlaceholderPage id="transactions" title="Transactions" ownerSlice="S5" description="Lookup + lifecycle viewer." />} />
-      <Route path="/transactions/:txid" element={<PlaceholderPage id="transactions-detail" title="Transaction" ownerSlice="S5" description="Vertical stepper for the OutgoingTxState lifecycle." />} />
+      <Route path="/transactions" element={<PlaceholderPage id="transactions" title="Transactions" ownerSlice="S5+" description="Lookup landing — header search is the primary entrypoint." />} />
+      <Route
+        path="/transactions/:txid"
+        element={
+          <Suspense fallback={null}>
+            <TransactionDetailPage bus={root.bus} signalR={root.signalR} />
+          </Suspense>
+        }
+      />
       <Route path="/broadcast-queue" element={<PlaceholderPage id="broadcast-queue" title="Broadcast Queue" ownerSlice="S6" description="3-column kanban with framer-motion state transitions." />} />
-      <Route path="/addresses" element={<PlaceholderPage id="addresses" title="Addresses" ownerSlice="S5" description="Address lookup + state." />} />
-      <Route path="/addresses/:address" element={<PlaceholderPage id="addresses-detail" title="Address" ownerSlice="S5" description="Per-address timeline." />} />
-      <Route path="/tokens" element={<PlaceholderPage id="tokens" title="Tokens" ownerSlice="S5" description="DSTAS / native token lookup." />} />
-      <Route path="/tokens/:tokenId" element={<PlaceholderPage id="tokens-detail" title="Token" ownerSlice="S5" description="Per-token timeline." />} />
+      <Route path="/addresses" element={<PlaceholderPage id="addresses" title="Addresses" ownerSlice="S5+" description="Address lookup landing." />} />
+      <Route
+        path="/addresses/:address"
+        element={
+          <Suspense fallback={null}>
+            <AddressDetailPage admin={root.admin} />
+          </Suspense>
+        }
+      />
+      <Route path="/tokens" element={<PlaceholderPage id="tokens" title="Tokens" ownerSlice="S5+" description="DSTAS / native token lookup landing." />} />
+      <Route
+        path="/tokens/:tokenId"
+        element={
+          <Suspense fallback={null}>
+            <TokenDetailPage admin={root.admin} />
+          </Suspense>
+        }
+      />
       <Route path="/alerts" element={<PlaceholderPage id="alerts" title="Alerts" ownerSlice="S7" description="Active alerts + history journal (poll-delta toasts)." />} />
 
       {/* System section. */}

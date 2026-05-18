@@ -20,3 +20,11 @@ export const ADMIN_API_ROUTES = {
   p2pHealth: "/api/admin/p2p/health",
   metricsSources: "/api/admin/metrics/sources",
 } as const;
+
+/** S5 — per-entity admin routes. Encoded path segments so a token
+ *  id containing `/` or `:` round-trips correctly. */
+export const adminTrackedAddressPath = (address: string) =>
+  `/api/admin/tracked/address/${encodeURIComponent(address)}`;
+
+export const adminTrackedTokenPath = (tokenId: string) =>
+  `/api/admin/tracked/token/${encodeURIComponent(tokenId)}`;

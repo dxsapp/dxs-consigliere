@@ -76,3 +76,145 @@ export interface BlockTipDto {
  *  constants. */
 export const SOURCE_KEYS = ["p2p", "bitails", "junglebus"] as const;
 export type SourceKey = (typeof SOURCE_KEYS)[number];
+
+/**
+ * Outgoing transaction lifecycle states — hand-mirrored from
+ * `Dxs.Consigliere.Data.Models.P2p.OutgoingTxState`. The 5-stage
+ * happy-path drives the Stepper in the entity-detail screens.
+ */
+export type OutgoingTxState =
+  | "Submitted"
+  | "Validated"
+  | "Dispatching"
+  | "PeerAcked"
+  | "PeerRelayed"
+  | "MempoolSeen"
+  | "Mined"
+  | "Confirmed"
+  | "PolicyInvalid"
+  | "InvalidRejected"
+  | "ConflictRejected"
+  | "EvictedOrDropped"
+  | "ObserverUnknown"
+  | "Failed";
+
+export const TX_HAPPY_PATH: OutgoingTxState[] = [
+  "Validated",
+  "Dispatching",
+  "PeerRelayed",
+  "Mined",
+  "Confirmed",
+];
+
+export const TX_TERMINAL_STATES: OutgoingTxState[] = [
+  "Confirmed",
+  "PolicyInvalid",
+  "InvalidRejected",
+  "ConflictRejected",
+  "Failed",
+];
+
+export const TX_FAILURE_STATES: OutgoingTxState[] = [
+  "PolicyInvalid",
+  "InvalidRejected",
+  "ConflictRejected",
+  "EvictedOrDropped",
+  "ObserverUnknown",
+  "Failed",
+];
+
+export function isTxStateTerminal(s: OutgoingTxState): boolean {
+  return TX_TERMINAL_STATES.includes(s);
+}
+
+export function isTxStateFailure(s: OutgoingTxState): boolean {
+  return TX_FAILURE_STATES.includes(s);
+}
+
+/** S5 — tracked-history snapshot embedded in the readiness DTO. */
+export interface TrackedHistoryStatusResponse {
+  status: string;
+  rangeStart?: number | null;
+  rangeEnd?: number | null;
+  lastCheckpoint?: number | null;
+  authoritativeSeq?: number | null;
+  pendingCount?: number;
+}
+
+/** S5 — readiness frame shared by Address + Token detail responses. */
+export interface TrackedEntityReadinessResponse {
+  tracked: boolean;
+  entityType: string;
+  entityId: string;
+  lifecycleStatus: string;
+  readable: boolean;
+  authoritative: boolean;
+  degraded: boolean;
+  lagBlocks: number | null;
+  progress: number | null;
+  history: TrackedHistoryStatusResponse | null;
+}
+
+export interface AdminTrackedTokenBalanceSummaryResponse {
+  tokenId: string;
+  symbol: string;
+  balanceSatoshis: number;
+  utxoCount: number;
+}
+
+export interface AdminTrackedAddressSummaryResponse {
+  currentBsvBalanceSatoshis: number;
+  totalUtxoCount: number;
+  bsvUtxoCount: number;
+  tokenUtxoCount: number;
+  transactionCount: number;
+  firstTransactionAt: number | null;
+  firstTransactionBlockHeight: number | null;
+  lastTransactionAt: number | null;
+  lastTransactionBlockHeight: number | null;
+  lastProjectionSequence: number | null;
+  tokenBalances: AdminTrackedTokenBalanceSummaryResponse[];
+}
+
+export interface AdminTrackedAddressResponse {
+  address: string;
+  name: string;
+  isTombstoned: boolean;
+  tombstonedAt: number | null;
+  createdAt: number;
+  updatedAt: number | null;
+  failureReason: string | null;
+  integritySafe: boolean | null;
+  readiness: TrackedEntityReadinessResponse;
+  summary: AdminTrackedAddressSummaryResponse;
+}
+
+export interface AdminTrackedTokenSummaryResponse {
+  protocolType: string;
+  validationStatus: string;
+  issuer: string | null;
+  redeemAddress: string | null;
+  localKnownSupplySatoshis: number | null;
+  burnedSatoshis: number | null;
+  holderCount: number;
+  utxoCount: number;
+  transactionCount: number;
+  firstTransactionAt: number | null;
+  firstTransactionBlockHeight: number | null;
+  lastTransactionAt: number | null;
+  lastTransactionBlockHeight: number | null;
+  lastProjectionSequence: number | null;
+}
+
+export interface AdminTrackedTokenResponse {
+  tokenId: string;
+  symbol: string;
+  isTombstoned: boolean;
+  tombstonedAt: number | null;
+  createdAt: number;
+  updatedAt: number | null;
+  failureReason: string | null;
+  integritySafe: boolean | null;
+  readiness: TrackedEntityReadinessResponse;
+  summary: AdminTrackedTokenSummaryResponse;
+}

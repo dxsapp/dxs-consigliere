@@ -5,6 +5,20 @@ import { MockAdminClient } from "@/lib/mock/admin";
 import type { IAdminClient } from "@/lib/admin/admin-client";
 import type { P2pHealthDto, SourceMetricsResponse } from "@/types/admin";
 
+/** Compose a partial IAdminClient stub with S5 endpoints filled by
+ *  the MockAdminClient. The dashboard exercises only health +
+ *  metrics; the rest must satisfy the interface but never run. */
+function adminStub(overrides: Partial<IAdminClient>): IAdminClient {
+  const mock = new MockAdminClient();
+  return {
+    getP2pHealth: mock.getP2pHealth.bind(mock),
+    getSourceMetrics: mock.getSourceMetrics.bind(mock),
+    getTrackedAddress: mock.getTrackedAddress.bind(mock),
+    getTrackedToken: mock.getTrackedToken.bind(mock),
+    ...overrides,
+  };
+}
+
 function build(opts?: {
   admin?: IAdminClient;
   healthPollMs?: number;
@@ -116,7 +130,7 @@ describe("DashboardStore", () => {
 
   it("dispose() halts polling AND removes the bus subscription", async () => {
     const calls: string[] = [];
-    const recordingAdmin: IAdminClient = {
+    const recordingAdmin = adminStub({
       getP2pHealth: async () => {
         calls.push("health");
         return stubHealth();
@@ -125,7 +139,7 @@ describe("DashboardStore", () => {
         calls.push("metrics");
         return { latest: null, history: [] };
       },
-    };
+    });
     const { store, bus } = build({ admin: recordingAdmin });
     await store.start();
     const callsAfterStart = calls.length;
@@ -145,7 +159,7 @@ describe("DashboardStore", () => {
 
   it("start() is idempotent (StrictMode double-mount safe)", async () => {
     const calls: string[] = [];
-    const admin: IAdminClient = {
+    const admin = adminStub({
       getP2pHealth: async () => {
         calls.push("h");
         return stubHealth();
@@ -154,7 +168,7 @@ describe("DashboardStore", () => {
         calls.push("m");
         return { latest: null, history: [] };
       },
-    };
+    });
     const { store } = build({ admin });
     await store.start();
     await store.start();
@@ -165,7 +179,7 @@ describe("DashboardStore", () => {
   });
 
   it("reports degraded health when poolSize < target", async () => {
-    const partial: IAdminClient = {
+    const partial = adminStub({
       getP2pHealth: async () => ({
         bound: true,
         poolSize: 3,
@@ -175,7 +189,7 @@ describe("DashboardStore", () => {
         inboundEnabled: false,
       }),
       getSourceMetrics: async () => ({ latest: null, history: [] } as SourceMetricsResponse),
-    };
+    });
     const { store } = build({ admin: partial });
     await store.start();
     expect(store.healthSummary.status).toBe("degraded");
@@ -183,7 +197,7 @@ describe("DashboardStore", () => {
   });
 
   it("reports offline when bound but pool is empty", async () => {
-    const empty: IAdminClient = {
+    const empty = adminStub({
       getP2pHealth: async () => ({
         bound: true,
         poolSize: 0,
@@ -193,7 +207,7 @@ describe("DashboardStore", () => {
         inboundEnabled: false,
       }),
       getSourceMetrics: async () => ({ latest: null, history: [] }),
-    };
+    });
     const { store } = build({ admin: empty });
     await store.start();
     expect(store.healthSummary.status).toBe("offline");
@@ -201,12 +215,12 @@ describe("DashboardStore", () => {
   });
 
   it("captures error message when the admin client rejects", async () => {
-    const broken: IAdminClient = {
+    const broken = adminStub({
       getP2pHealth: async () => {
         throw new Error("ECONNREFUSED");
       },
       getSourceMetrics: async () => ({ latest: null, history: [] }),
-    };
+    });
     const { store } = build({ admin: broken });
     await store.start();
     expect(store.healthStatus).toBe("error");

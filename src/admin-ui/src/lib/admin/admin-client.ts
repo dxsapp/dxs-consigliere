@@ -1,14 +1,24 @@
 import type { ApiClient } from "@/lib/api/client";
-import { ADMIN_API_ROUTES } from "@/lib/api/routes";
+import {
+  ADMIN_API_ROUTES,
+  adminTrackedAddressPath,
+  adminTrackedTokenPath,
+} from "@/lib/api/routes";
 import type {
+  AdminTrackedAddressResponse,
+  AdminTrackedTokenResponse,
   P2pHealthDto,
   SourceMetricsResponse,
 } from "@/types/admin";
 
 /**
- * S4 — REST client for the admin endpoints the Dashboard consumes:
- *   GET /api/admin/p2p/health
- *   GET /api/admin/metrics/sources?lastN=N
+ * Admin REST client. Endpoints by slice:
+ *   S4 — Dashboard:
+ *     GET /api/admin/p2p/health
+ *     GET /api/admin/metrics/sources?lastN=N
+ *   S5 — Entity detail:
+ *     GET /api/admin/tracked/address/{address}
+ *     GET /api/admin/tracked/token/{tokenId}
  *
  * One slice + one mock; future screen slices add their own methods
  * on the same interface.
@@ -16,6 +26,8 @@ import type {
 export interface IAdminClient {
   getP2pHealth(signal?: AbortSignal): Promise<P2pHealthDto>;
   getSourceMetrics(opts?: { lastN?: number; signal?: AbortSignal }): Promise<SourceMetricsResponse>;
+  getTrackedAddress(address: string, signal?: AbortSignal): Promise<AdminTrackedAddressResponse>;
+  getTrackedToken(tokenId: string, signal?: AbortSignal): Promise<AdminTrackedTokenResponse>;
 }
 
 export class AdminClient implements IAdminClient {
@@ -31,5 +43,19 @@ export class AdminClient implements IAdminClient {
       ? `${ADMIN_API_ROUTES.metricsSources}?lastN=${lastN}`
       : ADMIN_API_ROUTES.metricsSources;
     return this.api.get<SourceMetricsResponse>(path, { signal: opts.signal });
+  }
+
+  getTrackedAddress(address: string, signal?: AbortSignal) {
+    return this.api.get<AdminTrackedAddressResponse>(
+      adminTrackedAddressPath(address),
+      { signal }
+    );
+  }
+
+  getTrackedToken(tokenId: string, signal?: AbortSignal) {
+    return this.api.get<AdminTrackedTokenResponse>(
+      adminTrackedTokenPath(tokenId),
+      { signal }
+    );
   }
 }
