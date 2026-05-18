@@ -88,9 +88,13 @@ public static class BsvP2pSetup
         OutgoingTransactionStore store,
         TxRelayCoordinator relay)
     {
+        // A2 M1 fix: BroadcastService now takes IOutgoingTransactionRepository
+        // + ITxAnnouncer (interfaces). OutgoingTransactionStore implements
+        // IOutgoingTransactionRepository; TxRelayCoordinator implements
+        // ITxAnnouncer (the latter shipped by W3 A2).
         broadcastService.PolicyValidator = validator;
         broadcastService.OutgoingStore = store;
-        broadcastService.RelayCoordinator = relay;
+        broadcastService.Announcer = relay;
     }
 }
 

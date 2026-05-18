@@ -153,10 +153,12 @@ public class UnconfirmedTransactionsMonitor(
                         // path; the receipt's State + FailReason capture
                         // success / failure shape.
                         var receipt = await broadcastService.BroadcastAsync(data.Value.Hex);
-                        if (receipt.State == OutgoingTxState.Validated
-                            || receipt.State == OutgoingTxState.Dispatching
-                            || receipt.State == OutgoingTxState.PeerAcked
-                            || receipt.State == OutgoingTxState.PeerRelayed)
+                        // W5 A2 L3 fix: a duplicate submission can return an
+                        // existing receipt already at MempoolSeen / Mined /
+                        // Confirmed; treat all post-Validated active states
+                        // as "successful re-broadcast" via the centralized
+                        // OutgoingTxStates.IsActiveOrAccepted helper.
+                        if (OutgoingTxStates.IsActiveOrAccepted(receipt.State))
                         {
                             _logger.LogDebug("Transaction re-broadcasted: {TxId}: {State}",
                                 data.Value.TxId, receipt.State);

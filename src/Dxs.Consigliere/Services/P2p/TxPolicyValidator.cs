@@ -33,7 +33,7 @@ public sealed record PolicyValidationResult(
 public sealed class TxPolicyValidator(
     IOptions<BsvP2pConfig> options,
     OutgoingTransactionStore store,
-    INetworkProvider networkProvider)
+    INetworkProvider networkProvider) : IBroadcastPolicyValidator
 {
     private readonly BsvP2pConfig _cfg = options.Value;
 

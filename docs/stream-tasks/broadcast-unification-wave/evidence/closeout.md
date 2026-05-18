@@ -10,7 +10,7 @@ operator-deferred per the W2 / W3 / W4 pattern.
 |---|---|---|
 | S0 | `8a999d9` | `IBroadcastService.SubmitAsync` → `BroadcastAsync` rename + `IBroadcastServiceShapeTests` pin (interface shape: legacy `Broadcast(string)`/`Broadcast(Transaction)` absent; canonical `BroadcastAsync` present; return `Task<BroadcastReceipt>`; signature `(string rawHex, string clientConnectionId = null, CancellationToken ct = default)`) |
 | S1 | this commit | `WalletHub.Broadcast(rawHex)` unified — replaces the legacy `Broadcast(string)` (returned `bool`) AND the transitional `BroadcastTracked`; returns `BroadcastReceiptDto`. `IWalletServer` interface signature updated. `TransactionController` exposes `POST /api/tx/broadcast` accepting `{ "rawHex": "..." }` body and returning `BroadcastReceiptDto`. Legacy `POST /api/tx/broadcast/{raw}` removed |
-| S2 | this commit | `BroadcastService.Broadcast(string)` / `Broadcast(Transaction)` + `BroadcastToProviderAsync` + `BroadcastToNodeAsync` + `BroadcastToBitailsAsync` + `BroadcastToWhatsOnChainAsync` + `ResolveBroadcastTargetsAsync` + Polly retry policy + multi-attempt Raven document writer ALL DELETED. The collapsed ctor drops `IBitcoindService`, `IBitailsRestApiClient`, `IWhatsOnChainRestApiClient`, `IAdminProviderConfigService`, `IExternalChainProviderCatalog`, `IUtxoCache`, `INetworkProvider`, `IOptions<AppConfig>` dependencies (10 deps → 3). Caller `UnconfirmedTransactionsMonitor.Broadcast(...)` updated to use `BroadcastAsync` |
+| S2 | this commit | `BroadcastService.Broadcast(string)` / `Broadcast(Transaction)` + `BroadcastToProviderAsync` + `BroadcastToNodeAsync` + `BroadcastToBitailsAsync` + `BroadcastToWhatsOnChainAsync` + `ResolveBroadcastTargetsAsync` + Polly retry policy + multi-attempt Raven document writer ALL DELETED. The collapsed ctor drops `IBitailsRestApiClient`, `IWhatsOnChainRestApiClient`, `IAdminProviderConfigService`, `IExternalChainProviderCatalog`, `IUtxoCache`, `INetworkProvider`, `IOptions<AppConfig>` dependencies (post A2 L1 also drops `IDocumentStore`; final 10 deps → 2: `IBitcoindService` + `ILogger`; A2 L5 corrects original closeout claim that `IBitcoindService` was dropped — it stays as the fee-rate source). Caller `UnconfirmedTransactionsMonitor.Broadcast(...)` updated to use `BroadcastAsync` |
 | S3 | this commit | `IBroadcastProvider` (in `Dxs.Bsv`) renamed to `IFeeRateProvider` (broadcast moved to unified P2P path; fee-rate query is the surviving concern). `BitcoindService.Broadcast(string)` DELETED. `IBitcoindService` now extends `IFeeRateProvider`. `StasProtocolTransactionFactory` ctor param renamed `broadcastProvider` → `feeRateProvider`. `CorePlatformSetup` DI registration updated |
 | S4 | this commit | `IBitailsRestApiClient.Broadcast(...)` + impl DELETED. `IWhatsOnChainRestApiClient.BroadcastAsync(...)` + impl DELETED. Both clients retain non-broadcast endpoints (address, tx, balance, UTXO, block, token data) |
 | S5 | this commit | `BroadcastServiceTests` legacy multi-provider tests DELETED. New regression coverage lives in `IBroadcastServiceShapeTests` (S0) + `BroadcastUnificationGrepTests` (S6) + the existing W2 Gate-3 P2P announce / lifecycle test suite |
@@ -107,4 +107,108 @@ becomes a concern.
       `IBroadcastServiceShapeTests` (3 tests).
 - [x] All call sites of the legacy `Broadcast` /
       `IBroadcastProvider` migrated.
-- [ ] `audits/wave5-audit-A2.md` — pending post-execution audit.
+- [x] `audits/wave5-audit-A2.md` — APPROVE WITH CHANGES (1 H,
+      2 M, 5 L). Revision committed; see "A2 revision summary"
+      below. Awaiting A2-followup.
+
+## A2 revision summary (this commit)
+
+Codex A2 verdict: APPROVE WITH CHANGES — 1 HIGH (Core Rule §2
+violation in the no-peer path), 2 MEDIUM (test-evidence gaps),
+5 LOW (cleanup / docs). All 8 folded.
+
+### H1 — `BroadcastAsync` no-ready-peer stays Dispatching, not Failed
+
+**Before:** the background dispatch task set
+`OutgoingTxState.Failed` when `TxRelayCoordinator.AnnounceAsync`
+returned 0 served peers. `Failed` is in
+`OutgoingTxStates.IsTerminal`, so
+`OutgoingTransactionStore.GetNonTerminalAsync` excluded it — the
+lifecycle monitor would never retry the tx when peers reconnect,
+violating Core Rule §2 ("no-ready-peer broadcasts succeed at
+validation/persistence and are picked up later").
+
+**After:** the no-served-peer branch keeps `tx.State =
+Dispatching`, records `LastError = "No peers available at
+dispatch time; awaiting peer reconnect"` for operator
+visibility, and saves. Pinned by
+`BroadcastServiceBehaviorTests.BroadcastAsync_NoReadyPeer_StaysDispatching_NotFailed`.
+
+### M1 — Behavioral test coverage
+
+Two minimal abstractions introduced for testability:
+
+- `IBroadcastPolicyValidator` wrapping the subset of
+  `TxPolicyValidator` operations the service uses.
+  `TxPolicyValidator` implements it.
+- `IOutgoingTransactionRepository` wrapping the subset of
+  `OutgoingTransactionStore` operations.
+  `OutgoingTransactionStore` implements it.
+
+`BroadcastService`'s internal property slots re-typed to the
+interfaces (+ `ITxAnnouncer` from W3 A2). The W2 wirer host is
+unchanged externally; it passes the concrete classes via their
+interfaces.
+
+5 new behavioral tests in `BroadcastServiceBehaviorTests`:
+no-P2p-subsystem, policy-invalid, valid-persists, announce
+observed, **no-ready-peer stays non-terminal** (H1 pin).
+
+### M2 — Production DI graph test
+
+`BroadcastServiceProductionDiTests` (2 tests) build a service
+provider with the production `RealtimeSetup.AddRealtimeZoneServices`
++ `BsvP2pSetup.AddBsvP2pZoneServices` registrations (vs the
+pre-existing `BsvP2pSetupDiResolutionTests` which registered a
+mock and never exercised the real ctor). Asserts:
+
+1. `IBroadcastService` resolves as the concrete `BroadcastService`.
+2. Running `BroadcastServiceP2pWirer.Wire()` populates the
+   property-injected slots (`PolicyValidator`, `OutgoingStore`,
+   `Announcer`).
+
+The test resolves the wirer DIRECTLY rather than enumerating
+`IHostedService` because the W2 `OutgoingTransactionMonitor`
+has a static duplicate-instance guard that fires across
+parallel xunit fixtures (W2 closeout known constraint).
+
+### L1 — `IDocumentStore` ctor dep removed
+
+`BroadcastService` ctor reduced to 2 dependencies:
+`IBitcoindService` (fee-rate forwarder) + `ILogger`. The unused
+`Raven.Client.Documents` import was also removed.
+
+### L2 — `BroadcastResponseDto` deleted
+
+`src/Dxs.Infrastructure/Bitails/Dto/BroadcastResponseDto.cs`
+removed (had no remaining references after S4 deleted
+`IBitailsRestApiClient.Broadcast`).
+
+### L3 — `OutgoingTxStates.IsActiveOrAccepted` helper
+
+The `UnconfirmedTransactionsMonitor` re-broadcast success
+check was previously hard-coded to 4 states, missing
+duplicate-submission paths that return existing receipts at
+`MempoolSeen`/`Mined`/`Confirmed`. Centralized as
+`OutgoingTxStates.IsActiveOrAccepted(state)` covering all 7
+post-Validated active states.
+
+### L4 — `BroadcastTxRequest` moved to `Dto/Requests/`
+
+Inline record in `TransactionController.cs` moved to
+`src/Dxs.Consigliere/Dto/Requests/BroadcastTxRequest.cs` per
+repo convention.
+
+### L5 — Closeout S2 row corrected
+
+The original S2 row claimed the ctor "drops `IBitcoindService`"
+— wrong, since `SatoshisPerByte()` still forwards to it. The
+S2 table row above is now accurate: ctor went 10 deps → 2
+post-A2-L1; `IBitcoindService` + `ILogger` are the survivors.
+
+### Final test counts after A2 revision
+
+- `Dxs.Bsv.Tests` 220/220 (unchanged).
+- `Dxs.Consigliere.Tests` 432 passed (was 424 pre-A2 revision,
+  +8: 5 M1 + 2 M2 + 1 ripple). 24 explicit Skipped + 3
+  pre-existing baseline Raven-runtime failures (unchanged).

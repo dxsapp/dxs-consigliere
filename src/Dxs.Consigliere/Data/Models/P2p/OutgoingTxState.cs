@@ -76,4 +76,24 @@ public static class OutgoingTxStates
     public static bool RequiresDispatch(OutgoingTxState s) => s is
         OutgoingTxState.Validated or
         OutgoingTxState.Dispatching;
+
+    /// <summary>
+    /// Wave 5 A2 L3 fix: returns true for any state that means "the
+    /// system is making forward progress on this tx" — used by the
+    /// unconfirmed-tx re-broadcast monitor to decide whether a fresh
+    /// <see cref="IBroadcastService.BroadcastAsync"/> attempt should
+    /// be logged as success or failure. Includes the post-dispatch
+    /// observation states (<see cref="OutgoingTxState.MempoolSeen"/>,
+    /// <see cref="OutgoingTxState.Mined"/>, <see cref="OutgoingTxState.Confirmed"/>)
+    /// because a duplicate submission can return an existing receipt
+    /// already in those states.
+    /// </summary>
+    public static bool IsActiveOrAccepted(OutgoingTxState s) => s is
+        OutgoingTxState.Validated or
+        OutgoingTxState.Dispatching or
+        OutgoingTxState.PeerAcked or
+        OutgoingTxState.PeerRelayed or
+        OutgoingTxState.MempoolSeen or
+        OutgoingTxState.Mined or
+        OutgoingTxState.Confirmed;
 }

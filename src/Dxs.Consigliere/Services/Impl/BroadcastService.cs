@@ -1,21 +1,20 @@
 // Wave 5 S2: legacy multi-provider HTTP broadcast methods + helpers
 // + Polly retry policy + multi-attempt Raven document writer all
-// removed. The ctor dropped IBitcoindService / IBitailsRestApiClient
-// / IWhatsOnChainRestApiClient dependencies — fee estimation moves
-// to BitcoindService directly; client interfaces lose Broadcast in
-// S3 + S4.
-using Dxs.Consigliere.Data.Models;
+// removed. The ctor dropped IBitailsRestApiClient /
+// IWhatsOnChainRestApiClient / IAdminProviderConfigService /
+// IExternalChainProviderCatalog / IUtxoCache / INetworkProvider /
+// IOptions<AppConfig> dependencies. IBitcoindService stays as the
+// fee-rate source (SatoshisPerByte forwarder). IDocumentStore was
+// dropped by A2 L1 (the legacy Broadcast doc writer was the only
+// consumer).
 using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
 using Dxs.Consigliere.Services.P2p;
-
-using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Services.Impl;
 
 public class BroadcastService(
     IBitcoindService bitcoindService,
-    IDocumentStore documentStore,
     ILogger<BroadcastService> logger
 ) : IBroadcastService
 {
@@ -34,9 +33,16 @@ public class BroadcastService(
     // Property-injected via BroadcastServiceP2pExtension.Configure().
     // Kept as property injection to avoid coupling W5 to the BsvP2pSetup
     // wiring order; production DI sets them post-AddBsvP2pZoneServices.
-    internal TxPolicyValidator PolicyValidator { get; set; }
-    internal OutgoingTransactionStore OutgoingStore { get; set; }
-    internal TxRelayCoordinator RelayCoordinator { get; set; }
+    //
+    // A2 M1 fix: OutgoingStore + RelayCoordinator are interface-typed
+    // (IOutgoingTransactionRepository, ITxAnnouncer) so unit tests can
+    // mock them without standing up Raven / the full P2P pool.
+    // PolicyValidator stays concrete because tests can construct it
+    // with a simple IDocumentStore mock (the validator's only
+    // hard-state coupling).
+    internal IBroadcastPolicyValidator PolicyValidator { get; set; }
+    internal IOutgoingTransactionRepository OutgoingStore { get; set; }
+    internal ITxAnnouncer Announcer { get; set; }
 
     public async Task<BroadcastReceipt> BroadcastAsync(string rawHex, string clientConnectionId = null, CancellationToken ct = default)
     {
@@ -80,11 +86,25 @@ public class BroadcastService(
                 tx.State = OutgoingTxState.Dispatching;
                 await OutgoingStore.SaveAsync(tx, default);
 
-                var served = await RelayCoordinator.AnnounceAsync(tx.TxId, tx.RawHex, default);
+                var served = await Announcer.AnnounceAsync(tx.TxId, tx.RawHex, default);
                 if (served == 0)
                 {
-                    tx.State = OutgoingTxState.Failed;
-                    tx.LastError = "No peers available at dispatch time";
+                    // Wave 5 A2 H1 fix: a 0-peer announce is NOT a
+                    // terminal failure. The W5 Core Rule §2 mandates
+                    // that no-ready-peer broadcasts STAY queued in
+                    // Dispatching; OutgoingTransactionMonitor +
+                    // OrphanedTxRebroadcaster (W3) retry when peers
+                    // reconnect. Setting Failed here would have moved
+                    // the doc out of the monitor's non-terminal set
+                    // (per OutgoingTxStates.IsTerminal) and the tx
+                    // would never be retried — breaking the
+                    // "no HTTP fallback, but always-eventually-broadcast"
+                    // contract.
+                    //
+                    // We keep State at Dispatching, record LastError
+                    // for operator visibility, and let the lifecycle
+                    // monitor pick it up on the next tick.
+                    tx.LastError = "No peers available at dispatch time; awaiting peer reconnect";
                     await OutgoingStore.SaveAsync(tx, default);
                 }
             }

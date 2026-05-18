@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Threading;
 
 using Dxs.Consigliere.Data.Models;
+using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.WebSockets;
@@ -120,10 +121,9 @@ public class TransactionController : BaseController
             receipt.TxId, receipt.State.ToString(), receipt.CreatedAtMs, receipt.FailReason));
     }
 
-    /// <summary>
-    /// W5 S1 — body shape for <c>POST /api/tx/broadcast</c>.
-    /// </summary>
-    public sealed record BroadcastTxRequest(string RawHex);
+    // W5 A2 L4 fix: BroadcastTxRequest moved to
+    // src/Dxs.Consigliere/Dto/Requests/BroadcastTxRequest.cs alongside
+    // the other request DTOs (repo convention).
 
     [HttpGet("stas/validate/{id}")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

@@ -13,7 +13,7 @@ namespace Dxs.Consigliere.Data.P2p;
 /// <summary>
 /// CRUD + queries for <see cref="OutgoingTransaction"/> documents.
 /// </summary>
-public sealed class OutgoingTransactionStore(IDocumentStore documentStore)
+public sealed class OutgoingTransactionStore(IDocumentStore documentStore) : IOutgoingTransactionRepository
 {
     public async Task<OutgoingTransaction> GetAsync(string txId, CancellationToken ct = default)
     {
