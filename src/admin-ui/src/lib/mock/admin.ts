@@ -2,6 +2,7 @@ import type { IAdminClient } from "@/lib/admin/admin-client";
 import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
+  BroadcastReceiptDto,
   P2pHealthDto,
   SourceMetricsResponse,
   SourceMetricsSnapshot,
@@ -48,6 +49,18 @@ export class MockAdminClient implements IAdminClient {
   async getTrackedToken(tokenId: string): Promise<AdminTrackedTokenResponse> {
     const { seedToken } = await import("@/lib/mock/admin-tracked-seed");
     return seedToken(tokenId, this.nowMs());
+  }
+
+  async broadcastRaw(rawHex: string): Promise<BroadcastReceiptDto> {
+    // Deterministic pseudo-txid: sha-like fold of rawHex; we only
+    // need a stable 64-hex-char string for the UI confirmation.
+    const txId = hexFold(rawHex);
+    return {
+      txId,
+      state: "Validated",
+      createdAtMs: this.nowMs(),
+      failReason: null,
+    };
   }
 
   async getSourceMetrics(opts: { lastN?: number } = {}): Promise<SourceMetricsResponse> {
@@ -110,4 +123,19 @@ export class MockAdminClient implements IAdminClient {
       lastDegradedReorgAt: null,
     };
   }
+}
+
+/** Deterministic 64-hex-char fold of an arbitrary string. Suitable
+ *  for mocked txIds where we just want a stable identifier per
+ *  input. Not a real hash — never use for production semantics. */
+function hexFold(input: string): string {
+  let h1 = 0x811c9dc5;
+  let h2 = 0xdeadbeef;
+  for (let i = 0; i < input.length; i++) {
+    const c = input.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 16777619) >>> 0;
+    h2 = Math.imul(h2 ^ c, 2246822519) >>> 0;
+  }
+  const seed = h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
+  return seed.repeat(4).slice(0, 64);
 }

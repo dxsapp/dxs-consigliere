@@ -37,6 +37,11 @@ const TokenDetailPage = lazy(() =>
     default: m.TokenDetailPage,
   }))
 );
+const BroadcastQueuePage = lazy(() =>
+  import("@/screens/broadcast-queue/BroadcastQueuePage").then((m) => ({
+    default: m.BroadcastQueuePage,
+  }))
+);
 
 const root = new RootStore();
 
@@ -139,7 +144,14 @@ function AuthedRoutes() {
           </Suspense>
         }
       />
-      <Route path="/broadcast-queue" element={<PlaceholderPage id="broadcast-queue" title="Broadcast Queue" ownerSlice="S6" description="3-column kanban with framer-motion state transitions." />} />
+      <Route
+        path="/broadcast-queue"
+        element={
+          <Suspense fallback={null}>
+            <BroadcastQueuePage admin={root.admin} bus={root.bus} />
+          </Suspense>
+        }
+      />
       <Route path="/addresses" element={<PlaceholderPage id="addresses" title="Addresses" ownerSlice="S5+" description="Address lookup landing." />} />
       <Route
         path="/addresses/:address"

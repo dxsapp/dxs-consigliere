@@ -206,6 +206,15 @@ export interface AdminTrackedTokenSummaryResponse {
   lastProjectionSequence: number | null;
 }
 
+/** S6 — frozen receipt shape returned by `POST /api/tx/broadcast`.
+ *  Mirrors `Dxs.Consigliere.WebSockets.BroadcastReceiptDto`. */
+export interface BroadcastReceiptDto {
+  txId: string;
+  state: string;
+  createdAtMs: number;
+  failReason: string | null;
+}
+
 export interface AdminTrackedTokenResponse {
   tokenId: string;
   symbol: string;

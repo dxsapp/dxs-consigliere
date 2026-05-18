@@ -3,10 +3,12 @@ import {
   ADMIN_API_ROUTES,
   adminTrackedAddressPath,
   adminTrackedTokenPath,
+  TX_BROADCAST_PATH,
 } from "@/lib/api/routes";
 import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
+  BroadcastReceiptDto,
   P2pHealthDto,
   SourceMetricsResponse,
 } from "@/types/admin";
@@ -28,6 +30,8 @@ export interface IAdminClient {
   getSourceMetrics(opts?: { lastN?: number; signal?: AbortSignal }): Promise<SourceMetricsResponse>;
   getTrackedAddress(address: string, signal?: AbortSignal): Promise<AdminTrackedAddressResponse>;
   getTrackedToken(tokenId: string, signal?: AbortSignal): Promise<AdminTrackedTokenResponse>;
+  /** S6 — submits a raw-hex tx via the canonical broadcast endpoint. */
+  broadcastRaw(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
 }
 
 export class AdminClient implements IAdminClient {
@@ -55,6 +59,14 @@ export class AdminClient implements IAdminClient {
   getTrackedToken(tokenId: string, signal?: AbortSignal) {
     return this.api.get<AdminTrackedTokenResponse>(
       adminTrackedTokenPath(tokenId),
+      { signal }
+    );
+  }
+
+  broadcastRaw(rawHex: string, signal?: AbortSignal) {
+    return this.api.post<BroadcastReceiptDto>(
+      TX_BROADCAST_PATH,
+      { rawHex },
       { signal }
     );
   }

@@ -28,3 +28,6 @@ export const adminTrackedAddressPath = (address: string) =>
 
 export const adminTrackedTokenPath = (tokenId: string) =>
   `/api/admin/tracked/token/${encodeURIComponent(tokenId)}`;
+
+/** S6 — canonical broadcast entrypoint (POST {rawHex} → BroadcastReceiptDto). */
+export const TX_BROADCAST_PATH = "/api/tx/broadcast";
