@@ -16,6 +16,11 @@ function adminStub(overrides: Partial<IAdminClient>): IAdminClient {
     getTrackedAddress: mock.getTrackedAddress.bind(mock),
     getTrackedToken: mock.getTrackedToken.bind(mock),
     broadcastRaw: mock.broadcastRaw.bind(mock),
+    getAlerts: mock.getAlerts.bind(mock),
+    getPeers: mock.getPeers.bind(mock),
+    getHeadersTip: mock.getHeadersTip.bind(mock),
+    getHeadersRecent: mock.getHeadersRecent.bind(mock),
+    getProviders: mock.getProviders.bind(mock),
     ...overrides,
   };
 }

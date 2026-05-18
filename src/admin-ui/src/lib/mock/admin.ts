@@ -1,8 +1,12 @@
 import type { IAdminClient } from "@/lib/admin/admin-client";
 import type {
+  AdminPeersResponse,
+  AdminProvidersResponse,
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
+  HeadersTipDto,
+  P2pAlertResponse,
   P2pHealthDto,
   SourceMetricsResponse,
   SourceMetricsSnapshot,
@@ -49,6 +53,31 @@ export class MockAdminClient implements IAdminClient {
   async getTrackedToken(tokenId: string): Promise<AdminTrackedTokenResponse> {
     const { seedToken } = await import("@/lib/mock/admin-tracked-seed");
     return seedToken(tokenId, this.nowMs());
+  }
+
+  async getAlerts(opts: { lastN?: number; since?: number } = {}): Promise<P2pAlertResponse> {
+    const { seedAlerts } = await import("@/lib/mock/admin-systems-seed");
+    return seedAlerts(this.nowMs(), opts);
+  }
+
+  async getPeers(): Promise<AdminPeersResponse> {
+    const { seedPeers } = await import("@/lib/mock/admin-systems-seed");
+    return seedPeers(this.nowMs());
+  }
+
+  async getHeadersTip(): Promise<HeadersTipDto | null> {
+    const { seedHeadersTip } = await import("@/lib/mock/admin-systems-seed");
+    return seedHeadersTip(this.nowMs());
+  }
+
+  async getHeadersRecent(count: number): Promise<HeadersTipDto[]> {
+    const { seedHeadersRecent } = await import("@/lib/mock/admin-systems-seed");
+    return seedHeadersRecent(this.nowMs(), count);
+  }
+
+  async getProviders(): Promise<AdminProvidersResponse> {
+    const { seedProviders } = await import("@/lib/mock/admin-systems-seed");
+    return seedProviders();
   }
 
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {

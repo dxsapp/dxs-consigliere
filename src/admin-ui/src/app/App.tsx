@@ -42,6 +42,9 @@ const BroadcastQueuePage = lazy(() =>
     default: m.BroadcastQueuePage,
   }))
 );
+const AlertsPage = lazy(() =>
+  import("@/screens/alerts/AlertsPage").then((m) => ({ default: m.AlertsPage }))
+);
 
 // S6-audit M2: RootStore is constructed asynchronously because the
 // mock-mode factory dynamic-imports the mock module on demand. In
@@ -176,7 +179,14 @@ function AuthedRoutes({ root }: { root: RootStore }) {
           </Suspense>
         }
       />
-      <Route path="/alerts" element={<PlaceholderPage id="alerts" title="Alerts" ownerSlice="S7" description="Active alerts + history journal (poll-delta toasts)." />} />
+      <Route
+        path="/alerts"
+        element={
+          <Suspense fallback={null}>
+            <AlertsPage admin={root.admin} />
+          </Suspense>
+        }
+      />
 
       {/* System section. */}
       <Route path="/p2p" element={<PlaceholderPage id="p2p" title="P2P Pool" ownerSlice="S8" description="Peers DataGrid with ScoreBar + /24 diversity donut." />} />

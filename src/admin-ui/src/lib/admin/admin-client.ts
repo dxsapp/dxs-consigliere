@@ -1,14 +1,23 @@
 import type { ApiClient } from "@/lib/api/client";
 import {
   ADMIN_API_ROUTES,
+  ADMIN_P2P_HEADERS_TIP_PATH,
+  ADMIN_P2P_PEERS_PATH,
+  ADMIN_PROVIDERS_PATH,
+  adminAlertsPath,
+  adminP2pHeadersRecentPath,
   adminTrackedAddressPath,
   adminTrackedTokenPath,
   TX_BROADCAST_PATH,
 } from "@/lib/api/routes";
 import type {
+  AdminPeersResponse,
+  AdminProvidersResponse,
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
+  HeadersTipDto,
+  P2pAlertResponse,
   P2pHealthDto,
   SourceMetricsResponse,
 } from "@/types/admin";
@@ -32,6 +41,15 @@ export interface IAdminClient {
   getTrackedToken(tokenId: string, signal?: AbortSignal): Promise<AdminTrackedTokenResponse>;
   /** S6 — submits a raw-hex tx via the canonical broadcast endpoint. */
   broadcastRaw(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
+  /** S7 — alert history (page-delta polling per A1 M1). */
+  getAlerts(opts?: { lastN?: number; since?: number; signal?: AbortSignal }): Promise<P2pAlertResponse>;
+  /** S8 — peers diagnostic. */
+  getPeers(signal?: AbortSignal): Promise<AdminPeersResponse>;
+  /** S9 — headers tip + recent. */
+  getHeadersTip(signal?: AbortSignal): Promise<HeadersTipDto | null>;
+  getHeadersRecent(count: number, signal?: AbortSignal): Promise<HeadersTipDto[]>;
+  /** S10 — providers (config/recommendations/catalog). */
+  getProviders(signal?: AbortSignal): Promise<AdminProvidersResponse>;
 }
 
 export class AdminClient implements IAdminClient {
@@ -69,5 +87,36 @@ export class AdminClient implements IAdminClient {
       { rawHex },
       { signal }
     );
+  }
+
+  getAlerts(opts: { lastN?: number; since?: number; signal?: AbortSignal } = {}) {
+    return this.api.get<P2pAlertResponse>(
+      adminAlertsPath({ lastN: opts.lastN, since: opts.since }),
+      { signal: opts.signal }
+    );
+  }
+
+  getPeers(signal?: AbortSignal) {
+    return this.api.get<AdminPeersResponse>(ADMIN_P2P_PEERS_PATH, { signal });
+  }
+
+  async getHeadersTip(signal?: AbortSignal): Promise<HeadersTipDto | null> {
+    try {
+      return await this.api.get<HeadersTipDto>(ADMIN_P2P_HEADERS_TIP_PATH, { signal });
+    } catch (err) {
+      // The backend returns 404 before the chain bootstraps; that's
+      // not an error — the operator just hasn't synced yet.
+      const e = err as { status?: number; category?: string };
+      if (e?.status === 404 || e?.category === "NotFound") return null;
+      throw err;
+    }
+  }
+
+  getHeadersRecent(count: number, signal?: AbortSignal) {
+    return this.api.get<HeadersTipDto[]>(adminP2pHeadersRecentPath(count), { signal });
+  }
+
+  getProviders(signal?: AbortSignal) {
+    return this.api.get<AdminProvidersResponse>(ADMIN_PROVIDERS_PATH, { signal });
   }
 }

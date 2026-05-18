@@ -232,6 +232,138 @@ export interface AdminTrackedTokenSummaryResponse {
   lastProjectionSequence: number | null;
 }
 
+/** S10 — providers config + catalog (`GET /api/admin/providers`).
+ *  Mirrors `Dxs.Consigliere.Dto.Responses.Admin.AdminProvidersResponse`. */
+export interface AdminProvidersResponse {
+  recommendations: AdminProviderRecommendationsResponse;
+  config: AdminProviderConfigResponse;
+  providers: AdminProviderCatalogItemResponse[];
+}
+
+export interface AdminProviderRecommendationsResponse {
+  realtimePrimaryProvider: string | null;
+  restPrimaryProvider: string | null;
+  rawTxFetchProvider: string | null;
+}
+
+export interface AdminProviderConfigResponse {
+  static: AdminProviderConfigValuesResponse | null;
+  override: AdminProviderConfigValuesResponse | null;
+  effective: AdminProviderConfigValuesResponse | null;
+  overrideActive: boolean;
+  restartRequired: boolean;
+  allowedRealtimePrimaryProviders: string[];
+  allowedRawTxPrimaryProviders: string[];
+  allowedRestPrimaryProviders: string[];
+  allowedBitailsTransports: string[];
+  updatedAt: number | null;
+  updatedBy: string | null;
+}
+
+export interface AdminProviderConfigValuesResponse {
+  realtimePrimaryProvider: string | null;
+  rawTxPrimaryProvider: string | null;
+  restPrimaryProvider: string | null;
+  bitailsTransport: string | null;
+  bitails: AdminBitailsProviderConfigResponse;
+  whatsonchain: AdminRestProviderConfigResponse;
+  junglebus: AdminJungleBusProviderConfigResponse;
+}
+
+export interface AdminBitailsProviderConfigResponse {
+  apiKey: string | null;
+  baseUrl: string | null;
+  websocketBaseUrl: string | null;
+  zmqTxUrl: string | null;
+  zmqBlockUrl: string | null;
+}
+export interface AdminRestProviderConfigResponse {
+  apiKey: string | null;
+  baseUrl: string | null;
+}
+export interface AdminJungleBusProviderConfigResponse {
+  baseUrl: string | null;
+  mempoolSubscriptionId: string | null;
+  blockSubscriptionId: string | null;
+}
+
+export interface AdminProviderCatalogItemResponse {
+  providerId: string;
+  displayName: string;
+  roles: string[];
+  supportedCapabilities: string[];
+  recommendedFor: string[];
+  activeFor: string[];
+  status: string;
+  description: string;
+  missingRequirements: string[];
+  helpLinks: AdminProviderLinkResponse[];
+}
+
+export interface AdminProviderLinkResponse {
+  label: string;
+  url: string;
+}
+
+/** S8 — peer row from `GET /api/admin/p2p/peers`. The backend
+ *  returns a plain object; field names mirrored exactly. */
+export interface AdminPeerRow {
+  endpoint: string;
+  source: string;
+  userAgent: string | null;
+  protocolVersion: number | null;
+  services: number | null;
+  successCount: number;
+  failCount: number;
+  firstSeen: string | null;
+  lastSeen: string | null;
+  lastConnected: string | null;
+  negativeUntil: string | null;
+  lastFailureReason: string | null;
+  subnet24: string;
+}
+
+export interface AdminPeersResponse {
+  total: number;
+  successful: number;
+  failed: number;
+  distinctSubnets: number;
+  peers: AdminPeerRow[];
+}
+
+/** S9 — headers tip + recent (display-order hex, audit A2 H3). */
+export interface HeadersTipDto {
+  hash: string;
+  height: number;
+  timestampMs: number;
+  prevHash: string;
+}
+
+/** S7 — backend `P2pAlertType` enum mirror. Frozen (W6 S3). */
+export const P2P_ALERT_TYPES = [
+  "PoolSizeBelowThreshold",
+  "RelayBackRateBelowThreshold",
+  "ReorgDepthExceeded",
+  "SourceFirstDropout",
+] as const;
+export type P2pAlertType = (typeof P2P_ALERT_TYPES)[number];
+
+/** Frozen wire shape for a single alert (`AdminP2pController.P2pAlertEventDto`). */
+export interface P2pAlertEventDto {
+  id: string;
+  alertUnixMs: number;
+  /** String name — backend serializes the enum as a string for
+   *  forwards-compatibility (master.md handoff table). */
+  type: string;
+  detail: string;
+  context: Record<string, string>;
+}
+
+/** Frozen response shape for `GET /api/admin/p2p/alerts`. */
+export interface P2pAlertResponse {
+  alerts: P2pAlertEventDto[];
+}
+
 /** S6 — frozen receipt shape returned by `POST /api/tx/broadcast`.
  *  Mirrors `Dxs.Consigliere.WebSockets.BroadcastReceiptDto`. */
 export interface BroadcastReceiptDto {

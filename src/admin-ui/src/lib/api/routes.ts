@@ -31,3 +31,21 @@ export const adminTrackedTokenPath = (tokenId: string) =>
 
 /** S6 — canonical broadcast entrypoint (POST {rawHex} → BroadcastReceiptDto). */
 export const TX_BROADCAST_PATH = "/api/tx/broadcast";
+
+/** S7 — alert history (page-delta polling per A1 M1). Backend caps
+ *  lastN ≤ min(retention, 1440); `since` is unix-ms exclusive. */
+export const adminAlertsPath = (opts: { lastN?: number; since?: number } = {}): string => {
+  const params: string[] = [];
+  if (opts.lastN && opts.lastN > 0) params.push(`lastN=${opts.lastN}`);
+  if (opts.since && opts.since > 0) params.push(`since=${opts.since}`);
+  return params.length > 0 ? `/api/admin/p2p/alerts?${params.join("&")}` : "/api/admin/p2p/alerts";
+};
+
+/** S8 — peers + headers diagnostic surface. */
+export const ADMIN_P2P_PEERS_PATH = "/api/admin/p2p/peers";
+export const ADMIN_P2P_HEADERS_TIP_PATH = "/api/admin/p2p/headers/tip";
+export const adminP2pHeadersRecentPath = (count: number) =>
+  `/api/admin/p2p/headers/recent?count=${count}`;
+
+/** S10 — providers config (read-only consumption in S10). */
+export const ADMIN_PROVIDERS_PATH = "/api/admin/providers";
