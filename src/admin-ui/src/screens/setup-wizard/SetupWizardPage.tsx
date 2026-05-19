@@ -52,31 +52,66 @@ export const SetupWizardPage = observer(function SetupWizardPage({
     return () => store.dispose();
   }, [store]);
 
-  // Post-submit: re-hydrate the auth store so LoginPage no longer
-  // shows the stale setup-required banner, then redirect. Must
-  // come before the early-return below so the hook order stays
-  // stable (react-hooks/rules-of-hooks).
+  // Post-submit: flip auth.setupRequired off using the response
+  // payload BEFORE the network re-hydrate. Two reasons:
+  //  - The wizard already knows the new state authoritatively from
+  //    POST /api/setup/complete — no need to round-trip again to
+  //    learn the same thing.
+  //  - A transient /me failure during the subsequent hydrate would
+  //    otherwise leave `setupRequired === true` and bounce the
+  //    operator straight back to /setup via AuthGuard (wave-A2
+  //    S0-audit M1).
+  // The hook order is stable (this effect MUST come before any
+  // conditional return) per react-hooks/rules-of-hooks.
   useEffect(() => {
-    if (store.status !== "submitted") return;
+    if (store.status !== "submitted" || !store.submittedStatus) return;
     let cancelled = false;
+    auth.applySetupStatus(store.submittedStatus);
     void (async () => {
-      await auth.hydrate();
+      // Best-effort re-hydrate to pick up session-side state
+      // (cookie freshness, admin username, etc.). Failures are
+      // already covered by applySetupStatus above — we just
+      // navigate regardless.
+      try {
+        await auth.hydrate();
+      } catch {
+        /* swallow — setupRequired is already cleared */
+      }
       if (cancelled) return;
       navigate(LOGIN_PATH, { replace: true });
     })();
     return () => {
       cancelled = true;
     };
-  }, [store.status, auth, navigate]);
+  }, [store.status, store.submittedStatus, auth, navigate]);
 
   // Once setup is already done (e.g. operator refreshed the page
   // post-submit, or visited /setup on a hydrated install), bounce.
+  // wave-A2 S0-audit L1: while the initial getSetupOptions() is in
+  // flight we render a neutral loader instead of the full wizard
+  // chrome — otherwise an already-completed install briefly shows
+  // the Stepper rail before the redirect lands.
   if (
     store.options &&
     store.options.status.setupCompleted &&
     store.status !== "submitted"
   ) {
     return <Navigate to={LOGIN_PATH} replace />;
+  }
+  if (store.status === "loading" && !store.options) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "background.default",
+        }}
+        data-testid="setup-wizard-loading"
+      >
+        <LinearProgress sx={{ width: 240 }} />
+      </Box>
+    );
   }
 
   return (
@@ -87,7 +122,10 @@ export const SetupWizardPage = observer(function SetupWizardPage({
           subheader="Configure the admin account + provider routing before signing in."
         />
         <CardContent>
-          {store.status === "loading" && <LinearProgress />}
+          {/* Initial loading is handled by the outer skeleton
+              above (wave-A2 S0-audit L1). Once status flips to
+              "submitting", show inline progress instead. */}
+          {store.status === "submitting" && <LinearProgress />}
 
           {store.status === "error" && (
             <Alert

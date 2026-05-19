@@ -90,6 +90,84 @@ describe("SetupWizardPage", () => {
     expect(screen.getByRole("button", { name: /complete setup/i })).not.toBeDisabled();
   });
 
+  it("clears auth.setupRequired post-submit even if hydrate fails (S0-audit M1)", async () => {
+    const prefs = new PrefStore();
+    const admin = new MockAdminClient();
+    const authClient = new MockAuthClient();
+    // Seed: pretend the backend still reports setupRequired=true
+    // (mock localStorage is empty so MockAuthClient.me() does
+    // exactly that on the initial hydrate).
+    const auth = new AuthStore(authClient);
+    await auth.hydrate();
+    expect(auth.setupRequired).toBe(true);
+
+    // Simulate a transient /me failure on the post-submit hydrate.
+    vi.spyOn(authClient, "me").mockRejectedValueOnce(new Error("network blip"));
+
+    render(
+      <ThemeProvider prefs={prefs}>
+        <MemoryRouter initialEntries={["/setup"]}>
+          <Routes>
+            <Route path="/setup" element={<SetupWizardPage admin={admin} auth={auth} />} />
+            <Route path="/login" element={<div data-testid="login-landing">login</div>} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+
+    await waitFor(() => expect(screen.getByTestId("setup-step-1")).toBeInTheDocument());
+    act(() => {
+      fireEvent.change(screen.getByLabelText(/operator name/i), { target: { value: "admin-a2" } });
+      fireEvent.change(screen.getAllByLabelText(/^password/i)[0], { target: { value: "ConsigliereA2!" } });
+      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: "ConsigliereA2!" } });
+    });
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    await waitFor(() => expect(screen.getByTestId("setup-step-2")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    await waitFor(() => expect(screen.getByTestId("setup-step-3")).toBeInTheDocument());
+    act(() => {
+      fireEvent.change(screen.getByLabelText(/block subscription id/i), {
+        target: { value: "smoke-sub" },
+      });
+    });
+    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    await waitFor(() => expect(screen.getByTestId("setup-step-4")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /complete setup/i }));
+
+    // Even with the broken /me, the wizard must redirect AND
+    // auth.setupRequired must be false (so the LoginPage banner
+    // doesn't bounce the operator back to /setup).
+    await waitFor(() => {
+      expect(screen.getByTestId("login-landing")).toBeInTheDocument();
+    });
+    expect(auth.setupRequired).toBe(false);
+  });
+
+  it("renders a neutral loader before options resolve (S0-audit L1)", async () => {
+    const prefs = new PrefStore();
+    const admin = new MockAdminClient();
+    const auth = new AuthStore(new MockAuthClient());
+    // Hold getSetupOptions open so the page is stuck in `loading`.
+    vi.spyOn(admin, "getSetupOptions").mockImplementation(
+      () => new Promise(() => {
+        /* never resolves */
+      })
+    );
+    render(
+      <ThemeProvider prefs={prefs}>
+        <MemoryRouter initialEntries={["/setup"]}>
+          <Routes>
+            <Route path="/setup" element={<SetupWizardPage admin={admin} auth={auth} />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+    expect(screen.getByTestId("setup-wizard-loading")).toBeInTheDocument();
+    // No wizard chrome flashes while options are in flight.
+    expect(screen.queryByText(/first-run setup/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Admin account")).not.toBeInTheDocument();
+  });
+
   it("redirects to /login on submit success", async () => {
     renderWizard();
     await waitFor(() => expect(screen.getByTestId("setup-step-1")).toBeInTheDocument());

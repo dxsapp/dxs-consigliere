@@ -187,6 +187,27 @@ export class AuthStore {
     });
   }
 
+  /**
+   * wave-A2 S0-audit M1: apply a fresh
+   * `SetupStatusResponse`-shaped payload without going through the
+   * network. The setup wizard calls this with the response from
+   * `POST /api/setup/complete` so the `setupRequired` flag clears
+   * deterministically — even when the subsequent `auth.hydrate()`
+   * call gets a transient `GET /me` failure that would otherwise
+   * leave the LoginPage banner stale.
+   */
+  applySetupStatus(res: {
+    setupRequired: boolean;
+    setupCompleted: boolean;
+    adminEnabled: boolean;
+    adminUsername: string | null;
+  }) {
+    runInAction(() => {
+      this.setupRequired = res.setupRequired;
+      this.enabled = res.adminEnabled;
+    });
+  }
+
   private applyStatus(res: {
     authenticated: boolean;
     username: string;
