@@ -47,7 +47,8 @@ public static class IndexerStateSetup
             // expose it via a thin IProjectionRebuilder adapter.
             .AddSingleton<Dxs.Consigliere.Services.P2p.IProjectionRebuilder,
                           Dxs.Consigliere.Services.P2p.TxLifecycleProjectionRebuilderAdapter>()
-            .AddSingleton<IRealtimeSourcePolicyOverrideStore, RealtimeSourcePolicyOverrideStore>()
+            .AddSingleton<SecretsFileStore>()
+            .AddSingleton<IRealtimeSourcePolicyOverrideStore>(sp => sp.GetRequiredService<SecretsFileStore>())
             .AddSingleton<ISetupBootstrapStore, SetupBootstrapStore>()
             .AddSingleton<IAdminProviderConfigService, AdminProviderConfigService>()
             .AddSingleton<ISetupWizardService, SetupWizardService>()

@@ -195,6 +195,91 @@ second response is also 429 surfaces an
 clamped to 65 seconds so a buggy / malicious server cannot
 freeze the UI for hours.
 
+## Secrets at rest (wave-A3 S5)
+
+Provider API keys, websocket / ZMQ URLs, and JungleBus
+subscription IDs live in a single chmod-600 JSON file under
+`Consigliere:Secrets:Dir`. No plaintext credentials in git,
+no plaintext credentials in RavenDB.
+
+### Layout
+
+- **Container path:** `/var/lib/consigliere/secrets/providers.json`
+- **Repo-relative default (dev):** `data/secrets/providers.json`
+  (gitignored)
+- **Owner:** the dotnet process user, mode `600` (POSIX).
+  Docker secret mounts come in as `444`; the store accepts
+  the existing mode without trying to re-chmod.
+
+### Compose binding
+
+`compose.yml` defines a named volume `consigliere-secrets`
+mounted at `/var/lib/consigliere/secrets`. The `Consigliere__Secrets__Dir`
+env points the dotnet process at that path. Production
+deployments substitute a Docker secret in the same mount
+position:
+
+```yaml
+# compose override snippet
+services:
+  consigliere:
+    secrets:
+      - source: provider_credentials
+        target: /var/lib/consigliere/secrets/providers.json
+        mode: 0400
+secrets:
+  provider_credentials:
+    file: ./infra/provider_credentials.json
+```
+
+### Migration from wave-A2 (Raven document → file)
+
+On the first wave-A3 startup, `Startup.InitializeDatabase`
+runs `SecretsFileStore.MigrateFromRavenAsync`. The migrator:
+
+1. If the file already exists, short-circuits (idempotent).
+2. Loads the wave-A2 Raven document
+   `operator/runtime/realtime-source-policy`.
+3. Writes it to `{Secrets:Dir}/providers.json`.
+4. Deletes the Raven document.
+5. Returns. Subsequent startups never touch Raven for
+   provider config.
+
+Migration is fail-stop. If the file write or Raven delete
+throws, the host refuses to start until the operator fixes
+the underlying issue (typically permissions on the secrets
+mount).
+
+### Secret rotation
+
+To rotate any provider API key:
+
+```sh
+# 1. Stop the host. Caddy can keep serving its 503 page.
+docker compose --profile dev stop consigliere
+
+# 2. Edit the JSON in place. The mount is owned by the
+#    dotnet user (or root via the compose run); use a
+#    privileged shell or copy out → edit → copy in.
+docker run --rm -it -v dxs-consigliere_consigliere-secrets:/secrets alpine \
+  vi /secrets/providers.json
+
+# 3. Start the host.
+docker compose --profile dev start consigliere
+```
+
+The file is the only authoritative source for provider
+config. The admin UI's settings screen is also valid (it
+re-runs `ApplyProviderConfigAsync` → `SecretsFileStore.SaveAsync`).
+
+### CI grep gate
+
+`scripts/secrets-lint.sh` runs on every PR + push (CI job
+`secrets-lint`). It greps `src/Dxs.Consigliere/appsettings*.json`
+for `"ApiKey" | "Password" | "Secret" | "Token"` keys whose
+value starts with anything other than `"`, `${`, or empty.
+Re-introducing a plaintext credential fails the build.
+
 ### Smoke after bring-up
 
 ```sh

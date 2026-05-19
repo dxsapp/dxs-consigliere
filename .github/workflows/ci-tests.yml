@@ -9,6 +9,21 @@ on:
   pull_request:
 
 jobs:
+  # wave-A3 S5 — fail red if any `src/Dxs.Consigliere/
+  # appsettings*.json` reintroduces a plaintext API key / password
+  # / secret / token. Owned by `scripts/secrets-lint.sh`.
+  secrets-lint:
+    name: secrets-lint (no plaintext credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run secrets-lint
+        run: bash scripts/secrets-lint.sh
+
   backend:
     name: backend (.NET)
     runs-on: ubuntu-latest

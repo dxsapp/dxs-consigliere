@@ -29,10 +29,17 @@ services:
       DOTNET_ENVIRONMENT: DockerComposeE2E
       ASPNETCORE_ENVIRONMENT: DockerComposeE2E
       ASPNETCORE_HTTP_PORTS: "5000"
+      # wave-A3 S5: pin the on-disk secrets dir at the container
+      # path the secrets volume binds to. The setup wizard writes
+      # `providers.json` here; the host process reads it on every
+      # provider-config request.
+      Consigliere__Secrets__Dir: "/var/lib/consigliere/secrets"
     # wave-A3 S0: Kestrel is internal-only. Caddy is the only
     # public surface, and TLS terminates there.
     expose:
       - "5000"
+    volumes:
+      - consigliere-secrets:/var/lib/consigliere/secrets
 
   # wave-A3 S0 — local-dev TLS termination via Caddy's bundled
   # self-signed CA (`tls internal`). Production termination lives
@@ -59,3 +66,7 @@ volumes:
   raven-data:
   caddy-data:
   caddy-config:
+  # wave-A3 S5: on-disk provider-config secrets — owner-rw chmod 600
+  # JSON. Prod deployments bind a Docker secret here instead of a
+  # named volume; the same container mount path applies.
+  consigliere-secrets:

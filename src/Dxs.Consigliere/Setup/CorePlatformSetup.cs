@@ -21,7 +21,10 @@ public static class CorePlatformSetup
     {
         services
             .Configure<AppConfig>(configuration)
-            .Configure<NetworkConfig>(configuration);
+            .Configure<NetworkConfig>(configuration)
+            // wave-A3 S5: SecretsFileStore reads its on-disk
+            // root from Consigliere:Secrets:Dir.
+            .Configure<ConsigliereSecretsConfig>(configuration.GetSection("Consigliere:Secrets"));
 
         // `Dxs.Common.BackgroundTasks.PeriodicTask` (and every
         // hosted-service descendant — OutgoingTransactionMonitor,

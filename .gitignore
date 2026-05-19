@@ -76,3 +76,7 @@ src/admin-ui/.env.*.local
 
 # C# Dev Kit language service cache
 *.csproj.lscache
+
+# wave-A3 S5: on-disk provider secrets — chmod 600, never committed
+src/Dxs.Consigliere/data/secrets/
+src/Dxs.Consigliere/data/secrets-test/

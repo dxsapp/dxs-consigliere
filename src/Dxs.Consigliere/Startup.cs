@@ -1,4 +1,6 @@
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Setup;
+using Raven.Client.Documents;
 using Raven.Migrations;
 
 namespace Dxs.Consigliere;
@@ -87,5 +89,17 @@ public class Startup(IConfiguration configuration)
     }
 
     public static void InitializeDatabase(IServiceProvider serviceProvider)
-        => serviceProvider.GetRequiredService<MigrationRunner>().Run();
+    {
+        serviceProvider.GetRequiredService<MigrationRunner>().Run();
+
+        // wave-A3 S5: one-shot migration of the wave-A2 Raven
+        // provider-config document onto the on-disk secrets
+        // store. Fail-stop — if the file write or Raven delete
+        // throws, the host refuses to start so the operator
+        // fixes the underlying issue instead of running with
+        // half-migrated state.
+        var fileStore = serviceProvider.GetRequiredService<SecretsFileStore>();
+        var documentStore = serviceProvider.GetRequiredService<IDocumentStore>();
+        fileStore.MigrateFromRavenAsync(documentStore).GetAwaiter().GetResult();
+    }
 }
