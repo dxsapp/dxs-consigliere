@@ -181,7 +181,7 @@ Per-slice commit hashes recorded here at closeout:
 
 | slice | commit | summary |
 |---|---|---|
-| S0 | _pending_ | _Public /setup wizard_ |
+| S0 | `ce36377` | Public /setup wizard + AuthGuard setupRequired redirect + LoginPage CTA |
 | S1 | _pending_ | _Swagger codegen + contracts:check gate_ |
 | S2 | _pending_ | _ASP.NET-host parity test + CI job_ |
 | Audit fold | _pending_ | _A1 findings folded (if any)_ |
