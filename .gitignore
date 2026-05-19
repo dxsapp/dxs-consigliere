@@ -23,6 +23,12 @@ bld/
 [Ll]og/
 [Ll]ogs/
 
+# wave-A3 S4: re-allow the admin-ui live-tail screen directory.
+# The MSBuild rule above otherwise shadows it (legacy default
+# ignore that targets build-log output).
+!src/admin-ui/src/screens/logs/
+!src/admin-ui/src/screens/logs/**
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json

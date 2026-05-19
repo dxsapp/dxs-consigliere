@@ -47,6 +47,18 @@ public static class SignalRSetup
                         options.Transports = HttpTransportType.WebSockets;
                     }
                 );
+
+                // wave-A3 S4: admin-only live log tail. AuthZ
+                // policy is enforced inside the hub via
+                // [Authorize(Policy = AdminAuthDefaults.Policy)];
+                // here we only pin the transport.
+                endpoints.MapHub<LogStreamHub>(
+                    LogStreamHub.Route,
+                    options =>
+                    {
+                        options.Transports = HttpTransportType.WebSockets;
+                    }
+                );
             }
         );
 }

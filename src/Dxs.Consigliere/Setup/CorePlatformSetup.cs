@@ -45,6 +45,14 @@ public static class CorePlatformSetup
         // Raven session.
         services.AddSingleton<Services.Audit.IAuditLogger, Services.Audit.AuditLogger>();
 
+        // wave-A3 S4: in-process log ring + MEL provider that
+        // pushes every framework log emission through the
+        // sanitizer + into the buffer. The hub registered in
+        // SignalRSetup pulls from the same singleton.
+        services.AddSingleton<Logging.LogStreamBuffer>();
+        services.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider>(sp =>
+            new Logging.LogStreamProvider(sp.GetRequiredService<Logging.LogStreamBuffer>()));
+
         services
             .AddOptions<ConsigliereSourcesConfig>()
             .Configure(options =>
