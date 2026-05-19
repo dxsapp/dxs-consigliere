@@ -242,7 +242,7 @@ Per-slice commit hashes recorded here at closeout:
 | S0 | `ade41b0` | Caddy TLS termination (dev `tls internal` + prod ACME profiles, mutually exclusive) + cookie `SecurePolicy` config knob (default `Always`, conservative parser) + ForwardedHeaders middleware + runbook TLS section |
 | S0 audit fold | `58b0684` | Codex MAJOR REVISION REQUIRED fold: M1 split caddy-prod to `compose.prod.yml` override so `--profile dev config` stops failing on prod-only env interpolation; M2 dev Caddyfile binds `https://localhost` + `https://127.0.0.1` as concrete site addresses so `tls internal` issues a cert that curl can complete a handshake against; L1 ledger hash backfill (`8ba09a5` → `ade41b0` after amend); L2 drop `ForwardedHeadersOptions__KnownProxies__0` env-var suggestion from runbook (`IList<IPAddress>` does not round-trip via `IConfiguration` binding). |
 | S1 | _pending_ | _AspNetCore.RateLimiting on auth + broadcast_ |
-| S2 | _pending_ | _Health endpoints + named-tag probes_ |
+| S2 | `5efdff2` | `/health/{live,ready,startup}` anonymous probes — `Microsoft.Extensions.Diagnostics.HealthChecks` + named tag predicates; `RavenHealthCheck` (2s timeout, terse description), `ProviderReachabilityCheck` (HEAD 5s/target, Healthy/Degraded/Unhealthy matrix, no URL leakage), `StartupDiCheck` (resolves `IBroadcastService` without touching Raven); shared `HealthResponseWriter`; Caddy `prod` `log_skip @health` matcher; runbook probe section + sample k8s YAML; 9/9 backend unit + 4/4 vitest contract describes |
 | S3 | _pending_ | _AuditLogEntry + /audit-log admin UI screen_ |
 | S4 | _pending_ | _Serilog → SignalR log stream + UI live tail_ |
 | S5 | _pending_ | _appsettings.Production + Docker secrets + setup-wizard file write_ |
