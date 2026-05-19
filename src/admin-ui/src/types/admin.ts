@@ -1,3 +1,9 @@
+// wave-A3 S6 — the generated types module is the source for any
+// DTO that has a 1:1 generated equivalent + a NotNull-tightened
+// `required` set. Hand-mirrored interfaces remain for the rest
+// of the file (full migration is the wave-A4 residual).
+import type { components } from "@/types/api.generated";
+
 /**
  * Admin REST + SignalR DTOs (S4+). Hand-mirrored from C# sources:
  *   - `Dxs.Consigliere.Controllers.AdminP2pController.P2pHealthDto`
@@ -522,21 +528,18 @@ export interface AdminTrackedTokenResponse {
 }
 
 /**
- * wave-A3 S3 — frozen wire shape for `GET /api/admin/audit-log`.
- * Hand-mirrored from `AdminAuditLogResponse` until wave-A3 S6's
- * NRT inference swaps every screen onto `api.generated.ts`.
+ * wave-A3 S6 — first wire DTO migrated onto `api.generated.ts`.
+ * The hand-mirrored interface body is gone; consumers still
+ * import from `@/types/admin`, so the cutover is behaviorally
+ * inert. The S6 NRT filter populates `required` for every
+ * NotNull property; openapi-typescript drops the `?` marker so
+ * a screen that destructured an optional `context` keeps
+ * working without changes.
+ *
+ * The full sweep of remaining hand-mirrored DTOs is logged as a
+ * wave-A4 residual — every Dto.cs file needs an explicit
+ * `#nullable enable` + per-property review before its generated
+ * shape is tight enough to re-export cleanly.
  */
-export interface AdminAuditLogEntryResponse {
-  id: string;
-  unixMs: number;
-  username: string;
-  action: string;
-  targetId: string;
-  /** Pre-serialised JSON blob; the UI parses + renders on demand. */
-  context: string | null;
-}
-
-export interface AdminAuditLogResponse {
-  totalMatched: number;
-  entries: AdminAuditLogEntryResponse[];
-}
+export type AdminAuditLogEntryResponse = components["schemas"]["AdminAuditLogEntryResponse"];
+export type AdminAuditLogResponse = components["schemas"]["AdminAuditLogResponse"];

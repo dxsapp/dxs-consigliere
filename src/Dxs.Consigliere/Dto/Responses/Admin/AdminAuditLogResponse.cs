@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace Dxs.Consigliere.Dto.Responses.Admin;
 
 /// <summary>
@@ -16,11 +18,11 @@ public sealed class AdminAuditLogResponse
 
 public sealed class AdminAuditLogEntryResponse
 {
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public long UnixMs { get; set; }
-    public string Username { get; set; }
-    public string Action { get; set; }
-    public string TargetId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
+    public string TargetId { get; set; } = string.Empty;
     /// <summary>Pre-serialised JSON blob (string); the UI parses + renders.</summary>
-    public string Context { get; set; }
+    public string? Context { get; set; }
 }

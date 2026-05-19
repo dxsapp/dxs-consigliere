@@ -2695,6 +2695,15 @@
   "components": {
     "schemas": {
       "AddressHistoryDto": {
+        "required": [
+          "balanceSatoshis",
+          "height",
+          "receivedSatoshis",
+          "spentSatoshis",
+          "timestamp",
+          "txFeeSatoshis",
+          "validStasTx"
+        ],
         "type": "object",
         "properties": {
           "address": {
@@ -2758,6 +2767,9 @@
         "additionalProperties": false
       },
       "AddressHistoryResponse": {
+        "required": [
+          "totalCount"
+        ],
         "type": "object",
         "properties": {
           "history": {
@@ -2802,27 +2814,30 @@
         "additionalProperties": false
       },
       "AdminAuditLogEntryResponse": {
+        "required": [
+          "action",
+          "id",
+          "targetId",
+          "unixMs",
+          "username"
+        ],
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "unixMs": {
             "type": "integer",
             "format": "int64"
           },
           "username": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "action": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "targetId": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "context": {
             "type": "string",
@@ -2832,6 +2847,10 @@
         "additionalProperties": false
       },
       "AdminAuditLogResponse": {
+        "required": [
+          "entries",
+          "totalMatched"
+        ],
         "type": "object",
         "properties": {
           "totalMatched": {
@@ -2842,13 +2861,17 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdminAuditLogEntryResponse"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
       },
       "AdminAuthStatusResponse": {
+        "required": [
+          "authenticated",
+          "enabled",
+          "setupRequired"
+        ],
         "type": "object",
         "properties": {
           "setupRequired": {
@@ -2929,6 +2952,21 @@
         "additionalProperties": false
       },
       "AdminDashboardSummaryResponse": {
+        "required": [
+          "activeAddressCount",
+          "activeTokenCount",
+          "backfillingAddressCount",
+          "backfillingTokenCount",
+          "blockingUnknownRootTokenCount",
+          "degradedAddressCount",
+          "degradedTokenCount",
+          "failureCount",
+          "fullHistoryLiveAddressCount",
+          "fullHistoryLiveTokenCount",
+          "tombstonedAddressCount",
+          "tombstonedTokenCount",
+          "unknownRootFindingCount"
+        ],
         "type": "object",
         "properties": {
           "activeAddressCount": {
@@ -3132,6 +3170,10 @@
         "additionalProperties": false
       },
       "AdminProviderConfigResponse": {
+        "required": [
+          "overrideActive",
+          "restartRequired"
+        ],
         "type": "object",
         "properties": {
           "static": {
@@ -3303,6 +3345,10 @@
         "additionalProperties": false
       },
       "AdminRealtimeSourcePolicyResponse": {
+        "required": [
+          "overrideActive",
+          "restartRequired"
+        ],
         "type": "object",
         "properties": {
           "static": {
@@ -3419,6 +3465,10 @@
         "additionalProperties": false
       },
       "AdminTrackedAddressResponse": {
+        "required": [
+          "createdAt",
+          "isTombstoned"
+        ],
         "type": "object",
         "properties": {
           "address": {
@@ -3464,6 +3514,13 @@
         "additionalProperties": false
       },
       "AdminTrackedAddressSummaryResponse": {
+        "required": [
+          "bsvUtxoCount",
+          "currentBsvBalanceSatoshis",
+          "tokenUtxoCount",
+          "totalUtxoCount",
+          "transactionCount"
+        ],
         "type": "object",
         "properties": {
           "currentBsvBalanceSatoshis": {
@@ -3522,6 +3579,9 @@
         "additionalProperties": false
       },
       "AdminTrackedEntityDeleteResponse": {
+        "required": [
+          "tombstoned"
+        ],
         "type": "object",
         "properties": {
           "entityType": {
@@ -3548,6 +3608,9 @@
         "additionalProperties": false
       },
       "AdminTrackedTokenBalanceSummaryResponse": {
+        "required": [
+          "satoshis"
+        ],
         "type": "object",
         "properties": {
           "tokenId": {
@@ -3562,6 +3625,10 @@
         "additionalProperties": false
       },
       "AdminTrackedTokenResponse": {
+        "required": [
+          "createdAt",
+          "isTombstoned"
+        ],
         "type": "object",
         "properties": {
           "tokenId": {
@@ -3607,6 +3674,11 @@
         "additionalProperties": false
       },
       "AdminTrackedTokenSummaryResponse": {
+        "required": [
+          "holderCount",
+          "transactionCount",
+          "utxoCount"
+        ],
         "type": "object",
         "properties": {
           "protocolType": {
@@ -3676,6 +3748,9 @@
         "additionalProperties": false
       },
       "BalanceDto": {
+        "required": [
+          "satoshis"
+        ],
         "type": "object",
         "properties": {
           "address": {
@@ -3714,6 +3789,9 @@
         "additionalProperties": false
       },
       "BroadcastReceiptDto": {
+        "required": [
+          "createdAtMs"
+        ],
         "type": "object",
         "properties": {
           "txId": {
@@ -3785,6 +3863,13 @@
         "additionalProperties": false
       },
       "GetAddressHistoryRequest": {
+        "required": [
+          "acceptPartialHistory",
+          "desc",
+          "skip",
+          "skipZeroBalance",
+          "take"
+        ],
         "type": "object",
         "properties": {
           "skip": {
@@ -3819,6 +3904,11 @@
         "additionalProperties": false
       },
       "GetTransactionsByBlockResponse": {
+        "required": [
+          "blockHeight",
+          "pageSize",
+          "totalCount"
+        ],
         "type": "object",
         "properties": {
           "blockHeight": {
@@ -3897,6 +3987,10 @@
         "additionalProperties": false
       },
       "HeadersTipDto": {
+        "required": [
+          "height",
+          "timestampMs"
+        ],
         "type": "object",
         "properties": {
           "hash": {
@@ -3919,6 +4013,13 @@
         "additionalProperties": false
       },
       "HistoryEnvelopeBackfillStatusResponse": {
+        "required": [
+          "lastBatchMissingTransactions",
+          "lastBatchRewritten",
+          "lastBatchScanned",
+          "lastTouchedSequence",
+          "pendingCount"
+        ],
         "type": "object",
         "properties": {
           "pendingCount": {
@@ -3965,6 +4066,9 @@
         "additionalProperties": false
       },
       "HistoryUpgradeItemResponse": {
+        "required": [
+          "accepted"
+        ],
         "type": "object",
         "properties": {
           "entityId": {
@@ -3985,6 +4089,13 @@
         "additionalProperties": false
       },
       "JungleBusBlockSyncStatusResponse": {
+        "required": [
+          "blockSubscriptionIdConfigured",
+          "configured",
+          "degraded",
+          "healthy",
+          "primary"
+        ],
         "type": "object",
         "properties": {
           "primary": {
@@ -4085,6 +4196,16 @@
         "additionalProperties": false
       },
       "JungleBusChainTipAssuranceResponse": {
+        "required": [
+          "configured",
+          "controlFlowStaleAfterSeconds",
+          "controlFlowStalled",
+          "localProgressStaleAfterSeconds",
+          "localProgressStalled",
+          "primary",
+          "secondaryCrossCheckAvailable",
+          "singleSourceAssurance"
+        ],
         "type": "object",
         "properties": {
           "primary": {
@@ -4192,6 +4313,13 @@
         "additionalProperties": false
       },
       "OrphanedTxRebroadcastCounters": {
+        "required": [
+          "announceFailed",
+          "announceNoReadyPeer",
+          "announced",
+          "skippedCoinbase",
+          "skippedNoRaw"
+        ],
         "type": "object",
         "properties": {
           "announced": {
@@ -4218,6 +4346,9 @@
         "additionalProperties": false
       },
       "P2pAlertEventDto": {
+        "required": [
+          "alertUnixMs"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -4261,6 +4392,13 @@
         "additionalProperties": false
       },
       "P2pHealthDto": {
+        "required": [
+          "bound",
+          "inboundEnabled",
+          "poolSize",
+          "subnet24Diversity",
+          "targetPoolSize"
+        ],
         "type": "object",
         "properties": {
           "bound": {
@@ -4292,6 +4430,10 @@
         "additionalProperties": false
       },
       "ProjectionCacheInvalidationDomainResponse": {
+        "required": [
+          "calls",
+          "tags"
+        ],
         "type": "object",
         "properties": {
           "domain": {
@@ -4315,6 +4457,10 @@
         "additionalProperties": false
       },
       "ProjectionCacheInvalidationTelemetryResponse": {
+        "required": [
+          "calls",
+          "tags"
+        ],
         "type": "object",
         "properties": {
           "calls": {
@@ -4341,6 +4487,17 @@
         "additionalProperties": false
       },
       "ProjectionCacheStatusResponse": {
+        "required": [
+          "count",
+          "enabled",
+          "evictions",
+          "factoryCalls",
+          "hitRatio",
+          "hits",
+          "invalidatedKeys",
+          "invalidatedTags",
+          "misses"
+        ],
         "type": "object",
         "properties": {
           "enabled": {
@@ -4400,6 +4557,10 @@
         "additionalProperties": false
       },
       "ProjectionLagItemResponse": {
+        "required": [
+          "checkpointSequence",
+          "lag"
+        ],
         "type": "object",
         "properties": {
           "projection": {
@@ -4418,6 +4579,9 @@
         "additionalProperties": false
       },
       "ProjectionLagResponse": {
+        "required": [
+          "journalTailSequence"
+        ],
         "type": "object",
         "properties": {
           "journalTailSequence": {
@@ -4437,6 +4601,12 @@
         "additionalProperties": false
       },
       "ProviderCapabilityStatusResponse": {
+        "required": [
+          "active",
+          "degraded",
+          "enabled",
+          "healthy"
+        ],
         "type": "object",
         "properties": {
           "enabled": {
@@ -4472,6 +4642,12 @@
         "additionalProperties": false
       },
       "ProviderStatusResponse": {
+        "required": [
+          "configured",
+          "degraded",
+          "enabled",
+          "healthy"
+        ],
         "type": "object",
         "properties": {
           "provider": {
@@ -4525,6 +4701,9 @@
         "additionalProperties": false
       },
       "RateLimitStateResponse": {
+        "required": [
+          "limited"
+        ],
         "type": "object",
         "properties": {
           "limited": {
@@ -4552,6 +4731,11 @@
         "additionalProperties": false
       },
       "RawTransactionPayloadStorageStatusResponse": {
+        "required": [
+          "enabled",
+          "persistenceActive",
+          "providerImplemented"
+        ],
         "type": "object",
         "properties": {
           "enabled": {
@@ -4589,6 +4773,13 @@
         "additionalProperties": false
       },
       "RootedTokenHistoryStatusResponse": {
+        "required": [
+          "blockingUnknownRoot",
+          "completedTrustedRootCount",
+          "rootedHistorySecure",
+          "trustedRootCount",
+          "unknownRootFindingCount"
+        ],
         "type": "object",
         "properties": {
           "trustedRoots": {
@@ -4642,6 +4833,9 @@
         "type": "string"
       },
       "SetupAdminAccessRequest": {
+        "required": [
+          "enabled"
+        ],
         "type": "object",
         "properties": {
           "enabled": {
@@ -4921,6 +5115,11 @@
         "additionalProperties": false
       },
       "SetupStatusResponse": {
+        "required": [
+          "adminEnabled",
+          "setupCompleted",
+          "setupRequired"
+        ],
         "type": "object",
         "properties": {
           "setupRequired": {
@@ -4956,11 +5155,17 @@
         "additionalProperties": false
       },
       "SourceMetricsSnapshot": {
+        "required": [
+          "id",
+          "observationCounters",
+          "rebroadcast",
+          "snapshotUnixMs",
+          "visibilityCounters"
+        ],
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "snapshotUnixMs": {
             "type": "integer",
@@ -4970,15 +5175,13 @@
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/SourceObservationCounters"
-            },
-            "nullable": true
+            }
           },
           "visibilityCounters": {
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/SourceVisibilityCounters"
-            },
-            "nullable": true
+            }
           },
           "rebroadcast": {
             "$ref": "#/components/schemas/OrphanedTxRebroadcastCounters"
@@ -4992,6 +5195,15 @@
         "additionalProperties": false
       },
       "SourceObservationCounters": {
+        "required": [
+          "getDataTimeout",
+          "invObserved",
+          "matched",
+          "oversizePayload",
+          "parseError",
+          "rateLimited",
+          "unmatched"
+        ],
         "type": "object",
         "properties": {
           "invObserved": {
@@ -5026,6 +5238,11 @@
         "additionalProperties": false
       },
       "SourceVisibilityCounters": {
+        "required": [
+          "firstSeen",
+          "lagBuckets",
+          "onlySaw"
+        ],
         "type": "object",
         "properties": {
           "firstSeen": {
@@ -5041,8 +5258,7 @@
             "items": {
               "type": "integer",
               "format": "int64"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -5095,6 +5311,10 @@
         "additionalProperties": false
       },
       "SyncStatusResponse": {
+        "required": [
+          "height",
+          "isSynced"
+        ],
         "type": "object",
         "properties": {
           "height": {
@@ -5108,6 +5328,15 @@
         "additionalProperties": false
       },
       "TokenHistoryItemResponse": {
+        "required": [
+          "balanceDeltaSatoshis",
+          "height",
+          "isIssue",
+          "isRedeem",
+          "receivedSatoshis",
+          "spentSatoshis",
+          "timestamp"
+        ],
         "type": "object",
         "properties": {
           "tokenId": {
@@ -5173,6 +5402,9 @@
         "additionalProperties": false
       },
       "TokenHistoryResponse": {
+        "required": [
+          "totalCount"
+        ],
         "type": "object",
         "properties": {
           "tokenId": {
@@ -5213,6 +5445,9 @@
         "additionalProperties": false
       },
       "TokenStateResponse": {
+        "required": [
+          "issuanceKnown"
+        ],
         "type": "object",
         "properties": {
           "tokenId": {
@@ -5261,6 +5496,12 @@
         "additionalProperties": false
       },
       "TrackedEntityReadinessResponse": {
+        "required": [
+          "authoritative",
+          "degraded",
+          "readable",
+          "tracked"
+        ],
         "type": "object",
         "properties": {
           "tracked": {
@@ -5304,6 +5545,10 @@
         "additionalProperties": false
       },
       "TrackedHistoryBackfillStatusResponse": {
+        "required": [
+          "itemsApplied",
+          "itemsScanned"
+        ],
         "type": "object",
         "properties": {
           "status": {
@@ -5346,6 +5591,9 @@
         "additionalProperties": false
       },
       "TrackedHistoryCoverageResponse": {
+        "required": [
+          "fullCoverage"
+        ],
         "type": "object",
         "properties": {
           "mode": {
@@ -5388,6 +5636,12 @@
         "additionalProperties": false
       },
       "TransactionStateResponse": {
+        "required": [
+          "authoritative",
+          "known",
+          "payloadAvailable",
+          "relevantToManagedScope"
+        ],
         "type": "object",
         "properties": {
           "txId": {
@@ -5455,6 +5709,11 @@
         "additionalProperties": false
       },
       "UtxoDto": {
+        "required": [
+          "satoshis",
+          "scriptType",
+          "vout"
+        ],
         "type": "object",
         "properties": {
           "id": {
@@ -5492,6 +5751,13 @@
         "additionalProperties": false
       },
       "ValidateStasResponse": {
+        "required": [
+          "askLater",
+          "b2GResolved",
+          "isIssue",
+          "isLegal",
+          "isRedeem"
+        ],
         "type": "object",
         "properties": {
           "askLater": {
@@ -5568,33 +5834,42 @@
         "additionalProperties": false
       },
       "ValidationRepairItemResponse": {
+        "required": [
+          "attemptCount",
+          "createdAt",
+          "entityId",
+          "entityType",
+          "lastError",
+          "lastFetchCount",
+          "lastFetchedDependencies",
+          "lastTraversalDepth",
+          "lastVisitedCount",
+          "missingDependencies",
+          "reasons",
+          "state"
+        ],
         "type": "object",
         "properties": {
           "entityType": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "entityId": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "state": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "reasons": {
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           },
           "missingDependencies": {
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           },
           "attemptCount": {
             "type": "integer",
@@ -5620,15 +5895,13 @@
             "nullable": true
           },
           "lastError": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "lastFetchedDependencies": {
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           },
           "lastStopReason": {
             "type": "string",
@@ -5650,6 +5923,15 @@
         "additionalProperties": false
       },
       "ValidationRepairStatusResponse": {
+        "required": [
+          "blockedCount",
+          "failedCount",
+          "items",
+          "pendingCount",
+          "resolvedCount",
+          "runningCount",
+          "totalCount"
+        ],
         "type": "object",
         "properties": {
           "totalCount": {
@@ -5690,8 +5972,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ValidationRepairItemResponse"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false

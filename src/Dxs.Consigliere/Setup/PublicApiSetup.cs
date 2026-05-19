@@ -1,5 +1,6 @@
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Services.Impl;
+using Dxs.Consigliere.Swagger;
 
 using System.Text.Json.Serialization;
 
@@ -19,6 +20,12 @@ public static class PublicApiSetup
             .AddResponseCompression(x => { x.EnableForHttps = true; })
             .AddRequestDecompression()
             .AddEndpointsApiExplorer()
-            .AddSwaggerGen()
+            .AddSwaggerGen(opts =>
+            {
+                // wave-A3 S6: populate `required` from CLR NRT
+                // annotations so the generated TS loses optional
+                // markers on non-nullable C# properties.
+                opts.SchemaFilter<RequiredFromNrtFilter>();
+            })
             .AddTransient<ITransactionQueryService, TransactionQueryService>();
 }

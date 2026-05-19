@@ -2752,18 +2752,18 @@ export interface components {
             tokenId?: string | null;
             txId?: string | null;
             /** Format: int64 */
-            timestamp?: number;
+            timestamp: number;
             /** Format: int32 */
-            height?: number;
-            validStasTx?: boolean;
+            height: number;
+            validStasTx: boolean;
             /** Format: int64 */
-            spentSatoshis?: number;
+            spentSatoshis: number;
             /** Format: int64 */
-            receivedSatoshis?: number;
+            receivedSatoshis: number;
             /** Format: int64 */
-            balanceSatoshis?: number;
+            balanceSatoshis: number;
             /** Format: int64 */
-            txFeeSatoshis?: number;
+            txFeeSatoshis: number;
             note?: string | null;
             fromAddresses?: string[] | null;
             toAddresses?: string[] | null;
@@ -2771,7 +2771,7 @@ export interface components {
         AddressHistoryResponse: {
             history?: components["schemas"]["AddressHistoryDto"][] | null;
             /** Format: int32 */
-            totalCount?: number;
+            totalCount: number;
             historyStatus?: components["schemas"]["TrackedHistoryStatusResponse"];
         };
         AddressStateResponse: {
@@ -2780,23 +2780,23 @@ export interface components {
             utxoSet?: components["schemas"]["UtxoDto"][] | null;
         };
         AdminAuditLogEntryResponse: {
-            id?: string | null;
+            id: string;
             /** Format: int64 */
-            unixMs?: number;
-            username?: string | null;
-            action?: string | null;
-            targetId?: string | null;
+            unixMs: number;
+            username: string;
+            action: string;
+            targetId: string;
             context?: string | null;
         };
         AdminAuditLogResponse: {
             /** Format: int32 */
-            totalMatched?: number;
-            entries?: components["schemas"]["AdminAuditLogEntryResponse"][] | null;
+            totalMatched: number;
+            entries: components["schemas"]["AdminAuditLogEntryResponse"][];
         };
         AdminAuthStatusResponse: {
-            setupRequired?: boolean;
-            enabled?: boolean;
-            authenticated?: boolean;
+            setupRequired: boolean;
+            enabled: boolean;
+            authenticated: boolean;
             mode?: string | null;
             username?: string | null;
             /** Format: int32 */
@@ -2818,31 +2818,31 @@ export interface components {
         };
         AdminDashboardSummaryResponse: {
             /** Format: int32 */
-            activeAddressCount?: number;
+            activeAddressCount: number;
             /** Format: int32 */
-            activeTokenCount?: number;
+            activeTokenCount: number;
             /** Format: int32 */
-            tombstonedAddressCount?: number;
+            tombstonedAddressCount: number;
             /** Format: int32 */
-            tombstonedTokenCount?: number;
+            tombstonedTokenCount: number;
             /** Format: int32 */
-            degradedAddressCount?: number;
+            degradedAddressCount: number;
             /** Format: int32 */
-            degradedTokenCount?: number;
+            degradedTokenCount: number;
             /** Format: int32 */
-            backfillingAddressCount?: number;
+            backfillingAddressCount: number;
             /** Format: int32 */
-            backfillingTokenCount?: number;
+            backfillingTokenCount: number;
             /** Format: int32 */
-            fullHistoryLiveAddressCount?: number;
+            fullHistoryLiveAddressCount: number;
             /** Format: int32 */
-            fullHistoryLiveTokenCount?: number;
+            fullHistoryLiveTokenCount: number;
             /** Format: int32 */
-            unknownRootFindingCount?: number;
+            unknownRootFindingCount: number;
             /** Format: int32 */
-            blockingUnknownRootTokenCount?: number;
+            blockingUnknownRootTokenCount: number;
             /** Format: int32 */
-            failureCount?: number;
+            failureCount: number;
         };
         AdminFindingResponse: {
             entityType?: string | null;
@@ -2883,8 +2883,8 @@ export interface components {
             static?: components["schemas"]["AdminProviderConfigValuesResponse"];
             override?: components["schemas"]["AdminProviderConfigValuesResponse"];
             effective?: components["schemas"]["AdminProviderConfigValuesResponse"];
-            overrideActive?: boolean;
-            restartRequired?: boolean;
+            overrideActive: boolean;
+            restartRequired: boolean;
             allowedRealtimePrimaryProviders?: string[] | null;
             allowedRawTxPrimaryProviders?: string[] | null;
             allowedRestPrimaryProviders?: string[] | null;
@@ -2929,8 +2929,8 @@ export interface components {
             static?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"];
             override?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"];
             effective?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"];
-            overrideActive?: boolean;
-            restartRequired?: boolean;
+            overrideActive: boolean;
+            restartRequired: boolean;
             allowedPrimarySources?: string[] | null;
             allowedBitailsTransports?: string[] | null;
             /** Format: int64 */
@@ -2960,11 +2960,11 @@ export interface components {
         AdminTrackedAddressResponse: {
             address?: string | null;
             name?: string | null;
-            isTombstoned?: boolean;
+            isTombstoned: boolean;
             /** Format: int64 */
             tombstonedAt?: number | null;
             /** Format: int64 */
-            createdAt?: number;
+            createdAt: number;
             /** Format: int64 */
             updatedAt?: number | null;
             failureReason?: string | null;
@@ -2974,15 +2974,15 @@ export interface components {
         };
         AdminTrackedAddressSummaryResponse: {
             /** Format: int64 */
-            currentBsvBalanceSatoshis?: number;
+            currentBsvBalanceSatoshis: number;
             /** Format: int32 */
-            totalUtxoCount?: number;
+            totalUtxoCount: number;
             /** Format: int32 */
-            bsvUtxoCount?: number;
+            bsvUtxoCount: number;
             /** Format: int32 */
-            tokenUtxoCount?: number;
+            tokenUtxoCount: number;
             /** Format: int32 */
-            transactionCount?: number;
+            transactionCount: number;
             /** Format: int64 */
             firstTransactionAt?: number | null;
             /** Format: int32 */
@@ -2999,23 +2999,23 @@ export interface components {
             entityType?: string | null;
             entityId?: string | null;
             code?: string | null;
-            tombstoned?: boolean;
+            tombstoned: boolean;
             /** Format: int64 */
             tombstonedAt?: number | null;
         };
         AdminTrackedTokenBalanceSummaryResponse: {
             tokenId?: string | null;
             /** Format: int64 */
-            satoshis?: number;
+            satoshis: number;
         };
         AdminTrackedTokenResponse: {
             tokenId?: string | null;
             symbol?: string | null;
-            isTombstoned?: boolean;
+            isTombstoned: boolean;
             /** Format: int64 */
             tombstonedAt?: number | null;
             /** Format: int64 */
-            createdAt?: number;
+            createdAt: number;
             /** Format: int64 */
             updatedAt?: number | null;
             failureReason?: string | null;
@@ -3033,11 +3033,11 @@ export interface components {
             /** Format: int64 */
             burnedSatoshis?: number | null;
             /** Format: int32 */
-            holderCount?: number;
+            holderCount: number;
             /** Format: int32 */
-            utxoCount?: number;
+            utxoCount: number;
             /** Format: int32 */
-            transactionCount?: number;
+            transactionCount: number;
             /** Format: int64 */
             firstTransactionAt?: number | null;
             /** Format: int32 */
@@ -3053,7 +3053,7 @@ export interface components {
             address?: string | null;
             tokenId?: string | null;
             /** Format: int64 */
-            satoshis?: number;
+            satoshis: number;
         };
         BalanceRequest: {
             addresses?: string[] | null;
@@ -3063,7 +3063,7 @@ export interface components {
             txId?: string | null;
             state?: string | null;
             /** Format: int64 */
-            createdAtMs?: number;
+            createdAtMs: number;
             failReason?: string | null;
         };
         BroadcastTxRequest: {
@@ -3080,25 +3080,25 @@ export interface components {
         };
         GetAddressHistoryRequest: {
             /** Format: int32 */
-            skip?: number;
+            skip: number;
             /** Format: int32 */
-            take?: number;
-            desc?: boolean;
+            take: number;
+            desc: boolean;
             address?: string | null;
             tokenIds?: string[] | null;
-            skipZeroBalance?: boolean;
-            acceptPartialHistory?: boolean;
+            skipZeroBalance: boolean;
+            acceptPartialHistory: boolean;
         };
         GetTransactionsByBlockResponse: {
             /** Format: int32 */
-            blockHeight?: number;
+            blockHeight: number;
             transactions?: {
                 [key: string]: string | null;
             } | null;
             /** Format: int32 */
-            totalCount?: number;
+            totalCount: number;
             /** Format: int32 */
-            pageSize?: number;
+            pageSize: number;
         };
         GetUtxoSetBatchRequest: {
             tokenIds?: string[] | null;
@@ -3116,22 +3116,22 @@ export interface components {
         HeadersTipDto: {
             hash?: string | null;
             /** Format: int64 */
-            height?: number;
+            height: number;
             /** Format: int64 */
-            timestampMs?: number;
+            timestampMs: number;
             prevHash?: string | null;
         };
         HistoryEnvelopeBackfillStatusResponse: {
             /** Format: int64 */
-            pendingCount?: number;
+            pendingCount: number;
             /** Format: int64 */
-            lastBatchScanned?: number;
+            lastBatchScanned: number;
             /** Format: int64 */
-            lastBatchRewritten?: number;
+            lastBatchRewritten: number;
             /** Format: int64 */
-            lastBatchMissingTransactions?: number;
+            lastBatchMissingTransactions: number;
             /** Format: int64 */
-            lastTouchedSequence?: number;
+            lastTouchedSequence: number;
             /** Format: date-time */
             lastRunStartedAt?: string | null;
             /** Format: date-time */
@@ -3142,18 +3142,18 @@ export interface components {
         };
         HistoryUpgradeItemResponse: {
             entityId?: string | null;
-            accepted?: boolean;
+            accepted: boolean;
             messageCode?: string | null;
             history?: components["schemas"]["TrackedHistoryStatusResponse"];
         };
         JungleBusBlockSyncStatusResponse: {
-            primary?: boolean;
-            configured?: boolean;
-            healthy?: boolean;
-            degraded?: boolean;
+            primary: boolean;
+            configured: boolean;
+            healthy: boolean;
+            degraded: boolean;
             unavailableReason?: string | null;
             baseUrl?: string | null;
-            blockSubscriptionIdConfigured?: boolean;
+            blockSubscriptionIdConfigured: boolean;
             /** Format: int32 */
             lastObservedBlockHeight?: number | null;
             /** Format: int32 */
@@ -3182,14 +3182,14 @@ export interface components {
             lastErrorAt?: number | null;
         };
         JungleBusChainTipAssuranceResponse: {
-            primary?: boolean;
-            configured?: boolean;
+            primary: boolean;
+            configured: boolean;
             state?: string | null;
             assuranceMode?: string | null;
-            singleSourceAssurance?: boolean;
-            secondaryCrossCheckAvailable?: boolean;
-            controlFlowStalled?: boolean;
-            localProgressStalled?: boolean;
+            singleSourceAssurance: boolean;
+            secondaryCrossCheckAvailable: boolean;
+            controlFlowStalled: boolean;
+            localProgressStalled: boolean;
             unavailableReason?: string | null;
             note?: string | null;
             /** Format: int32 */
@@ -3216,26 +3216,26 @@ export interface components {
             /** Format: int64 */
             lastErrorAt?: number | null;
             /** Format: int32 */
-            controlFlowStaleAfterSeconds?: number;
+            controlFlowStaleAfterSeconds: number;
             /** Format: int32 */
-            localProgressStaleAfterSeconds?: number;
+            localProgressStaleAfterSeconds: number;
         };
         OrphanedTxRebroadcastCounters: {
             /** Format: int64 */
-            announced?: number;
+            announced: number;
             /** Format: int64 */
-            skippedNoRaw?: number;
+            skippedNoRaw: number;
             /** Format: int64 */
-            skippedCoinbase?: number;
+            skippedCoinbase: number;
             /** Format: int64 */
-            announceNoReadyPeer?: number;
+            announceNoReadyPeer: number;
             /** Format: int64 */
-            announceFailed?: number;
+            announceFailed: number;
         };
         P2pAlertEventDto: {
             id?: string | null;
             /** Format: int64 */
-            alertUnixMs?: number;
+            alertUnixMs: number;
             type?: string | null;
             detail?: string | null;
             context?: {
@@ -3246,55 +3246,55 @@ export interface components {
             alerts?: components["schemas"]["P2pAlertEventDto"][] | null;
         };
         P2pHealthDto: {
-            bound?: boolean;
+            bound: boolean;
             /** Format: int32 */
-            poolSize?: number;
+            poolSize: number;
             /** Format: int32 */
-            targetPoolSize?: number;
+            targetPoolSize: number;
             /** Format: int32 */
-            subnet24Diversity?: number;
+            subnet24Diversity: number;
             activePeers?: string[] | null;
-            inboundEnabled?: boolean;
+            inboundEnabled: boolean;
         };
         ProjectionCacheInvalidationDomainResponse: {
             domain?: string | null;
             /** Format: int64 */
-            calls?: number;
+            calls: number;
             /** Format: int64 */
-            tags?: number;
+            tags: number;
             /** Format: date-time */
             lastInvalidatedAt?: string | null;
         };
         ProjectionCacheInvalidationTelemetryResponse: {
             /** Format: int64 */
-            calls?: number;
+            calls: number;
             /** Format: int64 */
-            tags?: number;
+            tags: number;
             /** Format: date-time */
             lastInvalidatedAt?: string | null;
             domains?: components["schemas"]["ProjectionCacheInvalidationDomainResponse"][] | null;
         };
         ProjectionCacheStatusResponse: {
-            enabled?: boolean;
+            enabled: boolean;
             backend?: string | null;
             /** Format: int32 */
-            count?: number;
+            count: number;
             /** Format: int32 */
             maxEntries?: number | null;
             /** Format: int64 */
-            hits?: number;
+            hits: number;
             /** Format: int64 */
-            misses?: number;
+            misses: number;
             /** Format: int64 */
-            factoryCalls?: number;
+            factoryCalls: number;
             /** Format: int64 */
-            invalidatedKeys?: number;
+            invalidatedKeys: number;
             /** Format: int64 */
-            invalidatedTags?: number;
+            invalidatedTags: number;
             /** Format: int64 */
-            evictions?: number;
+            evictions: number;
             /** Format: double */
-            hitRatio?: number;
+            hitRatio: number;
             invalidation?: components["schemas"]["ProjectionCacheInvalidationTelemetryResponse"];
             projectionLag?: components["schemas"]["ProjectionLagResponse"];
             historyEnvelopeBackfill?: components["schemas"]["HistoryEnvelopeBackfillStatusResponse"];
@@ -3302,36 +3302,36 @@ export interface components {
         ProjectionLagItemResponse: {
             projection?: string | null;
             /** Format: int64 */
-            checkpointSequence?: number;
+            checkpointSequence: number;
             /** Format: int64 */
-            lag?: number;
+            lag: number;
         };
         ProjectionLagResponse: {
             /** Format: int64 */
-            journalTailSequence?: number;
+            journalTailSequence: number;
             address?: components["schemas"]["ProjectionLagItemResponse"];
             token?: components["schemas"]["ProjectionLagItemResponse"];
             txLifecycle?: components["schemas"]["ProjectionLagItemResponse"];
         };
         ProviderCapabilityStatusResponse: {
-            enabled?: boolean;
-            healthy?: boolean;
-            degraded?: boolean;
+            enabled: boolean;
+            healthy: boolean;
+            degraded: boolean;
             /** Format: date-time */
             lastSuccessAt?: string | null;
             /** Format: date-time */
             lastErrorAt?: string | null;
             lastErrorCode?: string | null;
             rateLimitState?: components["schemas"]["RateLimitStateResponse"];
-            active?: boolean;
+            active: boolean;
         };
         ProviderStatusResponse: {
             provider?: string | null;
-            enabled?: boolean;
-            configured?: boolean;
+            enabled: boolean;
+            configured: boolean;
             roles?: string[] | null;
-            healthy?: boolean;
-            degraded?: boolean;
+            healthy: boolean;
+            degraded: boolean;
             /** Format: date-time */
             lastSuccessAt?: string | null;
             /** Format: date-time */
@@ -3343,7 +3343,7 @@ export interface components {
             } | null;
         };
         RateLimitStateResponse: {
-            limited?: boolean;
+            limited: boolean;
             /** Format: int32 */
             remaining?: number | null;
             /** Format: date-time */
@@ -3352,10 +3352,10 @@ export interface components {
             sourceHint?: string | null;
         };
         RawTransactionPayloadStorageStatusResponse: {
-            enabled?: boolean;
+            enabled: boolean;
             provider?: string | null;
-            providerImplemented?: boolean;
-            persistenceActive?: boolean;
+            providerImplemented: boolean;
+            persistenceActive: boolean;
             retentionPolicy?: string | null;
             compression?: string | null;
             location?: components["schemas"]["StorageLocationStatusResponse"];
@@ -3364,19 +3364,19 @@ export interface components {
         RootedTokenHistoryStatusResponse: {
             trustedRoots?: string[] | null;
             /** Format: int32 */
-            trustedRootCount?: number;
+            trustedRootCount: number;
             /** Format: int32 */
-            completedTrustedRootCount?: number;
+            completedTrustedRootCount: number;
             /** Format: int32 */
-            unknownRootFindingCount?: number;
-            rootedHistorySecure?: boolean;
-            blockingUnknownRoot?: boolean;
+            unknownRootFindingCount: number;
+            rootedHistorySecure: boolean;
+            blockingUnknownRoot: boolean;
             unknownRootFindings?: string[] | null;
         };
         /** @enum {string} */
         ScriptType: "Unknown" | "P2PK" | "P2PKH" | "P2SH" | "P2MS" | "NullData" | "P2STAS" | "Mnee1Sat" | "DSTAS" | "P2MPKH";
         SetupAdminAccessRequest: {
-            enabled?: boolean;
+            enabled: boolean;
             username?: string | null;
             password?: string | null;
         };
@@ -3454,9 +3454,9 @@ export interface components {
             baseUrl?: string | null;
         };
         SetupStatusResponse: {
-            setupRequired?: boolean;
-            setupCompleted?: boolean;
-            adminEnabled?: boolean;
+            setupRequired: boolean;
+            setupCompleted: boolean;
+            adminEnabled: boolean;
             adminUsername?: string | null;
         };
         SourceMetricsResponse: {
@@ -3464,41 +3464,41 @@ export interface components {
             history?: components["schemas"]["SourceMetricsSnapshot"][] | null;
         };
         SourceMetricsSnapshot: {
-            id?: string | null;
+            id: string;
             /** Format: int64 */
-            snapshotUnixMs?: number;
-            observationCounters?: {
+            snapshotUnixMs: number;
+            observationCounters: {
                 [key: string]: components["schemas"]["SourceObservationCounters"];
-            } | null;
-            visibilityCounters?: {
+            };
+            visibilityCounters: {
                 [key: string]: components["schemas"]["SourceVisibilityCounters"];
-            } | null;
-            rebroadcast?: components["schemas"]["OrphanedTxRebroadcastCounters"];
+            };
+            rebroadcast: components["schemas"]["OrphanedTxRebroadcastCounters"];
             /** Format: date-time */
             lastDegradedReorgAt?: string | null;
         };
         SourceObservationCounters: {
             /** Format: int64 */
-            invObserved?: number;
+            invObserved: number;
             /** Format: int64 */
-            matched?: number;
+            matched: number;
             /** Format: int64 */
-            unmatched?: number;
+            unmatched: number;
             /** Format: int64 */
-            parseError?: number;
+            parseError: number;
             /** Format: int64 */
-            rateLimited?: number;
+            rateLimited: number;
             /** Format: int64 */
-            getDataTimeout?: number;
+            getDataTimeout: number;
             /** Format: int64 */
-            oversizePayload?: number;
+            oversizePayload: number;
         };
         SourceVisibilityCounters: {
             /** Format: int64 */
-            firstSeen?: number;
+            firstSeen: number;
             /** Format: int64 */
-            onlySaw?: number;
-            lagBuckets?: number[] | null;
+            onlySaw: number;
+            lagBuckets: number[];
         };
         StorageLocationStatusResponse: {
             database?: string | null;
@@ -3515,24 +3515,24 @@ export interface components {
         };
         SyncStatusResponse: {
             /** Format: int32 */
-            height?: number;
-            isSynced?: boolean;
+            height: number;
+            isSynced: boolean;
         };
         TokenHistoryItemResponse: {
             tokenId?: string | null;
             txId?: string | null;
             /** Format: int64 */
-            timestamp?: number;
+            timestamp: number;
             /** Format: int32 */
-            height?: number;
+            height: number;
             /** Format: int64 */
-            receivedSatoshis?: number;
+            receivedSatoshis: number;
             /** Format: int64 */
-            spentSatoshis?: number;
+            spentSatoshis: number;
             /** Format: int64 */
-            balanceDeltaSatoshis?: number;
-            isIssue?: boolean;
-            isRedeem?: boolean;
+            balanceDeltaSatoshis: number;
+            isIssue: boolean;
+            isRedeem: boolean;
             validationStatus?: string | null;
             protocolType?: string | null;
             confirmedBlockHash?: string | null;
@@ -3544,7 +3544,7 @@ export interface components {
             tokenId?: string | null;
             history?: components["schemas"]["TokenHistoryItemResponse"][] | null;
             /** Format: int32 */
-            totalCount?: number;
+            totalCount: number;
             historyStatus?: components["schemas"]["TrackedHistoryStatusResponse"];
         };
         TokenHistoryUpgradeRequest: {
@@ -3555,7 +3555,7 @@ export interface components {
             tokenId?: string | null;
             protocolType?: string | null;
             protocolVersion?: string | null;
-            issuanceKnown?: boolean;
+            issuanceKnown: boolean;
             validationStatus?: string | null;
             issuer?: string | null;
             redeemAddress?: string | null;
@@ -3567,13 +3567,13 @@ export interface components {
             lastIndexedHeight?: number | null;
         };
         TrackedEntityReadinessResponse: {
-            tracked?: boolean;
+            tracked: boolean;
             entityType?: string | null;
             entityId?: string | null;
             lifecycleStatus?: string | null;
-            readable?: boolean;
-            authoritative?: boolean;
-            degraded?: boolean;
+            readable: boolean;
+            authoritative: boolean;
+            degraded: boolean;
             /** Format: int32 */
             lagBlocks?: number | null;
             /** Format: double */
@@ -3591,14 +3591,14 @@ export interface components {
             /** Format: int64 */
             completedAt?: number | null;
             /** Format: int32 */
-            itemsScanned?: number;
+            itemsScanned: number;
             /** Format: int32 */
-            itemsApplied?: number;
+            itemsApplied: number;
             errorCode?: string | null;
         };
         TrackedHistoryCoverageResponse: {
             mode?: string | null;
-            fullCoverage?: boolean;
+            fullCoverage: boolean;
             /** Format: int32 */
             authoritativeFromBlockHeight?: number | null;
             /** Format: int64 */
@@ -3612,10 +3612,10 @@ export interface components {
         };
         TransactionStateResponse: {
             txId?: string | null;
-            known?: boolean;
+            known: boolean;
             lifecycleStatus?: string | null;
-            authoritative?: boolean;
-            relevantToManagedScope?: boolean;
+            authoritative: boolean;
+            relevantToManagedScope: boolean;
             relevanceTypes?: string[] | null;
             seenBySources?: string[] | null;
             seenInMempool?: boolean | null;
@@ -3627,26 +3627,26 @@ export interface components {
             /** Format: date-time */
             lastObservedAt?: string | null;
             validationStatus?: string | null;
-            payloadAvailable?: boolean;
+            payloadAvailable: boolean;
         };
         UtxoDto: {
             id?: string | null;
             txId?: string | null;
             /** Format: int64 */
-            vout?: number;
+            vout: number;
             address?: string | null;
             tokenId?: string | null;
             /** Format: int64 */
-            satoshis?: number;
+            satoshis: number;
             scriptPubKey?: string | null;
-            scriptType?: components["schemas"]["ScriptType"];
+            scriptType: components["schemas"]["ScriptType"];
         };
         ValidateStasResponse: {
-            askLater?: boolean;
+            askLater: boolean;
             id?: string | null;
-            isLegal?: boolean;
-            isIssue?: boolean;
-            isRedeem?: boolean;
+            isLegal: boolean;
+            isIssue: boolean;
+            isRedeem: boolean;
             eventType?: string | null;
             /** Format: int32 */
             spendingType?: number | null;
@@ -3655,56 +3655,56 @@ export interface components {
             roots?: string[] | null;
             illegalRoots?: string[] | null;
             validationStatus?: string | null;
-            b2GResolved?: boolean;
+            b2GResolved: boolean;
             missingDependencies?: string[] | null;
             validationRepairState?: string | null;
             /** Format: int64 */
             validationRepairUpdatedAt?: number | null;
         };
         ValidationRepairItemResponse: {
-            entityType?: string | null;
-            entityId?: string | null;
-            state?: string | null;
-            reasons?: string[] | null;
-            missingDependencies?: string[] | null;
+            entityType: string;
+            entityId: string;
+            state: string;
+            reasons: string[];
+            missingDependencies: string[];
             /** Format: int32 */
-            attemptCount?: number;
+            attemptCount: number;
             /** Format: int64 */
-            createdAt?: number;
+            createdAt: number;
             /** Format: int64 */
             updatedAt?: number | null;
             /** Format: int64 */
             lastAttemptAt?: number | null;
             /** Format: int64 */
             nextAttemptAt?: number | null;
-            lastError?: string | null;
-            lastFetchedDependencies?: string[] | null;
+            lastError: string;
+            lastFetchedDependencies: string[];
             lastStopReason?: string | null;
             /** Format: int32 */
-            lastFetchCount?: number;
+            lastFetchCount: number;
             /** Format: int32 */
-            lastVisitedCount?: number;
+            lastVisitedCount: number;
             /** Format: int32 */
-            lastTraversalDepth?: number;
+            lastTraversalDepth: number;
         };
         ValidationRepairStatusResponse: {
             /** Format: int32 */
-            totalCount?: number;
+            totalCount: number;
             /** Format: int32 */
-            pendingCount?: number;
+            pendingCount: number;
             /** Format: int32 */
-            runningCount?: number;
+            runningCount: number;
             /** Format: int32 */
-            failedCount?: number;
+            failedCount: number;
             /** Format: int32 */
-            blockedCount?: number;
+            blockedCount: number;
             /** Format: int32 */
-            resolvedCount?: number;
+            resolvedCount: number;
             /** Format: int64 */
             oldestUnresolvedCreatedAt?: number | null;
             /** Format: int32 */
             oldestUnresolvedAgeSeconds?: number | null;
-            items?: components["schemas"]["ValidationRepairItemResponse"][] | null;
+            items: components["schemas"]["ValidationRepairItemResponse"][];
         };
         WatchAddressRequest: {
             address?: string | null;
