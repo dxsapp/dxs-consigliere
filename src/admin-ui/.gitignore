@@ -2,6 +2,13 @@ node_modules
 dist
 *.local
 
+# Local env overrides. The committed `.env.example` is the
+# canonical template; `.env`, `.env.development`, etc. are
+# per-machine + must not ship in git.
+.env
+.env.*
+!.env.example
+
 # Editor
 .vscode
 .idea

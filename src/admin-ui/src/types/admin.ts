@@ -241,6 +241,125 @@ export interface SetupStatusResponse {
   adminUsername: string | null;
 }
 
+// ── wave-A2 S0: setup wizard wire DTOs ─────────────────────────
+//
+// Mirrors the C# DTOs in src/Dxs.Consigliere/Dto/{Requests,
+// Responses/Setup}/. Hand-mirrored for wave-A2 S0; wave-A2 S1
+// replaces these (and every other wire DTO) with codegen.
+
+export interface SetupDefaultsResponse {
+  rawTxPrimaryProvider: string | null;
+  restFallbackProvider: string | null;
+  realtimePrimaryProvider: string | null;
+  bitailsTransport: string | null;
+}
+
+export interface SetupAllowedOptionsResponse {
+  rawTxPrimaryProviders: string[];
+  restFallbackProviders: string[];
+  realtimePrimaryProviders: string[];
+  bitailsTransports: string[];
+}
+
+export interface SetupJungleBusBlockSyncDefaultsResponse {
+  baseUrl: string | null;
+  blockSubscriptionId: string | null;
+}
+
+export interface SetupBitailsProviderDefaultsResponse {
+  apiKey: string | null;
+  baseUrl: string | null;
+  websocketBaseUrl: string | null;
+  zmqTxUrl: string | null;
+  zmqBlockUrl: string | null;
+}
+
+export interface SetupRestProviderDefaultsResponse {
+  apiKey: string | null;
+  baseUrl: string | null;
+}
+
+export interface SetupJungleBusProviderDefaultsResponse {
+  apiKey: string | null;
+  baseUrl: string | null;
+  mempoolSubscriptionId: string | null;
+  blockSubscriptionId: string | null;
+}
+
+export interface SetupNodeProviderDefaultsResponse {
+  zmqTxUrl: string | null;
+  zmqBlockUrl: string | null;
+}
+
+export interface SetupProviderFormDefaultsResponse {
+  bitails: SetupBitailsProviderDefaultsResponse;
+  whatsonchain: SetupRestProviderDefaultsResponse;
+  junglebus: SetupJungleBusProviderDefaultsResponse;
+  node: SetupNodeProviderDefaultsResponse;
+}
+
+export interface SetupOptionsResponse {
+  status: SetupStatusResponse;
+  defaults: SetupDefaultsResponse;
+  allowed: SetupAllowedOptionsResponse;
+  blockSync: SetupJungleBusBlockSyncDefaultsResponse;
+  providerConfig: SetupProviderFormDefaultsResponse;
+}
+
+// Request DTOs — wire shape posted to /api/setup/complete.
+
+export interface SetupAdminAccessRequest {
+  enabled: boolean;
+  username: string;
+  password: string;
+}
+
+export interface AdminBitailsProviderConfigUpdateRequest {
+  apiKey: string;
+  baseUrl: string;
+  websocketBaseUrl: string;
+  zmqTxUrl: string;
+  zmqBlockUrl: string;
+}
+
+export interface AdminRestProviderConfigUpdateRequest {
+  apiKey: string;
+  baseUrl: string;
+}
+
+export interface AdminJungleBusProviderConfigUpdateRequest {
+  baseUrl: string;
+  mempoolSubscriptionId: string;
+  blockSubscriptionId: string;
+}
+
+export interface SetupNodeRealtimeConfigRequest {
+  zmqTxUrl: string;
+  zmqBlockUrl: string;
+}
+
+export interface SetupProviderSelectionRequest {
+  rawTxPrimaryProvider: string;
+  restFallbackProvider: string;
+  realtimePrimaryProvider: string;
+  bitailsTransport: string;
+  bitails: AdminBitailsProviderConfigUpdateRequest;
+  whatsonchain: AdminRestProviderConfigUpdateRequest;
+  junglebus: AdminJungleBusProviderConfigUpdateRequest;
+  node: SetupNodeRealtimeConfigRequest;
+}
+
+export interface SetupJungleBusBlockSyncRequest {
+  baseUrl: string;
+  blockSubscriptionId: string;
+}
+
+export interface SetupCompleteRequest {
+  admin: SetupAdminAccessRequest;
+  providers: SetupProviderSelectionRequest;
+  blockSync: SetupJungleBusBlockSyncRequest;
+}
+
 /** S10 — providers config + catalog (`GET /api/admin/providers`).
  *  Mirrors `Dxs.Consigliere.Dto.Responses.Admin.AdminProvidersResponse`. */
 export interface AdminProvidersResponse {

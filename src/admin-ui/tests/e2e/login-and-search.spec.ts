@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { seedSetupCompleted } from "./_setup-state";
 
 /**
  * S12 e2e — golden-path operator flow.
@@ -11,6 +12,7 @@ import { expect, test } from "@playwright/test";
 const TXID = "aabbccdd11223344556677889900aabbccdd11223344556677889900aabbccdd";
 
 test("login → dashboard → tx detail via header search", async ({ page }) => {
+  await seedSetupCompleted(page);
   await page.goto("/");
   // Bounce to /login when unauthenticated.
   await expect(page).toHaveURL(/\/login$/);

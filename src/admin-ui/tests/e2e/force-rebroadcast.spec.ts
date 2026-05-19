@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { seedSetupCompleted } from "./_setup-state";
 
 const VALID_HEX = "0100000001" + "a".repeat(64);
 
@@ -12,6 +13,7 @@ const VALID_HEX = "0100000001" + "a".repeat(64);
  *  - Mock-mode submit resolves; receipt renders.
  */
 test("force-rebroadcast two-step confirm", async ({ page }) => {
+  await seedSetupCompleted(page);
   await page.goto("/login");
   await page.getByLabel(/operator name/i).fill("operator");
   await page.getByLabel(/password/i).fill("consigliere");

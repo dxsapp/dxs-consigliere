@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { seedSetupCompleted } from "./_setup-state";
 
 /**
  * S7-S12-audit M1 — closeout golden path that the static
@@ -17,6 +18,7 @@ import { expect, test } from "@playwright/test";
  * deterministic + free of timing fragility.
  */
 test("alerts page surfaces a Snackbar toast for the freshest alert", async ({ page }) => {
+  await seedSetupCompleted(page);
   await page.goto("/login");
   await page.getByLabel(/operator name/i).fill("operator");
   await page.getByLabel(/password/i).fill("consigliere");

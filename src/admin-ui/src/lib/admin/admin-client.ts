@@ -4,6 +4,8 @@ import {
   ADMIN_P2P_HEADERS_TIP_PATH,
   ADMIN_P2P_PEERS_PATH,
   ADMIN_PROVIDERS_PATH,
+  SETUP_COMPLETE_PATH,
+  SETUP_OPTIONS_PATH,
   SETUP_STATUS_PATH,
   adminAlertsPath,
   adminP2pHeadersRecentPath,
@@ -20,6 +22,8 @@ import type {
   HeadersTipDto,
   P2pAlertResponse,
   P2pHealthDto,
+  SetupCompleteRequest,
+  SetupOptionsResponse,
   SetupStatusResponse,
   SourceMetricsResponse,
 } from "@/types/admin";
@@ -54,6 +58,10 @@ export interface IAdminClient {
   getProviders(signal?: AbortSignal): Promise<AdminProvidersResponse>;
   /** S10 — setup wizard status. */
   getSetupStatus(signal?: AbortSignal): Promise<SetupStatusResponse>;
+  /** wave-A2 S0 — setup wizard options (`AllowAnonymous`). */
+  getSetupOptions(signal?: AbortSignal): Promise<SetupOptionsResponse>;
+  /** wave-A2 S0 — submit the first-run wizard. */
+  completeSetup(req: SetupCompleteRequest, signal?: AbortSignal): Promise<SetupStatusResponse>;
 }
 
 export class AdminClient implements IAdminClient {
@@ -126,5 +134,13 @@ export class AdminClient implements IAdminClient {
 
   getSetupStatus(signal?: AbortSignal) {
     return this.api.get<SetupStatusResponse>(SETUP_STATUS_PATH, { signal });
+  }
+
+  getSetupOptions(signal?: AbortSignal) {
+    return this.api.get<SetupOptionsResponse>(SETUP_OPTIONS_PATH, { signal });
+  }
+
+  completeSetup(req: SetupCompleteRequest, signal?: AbortSignal) {
+    return this.api.post<SetupStatusResponse>(SETUP_COMPLETE_PATH, req, { signal });
   }
 }

@@ -1,4 +1,5 @@
 import type { IAdminClient } from "@/lib/admin/admin-client";
+import { makeAppError } from "@/types/errors";
 import type {
   AdminPeersResponse,
   AdminProvidersResponse,
@@ -8,6 +9,8 @@ import type {
   HeadersTipDto,
   P2pAlertResponse,
   P2pHealthDto,
+  SetupCompleteRequest,
+  SetupOptionsResponse,
   SetupStatusResponse,
   SourceMetricsResponse,
   SourceMetricsSnapshot,
@@ -82,12 +85,37 @@ export class MockAdminClient implements IAdminClient {
   }
 
   async getSetupStatus(): Promise<SetupStatusResponse> {
-    return {
+    return readMockSetupStatus();
+  }
+
+  async getSetupOptions(): Promise<SetupOptionsResponse> {
+    const { seedSetupOptions } = await import("@/lib/mock/admin-systems-seed");
+    return seedSetupOptions(readMockSetupStatus());
+  }
+
+  async completeSetup(req: SetupCompleteRequest): Promise<SetupStatusResponse> {
+    // The real backend rejects an already-completed install with
+    // 409. Mirror that so the e2e + page tests can pin the flow.
+    const current = readMockSetupStatus();
+    if (current.setupCompleted) {
+      throw makeAppError("Validation", "setup_already_completed", 409);
+    }
+    const username = req.admin.username.trim();
+    const next: SetupStatusResponse = {
       setupRequired: false,
       setupCompleted: true,
-      adminEnabled: true,
-      adminUsername: "operator",
+      adminEnabled: req.admin.enabled,
+      adminUsername: username || null,
     };
+    writeMockSetupStatus(next);
+    // Pre-seed the persistent MockAuthClient state so signing in
+    // with the operator's chosen credentials Just Works after
+    // redirect. Mirrors the real cookie-mode behaviour where the
+    // setup wizard creates the admin account.
+    if (req.admin.enabled && username && req.admin.password) {
+      writeMockAuthCredentials({ username, password: req.admin.password });
+    }
+    return next;
   }
 
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {
@@ -161,6 +189,62 @@ export class MockAdminClient implements IAdminClient {
       },
       lastDegradedReorgAt: null,
     };
+  }
+}
+
+// ── wave-A2 S0: persistent setup state for mock mode ──────────────
+//
+// MockAuthClient already persists `{authenticated, username}` in
+// localStorage so e2e specs survive full SPA reloads (see
+// `src/lib/mock/auth.ts`). The wizard adds a second slice: a
+// `setupCompleted` flag + admin-credentials seed so a fresh e2e
+// run can:
+//   1. Visit `/` → bounced to `/setup` (setupCompleted=false)
+//   2. Submit the wizard → mock flips the flag + writes the chosen
+//      credentials into the auth state
+//   3. Redirect to `/login` → sign in with those credentials
+//
+// Both keys are cleared by `src/test-setup.ts`'s afterEach.
+
+const SETUP_STATE_KEY = "consigliere-admin/mock-setup-state/v1";
+const MOCK_AUTH_CREDENTIALS_KEY = "consigliere-admin/mock-auth-credentials/v1";
+
+function readMockSetupStatus(): SetupStatusResponse {
+  if (typeof window === "undefined") {
+    return { setupRequired: true, setupCompleted: false, adminEnabled: false, adminUsername: null };
+  }
+  try {
+    const raw = window.localStorage.getItem(SETUP_STATE_KEY);
+    if (!raw) {
+      return { setupRequired: true, setupCompleted: false, adminEnabled: false, adminUsername: null };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      setupRequired: parsed.setupRequired !== false,
+      setupCompleted: parsed.setupCompleted === true,
+      adminEnabled: parsed.adminEnabled === true,
+      adminUsername: typeof parsed.adminUsername === "string" ? parsed.adminUsername : null,
+    };
+  } catch {
+    return { setupRequired: true, setupCompleted: false, adminEnabled: false, adminUsername: null };
+  }
+}
+
+function writeMockSetupStatus(s: SetupStatusResponse): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SETUP_STATE_KEY, JSON.stringify(s));
+  } catch {
+    /* swallow */
+  }
+}
+
+function writeMockAuthCredentials(creds: { username: string; password: string }): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(MOCK_AUTH_CREDENTIALS_KEY, JSON.stringify(creds));
+  } catch {
+    /* swallow */
   }
 }
 

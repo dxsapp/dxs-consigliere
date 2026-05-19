@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { seedSetupCompleted } from "./_setup-state";
 
 /**
  * S12 e2e — alerts surface.
@@ -10,6 +11,7 @@ import { expect, test } from "@playwright/test";
  *    `alert-001` within the activeWindow).
  */
 test("alerts page renders active cards", async ({ page }) => {
+  await seedSetupCompleted(page);
   await page.goto("/login");
   await page.getByLabel(/operator name/i).fill("operator");
   await page.getByLabel(/password/i).fill("consigliere");

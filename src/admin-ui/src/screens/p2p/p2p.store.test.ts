@@ -37,6 +37,8 @@ function stubAdmin(overrides: Partial<{ health: P2pHealthDto; peers: AdminPeersR
     getHeadersRecent: mock.getHeadersRecent.bind(mock),
     getProviders: mock.getProviders.bind(mock),
     getSetupStatus: mock.getSetupStatus.bind(mock),
+    getSetupOptions: mock.getSetupOptions.bind(mock),
+    completeSetup: mock.completeSetup.bind(mock),
   };
 }
 

@@ -52,3 +52,7 @@ export const ADMIN_PROVIDERS_PATH = "/api/admin/providers";
 
 /** S10 — setup wizard status (`AllowAnonymous`). */
 export const SETUP_STATUS_PATH = "/api/setup/status";
+
+/** wave-A2 S0 — setup wizard options + completion (`AllowAnonymous`). */
+export const SETUP_OPTIONS_PATH = "/api/setup/options";
+export const SETUP_COMPLETE_PATH = "/api/setup/complete";

@@ -64,7 +64,20 @@ export const LoginPage = observer(function LoginPage({
         <CardHeader title="Consigliere Admin" subheader="Sign in" />
         <CardContent>
           {auth.setupRequired && (
-            <Alert severity="warning" sx={{ mb: 2 }}>
+            <Alert
+              severity="warning"
+              sx={{ mb: 2 }}
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate("/setup")}
+                  data-testid="login-go-to-setup"
+                >
+                  Go to setup
+                </Button>
+              }
+            >
               Setup required — finish first-run configuration before signing in.
             </Alert>
           )}

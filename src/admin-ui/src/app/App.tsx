@@ -77,6 +77,11 @@ const LogsPage = lazy(() =>
 const SetupPage = lazy(() =>
   import("@/screens/setup/SetupPage").then((m) => ({ default: m.SetupPage }))
 );
+const SetupWizardPage = lazy(() =>
+  import("@/screens/setup-wizard/SetupWizardPage").then((m) => ({
+    default: m.SetupWizardPage,
+  }))
+);
 
 // S6-audit M2: RootStore is constructed asynchronously because the
 // mock-mode factory dynamic-imports the mock module on demand. In
@@ -128,6 +133,16 @@ export function App() {
             element={
               <Suspense fallback={null}>
                 <LoginPage auth={root.auth} />
+              </Suspense>
+            }
+          />
+
+          {/* wave-A2 S0: first-run wizard is public + outside AuthGuard. */}
+          <Route
+            path="/setup"
+            element={
+              <Suspense fallback={null}>
+                <SetupWizardPage admin={root.admin} auth={root.auth} />
               </Suspense>
             }
           />

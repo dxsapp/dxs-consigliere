@@ -4,6 +4,8 @@ import type {
   HeadersTipDto,
   P2pAlertEventDto,
   P2pAlertResponse,
+  SetupOptionsResponse,
+  SetupStatusResponse,
 } from "@/types/admin";
 
 /**
@@ -199,6 +201,55 @@ export function seedProviders(): AdminProvidersResponse {
         helpLinks: [{ label: "Docs", url: "https://junglebus.gorillapool.io" }],
       },
     ],
+  };
+}
+
+// wave-A2 S0 — first-run wizard options. Values mirror what the
+// real backend returns from `GET /api/setup/options` on a fresh
+// DockerComposeE2E install. The wizard pre-fills the form from
+// these defaults; operators can override per field.
+export function seedSetupOptions(status: SetupStatusResponse): SetupOptionsResponse {
+  return {
+    status,
+    defaults: {
+      rawTxPrimaryProvider: "junglebus",
+      restFallbackProvider: "whatsonchain",
+      realtimePrimaryProvider: "bitails",
+      bitailsTransport: "websocket",
+    },
+    allowed: {
+      rawTxPrimaryProviders: ["junglebus", "bitails", "whatsonchain"],
+      restFallbackProviders: ["whatsonchain", "bitails"],
+      realtimePrimaryProviders: ["bitails", "junglebus"],
+      bitailsTransports: ["websocket"],
+    },
+    blockSync: {
+      baseUrl: "https://junglebus.gorillapool.io",
+      blockSubscriptionId: null,
+    },
+    providerConfig: {
+      bitails: {
+        apiKey: "",
+        baseUrl: "https://api.bitails.io",
+        websocketBaseUrl: "https://api.bitails.io/global",
+        zmqTxUrl: "",
+        zmqBlockUrl: "",
+      },
+      whatsonchain: {
+        apiKey: "",
+        baseUrl: "https://api.whatsonchain.com/v1/bsv/main",
+      },
+      junglebus: {
+        apiKey: "",
+        baseUrl: "https://junglebus.gorillapool.io",
+        mempoolSubscriptionId: "",
+        blockSubscriptionId: "",
+      },
+      node: {
+        zmqTxUrl: "",
+        zmqBlockUrl: "",
+      },
+    },
   };
 }
 
