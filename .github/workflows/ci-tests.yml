@@ -33,10 +33,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET
+      # wave-A3 S5-audit L1: RavenDB.TestDriver's embedded server
+      # runs against the .NET 8 runtime regardless of which SDK
+      # builds the test assemblies. Without 8.x on PATH every
+      # RavenTestDriver-backed test is a silent skip (see
+      # Shared/DotNetRuntimeFacts), which historically masked
+      # the secrets-migration coverage. Install both runtimes;
+      # the test SDK uses 9.x and the embedded server uses 8.x.
+      - name: Setup .NET (9 SDK + 8 runtime for RavenTestDriver)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: Restore
         run: dotnet restore ./Dxs.Consigliere.sln

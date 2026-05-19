@@ -129,14 +129,21 @@ public sealed class SecretsFileStore : IRealtimeSourcePolicyOverrideStore
     }
 
     /// <summary>
-    /// wave-A3 S5 migration: one-shot import of the wave-A2
-    /// Raven document. Runs at startup. Fail-stop semantics —
-    /// any IO error throws so the host refuses to start until
-    /// the operator resolves it (typically disk permissions on
-    /// the secrets mount). If the file already exists OR the
-    /// Raven document doesn't, the call short-circuits cleanly.
-    /// After a successful copy the Raven document is deleted —
-    /// there is no parallel path.
+    /// wave-A3 S5 migration: import the wave-A2 Raven document
+    /// onto the on-disk secrets store and delete the Raven copy.
+    ///
+    /// S5-audit M1 fix: previous revision short-circuited on
+    /// <c>File.Exists</c>, which meant a startup that
+    /// successfully wrote the file but failed the Raven delete
+    /// would never retry — the plaintext secrets would stay in
+    /// RavenDB forever. The probe now keys on Raven instead: as
+    /// long as a Raven document exists we keep deleting it, and
+    /// only write the file if it isn't already authoritative.
+    ///
+    /// Runs at startup. Fail-stop semantics — any IO error
+    /// throws so the host refuses to start until the operator
+    /// resolves it. Idempotent: a clean run with no Raven doc
+    /// and an existing file is a no-op.
     /// </summary>
     public async Task MigrateFromRavenAsync(IDocumentStore documentStore, CancellationToken cancellationToken = default)
     {
@@ -144,12 +151,6 @@ public sealed class SecretsFileStore : IRealtimeSourcePolicyOverrideStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (File.Exists(_filePath))
-            {
-                _logger.LogDebug("[secrets] provider-config file already present at {Path}; skipping Raven migration", _filePath);
-                return;
-            }
-
             using var session = documentStore.OpenAsyncSession();
             var ravenDoc = await session.LoadAsync<RealtimeSourcePolicyOverrideDocument>(
                 RealtimeSourcePolicyOverrideDocument.DocumentId, cancellationToken);
@@ -160,13 +161,28 @@ public sealed class SecretsFileStore : IRealtimeSourcePolicyOverrideStore
                 return;
             }
 
-            ravenDoc.Id = RealtimeSourcePolicyOverrideDocument.DocumentId;
-            await WriteFileAsync(ravenDoc, cancellationToken);
+            if (!File.Exists(_filePath))
+            {
+                // The file isn't authoritative yet — seed it
+                // from the Raven payload before deleting the
+                // Raven copy so we never have a window where
+                // neither location holds the secrets.
+                ravenDoc.Id = RealtimeSourcePolicyOverrideDocument.DocumentId;
+                await WriteFileAsync(ravenDoc, cancellationToken);
+                _logger.LogInformation("[secrets] migrated wave-A2 provider-config document from Raven to {Path}", _filePath);
+            }
+            else
+            {
+                _logger.LogInformation("[secrets] file at {Path} already authoritative; deleting stale Raven document", _filePath);
+            }
 
+            // Always delete the Raven document if it exists.
+            // The file is authoritative; the Raven copy is now
+            // either redundant (just-copied) or stale (a prior
+            // delete attempt failed) — either way it must not
+            // outlive this call.
             session.Delete(ravenDoc);
             await session.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation("[secrets] migrated wave-A2 provider-config document from Raven to {Path}; Raven document deleted", _filePath);
         }
         finally
         {

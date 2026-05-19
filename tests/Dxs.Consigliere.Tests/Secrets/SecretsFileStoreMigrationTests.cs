@@ -83,12 +83,18 @@ public sealed class SecretsFileStoreMigrationTests : RavenTestDriver, IDisposabl
     }
 
     [SkippableFact]
-    public async Task MigrateFromRavenAsync_is_idempotent_when_file_already_exists()
+    public async Task MigrateFromRavenAsync_keeps_file_authoritative_AND_deletes_stale_Raven()
     {
+        // S5-audit M1: an earlier revision short-circuited on
+        // File.Exists, which left plaintext provider secrets
+        // in Raven forever any time a prior startup's
+        // Raven-delete failed. The new contract: the file
+        // payload wins (operator may have edited it via the
+        // admin UI after a previous migrate-then-crash), but
+        // the Raven document MUST get cleaned up regardless.
         Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8));
 
         var fileStore = BuildStore();
-        // Pre-existing file — value the migration must NOT overwrite.
         await fileStore.SaveAsync(new RealtimeSourcePolicyOverrideDocument
         {
             Id = RealtimeSourcePolicyOverrideDocument.DocumentId,
@@ -108,16 +114,43 @@ public sealed class SecretsFileStoreMigrationTests : RavenTestDriver, IDisposabl
 
         await fileStore.MigrateFromRavenAsync(documentStore);
 
+        // File content is preserved; Raven copy is removed.
         var loaded = await fileStore.GetAsync();
         Assert.Equal("junglebus", loaded!.PrimaryRealtimeSource);
         Assert.Equal("file-wins", loaded.BitailsApiKey);
 
-        // File-already-present is short-circuit; the Raven
-        // document is left in place so the operator can decide.
         using var session = documentStore.OpenAsyncSession();
         var raven = await session.LoadAsync<RealtimeSourcePolicyOverrideDocument>(
             RealtimeSourcePolicyOverrideDocument.DocumentId);
-        Assert.NotNull(raven);
+        Assert.Null(raven);
+    }
+
+    [SkippableFact]
+    public async Task MigrateFromRavenAsync_with_no_Raven_doc_and_existing_file_is_a_clean_noop()
+    {
+        // Once the migration has run once successfully there
+        // is no Raven doc and the file is already authoritative.
+        // Subsequent startups must be true no-ops — the file
+        // content must NOT be rewritten and no Raven session
+        // changes are flushed.
+        Skip.IfNot(DotNetRuntimeFacts.HasRuntimeMajor(8));
+
+        var fileStore = BuildStore();
+        await fileStore.SaveAsync(new RealtimeSourcePolicyOverrideDocument
+        {
+            Id = RealtimeSourcePolicyOverrideDocument.DocumentId,
+            PrimaryRealtimeSource = "junglebus",
+            BitailsApiKey = "file-only",
+            UpdatedBy = "operator",
+        });
+        var before = File.GetLastWriteTimeUtc(fileStore.FilePath);
+        await Task.Delay(20);
+
+        using var documentStore = GetDocumentStore();
+        await fileStore.MigrateFromRavenAsync(documentStore);
+
+        var after = File.GetLastWriteTimeUtc(fileStore.FilePath);
+        Assert.Equal(before, after);
     }
 
     [SkippableFact]
