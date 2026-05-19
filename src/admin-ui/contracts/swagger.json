@@ -1,0 +1,5624 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Dxs.Consigliere",
+    "version": "1.0"
+  },
+  "paths": {
+    "/api/address/{address}/state": {
+      "get": {
+        "tags": [
+          "Address"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressStateResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressStateResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/{address}/balances": {
+      "get": {
+        "tags": [
+          "Address"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/{address}/utxos": {
+      "get": {
+        "tags": [
+          "Address"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "satoshis",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/{address}/history": {
+      "get": {
+        "tags": [
+          "Address"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tokenIds",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "desc",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "skipZeroBalance",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "acceptPartialHistory",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressHistoryResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressHistoryResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/balance": {
+      "post": {
+        "tags": [
+          "Address"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BalanceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/batch/utxo-set": {
+      "post": {
+        "tags": [
+          "Address"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUtxoSetBatchRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUtxoSetBatchRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUtxoSetBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/utxo-set": {
+      "post": {
+        "tags": [
+          "Address"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUtxoSetRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUtxoSetRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetUtxoSetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/address/history": {
+      "post": {
+        "tags": [
+          "Address"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetAddressHistoryRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetAddressHistoryRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetAddressHistoryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressHistoryResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressHistoryResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddressHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/cache/status": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionCacheStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionCacheStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionCacheStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/storage/status": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/manage/address": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchAddressRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchAddressRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchAddressRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/admin/manage/stas-token": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchStasTokenRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchStasTokenRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/WatchStasTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/admin/manage/address/{address}/history/full": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/manage/stas-token/{tokenId}/history/full": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenHistoryPolicyRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenHistoryPolicyRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenHistoryPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/manage/address/history/full": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAddressHistoryUpgradeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAddressHistoryUpgradeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAddressHistoryUpgradeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkHistoryUpgradeResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkHistoryUpgradeResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkHistoryUpgradeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/manage/stas-token/history/full": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkTokenHistoryUpgradeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkTokenHistoryUpgradeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkTokenHistoryUpgradeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkHistoryUpgradeResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkHistoryUpgradeResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkHistoryUpgradeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/blockchain/sync-status": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/manage/stas/backfill": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1000
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
+    "/api/admin/auth/me": {
+      "get": {
+        "tags": [
+          "AdminAuth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/auth/login": {
+      "post": {
+        "tags": [
+          "AdminAuth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/admin/auth/logout": {
+      "post": {
+        "tags": [
+          "AdminAuth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminAuthStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/findings": {
+      "get": {
+        "tags": [
+          "AdminInsights"
+        ],
+        "parameters": [
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminFindingResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminFindingResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminFindingResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/summary": {
+      "get": {
+        "tags": [
+          "AdminInsights"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDashboardSummaryResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDashboardSummaryResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminDashboardSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/metrics/sources": {
+      "get": {
+        "tags": [
+          "AdminMetrics"
+        ],
+        "parameters": [
+          {
+            "name": "lastN",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceMetricsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceMetricsResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceMetricsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/p2p/health": {
+      "get": {
+        "tags": [
+          "AdminP2p"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2pHealthDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2pHealthDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2pHealthDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/p2p/peers": {
+      "get": {
+        "tags": [
+          "AdminP2p"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/admin/p2p/headers/tip": {
+      "get": {
+        "tags": [
+          "AdminP2p"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadersTipDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadersTipDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadersTipDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/p2p/headers/recent": {
+      "get": {
+        "tags": [
+          "AdminP2p"
+        ],
+        "parameters": [
+          {
+            "name": "count",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HeadersTipDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HeadersTipDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HeadersTipDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/p2p/alerts": {
+      "get": {
+        "tags": [
+          "AdminP2p"
+        ],
+        "parameters": [
+          {
+            "name": "lastN",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2pAlertResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2pAlertResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/P2pAlertResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/providers": {
+      "get": {
+        "tags": [
+          "AdminProviders"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/providers/config": {
+      "put": {
+        "tags": [
+          "AdminProviders"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminProviderConfigUpdateRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminProviderConfigUpdateRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminProviderConfigUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminProviders"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminProvidersResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runtime/sources": {
+      "get": {
+        "tags": [
+          "AdminRuntime"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/runtime/sources/realtime-policy": {
+      "put": {
+        "tags": [
+          "AdminRuntime"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRealtimeSourcePolicyUpdateRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRealtimeSourcePolicyUpdateRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRealtimeSourcePolicyUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminRuntime"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRuntimeSourcesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tracked/addresses": {
+      "get": {
+        "tags": [
+          "AdminTracked"
+        ],
+        "parameters": [
+          {
+            "name": "includeTombstoned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTrackedAddressResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTrackedAddressResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTrackedAddressResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tracked/tokens": {
+      "get": {
+        "tags": [
+          "AdminTracked"
+        ],
+        "parameters": [
+          {
+            "name": "includeTombstoned",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTrackedTokenResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTrackedTokenResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AdminTrackedTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tracked/address/{address}": {
+      "get": {
+        "tags": [
+          "AdminTracked"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedAddressResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedAddressResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedAddressResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminTracked"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedEntityDeleteResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedEntityDeleteResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedEntityDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/tracked/token/{tokenId}": {
+      "get": {
+        "tags": [
+          "AdminTracked"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedTokenResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedTokenResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AdminTracked"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedEntityDeleteResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedEntityDeleteResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTrackedEntityDeleteResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/providers": {
+      "get": {
+        "tags": [
+          "Ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderStatusResponse"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderStatusResponse"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderStatusResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/cache": {
+      "get": {
+        "tags": [
+          "Ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionCacheStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionCacheStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectionCacheStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/storage": {
+      "get": {
+        "tags": [
+          "Ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/junglebus/block-sync": {
+      "get": {
+        "tags": [
+          "Ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JungleBusBlockSyncStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JungleBusBlockSyncStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JungleBusBlockSyncStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/junglebus/chain-tip-assurance": {
+      "get": {
+        "tags": [
+          "Ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/JungleBusChainTipAssuranceResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JungleBusChainTipAssuranceResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JungleBusChainTipAssuranceResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ops/validation/repairs": {
+      "get": {
+        "tags": [
+          "Ops"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRepairStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRepairStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidationRepairStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/readiness/address/{address}": {
+      "get": {
+        "tags": [
+          "Readiness"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/readiness/token/{tokenId}": {
+      "get": {
+        "tags": [
+          "Readiness"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup/status": {
+      "get": {
+        "tags": [
+          "Setup"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup/options": {
+      "get": {
+        "tags": [
+          "Setup"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupOptionsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupOptionsResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupOptionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/setup/complete": {
+      "post": {
+        "tags": [
+          "Setup"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupCompleteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupCompleteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetupCompleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/token/{tokenId}/state": {
+      "get": {
+        "tags": [
+          "Token"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenStateResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenStateResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/token/{tokenId}/balances": {
+      "get": {
+        "tags": [
+          "Token"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BalanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/token/{tokenId}/utxos": {
+      "get": {
+        "tags": [
+          "Token"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetUtxoSetResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/token/{tokenId}/history": {
+      "get": {
+        "tags": [
+          "Token"
+        ],
+        "parameters": [
+          {
+            "name": "tokenId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "take",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "desc",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "acceptPartialHistory",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenHistoryResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenHistoryResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenHistoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tx/get/{id}": {
+      "get": {
+        "tags": [
+          "Transaction"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tx/state/{id}": {
+      "get": {
+        "tags": [
+          "Transaction"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionStateResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionStateResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tx/batch/get": {
+      "get": {
+        "tags": [
+          "Transaction"
+        ],
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tx/by-height/get": {
+      "get": {
+        "tags": [
+          "Transaction"
+        ],
+        "parameters": [
+          {
+            "name": "blockHeight",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTransactionsByBlockResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTransactionsByBlockResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTransactionsByBlockResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tx/broadcast": {
+      "post": {
+        "tags": [
+          "Transaction"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastTxRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastTxRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/BroadcastTxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastReceiptDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastReceiptDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BroadcastReceiptDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tx/stas/validate/{id}": {
+      "get": {
+        "tags": [
+          "Transaction"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "418": {
+            "description": "I'm a teapot"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateStasResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateStasResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateStasResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddressHistoryDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "txId": {
+            "type": "string",
+            "nullable": true
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "validStasTx": {
+            "type": "boolean"
+          },
+          "spentSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "receivedSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "balanceSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "txFeeSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromAddresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "toAddresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddressHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AddressHistoryDto"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "historyStatus": {
+            "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AddressStateResponse": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "balances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BalanceDto"
+            },
+            "nullable": true
+          },
+          "utxoSet": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UtxoDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminAuthStatusResponse": {
+        "type": "object",
+        "properties": {
+          "setupRequired": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "authenticated": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "sessionTtlMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminBitailsProviderConfigResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "websocketBaseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqTxUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqBlockUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminBitailsProviderConfigUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "websocketBaseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqTxUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqBlockUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminDashboardSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "activeAddressCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "activeTokenCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tombstonedAddressCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tombstonedTokenCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "degradedAddressCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "degradedTokenCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "backfillingAddressCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "backfillingTokenCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullHistoryLiveAddressCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fullHistoryLiveTokenCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unknownRootFindingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "blockingUnknownRootTokenCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failureCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminFindingResponse": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "severity": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "observedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminJungleBusProviderConfigResponse": {
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mempoolSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminJungleBusProviderConfigUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mempoolSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminLoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProviderCatalogItemResponse": {
+        "type": "object",
+        "properties": {
+          "providerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "supportedCapabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "recommendedFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "activeFor": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "missingRequirements": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "helpLinks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminProviderLinkResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProviderConfigResponse": {
+        "type": "object",
+        "properties": {
+          "static": {
+            "$ref": "#/components/schemas/AdminProviderConfigValuesResponse"
+          },
+          "override": {
+            "$ref": "#/components/schemas/AdminProviderConfigValuesResponse"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/AdminProviderConfigValuesResponse"
+          },
+          "overrideActive": {
+            "type": "boolean"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "allowedRealtimePrimaryProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "allowedRawTxPrimaryProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "allowedRestPrimaryProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "allowedBitailsTransports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "updatedBy": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProviderConfigUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "realtimePrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "rawTxPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "restPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitailsTransport": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitails": {
+            "$ref": "#/components/schemas/AdminBitailsProviderConfigUpdateRequest"
+          },
+          "whatsonchain": {
+            "$ref": "#/components/schemas/AdminRestProviderConfigUpdateRequest"
+          },
+          "junglebus": {
+            "$ref": "#/components/schemas/AdminJungleBusProviderConfigUpdateRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProviderConfigValuesResponse": {
+        "type": "object",
+        "properties": {
+          "realtimePrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "rawTxPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "restPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitailsTransport": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitails": {
+            "$ref": "#/components/schemas/AdminBitailsProviderConfigResponse"
+          },
+          "whatsonchain": {
+            "$ref": "#/components/schemas/AdminRestProviderConfigResponse"
+          },
+          "junglebus": {
+            "$ref": "#/components/schemas/AdminJungleBusProviderConfigResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProviderLinkResponse": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "url": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProviderRecommendationsResponse": {
+        "type": "object",
+        "properties": {
+          "realtimePrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "restPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "rawTxFetchProvider": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminProvidersResponse": {
+        "type": "object",
+        "properties": {
+          "recommendations": {
+            "$ref": "#/components/schemas/AdminProviderRecommendationsResponse"
+          },
+          "config": {
+            "$ref": "#/components/schemas/AdminProviderConfigResponse"
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminProviderCatalogItemResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminRealtimeSourcePolicyResponse": {
+        "type": "object",
+        "properties": {
+          "static": {
+            "$ref": "#/components/schemas/AdminRealtimeSourcePolicyValuesResponse"
+          },
+          "override": {
+            "$ref": "#/components/schemas/AdminRealtimeSourcePolicyValuesResponse"
+          },
+          "effective": {
+            "$ref": "#/components/schemas/AdminRealtimeSourcePolicyValuesResponse"
+          },
+          "overrideActive": {
+            "type": "boolean"
+          },
+          "restartRequired": {
+            "type": "boolean"
+          },
+          "allowedPrimarySources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "allowedBitailsTransports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "updatedBy": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminRealtimeSourcePolicyUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "primaryRealtimeSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitailsTransport": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminRealtimeSourcePolicyValuesResponse": {
+        "type": "object",
+        "properties": {
+          "primaryRealtimeSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "fallbackSources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "bitailsTransport": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminRestProviderConfigResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminRestProviderConfigUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminRuntimeSourcesResponse": {
+        "type": "object",
+        "properties": {
+          "realtimePolicy": {
+            "$ref": "#/components/schemas/AdminRealtimeSourcePolicyResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTrackedAddressResponse": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "isTombstoned": {
+            "type": "boolean"
+          },
+          "tombstonedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "integritySafe": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AdminTrackedAddressSummaryResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTrackedAddressSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "currentBsvBalanceSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalUtxoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bsvUtxoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tokenUtxoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "firstTransactionAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "firstTransactionBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastTransactionAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastTransactionBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastProjectionSequence": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "tokenBalances": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminTrackedTokenBalanceSummaryResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTrackedEntityDeleteResponse": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "tombstoned": {
+            "type": "boolean"
+          },
+          "tombstonedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTrackedTokenBalanceSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "satoshis": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTrackedTokenResponse": {
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "symbol": {
+            "type": "string",
+            "nullable": true
+          },
+          "isTombstoned": {
+            "type": "boolean"
+          },
+          "tombstonedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "failureReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "integritySafe": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/TrackedEntityReadinessResponse"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/AdminTrackedTokenSummaryResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdminTrackedTokenSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "protocolType": {
+            "type": "string",
+            "nullable": true
+          },
+          "validationStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "issuer": {
+            "type": "string",
+            "nullable": true
+          },
+          "redeemAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "localKnownSupplySatoshis": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "burnedSatoshis": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "holderCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "utxoCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactionCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "firstTransactionAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "firstTransactionBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastTransactionAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastTransactionBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastProjectionSequence": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BalanceDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "satoshis": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BalanceRequest": {
+        "type": "object",
+        "properties": {
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "tokenIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BroadcastReceiptDto": {
+        "type": "object",
+        "properties": {
+          "txId": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAtMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BroadcastTxRequest": {
+        "type": "object",
+        "properties": {
+          "rawHex": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BulkAddressHistoryUpgradeRequest": {
+        "type": "object",
+        "properties": {
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BulkHistoryUpgradeResponse": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryUpgradeItemResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "BulkTokenHistoryUpgradeRequest": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TokenHistoryUpgradeRequest"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetAddressHistoryRequest": {
+        "type": "object",
+        "properties": {
+          "skip": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "take": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "desc": {
+            "type": "boolean"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokenIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "skipZeroBalance": {
+            "type": "boolean"
+          },
+          "acceptPartialHistory": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetTransactionsByBlockResponse": {
+        "type": "object",
+        "properties": {
+          "blockHeight": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "transactions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetUtxoSetBatchRequest": {
+        "type": "object",
+        "properties": {
+          "tokenIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetUtxoSetRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "satoshis": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetUtxoSetResponse": {
+        "type": "object",
+        "properties": {
+          "utxoSet": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UtxoDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HeadersTipDto": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string",
+            "nullable": true
+          },
+          "height": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "timestampMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prevHash": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HistoryEnvelopeBackfillStatusResponse": {
+        "type": "object",
+        "properties": {
+          "pendingCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastBatchScanned": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastBatchRewritten": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastBatchMissingTransactions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastTouchedSequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastRunStartedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastRunCompletedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HistoryPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "HistoryUpgradeItemResponse": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "messageCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "history": {
+            "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "JungleBusBlockSyncStatusResponse": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "boolean"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "unavailableReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockSubscriptionIdConfigured": {
+            "type": "boolean"
+          },
+          "lastObservedBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "highestKnownLocalBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lagBlocks": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastControlMessageAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastControlCode": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastControlStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastControlMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastScheduledAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastScheduledFromHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastScheduledToHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastProcessedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastProcessedBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastRequestId": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastErrorAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "JungleBusChainTipAssuranceResponse": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "boolean"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "assuranceMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "singleSourceAssurance": {
+            "type": "boolean"
+          },
+          "secondaryCrossCheckAvailable": {
+            "type": "boolean"
+          },
+          "controlFlowStalled": {
+            "type": "boolean"
+          },
+          "localProgressStalled": {
+            "type": "boolean"
+          },
+          "unavailableReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastObservedBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "highestKnownLocalBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lagBlocks": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastObservedMovementAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastObservedMovementHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastLocalProgressAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastLocalProgressHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "lastControlMessageAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastScheduledAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastProcessedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastErrorAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "controlFlowStaleAfterSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "localProgressStaleAfterSeconds": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrphanedTxRebroadcastCounters": {
+        "type": "object",
+        "properties": {
+          "announced": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "skippedNoRaw": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "skippedCoinbase": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "announceNoReadyPeer": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "announceFailed": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "P2pAlertEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "alertUnixMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "type": {
+            "type": "string",
+            "nullable": true
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "P2pAlertResponse": {
+        "type": "object",
+        "properties": {
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/P2pAlertEventDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "P2pHealthDto": {
+        "type": "object",
+        "properties": {
+          "bound": {
+            "type": "boolean"
+          },
+          "poolSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "targetPoolSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "subnet24Diversity": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "activePeers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "inboundEnabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectionCacheInvalidationDomainResponse": {
+        "type": "object",
+        "properties": {
+          "domain": {
+            "type": "string",
+            "nullable": true
+          },
+          "calls": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tags": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastInvalidatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectionCacheInvalidationTelemetryResponse": {
+        "type": "object",
+        "properties": {
+          "calls": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tags": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastInvalidatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectionCacheInvalidationDomainResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectionCacheStatusResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "backend": {
+            "type": "string",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxEntries": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "misses": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "factoryCalls": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "invalidatedKeys": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "invalidatedTags": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "evictions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "hitRatio": {
+            "type": "number",
+            "format": "double"
+          },
+          "invalidation": {
+            "$ref": "#/components/schemas/ProjectionCacheInvalidationTelemetryResponse"
+          },
+          "projectionLag": {
+            "$ref": "#/components/schemas/ProjectionLagResponse"
+          },
+          "historyEnvelopeBackfill": {
+            "$ref": "#/components/schemas/HistoryEnvelopeBackfillStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectionLagItemResponse": {
+        "type": "object",
+        "properties": {
+          "projection": {
+            "type": "string",
+            "nullable": true
+          },
+          "checkpointSequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lag": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectionLagResponse": {
+        "type": "object",
+        "properties": {
+          "journalTailSequence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "address": {
+            "$ref": "#/components/schemas/ProjectionLagItemResponse"
+          },
+          "token": {
+            "$ref": "#/components/schemas/ProjectionLagItemResponse"
+          },
+          "txLifecycle": {
+            "$ref": "#/components/schemas/ProjectionLagItemResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderCapabilityStatusResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "lastSuccessAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastErrorAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastErrorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "rateLimitState": {
+            "$ref": "#/components/schemas/RateLimitStateResponse"
+          },
+          "active": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProviderStatusResponse": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "nullable": true
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "configured": {
+            "type": "boolean"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "lastSuccessAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastErrorAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastErrorCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "rateLimitState": {
+            "$ref": "#/components/schemas/RateLimitStateResponse"
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProviderCapabilityStatusResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RateLimitStateResponse": {
+        "type": "object",
+        "properties": {
+          "limited": {
+            "type": "boolean"
+          },
+          "remaining": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "resetAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "scope": {
+            "type": "string",
+            "nullable": true
+          },
+          "sourceHint": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RawTransactionPayloadStorageStatusResponse": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string",
+            "nullable": true
+          },
+          "providerImplemented": {
+            "type": "boolean"
+          },
+          "persistenceActive": {
+            "type": "boolean"
+          },
+          "retentionPolicy": {
+            "type": "string",
+            "nullable": true
+          },
+          "compression": {
+            "type": "string",
+            "nullable": true
+          },
+          "location": {
+            "$ref": "#/components/schemas/StorageLocationStatusResponse"
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RootedTokenHistoryStatusResponse": {
+        "type": "object",
+        "properties": {
+          "trustedRoots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "trustedRootCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "completedTrustedRootCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unknownRootFindingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rootedHistorySecure": {
+            "type": "boolean"
+          },
+          "blockingUnknownRoot": {
+            "type": "boolean"
+          },
+          "unknownRootFindings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ScriptType": {
+        "enum": [
+          "Unknown",
+          "P2PK",
+          "P2PKH",
+          "P2SH",
+          "P2MS",
+          "NullData",
+          "P2STAS",
+          "Mnee1Sat",
+          "DSTAS",
+          "P2MPKH"
+        ],
+        "type": "string"
+      },
+      "SetupAdminAccessRequest": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "password": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupAllowedOptionsResponse": {
+        "type": "object",
+        "properties": {
+          "rawTxPrimaryProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "restFallbackProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "realtimePrimaryProviders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "bitailsTransports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupBitailsProviderDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "websocketBaseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqTxUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqBlockUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupCompleteRequest": {
+        "type": "object",
+        "properties": {
+          "admin": {
+            "$ref": "#/components/schemas/SetupAdminAccessRequest"
+          },
+          "providers": {
+            "$ref": "#/components/schemas/SetupProviderSelectionRequest"
+          },
+          "blockSync": {
+            "$ref": "#/components/schemas/SetupJungleBusBlockSyncRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "rawTxPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "restFallbackProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "realtimePrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitailsTransport": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupJungleBusBlockSyncDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupJungleBusBlockSyncRequest": {
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupJungleBusProviderDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "mempoolSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockSubscriptionId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupNodeProviderDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "zmqTxUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqBlockUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupNodeRealtimeConfigRequest": {
+        "type": "object",
+        "properties": {
+          "zmqTxUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "zmqBlockUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupOptionsResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/SetupStatusResponse"
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/SetupDefaultsResponse"
+          },
+          "allowed": {
+            "$ref": "#/components/schemas/SetupAllowedOptionsResponse"
+          },
+          "blockSync": {
+            "$ref": "#/components/schemas/SetupJungleBusBlockSyncDefaultsResponse"
+          },
+          "providerConfig": {
+            "$ref": "#/components/schemas/SetupProviderFormDefaultsResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupProviderFormDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "bitails": {
+            "$ref": "#/components/schemas/SetupBitailsProviderDefaultsResponse"
+          },
+          "whatsonchain": {
+            "$ref": "#/components/schemas/SetupRestProviderDefaultsResponse"
+          },
+          "junglebus": {
+            "$ref": "#/components/schemas/SetupJungleBusProviderDefaultsResponse"
+          },
+          "node": {
+            "$ref": "#/components/schemas/SetupNodeProviderDefaultsResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupProviderSelectionRequest": {
+        "type": "object",
+        "properties": {
+          "rawTxPrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "restFallbackProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "realtimePrimaryProvider": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitailsTransport": {
+            "type": "string",
+            "nullable": true
+          },
+          "bitails": {
+            "$ref": "#/components/schemas/AdminBitailsProviderConfigUpdateRequest"
+          },
+          "whatsonchain": {
+            "$ref": "#/components/schemas/AdminRestProviderConfigUpdateRequest"
+          },
+          "junglebus": {
+            "$ref": "#/components/schemas/AdminJungleBusProviderConfigUpdateRequest"
+          },
+          "node": {
+            "$ref": "#/components/schemas/SetupNodeRealtimeConfigRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupRestProviderDefaultsResponse": {
+        "type": "object",
+        "properties": {
+          "apiKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "baseUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupStatusResponse": {
+        "type": "object",
+        "properties": {
+          "setupRequired": {
+            "type": "boolean"
+          },
+          "setupCompleted": {
+            "type": "boolean"
+          },
+          "adminEnabled": {
+            "type": "boolean"
+          },
+          "adminUsername": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceMetricsResponse": {
+        "type": "object",
+        "properties": {
+          "latest": {
+            "$ref": "#/components/schemas/SourceMetricsSnapshot"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceMetricsSnapshot"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceMetricsSnapshot": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "snapshotUnixMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observationCounters": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceObservationCounters"
+            },
+            "nullable": true
+          },
+          "visibilityCounters": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceVisibilityCounters"
+            },
+            "nullable": true
+          },
+          "rebroadcast": {
+            "$ref": "#/components/schemas/OrphanedTxRebroadcastCounters"
+          },
+          "lastDegradedReorgAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceObservationCounters": {
+        "type": "object",
+        "properties": {
+          "invObserved": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "matched": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "unmatched": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parseError": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rateLimited": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "getDataTimeout": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "oversizePayload": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SourceVisibilityCounters": {
+        "type": "object",
+        "properties": {
+          "firstSeen": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "onlySaw": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lagBuckets": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StorageLocationStatusResponse": {
+        "type": "object",
+        "properties": {
+          "database": {
+            "type": "string",
+            "nullable": true
+          },
+          "collection": {
+            "type": "string",
+            "nullable": true
+          },
+          "rootPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "shardByTxId": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "bucket": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefix": {
+            "type": "string",
+            "nullable": true
+          },
+          "region": {
+            "type": "string",
+            "nullable": true
+          },
+          "endpoint": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StorageStatusResponse": {
+        "type": "object",
+        "properties": {
+          "rawTransactionPayloads": {
+            "$ref": "#/components/schemas/RawTransactionPayloadStorageStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SyncStatusResponse": {
+        "type": "object",
+        "properties": {
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isSynced": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenHistoryItemResponse": {
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "txId": {
+            "type": "string",
+            "nullable": true
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "height": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "receivedSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "spentSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "balanceDeltaSatoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "isIssue": {
+            "type": "boolean"
+          },
+          "isRedeem": {
+            "type": "boolean"
+          },
+          "validationStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocolType": {
+            "type": "string",
+            "nullable": true
+          },
+          "confirmedBlockHash": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenHistoryPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "trustedRoots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TokenHistoryItemResponse"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "historyStatus": {
+            "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenHistoryUpgradeRequest": {
+        "required": [
+          "tokenId"
+        ],
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "tokenHistoryPolicy": {
+            "$ref": "#/components/schemas/TokenHistoryPolicyRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TokenStateResponse": {
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocolType": {
+            "type": "string",
+            "nullable": true
+          },
+          "protocolVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "issuanceKnown": {
+            "type": "boolean"
+          },
+          "validationStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "issuer": {
+            "type": "string",
+            "nullable": true
+          },
+          "redeemAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "totalKnownSupply": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "burnedSatoshis": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastIndexedHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackedEntityReadinessResponse": {
+        "type": "object",
+        "properties": {
+          "tracked": {
+            "type": "boolean"
+          },
+          "entityType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "lifecycleStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "readable": {
+            "type": "boolean"
+          },
+          "authoritative": {
+            "type": "boolean"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "lagBlocks": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "progress": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "history": {
+            "$ref": "#/components/schemas/TrackedHistoryStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackedHistoryBackfillStatusResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "startedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastProgressAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "completedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "itemsScanned": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "itemsApplied": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "errorCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackedHistoryCoverageResponse": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullCoverage": {
+            "type": "boolean"
+          },
+          "authoritativeFromBlockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "authoritativeFromObservedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TrackedHistoryStatusResponse": {
+        "type": "object",
+        "properties": {
+          "historyReadiness": {
+            "type": "string",
+            "nullable": true
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/TrackedHistoryCoverageResponse"
+          },
+          "backfillStatus": {
+            "$ref": "#/components/schemas/TrackedHistoryBackfillStatusResponse"
+          },
+          "rootedToken": {
+            "$ref": "#/components/schemas/RootedTokenHistoryStatusResponse"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TransactionStateResponse": {
+        "type": "object",
+        "properties": {
+          "txId": {
+            "type": "string",
+            "nullable": true
+          },
+          "known": {
+            "type": "boolean"
+          },
+          "lifecycleStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "authoritative": {
+            "type": "boolean"
+          },
+          "relevantToManagedScope": {
+            "type": "boolean"
+          },
+          "relevanceTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "seenBySources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "seenInMempool": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "blockHash": {
+            "type": "string",
+            "nullable": true
+          },
+          "blockHeight": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "firstSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastObservedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "validationStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "payloadAvailable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UtxoDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "txId": {
+            "type": "string",
+            "nullable": true
+          },
+          "vout": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "satoshis": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "scriptPubKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "scriptType": {
+            "$ref": "#/components/schemas/ScriptType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidateStasResponse": {
+        "type": "object",
+        "properties": {
+          "askLater": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "nullable": true
+          },
+          "isLegal": {
+            "type": "boolean"
+          },
+          "isIssue": {
+            "type": "boolean"
+          },
+          "isRedeem": {
+            "type": "boolean"
+          },
+          "eventType": {
+            "type": "string",
+            "nullable": true
+          },
+          "spendingType": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "optionalDataContinuity": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "illegalRoots": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "validationStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "b2GResolved": {
+            "type": "boolean"
+          },
+          "missingDependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "validationRepairState": {
+            "type": "string",
+            "nullable": true
+          },
+          "validationRepairUpdatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidationRepairItemResponse": {
+        "type": "object",
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityId": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "nullable": true
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "missingDependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "attemptCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastAttemptAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "nextAttemptAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastFetchedDependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "lastStopReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastFetchCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastVisitedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "lastTraversalDepth": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidationRepairStatusResponse": {
+        "type": "object",
+        "properties": {
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pendingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "runningCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "blockedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolvedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "oldestUnresolvedCreatedAt": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "oldestUnresolvedAgeSeconds": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationRepairItemResponse"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WatchAddressRequest": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "historyPolicy": {
+            "$ref": "#/components/schemas/HistoryPolicyRequest"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WatchStasTokenRequest": {
+        "type": "object",
+        "properties": {
+          "tokenId": {
+            "type": "string",
+            "nullable": true
+          },
+          "symbol": {
+            "type": "string",
+            "nullable": true
+          },
+          "historyPolicy": {
+            "$ref": "#/components/schemas/HistoryPolicyRequest"
+          },
+          "tokenHistoryPolicy": {
+            "$ref": "#/components/schemas/TokenHistoryPolicyRequest"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}

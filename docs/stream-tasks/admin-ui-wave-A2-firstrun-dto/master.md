@@ -62,12 +62,20 @@ Business outcome:
   contract is already there. S0 is purely UI work + tests.
 - **Swagger codegen targets `src/admin-ui/src/types/
   api.generated.ts`.** Hand-mirrored types under
-  `types/admin.ts` and `types/auth.ts` are NOT deleted
-  in this wave — they continue to type domain helpers,
-  store contracts, and mocks. The generated file is the
-  source of truth for **wire shapes only**, and is
-  re-exported through `types/admin.ts` so existing imports
-  keep working.
+  `types/admin.ts` and `types/auth.ts` continue to type
+  domain helpers, store contracts, and mocks. The generated
+  file is the source of truth for **wire shapes**.
+- **Refactor to re-export from `api.generated.ts` is
+  deferred** — wave-A2 S1 closeout call (see Residuals
+  below). Swashbuckle's default emitter marks every property
+  as optional (`?:`); switching screens onto the generated
+  types would cascade `T | undefined` handling into 30+
+  screen files without a real defect to fix. The drift
+  GATE still catches every backend DTO change — a rename or
+  shape change produces a non-zero diff in
+  `api.generated.ts` and CI fails red. Tightening the
+  generated types via Swashbuckle NRT-aware required-field
+  inference is a wave-A3 residual.
 - **The contract-parity test (S2) is owned by the
   `verification-and-conformance` zone.** It boots the real
   ASP.NET host on a random port (env-injected

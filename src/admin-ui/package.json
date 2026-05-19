@@ -17,7 +17,9 @@
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "budget": "node scripts/assert-shell-budget.mjs",
     "inventory": "node scripts/bundle-inventory.mjs",
-    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm budget && pnpm inventory"
+    "contracts:generate": "node scripts/contracts-generate.mjs",
+    "contracts:check": "node scripts/contracts-check.mjs",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm budget && pnpm inventory && pnpm contracts:check"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -36,13 +38,13 @@
     "react-router-dom": "^7.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@playwright/test": "^1.49.0",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",
     "@types/node": "^25.5.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@eslint/js": "^9.17.0",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
     "@vitejs/plugin-react": "^4.4.0",
@@ -51,6 +53,7 @@
     "eslint-plugin-react-hooks": "^5.1.0",
     "globals": "^15.14.0",
     "jsdom": "^25.0.0",
+    "openapi-typescript": "^7.13.0",
     "typescript": "~5.8.0",
     "typescript-eslint": "^8.18.0",
     "vite": "^7.0.0",

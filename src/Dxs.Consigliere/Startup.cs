@@ -53,8 +53,18 @@ public class Startup(IConfiguration configuration)
         });
         app.UseSignalR();
 
+        // wave-A2 S1: the Swagger UI is a dev/CI affordance. Keep
+        // the OpenAPI middleware itself available in every env (the
+        // admin UI's contract-parity test runs against the document
+        // in CI), but expose the Swagger UI only when the host is
+        // not Production. The `--emit-swagger <path>` CLI flag in
+        // Program.cs bypasses both — it serialises the doc from the
+        // already-built DI graph and exits.
         app.UseSwagger();
-        app.UseSwaggerUI();
+        if (!env.IsProduction())
+        {
+            app.UseSwaggerUI();
+        }
     }
 
     public static void InitializeDatabase(IServiceProvider serviceProvider)

@@ -32,7 +32,7 @@ jobs:
   admin-ui:
     name: admin-ui (Vite + MUI + MobX)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: src/admin-ui
@@ -49,10 +49,23 @@ jobs:
       - name: Enable corepack (pnpm)
         run: corepack enable
 
+      # wave-A2 S1: `pnpm verify` ends with `pnpm contracts:check`,
+      # which spawns `dotnet run --emit-swagger` to regen the
+      # OpenAPI spec and diff it against the committed snapshot.
+      # The runner needs the .NET 9 SDK on PATH for that to work.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore .NET deps (warmup for swagger emit)
+        working-directory: .
+        run: dotnet restore ./Dxs.Consigliere.sln
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Verify (typecheck + lint + test + build + budget + inventory)
+      - name: Verify (typecheck + lint + test + build + budget + inventory + contracts:check)
         run: pnpm verify
 
   admin-ui-e2e:
