@@ -159,7 +159,7 @@ Out of scope:
 |---|---|---|---|---|---|---|
 | S0 | `setup-wizard` | **done** | — | `pnpm verify` + `pnpm test:e2e` (10 specs incl. new `setup-wizard.spec.ts`) | Wizard renders at `/setup`, walks operator through 4 steps, POSTs `/api/setup/complete` with a complete payload, redirects to `/login`; LoginPage no longer shows `{"code":"setup_required"}` after a fresh database. | `audits/S0-slice-audit.md` (codex) + `audits/S0-slice-audit-followup.md` (M1 + L1 folded) |
 | S1 | `contracts-codegen` + `swagger-emit` | **done** | S0 | `pnpm contracts:generate` produces `api.generated.ts` byte-identical to the checked-in copy; `pnpm contracts:check` exits 0 on clean tree, 1 on drift; backend `dotnet run -- --emit-swagger <path>` writes the OpenAPI spec | `pnpm verify` chain ends with `pnpm contracts:check`; CI fails if a developer edits `api.generated.ts` by hand. Refactor of `types/{admin,auth}.ts` to re-export from `api.generated.ts` is deferred to wave-A3 (Swashbuckle NRT-aware required-field inference) — the drift GATE works regardless. | `audits/S1-slice-audit.md` (codex) + `audits/S1-slice-audit-followup.md` (this fold) |
-| S2 | `contracts-parity` + `contracts-ci` | todo | S1 (needs the generated types as the parity target) | `pnpm test:contract` boots `dotnet run --project src/Dxs.Consigliere -- --test-mode` on a random port, runs each describe block, exits clean; CI's new `admin-ui-contracts` job is green | `tests/contract/auth.test.ts` un-skipped + new `tests/contract/admin.test.ts` covers `/p2p/health`, `/metrics/sources`, `/tracked/address/{a}`, `/tracked/token/{t}`, `/p2p/alerts`, `/p2p/peers`, `/p2p/headers/{tip,recent}`, `/providers`, `/setup/status`; CI workflow runs the job on every PR | A1 slice audit |
+| S2 | `contracts-parity` + `contracts-ci` | **done** | S1 | `pnpm test:contract` builds + spawns the dotnet assembly directly (ASPNETCORE_URLS=:0), walks the setup wizard, signs in, runs 12 ajv-validated describes; CI's new `admin-ui-contracts` job (RavenDB service container) green | 12/12 describes covering auth (2) + admin REST (10: p2p/health, peers, headers/tip + recent, alerts, metrics/sources, providers, tracked/addresses + tokens, setup/status) | `audits/S2-slice-audit-prompt.md` drafted; codex audit pending |
 
 ## Definition of Done
 
@@ -191,5 +191,5 @@ Per-slice commit hashes recorded here at closeout:
 |---|---|---|
 | S0 | `ce36377` | Public /setup wizard + AuthGuard setupRequired redirect + LoginPage CTA |
 | S1 | `56b55bb` | Swagger codegen + contracts:check gate; backend --emit-swagger CLI + admin-ui CI job extended with setup-dotnet |
-| S2 | _pending_ | _ASP.NET-host parity test + CI job_ |
+| S2 | `fbdff38` | ASP.NET-host parity test + admin-ui-contracts CI job (RavenDB service container) |
 | Audit fold | _pending_ | _A1 findings folded (if any)_ |
