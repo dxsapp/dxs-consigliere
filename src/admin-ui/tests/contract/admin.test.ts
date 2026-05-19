@@ -122,6 +122,17 @@ describe("admin REST contract parity", () => {
     expectShape("AdminTrackedTokenResponse", await res.json());
   });
 
+  // wave-A3 S3: read-only audit log surface. On a fresh test
+  // database there are no entries yet — the broadcast that
+  // would record one needs a wallet hub session — so this
+  // assertion is shape-only and tolerates an empty array.
+  it("GET /api/admin/audit-log → AdminAuditLogResponse", async () => {
+    const res = await callApi(host, "/api/admin/audit-log?lastN=10");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expectShape("AdminAuditLogResponse", body);
+  });
+
   it("GET /api/setup/status → SetupStatusResponse (setupCompleted=true after the wizard)", async () => {
     const res = await callApi(host, "/api/setup/status");
     expect(res.status).toBe(200);

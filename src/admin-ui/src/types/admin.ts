@@ -520,3 +520,23 @@ export interface AdminTrackedTokenResponse {
   readiness: TrackedEntityReadinessResponse;
   summary: AdminTrackedTokenSummaryResponse;
 }
+
+/**
+ * wave-A3 S3 — frozen wire shape for `GET /api/admin/audit-log`.
+ * Hand-mirrored from `AdminAuditLogResponse` until wave-A3 S6's
+ * NRT inference swaps every screen onto `api.generated.ts`.
+ */
+export interface AdminAuditLogEntryResponse {
+  id: string;
+  unixMs: number;
+  username: string;
+  action: string;
+  targetId: string;
+  /** Pre-serialised JSON blob; the UI parses + renders on demand. */
+  context: string | null;
+}
+
+export interface AdminAuditLogResponse {
+  totalMatched: number;
+  entries: AdminAuditLogEntryResponse[];
+}

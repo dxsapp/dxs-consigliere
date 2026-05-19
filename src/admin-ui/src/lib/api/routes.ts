@@ -56,3 +56,20 @@ export const SETUP_STATUS_PATH = "/api/setup/status";
 /** wave-A2 S0 — setup wizard options + completion (`AllowAnonymous`). */
 export const SETUP_OPTIONS_PATH = "/api/setup/options";
 export const SETUP_COMPLETE_PATH = "/api/setup/complete";
+
+/** wave-A3 S3 — audit log read surface (admin-only). */
+export const adminAuditLogPath = (opts: {
+  since?: number;
+  action?: string;
+  username?: string;
+  lastN?: number;
+} = {}): string => {
+  const params: string[] = [];
+  if (opts.since && opts.since > 0) params.push(`since=${opts.since}`);
+  if (opts.action) params.push(`action=${encodeURIComponent(opts.action)}`);
+  if (opts.username) params.push(`username=${encodeURIComponent(opts.username)}`);
+  if (opts.lastN && opts.lastN > 0) params.push(`lastN=${opts.lastN}`);
+  return params.length > 0
+    ? `/api/admin/audit-log?${params.join("&")}`
+    : "/api/admin/audit-log";
+};

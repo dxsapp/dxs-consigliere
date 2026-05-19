@@ -867,6 +867,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    since?: number;
+                    action?: string;
+                    username?: string;
+                    lastN?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AdminAuditLogResponse"];
+                        "application/json": components["schemas"]["AdminAuditLogResponse"];
+                        "text/json": components["schemas"]["AdminAuditLogResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/auth/me": {
         parameters: {
             query?: never;
@@ -2736,6 +2778,20 @@ export interface components {
             address?: string | null;
             balances?: components["schemas"]["BalanceDto"][] | null;
             utxoSet?: components["schemas"]["UtxoDto"][] | null;
+        };
+        AdminAuditLogEntryResponse: {
+            id?: string | null;
+            /** Format: int64 */
+            unixMs?: number;
+            username?: string | null;
+            action?: string | null;
+            targetId?: string | null;
+            context?: string | null;
+        };
+        AdminAuditLogResponse: {
+            /** Format: int32 */
+            totalMatched?: number;
+            entries?: components["schemas"]["AdminAuditLogEntryResponse"][] | null;
         };
         AdminAuthStatusResponse: {
             setupRequired?: boolean;

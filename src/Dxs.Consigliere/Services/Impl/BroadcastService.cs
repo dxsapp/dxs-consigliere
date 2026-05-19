@@ -9,12 +9,14 @@
 // consumer).
 using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
+using Dxs.Consigliere.Services.Audit;
 using Dxs.Consigliere.Services.P2p;
 
 namespace Dxs.Consigliere.Services.Impl;
 
 public class BroadcastService(
     IBitcoindService bitcoindService,
+    IAuditLogger auditLogger,
     ILogger<BroadcastService> logger
 ) : IBroadcastService
 {
@@ -54,6 +56,30 @@ public class BroadcastService(
         }
 
         var validation = await PolicyValidator.ValidateAsync(rawHex, ct);
+
+        // wave-A3 S3: audit BEFORE the actual broadcast. If the
+        // audit write fails the slice contract is fail-stop —
+        // a transaction must NOT go out without a forensic
+        // record of who clicked the button. Context is the
+        // minimum non-leaky payload (length + source); raw hex
+        // bytes are explicitly excluded per the slice's
+        // what-not-to-do constraint.
+        if (validation.IsValid)
+        {
+            var auditOk = await auditLogger.RecordAsync(
+                AuditActionNames.BroadcastTx,
+                validation.TxId,
+                new { rawHexLength = rawHex?.Length ?? 0, source = "admin-ui" },
+                cancellationToken: ct);
+            if (!auditOk)
+            {
+                return new BroadcastReceipt(
+                    null,
+                    OutgoingTxState.Failed,
+                    DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                    "audit_write_failed");
+            }
+        }
 
         if (!validation.IsValid)
         {

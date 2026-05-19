@@ -24,6 +24,7 @@ function adminStub(overrides: Partial<IAdminClient>): IAdminClient {
     getSetupStatus: mock.getSetupStatus.bind(mock),
     getSetupOptions: mock.getSetupOptions.bind(mock),
     completeSetup: mock.completeSetup.bind(mock),
+    getAuditLog: mock.getAuditLog.bind(mock),
     ...overrides,
   };
 }

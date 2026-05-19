@@ -74,6 +74,9 @@ const ProvidersPage = lazy(() =>
 const LogsPage = lazy(() =>
   import("@/screens/logs/LogsPage").then((m) => ({ default: m.LogsPage }))
 );
+const AuditLogPage = lazy(() =>
+  import("@/screens/audit-log/AuditLogPage").then((m) => ({ default: m.AuditLogPage }))
+);
 const SetupPage = lazy(() =>
   import("@/screens/setup/SetupPage").then((m) => ({ default: m.SetupPage }))
 );
@@ -281,6 +284,14 @@ function AuthedRoutes({ root }: { root: RootStore }) {
         element={
           <Suspense fallback={null}>
             <LogsPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/audit-log"
+        element={
+          <Suspense fallback={null}>
+            <AuditLogPage admin={root.admin} />
           </Suspense>
         }
       />

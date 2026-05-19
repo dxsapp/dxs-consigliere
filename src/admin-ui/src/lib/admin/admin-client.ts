@@ -8,12 +8,14 @@ import {
   SETUP_OPTIONS_PATH,
   SETUP_STATUS_PATH,
   adminAlertsPath,
+  adminAuditLogPath,
   adminP2pHeadersRecentPath,
   adminTrackedAddressPath,
   adminTrackedTokenPath,
   TX_BROADCAST_PATH,
 } from "@/lib/api/routes";
 import type {
+  AdminAuditLogResponse,
   AdminPeersResponse,
   AdminProvidersResponse,
   AdminTrackedAddressResponse,
@@ -62,6 +64,14 @@ export interface IAdminClient {
   getSetupOptions(signal?: AbortSignal): Promise<SetupOptionsResponse>;
   /** wave-A2 S0 — submit the first-run wizard. */
   completeSetup(req: SetupCompleteRequest, signal?: AbortSignal): Promise<SetupStatusResponse>;
+  /** wave-A3 S3 — read-only audit log feed. */
+  getAuditLog(opts?: {
+    since?: number;
+    action?: string;
+    username?: string;
+    lastN?: number;
+    signal?: AbortSignal;
+  }): Promise<AdminAuditLogResponse>;
 }
 
 export class AdminClient implements IAdminClient {
@@ -142,5 +152,23 @@ export class AdminClient implements IAdminClient {
 
   completeSetup(req: SetupCompleteRequest, signal?: AbortSignal) {
     return this.api.post<SetupStatusResponse>(SETUP_COMPLETE_PATH, req, { signal });
+  }
+
+  getAuditLog(opts: {
+    since?: number;
+    action?: string;
+    username?: string;
+    lastN?: number;
+    signal?: AbortSignal;
+  } = {}) {
+    return this.api.get<AdminAuditLogResponse>(
+      adminAuditLogPath({
+        since: opts.since,
+        action: opts.action,
+        username: opts.username,
+        lastN: opts.lastN,
+      }),
+      { signal: opts.signal },
+    );
   }
 }

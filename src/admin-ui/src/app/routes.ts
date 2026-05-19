@@ -4,6 +4,7 @@ import CellTowerIcon from "@mui/icons-material/CellTower";
 import CloudIcon from "@mui/icons-material/Cloud";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import DataObjectIcon from "@mui/icons-material/DataObject";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import HubIcon from "@mui/icons-material/Hub";
 import InsightsIcon from "@mui/icons-material/Insights";
 import LinearScaleIcon from "@mui/icons-material/LinearScale";
@@ -70,6 +71,8 @@ export const NAV_ROUTES: NavRoute[] = [
   { id: "broadcast-inspector", label: "Broadcast Inspector", icon: BiotechIcon, path: "/broadcast-inspector", section: "system" },
   { id: "configuration", label: "Configuration", icon: SettingsIcon, path: "/configuration", section: "system" },
   { id: "logs", label: "Logs / Raw", icon: DataObjectIcon, path: "/logs", section: "system" },
+  // wave-A3 S3: forensic record of destructive admin ops.
+  { id: "audit-log", label: "Audit Log", icon: FactCheckIcon, path: "/audit-log", section: "system" },
   { id: "providers", label: "Providers", icon: CloudIcon, path: "/providers", section: "system" },
   { id: "setup", label: "Setup", icon: TuneIcon, path: "/setup", section: "system" },
 ];

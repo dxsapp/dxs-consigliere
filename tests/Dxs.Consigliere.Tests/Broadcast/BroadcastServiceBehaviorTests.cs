@@ -9,6 +9,7 @@ using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
 using Dxs.Consigliere.Services;
+using Dxs.Consigliere.Services.Audit;
 using Dxs.Consigliere.Services.Impl;
 using Dxs.Consigliere.Services.P2p;
 
@@ -118,14 +119,33 @@ public class BroadcastServiceBehaviorTests
         public string ExtractTxIdFromDuplicate(PolicyValidationResult result) => ExtractTxIdOverride(result);
     }
 
+    /// <summary>
+    /// wave-A3 S3 — IAuditLogger fake. Default behaviour is
+    /// success; tests override <see cref="ResultOverride"/> to
+    /// exercise the fail-stop path.
+    /// </summary>
+    private sealed class FakeAuditLogger : IAuditLogger
+    {
+        public readonly ConcurrentBag<(string Action, string TargetId, object Context, string Username)> Calls = new();
+        public Func<bool> ResultOverride { get; set; } = () => true;
+
+        public Task<bool> RecordAsync(string action, string targetId, object context, string username = null, CancellationToken cancellationToken = default)
+        {
+            Calls.Add((action, targetId, context, username));
+            return Task.FromResult(ResultOverride());
+        }
+    }
+
     private static (BroadcastService service, FakeOutgoingRepo repo, FakeAnnouncer announcer,
-                    FakePolicyValidator validator)
+                    FakePolicyValidator validator, FakeAuditLogger audit)
         Build(bool wireP2p = true)
     {
+        var audit = new FakeAuditLogger();
         var service = new BroadcastService(
             bitcoindService: Mock.Of<IBitcoindService>(),
+            auditLogger: audit,
             logger: NullLogger<BroadcastService>.Instance);
-        if (!wireP2p) return (service, null!, null!, null!);
+        if (!wireP2p) return (service, null!, null!, null!, audit);
 
         var repo = new FakeOutgoingRepo();
         var announcer = new FakeAnnouncer();
@@ -134,13 +154,13 @@ public class BroadcastServiceBehaviorTests
         service.PolicyValidator = validator;
         service.OutgoingStore = repo;
         service.Announcer = announcer;
-        return (service, repo, announcer, validator);
+        return (service, repo, announcer, validator, audit);
     }
 
     [Fact]
     public async Task BroadcastAsync_NoP2pSubsystem_ReturnsFailedReceipt()
     {
-        var (service, _, _, _) = Build(wireP2p: false);
+        var (service, _, _, _, _) = Build(wireP2p: false);
 
         var receipt = await service.BroadcastAsync(SampleTxHex);
 
@@ -151,7 +171,7 @@ public class BroadcastServiceBehaviorTests
     [Fact]
     public async Task BroadcastAsync_PolicyInvalid_ReturnsRejectedReceipt_NotPersisted()
     {
-        var (service, repo, _, _) = Build();
+        var (service, repo, _, _, _) = Build();
 
         var receipt = await service.BroadcastAsync(rawHex: "");
 
@@ -163,7 +183,7 @@ public class BroadcastServiceBehaviorTests
     [Fact]
     public async Task BroadcastAsync_ValidTx_PersistsValidated_ReturnsReceipt()
     {
-        var (service, repo, announcer, _) = Build();
+        var (service, repo, announcer, _, _) = Build();
         // Make sure announce returns >= 1 so the no-peer branch
         // doesn't overwrite the Validated state.
         announcer.ReadyPeers = 1;
@@ -186,7 +206,7 @@ public class BroadcastServiceBehaviorTests
     [Fact]
     public async Task BroadcastAsync_AnnouncesViaTxAnnouncer_ForValidTx()
     {
-        var (service, _, announcer, _) = Build();
+        var (service, _, announcer, _, _) = Build();
 
         await service.BroadcastAsync(SampleTxHex);
         await PollUntil(() => announcer.Calls.Count >= 1);
@@ -208,7 +228,7 @@ public class BroadcastServiceBehaviorTests
         // (c) returns a BroadcastReceipt mirroring the existing
         //     document's TxId / State / CreatedAtMs — WITHOUT
         //     re-persisting and WITHOUT re-announcing.
-        var (service, repo, announcer, validator) = Build();
+        var (service, repo, announcer, validator, _) = Build();
 
         // Seed the repo with an existing receipt; configure the
         // validator to flag the next submission as duplicate.
@@ -249,7 +269,7 @@ public class BroadcastServiceBehaviorTests
         // Setting Failed (the pre-fix behaviour) would have moved
         // the doc out of GetNonTerminalAsync and silently dropped
         // it forever.
-        var (service, repo, announcer, _) = Build();
+        var (service, repo, announcer, _, _) = Build();
         announcer.ReadyPeers = 0;
 
         var receipt = await service.BroadcastAsync(SampleTxHex);
@@ -266,6 +286,40 @@ public class BroadcastServiceBehaviorTests
         Assert.Contains("No peers available", repo.LastSaved.LastError ?? "");
         // The pre-fix bug would have set Failed; pin its absence.
         Assert.NotEqual(OutgoingTxState.Failed, repo.LastSaved.State);
+    }
+
+    [Fact]
+    public async Task BroadcastAsync_ValidTx_RecordsAuditBeforePersistAndAnnounce()
+    {
+        // wave-A3 S3 — happy-path audit pin: the broadcast
+        // happens after a clean RecordAsync, with the slice-
+        // mandated context shape (rawHexLength + source).
+        var (service, _, _, _, audit) = Build();
+
+        var receipt = await service.BroadcastAsync(SampleTxHex);
+        Assert.Equal(OutgoingTxState.Validated, receipt.State);
+
+        var call = Assert.Single(audit.Calls);
+        Assert.Equal(AuditActionNames.BroadcastTx, call.Action);
+        Assert.Equal(receipt.TxId, call.TargetId);
+        Assert.NotNull(call.Context);
+    }
+
+    [Fact]
+    public async Task BroadcastAsync_AuditFailure_AbortsBroadcastWithFailedReceipt()
+    {
+        // wave-A3 S3 — fail-stop: if the audit write returns
+        // false, the broadcast MUST NOT reach the announcer +
+        // the receipt MUST report audit_write_failed.
+        var (service, repo, announcer, _, audit) = Build();
+        audit.ResultOverride = () => false;
+
+        var receipt = await service.BroadcastAsync(SampleTxHex);
+
+        Assert.Equal(OutgoingTxState.Failed, receipt.State);
+        Assert.Equal("audit_write_failed", receipt.FailReason);
+        Assert.Empty(repo.SaveCalls);
+        Assert.Empty(announcer.Calls);
     }
 
     private static async Task PollUntil(Func<bool> predicate, int timeoutMs = 1_500)

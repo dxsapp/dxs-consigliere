@@ -1,6 +1,7 @@
 import type { IAdminClient } from "@/lib/admin/admin-client";
 import { makeAppError } from "@/types/errors";
 import type {
+  AdminAuditLogResponse,
   AdminPeersResponse,
   AdminProvidersResponse,
   AdminTrackedAddressResponse,
@@ -116,6 +117,51 @@ export class MockAdminClient implements IAdminClient {
       writeMockAuthCredentials({ username, password: req.admin.password });
     }
     return next;
+  }
+
+  async getAuditLog(opts: {
+    since?: number;
+    action?: string;
+    username?: string;
+    lastN?: number;
+  } = {}): Promise<AdminAuditLogResponse> {
+    // wave-A3 S3 mock — a tiny seed of three entries so the
+    // /audit-log screen has something to render in mock mode.
+    const now = this.nowMs();
+    const all: AdminAuditLogResponse["entries"] = [
+      {
+        id: `audit-log/${now - 5_000}/aabbccdd`,
+        unixMs: now - 5_000,
+        username: "admin",
+        action: "broadcast_tx",
+        targetId: "f".repeat(64),
+        context: JSON.stringify({ rawHexLength: 512, source: "admin-ui" }),
+      },
+      {
+        id: `audit-log/${now - 600_000}/00112233`,
+        unixMs: now - 600_000,
+        username: "admin",
+        action: "broadcast_tx",
+        targetId: "e".repeat(64),
+        context: JSON.stringify({ rawHexLength: 384, source: "admin-ui" }),
+      },
+      {
+        id: `audit-log/${now - 3_600_000}/44556677`,
+        unixMs: now - 3_600_000,
+        username: "ops",
+        action: "broadcast_tx",
+        targetId: "d".repeat(64),
+        context: JSON.stringify({ rawHexLength: 256, source: "admin-ui" }),
+      },
+    ];
+    const filtered = all.filter((entry) => {
+      if (opts.since && entry.unixMs < opts.since) return false;
+      if (opts.action && entry.action !== opts.action) return false;
+      if (opts.username && entry.username !== opts.username) return false;
+      return true;
+    });
+    const take = opts.lastN && opts.lastN > 0 ? Math.min(opts.lastN, filtered.length) : filtered.length;
+    return { totalMatched: filtered.length, entries: filtered.slice(0, take) };
   }
 
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {

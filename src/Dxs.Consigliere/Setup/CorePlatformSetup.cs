@@ -39,6 +39,12 @@ public static class CorePlatformSetup
 
         services.AddConsigliereAdminAuth(configuration);
 
+        // wave-A3 S3: fail-stop audit logger. Singleton because
+        // its only state is a one-shot "expiration bundle
+        // enabled" guard; the per-call work opens its own
+        // Raven session.
+        services.AddSingleton<Services.Audit.IAuditLogger, Services.Audit.AuditLogger>();
+
         services
             .AddOptions<ConsigliereSourcesConfig>()
             .Configure(options =>
