@@ -7,6 +7,7 @@ using Dxs.Consigliere.Setup;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dxs.Consigliere.Controllers;
 
@@ -15,6 +16,7 @@ public class AdminAuthController : BaseController
 {
     [AllowAnonymous]
     [HttpGet("me")]
+    [EnableRateLimiting(RateLimiterPolicies.MePolicy)]
     [Produces(typeof(AdminAuthStatusResponse))]
     public async Task<IActionResult> Me(
         [FromServices] IConsigliereAdminAuthService authService,
@@ -23,9 +25,11 @@ public class AdminAuthController : BaseController
 
     [AllowAnonymous]
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimiterPolicies.LoginPolicy)]
     [Produces(typeof(AdminAuthStatusResponse))]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Login(
         [FromBody] AdminLoginRequest request,
         [FromServices] IConsigliereAdminAuthService authService,

@@ -45,7 +45,7 @@ public static class HealthChecksSetup
         {
             Predicate = _ => false,
             ResponseWriter = HealthResponseWriter.Write,
-        }).AllowAnonymous();
+        }).AllowAnonymous().DisableRateLimiting();
 
         // `ready` — every `ready`-tagged check passes (Raven +
         // providers).
@@ -53,14 +53,14 @@ public static class HealthChecksSetup
         {
             Predicate = c => c.Tags.Contains("ready"),
             ResponseWriter = HealthResponseWriter.Write,
-        }).AllowAnonymous();
+        }).AllowAnonymous().DisableRateLimiting();
 
         // `startup` — DI graph resolved without throwing.
         endpoints.MapHealthChecks("/health/startup", new HealthCheckOptions
         {
             Predicate = c => c.Tags.Contains("startup"),
             ResponseWriter = HealthResponseWriter.Write,
-        }).AllowAnonymous();
+        }).AllowAnonymous().DisableRateLimiting();
 
         return endpoints;
     }

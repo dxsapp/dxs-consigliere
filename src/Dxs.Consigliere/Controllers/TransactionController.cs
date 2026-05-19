@@ -7,7 +7,10 @@ using Dxs.Consigliere.Dto.Responses;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.WebSockets;
 
+using Dxs.Consigliere.Setup;
+
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Dxs.Consigliere.Controllers;
 
@@ -105,7 +108,9 @@ public class TransactionController : BaseController
     /// snippet.
     /// </summary>
     [HttpPost("broadcast")]
+    [EnableRateLimiting(RateLimiterPolicies.BroadcastPolicy)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     [Produces(typeof(BroadcastReceiptDto))]
     public async Task<IActionResult> Broadcast(
         [FromBody] BroadcastTxRequest body,

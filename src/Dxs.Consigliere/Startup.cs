@@ -10,6 +10,7 @@ public class Startup(IConfiguration configuration)
         services
             .AddConsigliereForwardedHeaders()
             .AddConsigliereHealthChecks()
+            .AddConsigliereRateLimiting(configuration)
             .AddPersistenceZoneServices(configuration)
             .AddBsvRuntimeZoneServices(configuration)
             .AddBsvP2pZoneServices(configuration)
@@ -48,6 +49,12 @@ public class Startup(IConfiguration configuration)
 
         app.UseAuthentication();
         app.UseAuthorization();
+        // wave-A3 S1: must come AFTER auth so the limiter sees
+        // resolved identity (future per-user partitions) but
+        // BEFORE the endpoint dispatcher so [EnableRateLimiting]
+        // attributes actually fire. Health endpoints registered
+        // below opt out via DisableRateLimiting.
+        app.UseRateLimiter();
         app.UseResponseCompression();
         app.UseRequestDecompression();
 

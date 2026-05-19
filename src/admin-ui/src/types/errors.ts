@@ -13,6 +13,7 @@ export type AppErrorCategory =
   | "Unauthorized" // 401 — session expired or absent
   | "Forbidden" // 403 — authenticated but lacks permission
   | "NotFound" // 404 from a known endpoint
+  | "RateLimited" // 429 — wave-A3 S1 rate-limit cutoff after one retry
   | "Validation" // 4xx with backend-provided detail
   | "Server" // 5xx
   | "Unknown"; // anything else

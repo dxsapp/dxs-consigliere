@@ -31,6 +31,14 @@ interface SpawnOptions {
   ravenUrl?: string;
   port?: number;
   configuration?: "Debug" | "Release";
+  /**
+   * Per-test env-var overrides applied on top of the inherited
+   * environment + the harness defaults. Used by the wave-A3 S1
+   * rate-limit suite to spawn a strict-limits host without
+   * mutating the shared globalSetup host the rest of the
+   * contract tests use.
+   */
+  envOverrides?: Record<string, string>;
 }
 
 const HERE = resolve(import.meta.dirname);
@@ -54,6 +62,7 @@ export async function startHost(opts: SpawnOptions = {}): Promise<HostHandle> {
     // Keep Microsoft.Hosting.Lifetime at Info — we parse the
     // "Now listening on" line below.
     Logging__LogLevel__Microsoft__Hosting__Lifetime: "Information",
+    ...(opts.envOverrides ?? {}),
   };
 
   // Build first (no-op if up-to-date) then spawn the assembly

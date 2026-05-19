@@ -156,6 +156,45 @@ probe cadence doesn't drown out real traffic. The wave-A3
 S1 rate limiter will use the same matcher to exempt probes
 from the auth bucket.
 
+## Rate limiting (wave-A3 S1)
+
+Three named policies attached to the load-bearing endpoints
+via `[EnableRateLimiting(...)]`:
+
+| Policy      | Endpoint                          | Default          | Threat model        |
+|-------------|-----------------------------------|------------------|---------------------|
+| `login`     | `POST /api/admin/auth/login`      | 5 / minute / IP  | brute-force         |
+| `me`        | `GET /api/admin/auth/me`          | 100 / minute / IP| client poll storm   |
+| `broadcast` | `POST /api/tx/broadcast`          | 1 / second / IP  | runaway client      |
+
+Health endpoints are explicitly opted out via
+`.DisableRateLimiting()` — orchestrator probes hammer them on
+purpose.
+
+### Overrides
+
+Each policy binds from `RateLimiting:*` config; env-var
+form:
+
+```sh
+# Loosen login to 10/minute on a high-traffic deployment
+export RateLimiting__Login__PermitsPerMinute=10
+# Raise the broadcast ceiling to 5/sec
+export RateLimiting__Broadcast__PermitsPerSecond=5
+```
+
+Process restart picks up the change. The S1 limiter is
+per-process; multi-instance HA is wave-A4 territory.
+
+### Client behaviour
+
+The admin UI's `ApiClient` honours `Retry-After` exactly
+ONCE: it sleeps the indicated delta, retries, and if the
+second response is also 429 surfaces an
+`AppError { category: "RateLimited" }`. The header is
+clamped to 65 seconds so a buggy / malicious server cannot
+freeze the UI for hours.
+
 ### Smoke after bring-up
 
 ```sh
