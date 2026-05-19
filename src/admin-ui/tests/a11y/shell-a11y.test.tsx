@@ -64,9 +64,11 @@ describe("Shell a11y (S11)", () => {
     }
   });
 
-  it("the alert badge IconButton accessible name communicates the count", () => {
+  it("the alert badge IconButton accessible name communicates the count (S7-S12-audit L2)", () => {
     renderShell();
-    const btn = screen.getByRole("button", { name: /alerts/i });
+    // ShellStore seeds alertCount=0 by default — the accessible
+    // name MUST include the count so a screen-reader announces it.
+    const btn = screen.getByRole("button", { name: /alerts \(0 active\)/i });
     expect(btn).toBeInTheDocument();
   });
 });

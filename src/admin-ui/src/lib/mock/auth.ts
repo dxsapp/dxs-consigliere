@@ -13,10 +13,45 @@ import type { IAuthClient } from "@/lib/auth/client";
  *   username: "operator"
  *   password: "consigliere"
  * Anything else → 401-shaped AppError.
+ *
+ * S7-S12-audit M1 followup: state persists in localStorage so the
+ * e2e specs (which navigate via `page.goto` and therefore reload
+ * the SPA on each step) keep their authenticated session, matching
+ * the real cookie-mode behavior.
  */
+const STORAGE_KEY = "consigliere-admin/mock-auth/v1";
+
+interface PersistedState {
+  authenticated: boolean;
+  username: string;
+}
+
+function readPersisted(): PersistedState {
+  if (typeof window === "undefined") return { authenticated: false, username: "" };
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return { authenticated: false, username: "" };
+    const parsed = JSON.parse(raw);
+    return {
+      authenticated: parsed.authenticated === true,
+      username: typeof parsed.username === "string" ? parsed.username : "",
+    };
+  } catch {
+    return { authenticated: false, username: "" };
+  }
+}
+
+function writePersisted(state: PersistedState): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    /* swallow — best-effort */
+  }
+}
+
 export class MockAuthClient implements IAuthClient {
-  private authenticated = false;
-  private username = "";
+  private state: PersistedState = readPersisted();
 
   async me(): Promise<AdminAuthStatusResponse> {
     return this.statusResponse();
@@ -27,16 +62,16 @@ export class MockAuthClient implements IAuthClient {
       throw makeAppError("Validation", "credentials_required", 400);
     }
     if (req.username === "operator" && req.password === "consigliere") {
-      this.authenticated = true;
-      this.username = req.username.trim();
+      this.state = { authenticated: true, username: req.username.trim() };
+      writePersisted(this.state);
       return this.statusResponse();
     }
     throw makeAppError("Unauthorized", "invalid_credentials", 401);
   }
 
   async logout(): Promise<AdminAuthStatusResponse> {
-    this.authenticated = false;
-    this.username = "";
+    this.state = { authenticated: false, username: "" };
+    writePersisted(this.state);
     return this.statusResponse();
   }
 
@@ -44,9 +79,9 @@ export class MockAuthClient implements IAuthClient {
     return {
       setupRequired: false,
       enabled: true,
-      authenticated: this.authenticated,
+      authenticated: this.state.authenticated,
       mode: "cookie",
-      username: this.authenticated ? this.username : "",
+      username: this.state.authenticated ? this.state.username : "",
       sessionTtlMinutes: 60,
     };
   }

@@ -13,12 +13,16 @@ const VALID_HEX = "0100000001" + "a".repeat(64);
  */
 test("force-rebroadcast two-step confirm", async ({ page }) => {
   await page.goto("/login");
-  await page.getByLabel(/username/i).fill("operator");
+  await page.getByLabel(/operator name/i).fill("operator");
   await page.getByLabel(/password/i).fill("consigliere");
   await page.getByRole("button", { name: /sign in/i }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
   await page.goto("/broadcast-queue");
+  // Wait for the lazy chunk + Suspense fallback to resolve before
+  // reaching for the CTA — Suspense fallback is null, so without
+  // the wait we'd race the chunk load.
+  await expect(page.getByRole("heading", { name: /broadcast queue/i })).toBeVisible();
   await page.getByRole("button", { name: /^force rebroadcast$/i }).click();
 
   await expect(page.getByRole("dialog")).toBeVisible();

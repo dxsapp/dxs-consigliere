@@ -1,42 +1,33 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { AdminTrackedTokenResponse } from "@/types/admin";
+import type { AdminProvidersResponse } from "@/types/admin";
 
 /**
- * S5/A1 — Token detail store. Mirrors AddressDetailStore exactly;
- * factored as a sibling rather than a generic so the type
- * signatures stay legible at the page boundary.
+ * S10/A1 — read-only store backing the Configuration page.
+ * Mirrors the S5 detail-store contract: idempotent start, async
+ * fetch, dispose aborts in-flight + flips a `disposed` guard so a
+ * late resolution can't mutate observable state.
+ *
+ * Configuration + Providers + Setup all consume one of three small
+ * stores; the Provider catalog is shared between Configuration and
+ * Providers because both screens read `AdminProvidersResponse`.
  */
-export type TokenDetailStatus = "idle" | "loading" | "ready" | "error";
+export type ConfigurationStatus = "idle" | "loading" | "ready" | "error";
 
-export interface TokenDetailStoreOptions {
-  admin: IAdminClient;
-  tokenId: string;
-}
-
-export class TokenDetailStore {
-  data: AdminTrackedTokenResponse | null = null;
-  status: TokenDetailStatus = "idle";
+export class ConfigurationStore {
+  data: AdminProvidersResponse | null = null;
+  status: ConfigurationStatus = "idle";
   error: string | null = null;
 
-  readonly tokenId: string;
   private readonly admin: IAdminClient;
   private inflight: AbortController | null = null;
 
-  constructor(opts: TokenDetailStoreOptions) {
+  constructor(opts: { admin: IAdminClient }) {
     this.admin = opts.admin;
-    this.tokenId = opts.tokenId;
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
   async start(): Promise<void> {
-    if (!this.tokenId) {
-      runInAction(() => {
-        this.status = "error";
-        this.error = "missing tokenId";
-      });
-      return;
-    }
     this.inflight?.abort();
     const ctl = new AbortController();
     this.inflight = ctl;
@@ -45,7 +36,7 @@ export class TokenDetailStore {
       this.error = null;
     });
     try {
-      const data = await this.admin.getTrackedToken(this.tokenId, ctl.signal);
+      const data = await this.admin.getProviders(ctl.signal);
       if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.data = data;
@@ -56,7 +47,7 @@ export class TokenDetailStore {
       if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.status = "error";
-        this.error = err instanceof Error ? err.message : "Failed to load token";
+        this.error = err instanceof Error ? err.message : "Unknown error";
       });
     } finally {
       if (this.inflight === ctl) this.inflight = null;

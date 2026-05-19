@@ -35,7 +35,6 @@ export class SourceMetricsStore {
   private readonly clearIntervalFn: NonNullable<SourceMetricsStoreOptions["clearInterval"]>;
   private timer: ReturnType<typeof setInterval> | null = null;
   private inflight: AbortController | null = null;
-  private disposed = false;
 
   constructor(opts: SourceMetricsStoreOptions) {
     this.admin = opts.admin;
@@ -47,13 +46,12 @@ export class SourceMetricsStore {
   }
 
   async start(): Promise<void> {
-    if (this.disposed || this.timer) return;
+    if (this.timer) return;
     await this.refresh();
     this.timer = this.setIntervalFn(() => void this.refresh(), this.pollMs);
   }
 
   dispose(): void {
-    this.disposed = true;
     if (this.timer) this.clearIntervalFn(this.timer);
     this.timer = null;
     this.inflight?.abort();
@@ -61,7 +59,6 @@ export class SourceMetricsStore {
   }
 
   async refresh(): Promise<void> {
-    if (this.disposed) return;
     this.inflight?.abort();
     const ctl = new AbortController();
     this.inflight = ctl;
@@ -73,14 +70,14 @@ export class SourceMetricsStore {
         lastN: this.lastN,
         signal: ctl.signal,
       });
-      if (ctl.signal.aborted || this.disposed) return;
+      if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.metrics = res;
         this.status = "ready";
         this.error = null;
       });
     } catch (err) {
-      if (ctl.signal.aborted || this.disposed) return;
+      if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.status = "error";
         this.error = err instanceof Error ? err.message : "Unknown error";

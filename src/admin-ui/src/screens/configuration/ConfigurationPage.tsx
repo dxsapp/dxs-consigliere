@@ -9,37 +9,30 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useEffect, useMemo } from "react";
+import { ConfigurationStore } from "@/screens/configuration/configuration.store";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { AdminProvidersResponse } from "@/types/admin";
 
 /**
  * S10 — Configuration screen. Read-only sectioned view of the
  * effective provider config (Bitails / WhatsOnChain / JungleBus).
  * No `tune` affordance per the design brief — operators change
- * config out-of-band via env / config files and reload.
+ * config out-of-band via env / config files and reload. Lifecycle
+ * owned by `ConfigurationStore` (S7-S12-audit M2).
  */
-export function ConfigurationPage({ admin }: { admin: IAdminClient }) {
-  const [data, setData] = useState<AdminProvidersResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-
+export const ConfigurationPage = observer(function ConfigurationPage({
+  admin,
+}: {
+  admin: IAdminClient;
+}) {
+  const store = useMemo(() => new ConfigurationStore({ admin }), [admin]);
   useEffect(() => {
-    const ctl = new AbortController();
-    admin
-      .getProviders(ctl.signal)
-      .then((res) => {
-        setData(res);
-        setStatus("ready");
-      })
-      .catch((err) => {
-        if (ctl.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "load failed");
-        setStatus("error");
-      });
-    return () => ctl.abort();
-  }, [admin]);
+    void store.start();
+    return () => store.dispose();
+  }, [store]);
 
+  const data = store.data;
   const eff = data?.config.effective ?? null;
 
   return (
@@ -55,8 +48,8 @@ export function ConfigurationPage({ admin }: { admin: IAdminClient }) {
         )}
       </Stack>
 
-      {status === "loading" && <LinearProgress />}
-      {error && <Alert severity="error">{error}</Alert>}
+      {store.status === "loading" && <LinearProgress />}
+      {store.error && <Alert severity="error">{store.error}</Alert>}
 
       {eff && (
         <>
@@ -109,7 +102,7 @@ export function ConfigurationPage({ admin }: { admin: IAdminClient }) {
       )}
     </Stack>
   );
-}
+});
 
 function Row({ k, v }: { k: string; v: string }) {
   return (

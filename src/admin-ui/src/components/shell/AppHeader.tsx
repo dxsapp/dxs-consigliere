@@ -102,7 +102,15 @@ export const AppHeader = observer(function AppHeader({
           />
 
           <Tooltip title={`${alertCount} active alert${alertCount === 1 ? "" : "s"}`}>
-            <IconButton onClick={() => navigate("/alerts")} aria-label="alerts">
+            {/*
+              S7-S12-audit L2 — accessible name must surface the live
+              count so a screen-reader hears "5 active alerts", not
+              just "alerts". `aria-label` flips with the count.
+             */}
+            <IconButton
+              onClick={() => navigate("/alerts")}
+              aria-label={`alerts (${alertCount} active)`}
+            >
               <Badge badgeContent={alertCount} color="error" overlap="circular">
                 <NotificationsIcon />
               </Badge>

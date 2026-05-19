@@ -9,35 +9,29 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useEffect, useMemo } from "react";
+import { ProvidersStore } from "@/screens/providers/providers.store";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { AdminProvidersResponse } from "@/types/admin";
 
 /**
  * S10 — Providers screen. Capability matrix: one card per provider
  * with roles, supported capabilities, recommended-for, active-for,
- * and missing requirements. Read-only.
+ * and missing requirements. Read-only. Lifecycle owned by
+ * `ProvidersStore` (S7-S12-audit M2).
  */
-export function ProvidersPage({ admin }: { admin: IAdminClient }) {
-  const [data, setData] = useState<AdminProvidersResponse | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [error, setError] = useState<string | null>(null);
-
+export const ProvidersPage = observer(function ProvidersPage({
+  admin,
+}: {
+  admin: IAdminClient;
+}) {
+  const store = useMemo(() => new ProvidersStore({ admin }), [admin]);
   useEffect(() => {
-    const ctl = new AbortController();
-    admin
-      .getProviders(ctl.signal)
-      .then((res) => {
-        setData(res);
-        setStatus("ready");
-      })
-      .catch((err) => {
-        if (ctl.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "load failed");
-        setStatus("error");
-      });
-    return () => ctl.abort();
-  }, [admin]);
+    void store.start();
+    return () => store.dispose();
+  }, [store]);
+
+  const data = store.data;
 
   return (
     <Stack spacing={3}>
@@ -46,8 +40,8 @@ export function ProvidersPage({ admin }: { admin: IAdminClient }) {
         <Chip label="S10" size="small" variant="outlined" />
       </Stack>
 
-      {status === "loading" && <LinearProgress />}
-      {error && <Alert severity="error">{error}</Alert>}
+      {store.status === "loading" && <LinearProgress />}
+      {store.error && <Alert severity="error">{store.error}</Alert>}
 
       <Stack spacing={2}>
         {(data?.providers ?? []).map((p) => (
@@ -94,7 +88,7 @@ export function ProvidersPage({ admin }: { admin: IAdminClient }) {
       </Stack>
     </Stack>
   );
-}
+});
 
 function ChipRow({
   label,

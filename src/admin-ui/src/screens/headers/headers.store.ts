@@ -45,7 +45,6 @@ export class HeadersStore {
   private timer: ReturnType<typeof setInterval> | null = null;
   private inflight: AbortController | null = null;
   private disposers: Unsubscribe[] = [];
-  private disposed = false;
 
   constructor(opts: HeadersStoreOptions) {
     this.admin = opts.admin;
@@ -58,7 +57,7 @@ export class HeadersStore {
   }
 
   async start(): Promise<void> {
-    if (this.disposed || this.timer) return;
+    if (this.timer) return;
     this.disposers.push(
       this.bus.on("OnReorg", (evt) =>
         runInAction(() => {
@@ -81,7 +80,6 @@ export class HeadersStore {
   }
 
   dispose(): void {
-    this.disposed = true;
     if (this.timer) this.clearIntervalFn(this.timer);
     this.timer = null;
     this.inflight?.abort();
@@ -91,7 +89,6 @@ export class HeadersStore {
   }
 
   async refresh(): Promise<void> {
-    if (this.disposed) return;
     this.inflight?.abort();
     const ctl = new AbortController();
     this.inflight = ctl;
@@ -103,7 +100,7 @@ export class HeadersStore {
         this.admin.getHeadersTip(ctl.signal),
         this.admin.getHeadersRecent(this.recentCount, ctl.signal),
       ]);
-      if (ctl.signal.aborted || this.disposed) return;
+      if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.tip = tip;
         this.recent = recent;
@@ -111,7 +108,7 @@ export class HeadersStore {
         this.error = null;
       });
     } catch (err) {
-      if (ctl.signal.aborted || this.disposed) return;
+      if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.status = "error";
         this.error = err instanceof Error ? err.message : "Unknown error";

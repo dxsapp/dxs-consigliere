@@ -55,11 +55,12 @@ pnpm test:e2e
 
 | metric | value |
 |---|---|
-| Vitest test files | 29 |
-| Vitest cases | 156 |
+| Vitest test files | 31 |
+| Vitest cases | 163 |
 | Lint | clean (ESLint flat config; `no-console` allows warn/error) |
 | TypeScript | clean (`tsc -b --noEmit`) |
-| Vite build | ✓ 1.5k modules · per-route chunks split |
+| Vite build | ✓ 2.7k modules · per-route chunks split |
+| CI workflow | `.github/workflows/ci-tests.yml` jobs: `backend`, `admin-ui` (pnpm verify), `admin-ui-e2e` (Playwright chromium + mobile-chromium, fails-CI on red, uploads `playwright-report` artifact) |
 | Shell budget | 194.44 KB gzip / 200 KB cap (97.2% used) |
 | DataGrid chunk | 128.23 KB gzip lazy |
 | ChartsWrapper chunk | 59.00 KB gzip lazy |

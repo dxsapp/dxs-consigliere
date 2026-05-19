@@ -1,42 +1,26 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { AdminTrackedTokenResponse } from "@/types/admin";
+import type { SetupStatusResponse } from "@/types/admin";
 
 /**
- * S5/A1 — Token detail store. Mirrors AddressDetailStore exactly;
- * factored as a sibling rather than a generic so the type
- * signatures stay legible at the page boundary.
+ * S10/A1 — read-only store backing the Setup screen.
  */
-export type TokenDetailStatus = "idle" | "loading" | "ready" | "error";
+export type SetupStatus = "idle" | "loading" | "ready" | "error";
 
-export interface TokenDetailStoreOptions {
-  admin: IAdminClient;
-  tokenId: string;
-}
-
-export class TokenDetailStore {
-  data: AdminTrackedTokenResponse | null = null;
-  status: TokenDetailStatus = "idle";
+export class SetupStore {
+  data: SetupStatusResponse | null = null;
+  status: SetupStatus = "idle";
   error: string | null = null;
 
-  readonly tokenId: string;
   private readonly admin: IAdminClient;
   private inflight: AbortController | null = null;
 
-  constructor(opts: TokenDetailStoreOptions) {
+  constructor(opts: { admin: IAdminClient }) {
     this.admin = opts.admin;
-    this.tokenId = opts.tokenId;
     makeAutoObservable(this, {}, { autoBind: true });
   }
 
   async start(): Promise<void> {
-    if (!this.tokenId) {
-      runInAction(() => {
-        this.status = "error";
-        this.error = "missing tokenId";
-      });
-      return;
-    }
     this.inflight?.abort();
     const ctl = new AbortController();
     this.inflight = ctl;
@@ -45,7 +29,7 @@ export class TokenDetailStore {
       this.error = null;
     });
     try {
-      const data = await this.admin.getTrackedToken(this.tokenId, ctl.signal);
+      const data = await this.admin.getSetupStatus(ctl.signal);
       if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.data = data;
@@ -56,7 +40,7 @@ export class TokenDetailStore {
       if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.status = "error";
-        this.error = err instanceof Error ? err.message : "Failed to load token";
+        this.error = err instanceof Error ? err.message : "Unknown error";
       });
     } finally {
       if (this.inflight === ctl) this.inflight = null;

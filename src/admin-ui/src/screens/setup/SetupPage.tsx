@@ -9,40 +9,29 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { observer } from "mobx-react-lite";
+import { useEffect, useMemo } from "react";
+import { SetupStore } from "@/screens/setup/setup.store";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { SetupStatusResponse } from "@/types/admin";
 
 /**
  * S10 — Setup. Read-only status panel that surfaces whether the
  * environment is set up, who the admin account is, and whether the
- * setup wizard is required (first-run scenario).
- *
- * The actual wizard form (POST /api/setup/complete) is a first-run
- * flow served before authenticated routes; the admin shell doesn't
- * need to embed it here — operators in production should hit the
- * `/setup` flow before they reach the admin UI.
+ * setup wizard is required (first-run scenario). Lifecycle owned by
+ * `SetupStore` (S7-S12-audit M2).
  */
-export function SetupPage({ admin }: { admin: IAdminClient }) {
-  const [data, setData] = useState<SetupStatusResponse | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [error, setError] = useState<string | null>(null);
-
+export const SetupPage = observer(function SetupPage({
+  admin,
+}: {
+  admin: IAdminClient;
+}) {
+  const store = useMemo(() => new SetupStore({ admin }), [admin]);
   useEffect(() => {
-    const ctl = new AbortController();
-    admin
-      .getSetupStatus(ctl.signal)
-      .then((res) => {
-        setData(res);
-        setStatus("ready");
-      })
-      .catch((err) => {
-        if (ctl.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "load failed");
-        setStatus("error");
-      });
-    return () => ctl.abort();
-  }, [admin]);
+    void store.start();
+    return () => store.dispose();
+  }, [store]);
+
+  const data = store.data;
 
   return (
     <Stack spacing={3}>
@@ -51,8 +40,8 @@ export function SetupPage({ admin }: { admin: IAdminClient }) {
         <Chip label="S10" size="small" variant="outlined" />
       </Stack>
 
-      {status === "loading" && <LinearProgress />}
-      {error && <Alert severity="error">{error}</Alert>}
+      {store.status === "loading" && <LinearProgress />}
+      {store.error && <Alert severity="error">{store.error}</Alert>}
 
       {data && (
         <Card>
@@ -75,7 +64,7 @@ export function SetupPage({ admin }: { admin: IAdminClient }) {
       )}
     </Stack>
   );
-}
+});
 
 function Row({ k, v }: { k: string; v: string }) {
   return (

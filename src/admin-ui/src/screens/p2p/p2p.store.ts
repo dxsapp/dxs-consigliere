@@ -57,7 +57,6 @@ export class P2pStore {
   private readonly clearIntervalFn: NonNullable<P2pStoreOptions["clearInterval"]>;
   private timer: ReturnType<typeof setInterval> | null = null;
   private inflight: AbortController | null = null;
-  private disposed = false;
 
   constructor(opts: P2pStoreOptions) {
     this.admin = opts.admin;
@@ -69,13 +68,12 @@ export class P2pStore {
   }
 
   async start(): Promise<void> {
-    if (this.disposed || this.timer) return;
+    if (this.timer) return;
     await this.refresh();
     this.timer = this.setIntervalFn(() => void this.refresh(), this.pollMs);
   }
 
   dispose(): void {
-    this.disposed = true;
     if (this.timer) this.clearIntervalFn(this.timer);
     this.timer = null;
     this.inflight?.abort();
@@ -83,7 +81,6 @@ export class P2pStore {
   }
 
   async refresh(): Promise<void> {
-    if (this.disposed) return;
     this.inflight?.abort();
     const ctl = new AbortController();
     this.inflight = ctl;
@@ -95,7 +92,7 @@ export class P2pStore {
         this.admin.getP2pHealth(ctl.signal),
         this.admin.getPeers(ctl.signal),
       ]);
-      if (ctl.signal.aborted || this.disposed) return;
+      if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.health = health;
         this.peers = peers;
@@ -103,7 +100,7 @@ export class P2pStore {
         this.error = null;
       });
     } catch (err) {
-      if (ctl.signal.aborted || this.disposed) return;
+      if (ctl.signal.aborted ) return;
       runInAction(() => {
         this.status = "error";
         this.error = err instanceof Error ? err.message : "Unknown error";
