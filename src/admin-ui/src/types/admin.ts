@@ -4,8 +4,15 @@
  *   - `Dxs.Consigliere.Data.Models.Metrics.SourceMetricsSnapshot`
  *     + nested `SourceObservationCounters` / `SourceVisibilityCounters`
  *
- * The S3 followup replaces these with `api.generated.ts` once the
- * swagger codegen lands. See `src/admin-ui/contracts/README.md`.
+ * wave-A2 S1 shipped `src/types/api.generated.ts` (Swashbuckle
+ * → openapi-typescript) + a `pnpm contracts:check` CI gate that
+ * fails red on any backend DTO drift. The hand-mirrored types in
+ * this file remain the source consumers import from — they layer
+ * required-by-the-screen semantics (non-`?:`) on top of
+ * Swashbuckle's default emitter, which marks every field
+ * optional. Migrating screens onto the generated types is
+ * scheduled for wave-A3 once Swashbuckle's NRT-aware
+ * required-field inference is wired.
  */
 
 /** Wave 1 + W6 — admin pool health surface. */

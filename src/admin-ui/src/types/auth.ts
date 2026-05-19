@@ -2,9 +2,12 @@
  * Admin auth DTOs — TS mirror of the C# shapes at
  * `src/Dxs.Consigliere/Dto/{Requests,Responses}/AdminAuth*.cs`.
  *
- * S3 ships the hand-written types here; the S3 followup wires a
- * codegen step against `src/admin-ui/contracts/swagger.json` so this
- * file becomes auto-generated.
+ * wave-A2 S1 shipped the codegen gate
+ * (`src/types/api.generated.ts` + `pnpm contracts:check`) which
+ * fails CI red on any backend DTO drift. The hand-mirrored types
+ * in this file stay as the screen-side source for now — see the
+ * companion `src/types/admin.ts` header for the rationale + the
+ * wave-A3 NRT migration plan.
  */
 
 export interface AdminAuthStatusResponse {
