@@ -68,6 +68,76 @@ jobs:
       - name: Verify (typecheck + lint + test + build + budget + inventory + contracts:check)
         run: pnpm verify
 
+  admin-ui-contracts:
+    name: admin-ui contracts (parity)
+    needs: admin-ui
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: src/admin-ui
+
+    # wave-A2 S2: real RavenDB as a service container so the
+    # contract suite can boot the dotnet host + walk the setup
+    # wizard against a live database. `RAVEN_PublicServerUrl` is
+    # set to localhost:8080 so Raven's topology negotiation
+    # returns a URL the dotnet client can actually reach.
+    services:
+      ravendb:
+        image: ravendb/ravendb:7.1-latest
+        ports:
+          - 8080:8080
+        env:
+          RAVEN_License_Eula_Accepted: "true"
+          RAVEN_Setup_Mode: "None"
+          RAVEN_Security_UnsecuredAccessAllowed: "PublicNetwork"
+          RAVEN_PublicServerUrl: "http://localhost:8080"
+          RAVEN_ServerUrl: "http://0.0.0.0:8080"
+        options: >-
+          --health-cmd "wget -q --spider http://localhost:8080/setup/alive"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore .NET deps
+        working-directory: .
+        run: dotnet restore ./Dxs.Consigliere.sln
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Run contract parity tests
+        env:
+          RAVEN_URL: http://localhost:8080
+        run: pnpm test:contract
+
+      - name: Upload contracts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-artifacts
+          path: |
+            src/admin-ui/contracts/swagger.json
+            src/admin-ui/src/types/api.generated.ts
+          retention-days: 7
+
   admin-ui-e2e:
     name: admin-ui e2e (Playwright)
     needs: admin-ui

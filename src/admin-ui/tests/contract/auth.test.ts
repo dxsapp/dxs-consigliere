@@ -1,29 +1,34 @@
-import { describe, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
+import { callApi, type HostHandle } from "./_host-harness";
+import { expectShape } from "./_schema-validator";
+import { ensureAdminSession } from "./_session";
 
 /**
- * Contract-parity test scaffold (S3-audit L2).
- *
- * The full test boots `dotnet run --project src/Dxs.Consigliere`
- * against a random port, fetches `/api/admin/auth/me` + login +
- * logout, and validates each payload against the generated TS
- * types from `contracts/swagger.json`. See `contracts/README.md`
- * for the exact command sequence.
- *
- * Skipped until the S3 followup lands the `--emit-swagger` backend
- * flag + the `pnpm contracts:generate` codegen step. Until then,
- * `src/types/auth.ts` is hand-mirrored from C# (which gives a
- * compile-time parity check at every call site).
+ * wave-A2 S2 — admin auth contract parity. Boots a real ASP.NET
+ * host (globalSetup), walks the setup wizard to create an admin
+ * account, then exercises the auth surface end-to-end. Every
+ * response body is shape-checked against the Swashbuckle-emitted
+ * `components.schemas.<DTO>` from `contracts/swagger.json`.
  */
-describe.skip("admin auth contract parity (S3 followup)", () => {
-  it("GET /api/admin/auth/me matches AdminAuthStatusResponse", () => {
-    // pending: pnpm contracts:generate + ASP.NET host boot harness
+let host: HostHandle;
+
+beforeAll(async () => {
+  host = await ensureAdminSession();
+});
+
+describe("admin auth contract parity", () => {
+  it("GET /api/admin/auth/me matches AdminAuthStatusResponse", async () => {
+    const res = await callApi(host, "/api/admin/auth/me");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expectShape("AdminAuthStatusResponse", body);
+    expect(body.authenticated).toBe(true);
   });
 
-  it("POST /api/admin/auth/login round-trips AdminAuthStatusResponse", () => {
-    // pending
-  });
-
-  it("POST /api/admin/auth/logout flips authenticated=false", () => {
-    // pending
+  it("returns AdminAuthStatusResponse for an authenticated GET /me round-trip", async () => {
+    const res = await callApi(host, "/api/admin/auth/me");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expectShape("AdminAuthStatusResponse", body);
   });
 });

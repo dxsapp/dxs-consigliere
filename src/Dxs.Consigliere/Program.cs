@@ -62,9 +62,18 @@ try
     var builder = Host
         .CreateDefaultBuilder(args)
         .UseSystemd()
+        // wave-A2 S2: `CreateDefaultBuilder` already loads
+        // `appsettings.json` + `appsettings.{env}.json` followed by
+        // environment variables + command-line args. We add the
+        // env-specific JSON again BEFORE re-applying env vars +
+        // cmdline so they remain authoritative — otherwise
+        // `RavenDb__Urls__0=...` got silently overridden by
+        // appsettings.{env}.json reading its own values back in.
         .ConfigureAppConfiguration(configBuilder =>
             {
                 configBuilder.AddJsonFile($"appsettings.{environmentName}.json", true);
+                configBuilder.AddEnvironmentVariables();
+                configBuilder.AddCommandLine(args);
             }
         )
         .ConfigureWebHostDefaults(webBuilder =>
