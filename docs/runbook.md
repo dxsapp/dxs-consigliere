@@ -108,6 +108,54 @@ and the .NET configuration binder does not round-trip
 `ProxyHeadersSetup.AddConsigliereForwardedHeaders` if the
 default loopback-trust is too permissive for the deployment.
 
+## Health probes (wave-A3 S2)
+
+Three anonymous endpoints designed for k8s / Railway / any
+orchestrator that ships HTTP probes:
+
+| Path              | Tag       | Pass when…                                    | Failure code |
+|-------------------|-----------|-----------------------------------------------|--------------|
+| `/health/live`    | (none)    | the process is listening                      | n/a (always 200) |
+| `/health/ready`   | `ready`   | Raven + at least one configured provider up   | 503 with `degraded`/`unhealthy` body |
+| `/health/startup` | `startup` | the DI graph resolved without throwing        | 503 |
+
+JSON shape:
+
+```json
+{
+  "status": "healthy" | "degraded" | "unhealthy",
+  "checks": [
+    { "name": "raven", "status": "healthy",
+      "description": null, "durationMs": 12 }
+  ]
+}
+```
+
+`description` is intentionally terse — these endpoints are
+anonymous, so no hostnames / stack traces / status codes
+leave the process.
+
+### Sample k8s probe block
+
+```yaml
+livenessProbe:
+  httpGet: { path: /health/live, port: 5000 }
+  periodSeconds: 10
+readinessProbe:
+  httpGet: { path: /health/ready, port: 5000 }
+  periodSeconds: 5
+startupProbe:
+  httpGet: { path: /health/startup, port: 5000 }
+  failureThreshold: 30
+  periodSeconds: 2
+```
+
+Caddy `prod` profile bypasses the access log for
+`/health/*` (one matcher in `Caddyfile.prod`) so a 5-second
+probe cadence doesn't drown out real traffic. The wave-A3
+S1 rate limiter will use the same matcher to exempt probes
+from the auth bucket.
+
 ### Smoke after bring-up
 
 ```sh

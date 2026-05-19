@@ -9,6 +9,7 @@ public class Startup(IConfiguration configuration)
     {
         services
             .AddConsigliereForwardedHeaders()
+            .AddConsigliereHealthChecks()
             .AddPersistenceZoneServices(configuration)
             .AddBsvRuntimeZoneServices(configuration)
             .AddBsvP2pZoneServices(configuration)
@@ -52,6 +53,11 @@ public class Startup(IConfiguration configuration)
 
         app.UseEndpoints(endpoints =>
         {
+            // wave-A3 S2: anonymous health probes. Registered
+            // before controller routes so the fallback-to-index
+            // map doesn't shadow them.
+            endpoints.MapConsigliereHealthEndpoints();
+
             endpoints.MapControllerRoute(
                 name: "default",
                 pattern: "{controller}/{action=Index}/{id?}");

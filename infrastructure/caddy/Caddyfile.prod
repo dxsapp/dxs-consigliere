@@ -29,6 +29,15 @@ import /etc/caddy/snippets/headers.caddy
 
 	encode zstd gzip
 
+	# wave-A3 S2: k8s / Railway probes hit /health/{live,ready,
+	# startup} on a 5-10s cadence — letting them through the
+	# default access log would drown out real traffic.  When the
+	# wave-A3 S1 rate limiter lands, the same matcher is the
+	# place to bypass the auth bucket so a flapping probe cannot
+	# self-throttle.
+	@health path /health/*
+	log_skip @health
+
 	reverse_proxy consigliere:5000 {
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-For {remote_host}
