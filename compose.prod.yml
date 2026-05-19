@@ -1,0 +1,35 @@
+# wave-A3 S0 (S0-audit M1) — prod-only override file. The
+# `caddy-prod` service moved out of compose.yml so the
+# mandatory env vars below cannot fail interpolation when the
+# operator runs `docker compose --profile dev config`.
+#
+# Bring up:
+#
+#   export CADDY_DOMAIN="consigliere.example.com"
+#   export CADDY_EMAIL="ops@example.com"
+#   docker compose -f compose.yml -f compose.prod.yml \
+#     --profile prod up -d --build
+#
+# The two env vars are mandatory: docker-compose fails fast with
+# the message inside ${VAR:?...} if either is missing when this
+# file is in the file list.
+
+services:
+  caddy-prod:
+    image: caddy:2-alpine
+    container_name: consigliere-caddy-prod
+    profiles: ["prod"]
+    restart: unless-stopped
+    depends_on:
+      - consigliere
+    environment:
+      CADDY_DOMAIN: "${CADDY_DOMAIN:?CADDY_DOMAIN must be set to the public DNS name for the prod profile}"
+      CADDY_EMAIL: "${CADDY_EMAIL:?CADDY_EMAIL must be set for Let's Encrypt ACME registration}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ./infrastructure/caddy/snippets:/etc/caddy/snippets:ro
+      - caddy-data:/data
+      - caddy-config:/config

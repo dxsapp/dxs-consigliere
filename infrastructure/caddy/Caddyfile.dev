@@ -10,8 +10,12 @@
 #   - lets Playwright e2e prove the prod-shaped flow without
 #     touching Let's Encrypt
 #
-# The `:80` block redirects HTTP → HTTPS so `curl http://...`
-# behaves like prod will.
+# S0-audit M2 fix: the site address MUST be a concrete hostname
+# (`localhost` here) — Caddy's internal CA needs an SNI value to
+# put in the SAN. A bare `:443` block accepted connections but
+# served no cert, so `curl -kI https://localhost/` failed on the
+# TLS handshake. `localhost` covers both browser-side dev + the
+# 127.0.0.1 loop curl uses by default.
 
 import /etc/caddy/snippets/headers.caddy
 
@@ -22,11 +26,17 @@ import /etc/caddy/snippets/headers.caddy
 	auto_https disable_redirects
 }
 
-:80 {
-	redir https://{host}{uri} permanent
+# HTTP → HTTPS redirect on :80 so `curl http://localhost/` matches
+# prod behaviour.
+http://localhost {
+	redir https://localhost{uri} permanent
 }
 
-:443 {
+# `tls internal` issues a self-signed cert for the configured
+# hostnames. Listing both `localhost` and `127.0.0.1` so the
+# cert's SAN covers either form of address curl / a browser might
+# resolve.
+https://localhost, https://127.0.0.1 {
 	tls internal
 
 	import security-headers

@@ -239,7 +239,8 @@ Per-slice commit hashes recorded here at closeout:
 
 | slice | commit | summary |
 |---|---|---|
-| S0 | `8ba09a5` | Caddy TLS termination (dev `tls internal` + prod ACME profiles, mutually exclusive) + cookie `SecurePolicy` config knob (default `Always`, conservative parser) + ForwardedHeaders middleware + runbook TLS section |
+| S0 | `ade41b0` | Caddy TLS termination (dev `tls internal` + prod ACME profiles, mutually exclusive) + cookie `SecurePolicy` config knob (default `Always`, conservative parser) + ForwardedHeaders middleware + runbook TLS section |
+| S0 audit fold | _pending hash_ | Codex MAJOR REVISION REQUIRED fold: M1 split caddy-prod to `compose.prod.yml` override so `--profile dev config` stops failing on prod-only env interpolation; M2 dev Caddyfile binds `https://localhost` + `https://127.0.0.1` as concrete site addresses so `tls internal` issues a cert that curl can complete a handshake against; L1 ledger hash backfill (`8ba09a5` → `ade41b0` after amend); L2 drop `ForwardedHeadersOptions__KnownProxies__0` env-var suggestion from runbook (`IList<IPAddress>` does not round-trip via `IConfiguration` binding). |
 | S1 | _pending_ | _AspNetCore.RateLimiting on auth + broadcast_ |
 | S2 | _pending_ | _Health endpoints + named-tag probes_ |
 | S3 | _pending_ | _AuditLogEntry + /audit-log admin UI screen_ |

@@ -60,10 +60,13 @@ Pre-flight checks:
    the `caddy-data` named volume. Backups MUST include it
    or every restart re-hits Let's Encrypt rate limits.
 
-Bring it up:
+Bring it up via the `compose.prod.yml` override (the
+`caddy-prod` service lives there, isolated from the dev
+interpolation pass — S0-audit M1 fix):
 
 ```sh
-docker compose --profile prod up -d --build
+docker compose -f compose.yml -f compose.prod.yml \
+  --profile prod up -d --build
 curl -I https://${CADDY_DOMAIN}/
 # Expected: 200 OK, strict-transport-security header set.
 ```
@@ -98,11 +101,12 @@ Without this:
   loopback IP
 
 For deployments behind a known upstream LB (e.g. Cloudflare
-in front of Caddy), tighten the trust list:
-
-```sh
-export ForwardedHeadersOptions__KnownProxies__0=203.0.113.42
-```
+in front of Caddy), tighten the trust list at code level —
+`ForwardedHeadersOptions.KnownProxies` is `IList<IPAddress>`,
+and the .NET configuration binder does not round-trip
+`IPAddress` from env vars. Hard-code the upstream IPs in
+`ProxyHeadersSetup.AddConsigliereForwardedHeaders` if the
+default loopback-trust is too permissive for the deployment.
 
 ### Smoke after bring-up
 
