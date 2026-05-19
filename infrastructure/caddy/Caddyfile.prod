@@ -1,0 +1,37 @@
+# wave-A3 S0 — production TLS termination + Let's Encrypt.
+#
+# Two operator-supplied env vars:
+#   CADDY_DOMAIN   public DNS name pointed at this host (e.g.
+#                  `consigliere.example.com`). Mandatory.
+#   CADDY_EMAIL    ACME contact for Let's Encrypt expiry +
+#                  revocation notices. Mandatory.
+#
+# Cert + ACME state persist on the `caddy-data` volume. Renewal
+# is automatic.
+#
+# Operator concerns (see docs/runbook.md):
+#   - DNS A/AAAA records must resolve to this host BEFORE the
+#     first compose up; otherwise the ACME challenge fails
+#     and Caddy falls back to its self-signed CA (HSTS will
+#     pin the broken cert on every client that hits it).
+#   - Open :80 + :443 inbound. Port 80 is required for the
+#     HTTP-01 challenge.
+
+import /etc/caddy/snippets/headers.caddy
+
+{
+	email {$CADDY_EMAIL}
+	admin off
+}
+
+{$CADDY_DOMAIN} {
+	import security-headers
+
+	encode zstd gzip
+
+	reverse_proxy consigliere:5000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+	}
+}

@@ -1,0 +1,23 @@
+# wave-A3 S0 — security header snippet shared by every Caddyfile.
+#
+# Strict-Transport-Security: pin HTTPS for 1 year (the
+#   `includeSubDomains` flag covers any future tenant/admin
+#   subdomain; do NOT add `preload` until the runbook covers
+#   the public submission to https://hstspreload.org).
+# X-Content-Type-Options: stop content sniffing.
+# X-Frame-Options: block clickjacking by default; tighten in S6
+#   if the admin UI ever needs to embed an iframe.
+# Referrer-Policy: drop the URL on cross-origin nav.
+# Permissions-Policy: deny camera/mic/geo to the admin shell —
+#   none of the routes need them.
+(security-headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Caddy auto-strips Server but the upstream may not.
+		-Server
+	}
+}

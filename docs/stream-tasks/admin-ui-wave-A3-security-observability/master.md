@@ -198,7 +198,7 @@ Out of scope:
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S0 | `tls-proxy` | todo | — | `docker compose up` exposes only :443 publicly; HSTS header present; `curl -k https://localhost/health/live` returns 200; cookies set `Secure` + `HttpOnly` + `SameSite=Lax` | Caddy in compose, Let's Encrypt for prod + self-signed for dev; Kestrel still on :5000 inside the docker network; cookie `Secure` flag flips with `ASPNETCORE_FORWARDED_HEADERS_ENABLED` + `Cookie__Secure=Always` | `audits/S0-slice-audit-prompt.md` (codex) + followup |
+| S0 | `tls-proxy` | **done** | — | `docker compose --profile dev config` parses; HSTS snippet emitted by both Caddyfiles; cookie SecurePolicy parser unit-tested (8 known + 5 unknown-defaults-Always cases); ForwardedHeaders wiring unit-tested; wave-A2 contract suite remains 16/16 green | Caddy in compose under `dev`/`prod` profiles (mutually exclusive); Caddyfile.dev `tls internal`, Caddyfile.prod ACME via `${CADDY_DOMAIN}`+`${CADDY_EMAIL}`; Kestrel + Raven both moved to `expose` only (no host publishing); cookie `Cookie.SecurePolicy` bound from `Consigliere:AdminAuth:cookieSecure` (default `Always`, conservative parser); `app.UseForwardedHeaders()` before `UseCors`/`UseRouting`; runbook TLS section landed | `audits/S0-slice-audit-prompt.md` |
 | S1 | `rate-limiting` | todo | S0 (so the Forwarded-For header arrives correctly) | A burst of 10 logins in <1s from one IP yields 5×200/302 + 5×429 with `Retry-After`; integration test pins the limits | `Microsoft.AspNetCore.RateLimiting` registered; 3 policies (`login`, `me`, `broadcast`) attached to their endpoints; per-policy limits in `RateLimitingConfig` + overridable via env | `audits/S1-slice-audit-prompt.md` |
 | S2 | `health-checks` | todo | — (parallel with S0/S1) | `curl http://localhost:5000/health/live` returns 200 always; `/health/ready` 200 when Raven + at least one provider reachable, 503 otherwise; `/health/startup` 200 after DI graph resolves | Three endpoints registered; named tags (`live`, `ready`, `startup`); RavenDB + Bitails + WoC + JungleBus probes; documented in the runbook | `audits/S2-slice-audit-prompt.md` |
 | S3 | `audit-trail` | todo | — (parallel) | `BroadcastService.BroadcastAsync(...)` writes an `AuditLogEntry` BEFORE attempting the network send; the entry is queryable from `/api/admin/audit-log`; new vitest contract describes the response shape | New Raven collection + admin REST endpoint + UI screen (DataGrid with filters by user / action / time range); broadcast audit pins every Force-rebroadcast call from the UI; spec proves an audit entry lands per dialog confirmation | `audits/S3-slice-audit-prompt.md` |
@@ -239,7 +239,7 @@ Per-slice commit hashes recorded here at closeout:
 
 | slice | commit | summary |
 |---|---|---|
-| S0 | _pending_ | _Caddy TLS termination + cookie Secure flag_ |
+| S0 | `8ba09a5` | Caddy TLS termination (dev `tls internal` + prod ACME profiles, mutually exclusive) + cookie `SecurePolicy` config knob (default `Always`, conservative parser) + ForwardedHeaders middleware + runbook TLS section |
 | S1 | _pending_ | _AspNetCore.RateLimiting on auth + broadcast_ |
 | S2 | _pending_ | _Health endpoints + named-tag probes_ |
 | S3 | _pending_ | _AuditLogEntry + /audit-log admin UI screen_ |

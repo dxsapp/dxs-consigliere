@@ -27,6 +27,15 @@
     <ProjectReference Include="..\..\src\Dxs.Consigliere\Dxs.Consigliere.csproj" />
   </ItemGroup>
 
+  <!--
+    wave-A3 S0: tests under Setup/ pin ASP.NET wiring (ForwardedHeaders,
+    cookie SecurePolicy). The framework reference exposes the
+    Microsoft.AspNetCore.* types without adding a NuGet package.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Include="..\Shared\DotNetRuntimeFacts.cs" Link="Shared/DotNetRuntimeFacts.cs" />
     <Compile Include="..\Shared\RepoPathResolver.cs" Link="Shared/RepoPathResolver.cs" />

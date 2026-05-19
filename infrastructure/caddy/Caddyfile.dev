@@ -1,0 +1,41 @@
+# wave-A3 S0 — local-dev TLS termination via Caddy's bundled
+# self-signed CA (`tls internal`). Operator imports the CA cert
+# from the `caddy-data` volume on first run; the runbook
+# documents the exact command.
+#
+# Why bother with TLS in dev:
+#   - exercises the cookie `Secure` flag end-to-end before prod
+#   - exercises the X-Forwarded-* plumbing the rate limiter (S1)
+#     keys on
+#   - lets Playwright e2e prove the prod-shaped flow without
+#     touching Let's Encrypt
+#
+# The `:80` block redirects HTTP → HTTPS so `curl http://...`
+# behaves like prod will.
+
+import /etc/caddy/snippets/headers.caddy
+
+{
+	# Admin endpoint is bound to the container only; the host
+	# never sees :2019.
+	admin off
+	auto_https disable_redirects
+}
+
+:80 {
+	redir https://{host}{uri} permanent
+}
+
+:443 {
+	tls internal
+
+	import security-headers
+
+	encode zstd gzip
+
+	reverse_proxy consigliere:5000 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Real-IP {remote_host}
+	}
+}

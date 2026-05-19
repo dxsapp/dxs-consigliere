@@ -2,6 +2,7 @@ using Dxs.Consigliere.Configs;
 
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -39,6 +40,11 @@ public static class AdminAuthSetup
                         : adminAuthConfig.CookieName;
                     options.Cookie.HttpOnly = true;
                     options.Cookie.SameSite = SameSiteMode.Lax;
+                    // wave-A3 S0: bind cookie SecurePolicy from config. Default
+                    // is `Always` (production-safe behind Caddy); the Test +
+                    // Development environments override to `SameAsRequest` so
+                    // the plain-HTTP local loops keep working.
+                    options.Cookie.SecurePolicy = ParseCookieSecurePolicy(adminAuthConfig.CookieSecure);
                     options.SlidingExpiration = true;
                     options.ExpireTimeSpan = TimeSpan.FromMinutes(adminAuthConfig.SessionTtlMinutes > 0
                         ? adminAuthConfig.SessionTtlMinutes
@@ -67,6 +73,14 @@ public static class AdminAuthSetup
 
         return services;
     }
+
+    internal static CookieSecurePolicy ParseCookieSecurePolicy(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "sameasrequest" => CookieSecurePolicy.SameAsRequest,
+            "none" => CookieSecurePolicy.None,
+            _ => CookieSecurePolicy.Always,
+        };
 }
 
 public sealed class ConsigliereAdminAccessRequirement : IAuthorizationRequirement;

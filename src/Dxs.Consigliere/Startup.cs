@@ -8,6 +8,7 @@ public class Startup(IConfiguration configuration)
     public void ConfigureServices(IServiceCollection services)
     {
         services
+            .AddConsigliereForwardedHeaders()
             .AddPersistenceZoneServices(configuration)
             .AddBsvRuntimeZoneServices(configuration)
             .AddBsvP2pZoneServices(configuration)
@@ -23,6 +24,11 @@ public class Startup(IConfiguration configuration)
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
+        // wave-A3 S0: MUST run before UseCors/UseRouting so
+        // downstream middleware sees the original scheme + client
+        // IP from the X-Forwarded-* headers Caddy injects.
+        app.UseForwardedHeaders();
+
         app.UseCors(x => x
             .AllowAnyOrigin()
             .AllowAnyMethod()

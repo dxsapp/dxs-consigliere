@@ -8,8 +8,11 @@ services:
       RAVEN_Setup_Mode: "None"
       RAVEN_Security_UnsecuredAccessAllowed: "PrivateNetwork"
       RAVEN_PublicServerUrl: "http://ravendb:8080"
-    ports:
-      - "8080:8080"
+    # Raven is reachable only inside the docker network. It used
+    # to publish 8080 to the host; wave-A3 S0 removes that so the
+    # only public surfaces are Caddy's :80 + :443.
+    expose:
+      - "8080"
     volumes:
       - raven-data:/var/lib/ravendb/data
 
@@ -21,13 +24,56 @@ services:
     restart: unless-stopped
     depends_on:
       ravendb:
-        condition: service_healthy
+        condition: service_started
     environment:
       DOTNET_ENVIRONMENT: DockerComposeE2E
       ASPNETCORE_ENVIRONMENT: DockerComposeE2E
       ASPNETCORE_HTTP_PORTS: "5000"
+    # wave-A3 S0: Kestrel is internal-only. Caddy is the only
+    # public surface, and TLS terminates there.
+    expose:
+      - "5000"
+
+  # wave-A3 S0 — public TLS termination. The `dev` profile uses
+  # `tls internal` (self-signed CA bundled with Caddy); the
+  # `prod` profile drives Let's Encrypt via the operator's
+  # CADDY_DOMAIN + CADDY_EMAIL.
+  caddy-dev:
+    image: caddy:2-alpine
+    container_name: consigliere-caddy-dev
+    profiles: ["dev"]
+    restart: unless-stopped
+    depends_on:
+      - consigliere
     ports:
-      - "5000:5000"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - ./infrastructure/caddy/snippets:/etc/caddy/snippets:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  caddy-prod:
+    image: caddy:2-alpine
+    container_name: consigliere-caddy-prod
+    profiles: ["prod"]
+    restart: unless-stopped
+    depends_on:
+      - consigliere
+    environment:
+      CADDY_DOMAIN: "${CADDY_DOMAIN:?CADDY_DOMAIN must be set to the public DNS name for the prod profile}"
+      CADDY_EMAIL: "${CADDY_EMAIL:?CADDY_EMAIL must be set for Let's Encrypt ACME registration}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - ./infrastructure/caddy/snippets:/etc/caddy/snippets:ro
+      - caddy-data:/data
+      - caddy-config:/config
 
 volumes:
   raven-data:
+  caddy-data:
+  caddy-config:
