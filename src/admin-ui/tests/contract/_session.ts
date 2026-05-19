@@ -1,35 +1,55 @@
-import { callApi, startHost, type HostHandle } from "./_host-harness";
+import { inject } from "vitest";
+import { callApi, type HostHandle } from "./_host-harness";
 
 const SETUP_USERNAME = "contract-admin";
 const SETUP_PASSWORD = "ContractTestA2!";
 const SETUP_BLOCK_SUB = "contract-sub-id";
 
-let hostPromise: Promise<HostHandle> | null = null;
+export const ADMIN_CREDENTIALS = Object.freeze({
+  username: SETUP_USERNAME,
+  password: SETUP_PASSWORD,
+});
+
+/** Well-known BSV address used as a fixture across the C# test
+ *  suite (Dxs.Bsv.Tests, Dxs.Consigliere.Tests). */
+export const SEEDED_ADDRESS = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+
+/** TokenId fixture shared with the DSTAS C# test suites. */
+export const SEEDED_TOKEN_ID = "3333333333333333333333333333333333333333";
+
+let seeded = false;
+
+let host: HostHandle | null = null;
 let prepared = false;
+/** Captured by the first `completeSetupIfNeeded` call so M2
+ *  tests can validate the shape returned by the wizard. */
+let setupOptionsResponse: unknown = null;
+let setupCompletionResponse: unknown = null;
 
 /**
- * wave-A2 S2 — single-shot setup of the admin account against
- * the live backend host. Every contract spec calls this in
- * `beforeAll`. The first invocation lazily spawns the dotnet
- * host (vitest fork has `singleFork: true`, so this module memo
- * lives across every spec file), walks the setup wizard, and
- * signs in. Subsequent invocations short-circuit on the cached
- * host + the prepared flag.
+ * wave-A2 S2 — host shared across every spec in the fork via
+ * `inject("contractHostBaseUrl")` (S2-audit H1 fix: vitest
+ * globalSetup spawns + tears down the backend in the main
+ * process; forks just consume the URL).
  *
- * Returns the host handle (with a populated cookie jar after
- * the login round-trip) so specs can `callApi` directly.
+ * The first call walks the setup wizard, signs in, and captures
+ * the response bodies for shape-tests. Subsequent calls
+ * short-circuit; if the cookie jar got cleared between specs
+ * the helper re-signs in.
  */
 export async function ensureAdminSession(): Promise<HostHandle> {
-  if (!hostPromise) {
-    hostPromise = startHost();
-    if (typeof process !== "undefined") {
-      // Best-effort cleanup when the fork exits.
-      process.on("beforeExit", () => {
-        hostPromise?.then((h) => h.stop()).catch(() => {});
-      });
+  if (!host) {
+    const baseUrl = inject("contractHostBaseUrl");
+    if (!baseUrl) {
+      throw new Error("[contract] globalSetup did not provide contractHostBaseUrl");
     }
+    host = {
+      baseUrl,
+      cookieJar: new Map<string, string>(),
+      // The fork doesn't own the backend lifetime — globalTeardown does.
+      stop: async () => {},
+    };
   }
-  const host = await hostPromise;
   if (!prepared) {
     await completeSetupIfNeeded(host);
     await loginAdmin(host);
@@ -42,22 +62,34 @@ export async function ensureAdminSession(): Promise<HostHandle> {
   return host;
 }
 
-/** Explicit teardown — registered with `afterAll` in any spec. */
-export async function stopAdminSession(): Promise<void> {
-  if (!hostPromise) return;
-  const host = await hostPromise.catch(() => null);
-  hostPromise = null;
-  prepared = false;
-  if (host) await host.stop();
+/** Captured `GET /api/setup/options` body — for S2-audit M2
+ *  validation. */
+export function setupOptionsBody(): unknown {
+  return setupOptionsResponse;
+}
+
+/** Captured `POST /api/setup/complete` body. */
+export function setupCompletionBody(): unknown {
+  return setupCompletionResponse;
 }
 
 async function completeSetupIfNeeded(host: HostHandle): Promise<void> {
-  const status = await callApi(host, "/api/setup/status");
-  if (!status.ok) {
-    throw new Error(`/api/setup/status returned ${status.status}`);
+  // S2-audit M2: pull options FIRST so a spec can shape-check
+  // the wizard payload before submit completes.
+  const optionsRes = await callApi(host, "/api/setup/options");
+  if (!optionsRes.ok) {
+    throw new Error(`/api/setup/options returned ${optionsRes.status}`);
   }
-  const json = (await status.json()) as { setupCompleted?: boolean };
-  if (json.setupCompleted === true) return;
+  setupOptionsResponse = await optionsRes.json();
+
+  const statusJson = (setupOptionsResponse as { status?: { setupCompleted?: boolean } })
+    .status;
+  if (statusJson?.setupCompleted === true) {
+    // Re-running the contract suite against an already-completed
+    // RavenDB. Skip wizard submit; login still runs.
+    setupCompletionResponse = statusJson;
+    return;
+  }
 
   const body = {
     admin: {
@@ -102,6 +134,61 @@ async function completeSetupIfNeeded(host: HostHandle): Promise<void> {
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`/api/setup/complete failed (${res.status}): ${text}`);
+  }
+  // S2-audit M2 fix: capture the body so a spec can validate
+  // the SetupStatusResponse shape that the backend returns.
+  setupCompletionResponse = await res.json();
+}
+
+/**
+ * S2-audit H2: seed a single tracked address + tracked token via
+ * the real `POST /api/admin/manage/*` endpoints so the contract
+ * suite can shape-check the *populated* list arrays AND the
+ * detail endpoints the UI actually consumes
+ * (`/api/admin/tracked/address/{address}` +
+ * `/api/admin/tracked/token/{tokenId}`). Idempotent — re-running
+ * against an already-seeded DB short-circuits on 409.
+ */
+export async function ensureSeededEntities(host: HostHandle): Promise<void> {
+  if (seeded) return;
+  await seedAddress(host);
+  await seedToken(host);
+  seeded = true;
+}
+
+async function seedAddress(host: HostHandle): Promise<void> {
+  const res = await callApi(host, "/api/admin/manage/address", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      address: SEEDED_ADDRESS,
+      name: "contract-fixture",
+      historyPolicy: { mode: "forward_only" },
+    }),
+  });
+  // 409 = already registered from a prior run against the same
+  // Raven DB; treat as success.
+  if (res.status === 409) return;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`/api/admin/manage/address failed (${res.status}): ${text}`);
+  }
+}
+
+async function seedToken(host: HostHandle): Promise<void> {
+  const res = await callApi(host, "/api/admin/manage/stas-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tokenId: SEEDED_TOKEN_ID,
+      symbol: "FIXTURE",
+      historyPolicy: { mode: "forward_only" },
+    }),
+  });
+  if (res.status === 409) return;
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`/api/admin/manage/stas-token failed (${res.status}): ${text}`);
   }
 }
 

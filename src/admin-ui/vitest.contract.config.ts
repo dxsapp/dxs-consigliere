@@ -15,15 +15,20 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/contract/**/*.test.ts"],
+    // S2-audit H1: globalSetup spawns the backend host in the
+    // MAIN process so teardown is reliable. The previous
+    // process.on("beforeExit") path never fired because the
+    // live dotnet child kept the event loop active.
+    globalSetup: ["./tests/contract/_global-setup.ts"],
     testTimeout: 90_000,
     hookTimeout: 180_000,
     pool: "forks",
     poolOptions: {
       forks: {
-        // One worker — the suite shares a single backend host +
-        // database via the module-scoped memo in `_session.ts`.
-        // Parallelism would double-spawn the dotnet host and
-        // race `/api/setup/complete` (only succeeds once per DB).
+        // One worker — every spec shares the SAME running host
+        // via `inject("contractHostBaseUrl")`. Parallel forks
+        // would race `/api/setup/complete` (only succeeds once
+        // per DB).
         singleFork: true,
       },
     },

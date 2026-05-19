@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { callApi, type HostHandle } from "./_host-harness";
 import { expectShape } from "./_schema-validator";
-import { ensureAdminSession } from "./_session";
+import { ensureAdminSession, ensureSeededEntities, SEEDED_ADDRESS, SEEDED_TOKEN_ID } from "./_session";
 
 /**
  * wave-A2 S2 — admin REST contract parity. One describe block per
@@ -17,6 +17,11 @@ let host: HostHandle;
 
 beforeAll(async () => {
   host = await ensureAdminSession();
+  // S2-audit H2: seed one tracked address + one tracked token so
+  // both the list AND the detail endpoints have real bodies for
+  // `expectShape` — the empty-array baseline never exercised the
+  // DTO shapes the UI actually consumes.
+  await ensureSeededEntities(host);
 });
 
 describe("admin REST contract parity", () => {
@@ -73,24 +78,48 @@ describe("admin REST contract parity", () => {
     expectShape("AdminProvidersResponse", await res.json());
   });
 
-  it("GET /api/admin/tracked/addresses → empty array (no tracked addresses on fresh install)", async () => {
+  // S2-audit H2: with a seeded address the list array is non-
+  // empty so `expectShape` actually runs on the DTO the UI binds.
+  it("GET /api/admin/tracked/addresses → AdminTrackedAddressResponse[]", async () => {
     const res = await callApi(host, "/api/admin/tracked/addresses?includeTombstoned=false");
     expect(res.status).toBe(200);
     const body = (await res.json()) as unknown[];
     expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
     for (const entry of body) {
       expectShape("AdminTrackedAddressResponse", entry);
     }
   });
 
-  it("GET /api/admin/tracked/tokens → empty array (no tracked tokens on fresh install)", async () => {
+  // S2-audit H2: detail endpoint is what `admin-client.ts`
+  // consumes when the operator opens a tracked-address row.
+  it("GET /api/admin/tracked/address/{address} → AdminTrackedAddressResponse", async () => {
+    const res = await callApi(
+      host,
+      `/api/admin/tracked/address/${encodeURIComponent(SEEDED_ADDRESS)}`,
+    );
+    expect(res.status).toBe(200);
+    expectShape("AdminTrackedAddressResponse", await res.json());
+  });
+
+  it("GET /api/admin/tracked/tokens → AdminTrackedTokenResponse[]", async () => {
     const res = await callApi(host, "/api/admin/tracked/tokens?includeTombstoned=false");
     expect(res.status).toBe(200);
     const body = (await res.json()) as unknown[];
     expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
     for (const entry of body) {
       expectShape("AdminTrackedTokenResponse", entry);
     }
+  });
+
+  it("GET /api/admin/tracked/token/{tokenId} → AdminTrackedTokenResponse", async () => {
+    const res = await callApi(
+      host,
+      `/api/admin/tracked/token/${encodeURIComponent(SEEDED_TOKEN_ID)}`,
+    );
+    expect(res.status).toBe(200);
+    expectShape("AdminTrackedTokenResponse", await res.json());
   });
 
   it("GET /api/setup/status → SetupStatusResponse (setupCompleted=true after the wizard)", async () => {

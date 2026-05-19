@@ -50,15 +50,29 @@ for (const [name, schema] of Object.entries(rewrittenSchemas)) {
 function rewriteRefs(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(rewriteRefs);
   if (value && typeof value === "object") {
+    const src = value as Record<string, unknown>;
+    // OpenAPI 3.0 cannot decorate a `$ref` property with
+    // `nullable: true` (the JSON Schema spec disallows
+    // siblings of `$ref`). Swashbuckle therefore strips the
+    // nullability hint on every complex-type property —
+    // `TrackedHistoryStatusResponse.backfillStatus` is a
+    // `$ref` but the C# property is nullable and routinely
+    // serializes to `null`. wave-A3 S6's `RequiredFromNrtFilter`
+    // will emit the `nullable: true` allOf-wrapper pattern
+    // and tighten this. Until then, treat every `$ref` as
+    // `anyOf: [$ref, null]` so AJV stops false-positiving on
+    // legitimate null wire values. (Closes the wave-A2 S2
+    // audit H2 fold blocker; the contract for renames /
+    // type-changes is preserved.)
+    if (typeof src.$ref === "string") {
+      const refName = src.$ref.startsWith("#/components/schemas/")
+        ? src.$ref.slice("#/components/schemas/".length)
+        : src.$ref;
+      return { anyOf: [{ $ref: refName }, { type: "null" }] };
+    }
     const out: Record<string, unknown> = {};
-    for (const [k, child] of Object.entries(value as Record<string, unknown>)) {
-      if (k === "$ref" && typeof child === "string") {
-        out[k] = child.startsWith("#/components/schemas/")
-          ? child.slice("#/components/schemas/".length)
-          : child;
-      } else {
-        out[k] = rewriteRefs(child);
-      }
+    for (const [k, child] of Object.entries(src)) {
+      out[k] = rewriteRefs(child);
     }
     return out;
   }

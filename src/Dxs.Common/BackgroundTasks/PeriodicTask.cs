@@ -46,6 +46,10 @@ public abstract class PeriodicTask : IHostedService, IBackgroundTask
 
     Task IHostedService.StartAsync(CancellationToken cancellationToken)
     {
+        if (_config.DisableAll)
+        {
+            return Task.CompletedTask;
+        }
         if (_config.EnabledTasks == null)
         {
             if (_config.DisabledTasks.Contains(Name))
