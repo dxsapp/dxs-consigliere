@@ -23,6 +23,17 @@ public static class CorePlatformSetup
             .Configure<AppConfig>(configuration)
             .Configure<NetworkConfig>(configuration);
 
+        // `Dxs.Common.BackgroundTasks.PeriodicTask` (and every
+        // hosted-service descendant — OutgoingTransactionMonitor,
+        // UnconfirmedTransactionsMonitor, the JungleBus monitors,
+        // etc.) takes the base `BackgroundTasksConfig` directly in
+        // its constructor (NOT wrapped in IOptions). Expose it as a
+        // singleton derived from the already-bound AppConfig so the
+        // DI graph resolves under DockerComposeE2E + production.
+        services.AddSingleton<Common.BackgroundTasks.BackgroundTasksConfig>(sp =>
+            sp.GetRequiredService<IOptions<AppConfig>>().Value.BackgroundTasks
+        );
+
         services.AddConsigliereAdminAuth(configuration);
 
         services
