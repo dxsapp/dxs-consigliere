@@ -93,19 +93,48 @@ describe("LogsStore", () => {
     expect(store.error).toBe("hub refused");
   });
 
-  it("resubscribe replays the filters and clears the local entries", async () => {
-    const hub = makeHub();
+  it("resubscribe clears the old entries BEFORE invoking, replays the filters, and keeps the new snapshot", async () => {
+    // S4-audit M1: the hub's SubscribeToLogs emits the ring
+    // snapshot via fire-and-forget SendAsync BEFORE returning.
+    // If the store cleared `entries` AFTER the invoke promise
+    // resolved (the bug codex caught), the snapshot frames
+    // delivered during the await would be wiped. This test
+    // simulates that ordering: the FakeHub `invoke` callback
+    // emits a snapshot frame mid-call, then completes.
+    const hub = makeHubWithSnapshotOnSubscribe([
+      { unixMs: 100, level: "warning", category: "Bsv.P2p", message: "snapshot-A", exception: null },
+      { unixMs: 101, level: "error", category: "Bsv.P2p", message: "snapshot-B", exception: null },
+    ]);
     const store = new LogsStore({ buildConnection: async () => hub });
     await store.start();
-    hub.emit({ unixMs: 1, level: "information", category: "T", message: "x", exception: null });
-    expect(store.entries).toHaveLength(1);
 
-    store.setMinLevel("error");
+    // Older live entry under the previous filter — must NOT
+    // survive the resubscribe.
+    hub.emit({ unixMs: 1, level: "information", category: "T", message: "stale", exception: null });
+    expect(store.entries.some((e) => e.message === "stale")).toBe(true);
+
+    store.setMinLevel("warning");
     await store.resubscribe();
 
-    expect(store.entries).toHaveLength(0);
+    expect(store.entries.map((e) => e.message)).toEqual(["snapshot-A", "snapshot-B"]);
     const last = hub.invocations[hub.invocations.length - 1];
     expect(last.method).toBe("SubscribeToLogs");
-    expect(last.args[0]).toBe("error");
+    expect(last.args[0]).toBe("warning");
   });
 });
+
+/** Test helper: every `invoke("SubscribeToLogs", ...)` call
+ *  fires the OnLogEvent handler with the supplied frames
+ *  BEFORE returning, mirroring the SignalR hub's
+ *  "snapshot-then-ack" sequence. */
+function makeHubWithSnapshotOnSubscribe(snapshot: LogEventDto[]): FakeHub {
+  const hub = makeHub();
+  const originalInvoke = hub.invoke;
+  hub.invoke = vi.fn(async (method: string, ...args: unknown[]) => {
+    if (method === "SubscribeToLogs") {
+      for (const frame of snapshot) hub.emit(frame);
+    }
+    return originalInvoke(method, ...args);
+  });
+  return hub;
+}

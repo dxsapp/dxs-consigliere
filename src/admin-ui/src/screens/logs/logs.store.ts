@@ -102,15 +102,24 @@ export class LogsStore {
       await this.start();
       return;
     }
-    // The hub replaces the subscription on every call.
+    // S4-audit M1 fix: clear BEFORE the invoke, not after. The
+    // hub's `SubscribeToLogs` flushes the ring-buffer snapshot
+    // via fire-and-forget `SendAsync` BEFORE returning, so by
+    // the time `await invoke(...)` resolves the new snapshot
+    // frames may already have populated `this.entries` via
+    // `handle(...)`. Clearing afterwards would wipe them and
+    // leave the operator staring at an empty grid until the
+    // next live emission landed. Clearing first means the new
+    // snapshot is the only content the operator sees with the
+    // new filters applied.
+    runInAction(() => {
+      this.entries = [];
+    });
     await this.connection.invoke(
       "SubscribeToLogs",
       this.filter.minLevel || undefined,
       this.filter.category || undefined,
     );
-    runInAction(() => {
-      this.entries = [];
-    });
   }
 
   async stop(): Promise<void> {
