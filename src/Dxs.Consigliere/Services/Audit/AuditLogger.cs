@@ -16,19 +16,23 @@ namespace Dxs.Consigliere.Services.Audit;
 /// fail-stop. A logger-level error is also emitted so the
 /// operator notices regardless of the upstream's behaviour.
 ///
-/// The expiration bundle (<see cref="ConfigureExpirationOperation"/>)
-/// is enabled lazily on the first write — older operator
-/// installs may not have it on by default. Subsequent writes
-/// short-circuit via a per-process flag.
+/// The Raven expiration bundle is enabled lazily on the first
+/// write via <see cref="IAuditRetentionConfigurator"/> — older
+/// operator installs may not have it on by default. S3-audit
+/// M1 fix: bundle-enable failure is fail-stop (re-thrown by
+/// the configurator and surfaced as <c>false</c>) so a
+/// destructive broadcast cannot proceed without a retention
+/// guarantee. The configurator re-arms its internal flag on
+/// failure so the very next call retries.
 /// </summary>
 public sealed class AuditLogger(
     IDocumentStore documentStore,
+    IAuditRetentionConfigurator retentionConfigurator,
     IHttpContextAccessor httpContextAccessor,
     ILogger<AuditLogger> logger) : IAuditLogger
 {
     private static readonly TimeSpan Retention = TimeSpan.FromDays(365);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private int _expirationConfigured;
 
     public async Task<bool> RecordAsync(
         string action,
@@ -54,7 +58,7 @@ public sealed class AuditLogger(
 
         try
         {
-            await EnsureExpirationConfiguredAsync(cancellationToken);
+            await retentionConfigurator.EnsureConfiguredAsync(cancellationToken);
 
             using var session = documentStore.OpenAsyncSession();
             await session.StoreAsync(entry, entry.Id, cancellationToken);
@@ -81,10 +85,29 @@ public sealed class AuditLogger(
         }
         return null;
     }
+}
 
-    private async Task EnsureExpirationConfiguredAsync(CancellationToken cancellationToken)
+/// <summary>
+/// wave-A3 S3-audit M1: indirection so the audit logger's
+/// fail-stop on Raven-expiration-bundle failure can be unit
+/// tested without standing up a real
+/// <see cref="Raven.Client.Documents.Operations.MaintenanceOperationExecutor"/>
+/// (which is a sealed framework type). Production binds to
+/// <see cref="RavenAuditRetentionConfigurator"/>; tests inject
+/// a stub.
+/// </summary>
+public interface IAuditRetentionConfigurator
+{
+    Task EnsureConfiguredAsync(CancellationToken cancellationToken);
+}
+
+public sealed class RavenAuditRetentionConfigurator(IDocumentStore documentStore) : IAuditRetentionConfigurator
+{
+    private int _configured;
+
+    public async Task EnsureConfiguredAsync(CancellationToken cancellationToken)
     {
-        if (Interlocked.CompareExchange(ref _expirationConfigured, 1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _configured, 1, 0) != 0)
             return;
         try
         {
@@ -96,12 +119,14 @@ public sealed class AuditLogger(
                 }),
                 cancellationToken);
         }
-        catch (Exception ex)
+        catch
         {
-            // Re-arm so a future call retries — better to try
-            // again than to silently drop the bundle.
-            Interlocked.Exchange(ref _expirationConfigured, 0);
-            logger.LogWarning(ex, "[audit] could not enable Raven expiration bundle; entries will accumulate until configured");
+            // Re-arm so a future call retries — bundle-enable
+            // failures are typically transient. Rethrow so the
+            // upstream `AuditLogger.RecordAsync` returns `false`
+            // and the destructive operation aborts.
+            Interlocked.Exchange(ref _configured, 0);
+            throw;
         }
     }
 }

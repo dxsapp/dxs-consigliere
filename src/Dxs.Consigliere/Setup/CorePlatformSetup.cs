@@ -39,10 +39,11 @@ public static class CorePlatformSetup
 
         services.AddConsigliereAdminAuth(configuration);
 
-        // wave-A3 S3: fail-stop audit logger. Singleton because
-        // its only state is a one-shot "expiration bundle
-        // enabled" guard; the per-call work opens its own
-        // Raven session.
+        // wave-A3 S3: fail-stop audit logger. The retention
+        // configurator is split out so its rethrow-on-failure
+        // contract is unit-testable without standing up Raven's
+        // sealed MaintenanceOperationExecutor (S3-audit M1 fix).
+        services.AddSingleton<Services.Audit.IAuditRetentionConfigurator, Services.Audit.RavenAuditRetentionConfigurator>();
         services.AddSingleton<Services.Audit.IAuditLogger, Services.Audit.AuditLogger>();
 
         // wave-A3 S4: in-process log ring + MEL provider that

@@ -27,6 +27,13 @@ import { SOURCE_KEYS } from "@/types/admin";
  *  - p2p source gets the highest rate by design
  */
 export class MockAdminClient implements IAdminClient {
+  /** wave-A3 S3-audit L1: audit-log entries kept as instance state
+   *  so `broadcastRaw` can prepend a freshly-stamped record. That
+   *  makes the mock-mode smoke ("trigger a broadcast → see the
+   *  entry on /audit-log") actually exercise the wired flow. */
+  private auditEntries: AdminAuditLogResponse["entries"] = [];
+  private auditSeeded = false;
+
   /** Snapshot timestamps base; tests can override via constructor. */
   constructor(private readonly nowMs: () => number = () => Date.now()) {}
 
@@ -125,10 +132,55 @@ export class MockAdminClient implements IAdminClient {
     username?: string;
     lastN?: number;
   } = {}): Promise<AdminAuditLogResponse> {
-    // wave-A3 S3 mock — a tiny seed of three entries so the
-    // /audit-log screen has something to render in mock mode.
+    this.seedAuditEntriesIfNeeded();
+    const filtered = this.auditEntries.filter((entry) => {
+      if (opts.since && entry.unixMs < opts.since) return false;
+      if (opts.action && entry.action !== opts.action) return false;
+      if (opts.username && entry.username !== opts.username) return false;
+      return true;
+    });
+    const take = opts.lastN && opts.lastN > 0 ? Math.min(opts.lastN, filtered.length) : filtered.length;
+    return { totalMatched: filtered.length, entries: filtered.slice(0, take) };
+  }
+
+  async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {
+    // Deterministic pseudo-txid: sha-like fold of rawHex; we only
+    // need a stable 64-hex-char string for the UI confirmation.
+    const txId = hexFold(rawHex);
+    const unixMs = this.nowMs();
+
+    // wave-A3 S3-audit L1: the real backend fail-stops the
+    // broadcast on `IAuditLogger.RecordAsync == false`; the
+    // mock represents the happy path by recording the matching
+    // forensic entry BEFORE returning the receipt so a user
+    // flipping to `/audit-log` immediately after the broadcast
+    // sees the new row. Keeping the audit list newest-first
+    // mirrors the backend `OrderByDescending(UnixMs)` shape.
+    this.seedAuditEntriesIfNeeded();
+    this.auditEntries = [
+      {
+        id: `audit-log/${unixMs}/${randomMockId()}`,
+        unixMs,
+        username: "admin",
+        action: "broadcast_tx",
+        targetId: txId,
+        context: JSON.stringify({ rawHexLength: rawHex.length, source: "admin-ui" }),
+      },
+      ...this.auditEntries,
+    ];
+
+    return {
+      txId,
+      state: "Validated",
+      createdAtMs: unixMs,
+      failReason: null,
+    };
+  }
+
+  private seedAuditEntriesIfNeeded(): void {
+    if (this.auditSeeded) return;
     const now = this.nowMs();
-    const all: AdminAuditLogResponse["entries"] = [
+    this.auditEntries = [
       {
         id: `audit-log/${now - 5_000}/aabbccdd`,
         unixMs: now - 5_000,
@@ -154,26 +206,7 @@ export class MockAdminClient implements IAdminClient {
         context: JSON.stringify({ rawHexLength: 256, source: "admin-ui" }),
       },
     ];
-    const filtered = all.filter((entry) => {
-      if (opts.since && entry.unixMs < opts.since) return false;
-      if (opts.action && entry.action !== opts.action) return false;
-      if (opts.username && entry.username !== opts.username) return false;
-      return true;
-    });
-    const take = opts.lastN && opts.lastN > 0 ? Math.min(opts.lastN, filtered.length) : filtered.length;
-    return { totalMatched: filtered.length, entries: filtered.slice(0, take) };
-  }
-
-  async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {
-    // Deterministic pseudo-txid: sha-like fold of rawHex; we only
-    // need a stable 64-hex-char string for the UI confirmation.
-    const txId = hexFold(rawHex);
-    return {
-      txId,
-      state: "Validated",
-      createdAtMs: this.nowMs(),
-      failReason: null,
-    };
+    this.auditSeeded = true;
   }
 
   async getSourceMetrics(opts: { lastN?: number } = {}): Promise<SourceMetricsResponse> {
@@ -297,6 +330,12 @@ function writeMockAuthCredentials(creds: { username: string; password: string })
 /** Deterministic 64-hex-char fold of an arbitrary string. Suitable
  *  for mocked txIds where we just want a stable identifier per
  *  input. Not a real hash — never use for production semantics. */
+/** 8-char id suffix for mock audit entries. Deterministic-ish
+ *  per call; uniqueness is the only requirement. */
+function randomMockId(): string {
+  return Math.random().toString(16).slice(2, 10).padStart(8, "0");
+}
+
 function hexFold(input: string): string {
   let h1 = 0x811c9dc5;
   let h2 = 0xdeadbeef;
