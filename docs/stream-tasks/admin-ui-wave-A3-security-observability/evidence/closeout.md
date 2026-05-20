@@ -41,7 +41,7 @@ See `audits/A1.md` § "What landed" for the audit verdict
 | S3    | Audit log for destructive ops                | `b12fb2f` | `86a1f40` |
 | S4    | Backend log streaming + admin-ui live tail   | `1db7948` | `abad57a` |
 | S6    | Swashbuckle NRT filter + audit-log re-export | `a36e2a9` | `1aa3089` |
-| S7    | Operator runbook + cross-links               | `91562bb` | — (audit pending) |
+| S7    | Operator runbook + cross-links               | `91562bb` | `dfb45f6` |
 
 ## Key files touched
 
