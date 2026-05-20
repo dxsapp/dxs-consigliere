@@ -65,9 +65,9 @@ git clone https://github.com/<org>/dxs-consigliere.git
 cd dxs-consigliere
 ```
 
-### 1.4 Configure the four production secrets
+### 1.4 Configure the three production secrets
 
-Create a `.env` file at the repo root with these four values:
+Create a `.env` file at the repo root with these three values:
 
 ```bash
 cat > .env <<'EOF'
@@ -77,13 +77,10 @@ CADDY_DOMAIN=<public-domain>
 # ACME contact for renewal + revocation notices.
 CADDY_EMAIL=<ops@example.com>
 
-# Bitcoin node RPC password. Substituted into appsettings.json
-# at runtime via Microsoft.Extensions.Configuration.
+# Bitcoin node RPC password. Read at runtime by
+# Microsoft.Extensions.Configuration via the env-var key
+# `BsvNodeApi__Password`.
 BSV_NODE_RPC_PASSWORD=<random-32-char-hex>
-
-# RavenDB superuser password. Read by the RavenDB image at
-# startup. Generate with `openssl rand -hex 24` or equivalent.
-RAVEN_PASSWORD=<random-32-char-hex>
 EOF
 chmod 600 .env
 ```
@@ -91,6 +88,17 @@ chmod 600 .env
 > **The `.env` file is the only place these values exist in
 > plain text.** Treat it the same way you treat an SSH key:
 > chmod 600, owned by the deploy user, never committed.
+>
+> **RavenDB authentication.** The bundled `ravendb` compose
+> service runs in unsecured mode on the docker internal
+> network (`RAVEN_Security_UnsecuredAccessAllowed:
+> PrivateNetwork` — no cert, no password, reachable only from
+> peer containers). The Caddy reverse proxy is the only public
+> surface; nothing else publishes a port to the host. For
+> deployments that require Raven cert-based auth, bind an
+> external Raven cluster via `RavenDb__Urls__0` and
+> `RavenDb__ClientCertificate` env vars and remove the
+> bundled service from the compose graph — see Appendix A.
 
 ### 1.5 First bring-up
 
@@ -453,23 +461,18 @@ docker compose -f compose.yml -f compose.prod.yml \
   --profile prod start consigliere
 ```
 
-### 7.3 RavenDB password
+### 7.3 RavenDB credentials
 
-The RAVEN_PASSWORD env var is read by the RavenDB image at
-startup. To rotate:
+The bundled `ravendb` compose service runs in unsecured
+mode on the docker internal network (no password, no
+cert). Nothing to rotate.
 
-1. Update `.env` with the new password.
-2. Restart the `ravendb` service:
-
-```bash
-docker compose -f compose.yml -f compose.prod.yml \
-  --profile prod up -d ravendb
-```
-
-3. If Consigliere uses a non-default Raven password (it
-   doesn't by default — it talks to Raven on the internal
-   docker network without auth), update its credentials in
-   the same restart cycle.
+For deployments that swap the bundled service for an
+external Raven cluster with cert-based auth, the rotation
+procedure is cluster-specific (re-issue client cert, update
+`RavenDb__ClientCertificate` env var, restart consigliere).
+That path is out of scope for this runbook — escalate to
+engineering for cluster-specific procedures.
 
 ### 7.4 TLS certificates
 

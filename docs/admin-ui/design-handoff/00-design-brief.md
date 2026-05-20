@@ -528,8 +528,9 @@ designer can ship.
 
 ### Domain context (optional deep-dive)
 
-- `03-prod-runbook.md` — operator recovery procedures + full
-  configuration reference.
+- [`docs/runbook.md`](../../runbook.md) — operator handbook
+  (deploy / monitor / rotate / recover). Replaces the
+  wave-6 stub that previously lived at `03-prod-runbook.md`.
 - `04-broadcast-contract.md` — broadcast contract + state
   machine for the Tx timeline.
 

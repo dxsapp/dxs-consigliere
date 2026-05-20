@@ -1,20 +1,44 @@
-# wave-A3 S0 (S0-audit M1) — prod-only override file. The
-# `caddy-prod` service moved out of compose.yml so the
-# mandatory env vars below cannot fail interpolation when the
-# operator runs `docker compose --profile dev config`.
+# wave-A3 — prod-only override file.
+#
+# Two responsibilities:
+#  1. (S0-audit M1) Carry the Caddy ACME service out of the
+#     shared `compose.yml` so its mandatory env-var
+#     interpolation cannot fail the `--profile dev config`
+#     parse.
+#  2. (S7-audit H1) Override the shared `consigliere`
+#     service's environment so the prod bring-up actually
+#     loads `appsettings.Production.json`. Without this
+#     override, the consigliere service inherits
+#     `DOTNET_ENVIRONMENT=DockerComposeE2E` from
+#     `compose.yml` — background tasks would be disabled,
+#     the cookie policy would be `SameAsRequest` instead of
+#     `Always`, and the operator would silently run with the
+#     E2E config in production.
 #
 # Bring up:
 #
-#   export CADDY_DOMAIN="consigliere.example.com"
-#   export CADDY_EMAIL="ops@example.com"
+#   export CADDY_DOMAIN="<public-domain>"
+#   export CADDY_EMAIL="<ops@example.com>"
 #   docker compose -f compose.yml -f compose.prod.yml \
 #     --profile prod up -d --build
-#
-# The two env vars are mandatory: docker-compose fails fast with
-# the message inside ${VAR:?...} if either is missing when this
-# file is in the file list.
 
 services:
+  consigliere:
+    environment:
+      # Load `appsettings.Production.json` instead of the
+      # E2E overlay.
+      DOTNET_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "5000"
+      # Point at the internal-network Raven hostname.
+      # Override at deploy time to target an external Raven
+      # cluster.
+      RavenDb__Urls__0: "http://ravendb:8080"
+      RavenDb__DbName: "Consigliere"
+      # Secrets file path stays consistent with the volume
+      # mount in compose.yml.
+      Consigliere__Secrets__Dir: "/var/lib/consigliere/secrets"
+
   caddy-prod:
     image: caddy:2-alpine
     container_name: consigliere-caddy-prod
