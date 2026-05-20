@@ -125,14 +125,22 @@ explicitly accepted:
 
 ## Residuals → next wave
 
-- Swagger codegen + ASP.NET-host contract-parity test (S3
-  followup).
+- ~~Swagger codegen + ASP.NET-host contract-parity test (S3
+  followup)~~ — closed by wave-A2 S1 + S2.
 - Full axe-core CI step + Lighthouse perf score per route.
-- Backend log streaming surface for Logs/Raw — currently the
+- ~~Backend log streaming surface for Logs/Raw — currently the
   screen is a paste box + client sanitizer because the backend
-  doesn't expose a streaming endpoint.
+  doesn't expose a streaming endpoint.~~ — closed by wave-A3 S4
+  (live tail via SignalR `/ws/logs` + server-side sanitizer +
+  defence-in-depth client pass).
 - Read-write Configuration screen (operators currently change
   config out-of-band) — explicitly deferred per design brief §7.
+
+## Ops source of truth
+
+Operator-facing handbook: [`docs/runbook.md`](../../../runbook.md).
+Read it instead of source for production deployment, monitoring,
+secret rotation, and disaster recovery (delivered by wave-A3 S7).
 
 ## Open assumptions
 

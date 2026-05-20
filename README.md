@@ -321,6 +321,14 @@ await connection.InvokeAsync("SubscribeToTransactionStream", new
 });
 ```
 
+## Ops
+
+Production deployment, monitoring, secret rotation, and
+disaster recovery are documented in
+[`docs/runbook.md`](docs/runbook.md). That document is the
+operator-facing source of truth — read it instead of the
+source code for any production-operations question.
+
 ## Author
 
 - Author: [Oleg Panagushin](https://github.com/panagushin)  

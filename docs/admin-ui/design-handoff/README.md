@@ -19,10 +19,12 @@ folder.
    Affects what the design must enable (layered architecture,
    MobX-owned state, MUI-only UI).
 
-4. **`03-prod-runbook.md`** — domain context: operator
-   recovery procedures + full configuration reference. Useful
-   for writing realistic copy + understanding what alerts
-   mean.
+4. **`docs/runbook.md`** (repo root → `docs/runbook.md`) —
+   operator handbook for production deployments. Replaces
+   the wave-6 design-handoff stub that used to live at
+   `03-prod-runbook.md`; the new runbook is the single
+   source of truth for ops topics (deploy / monitor /
+   rotate / recover).
 
 5. **`04-broadcast-contract.md`** — domain context: broadcast
    subsystem state machine (Validated → Dispatching →

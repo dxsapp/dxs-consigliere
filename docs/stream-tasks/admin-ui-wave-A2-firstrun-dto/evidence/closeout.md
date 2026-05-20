@@ -164,3 +164,10 @@ wave-A1 closeout residuals it targeted are both closed:
 - "first-run setup UX gap" ✓
 
 Wave A3 (security + observability baseline) opens next.
+
+## Ops source of truth
+
+Operator-facing handbook: [`docs/runbook.md`](../../../runbook.md).
+Read it instead of source for production deployment,
+monitoring, secret rotation, and disaster recovery
+(delivered by wave-A3 S7).
