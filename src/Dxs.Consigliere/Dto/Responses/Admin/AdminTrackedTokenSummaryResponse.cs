@@ -1,11 +1,14 @@
+#nullable enable
 namespace Dxs.Consigliere.Dto.Responses.Admin;
 
 public sealed class AdminTrackedTokenSummaryResponse
 {
-    public string ProtocolType { get; set; }
-    public string ValidationStatus { get; set; }
-    public string Issuer { get; set; }
-    public string RedeemAddress { get; set; }
+    // Sourced from a nullable projection state (state?.ProtocolType);
+    // null until the token's protocol/validation state is projected.
+    public string? ProtocolType { get; set; }
+    public string? ValidationStatus { get; set; }
+    public string? Issuer { get; set; }
+    public string? RedeemAddress { get; set; }
     public long? LocalKnownSupplySatoshis { get; set; }
     public long? BurnedSatoshis { get; set; }
     public int HolderCount { get; set; }

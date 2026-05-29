@@ -70,6 +70,25 @@ function rewriteRefs(value: unknown): unknown {
         : src.$ref;
       return { anyOf: [{ $ref: refName }, { type: "null" }] };
     }
+    // wave-A4 S3: `RequiredFromNrtFilter` emits a nullable
+    // object-typed property as `{ nullable: true, allOf: [{ $ref
+    // }] }` (the OpenAPI 3.0 idiom — `nullable` can't sit beside a
+    // bare `$ref`). openapi-typescript reads that as `T | null`,
+    // but AJV rejects `nullable` on a typeless schema
+    // ("nullable cannot be used without type"). Collapse it to the
+    // same `anyOf: [ref, null]` union the bare-`$ref` case uses.
+    if (
+      src.nullable === true &&
+      Array.isArray(src.allOf) &&
+      src.allOf.length === 1 &&
+      typeof (src.allOf[0] as Record<string, unknown>)?.$ref === "string"
+    ) {
+      const inner = (src.allOf[0] as Record<string, unknown>).$ref as string;
+      const refName = inner.startsWith("#/components/schemas/")
+        ? inner.slice("#/components/schemas/".length)
+        : inner;
+      return { anyOf: [{ $ref: refName }, { type: "null" }] };
+    }
     const out: Record<string, unknown> = {};
     for (const [k, child] of Object.entries(src)) {
       out[k] = rewriteRefs(child);

@@ -1,3 +1,4 @@
+#nullable enable
 namespace Dxs.Consigliere.Dto.Responses.Admin;
 
 public sealed class AdminTrackedAddressSummaryResponse

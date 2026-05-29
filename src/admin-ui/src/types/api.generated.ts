@@ -1220,7 +1220,11 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "text/plain": components["schemas"]["AdminPeersResponse"];
+                        "application/json": components["schemas"]["AdminPeersResponse"];
+                        "text/json": components["schemas"]["AdminPeersResponse"];
+                    };
                 };
             };
         };
@@ -2772,7 +2776,7 @@ export interface components {
             history?: components["schemas"]["AddressHistoryDto"][] | null;
             /** Format: int32 */
             totalCount: number;
-            historyStatus?: components["schemas"]["TrackedHistoryStatusResponse"];
+            historyStatus?: components["schemas"]["TrackedHistoryStatusResponse"] | null;
         };
         AddressStateResponse: {
             address?: string | null;
@@ -2797,8 +2801,8 @@ export interface components {
             setupRequired: boolean;
             enabled: boolean;
             authenticated: boolean;
-            mode?: string | null;
-            username?: string | null;
+            mode: string;
+            username: string;
             /** Format: int32 */
             sessionTtlMinutes?: number | null;
         };
@@ -2810,11 +2814,11 @@ export interface components {
             zmqBlockUrl?: string | null;
         };
         AdminBitailsProviderConfigUpdateRequest: {
-            apiKey?: string | null;
-            baseUrl?: string | null;
-            websocketBaseUrl?: string | null;
-            zmqTxUrl?: string | null;
-            zmqBlockUrl?: string | null;
+            apiKey: string;
+            baseUrl: string;
+            websocketBaseUrl: string;
+            zmqTxUrl: string;
+            zmqBlockUrl: string;
         };
         AdminDashboardSummaryResponse: {
             /** Format: int32 */
@@ -2859,61 +2863,95 @@ export interface components {
             blockSubscriptionId?: string | null;
         };
         AdminJungleBusProviderConfigUpdateRequest: {
-            baseUrl?: string | null;
-            mempoolSubscriptionId?: string | null;
-            blockSubscriptionId?: string | null;
+            baseUrl: string;
+            mempoolSubscriptionId: string;
+            blockSubscriptionId: string;
         };
         AdminLoginRequest: {
-            username?: string | null;
-            password?: string | null;
+            username: string;
+            password: string;
+        };
+        AdminPeerRow: {
+            endpoint: string;
+            source: string;
+            userAgent?: string | null;
+            /** Format: int32 */
+            protocolVersion?: number | null;
+            /** Format: int64 */
+            services?: number | null;
+            /** Format: int32 */
+            successCount: number;
+            /** Format: int32 */
+            failCount: number;
+            /** Format: date-time */
+            firstSeen?: string | null;
+            /** Format: date-time */
+            lastSeen?: string | null;
+            /** Format: date-time */
+            lastConnected?: string | null;
+            /** Format: date-time */
+            negativeUntil?: string | null;
+            lastFailureReason?: string | null;
+            subnet24: string;
+        };
+        AdminPeersResponse: {
+            /** Format: int32 */
+            total: number;
+            /** Format: int32 */
+            successful: number;
+            /** Format: int32 */
+            failed: number;
+            /** Format: int32 */
+            distinctSubnets: number;
+            peers: components["schemas"]["AdminPeerRow"][];
         };
         AdminProviderCatalogItemResponse: {
-            providerId?: string | null;
-            displayName?: string | null;
-            roles?: string[] | null;
-            supportedCapabilities?: string[] | null;
-            recommendedFor?: string[] | null;
-            activeFor?: string[] | null;
-            status?: string | null;
-            description?: string | null;
-            missingRequirements?: string[] | null;
-            helpLinks?: components["schemas"]["AdminProviderLinkResponse"][] | null;
+            providerId: string;
+            displayName: string;
+            roles: string[];
+            supportedCapabilities: string[];
+            recommendedFor: string[];
+            activeFor: string[];
+            status: string;
+            description: string;
+            missingRequirements: string[];
+            helpLinks: components["schemas"]["AdminProviderLinkResponse"][];
         };
         AdminProviderConfigResponse: {
-            static?: components["schemas"]["AdminProviderConfigValuesResponse"];
-            override?: components["schemas"]["AdminProviderConfigValuesResponse"];
-            effective?: components["schemas"]["AdminProviderConfigValuesResponse"];
+            static?: components["schemas"]["AdminProviderConfigValuesResponse"] | null;
+            override?: components["schemas"]["AdminProviderConfigValuesResponse"] | null;
+            effective?: components["schemas"]["AdminProviderConfigValuesResponse"] | null;
             overrideActive: boolean;
             restartRequired: boolean;
-            allowedRealtimePrimaryProviders?: string[] | null;
-            allowedRawTxPrimaryProviders?: string[] | null;
-            allowedRestPrimaryProviders?: string[] | null;
-            allowedBitailsTransports?: string[] | null;
+            allowedRealtimePrimaryProviders: string[];
+            allowedRawTxPrimaryProviders: string[];
+            allowedRestPrimaryProviders: string[];
+            allowedBitailsTransports: string[];
             /** Format: int64 */
             updatedAt?: number | null;
             updatedBy?: string | null;
         };
         AdminProviderConfigUpdateRequest: {
-            realtimePrimaryProvider?: string | null;
-            rawTxPrimaryProvider?: string | null;
-            restPrimaryProvider?: string | null;
-            bitailsTransport?: string | null;
-            bitails?: components["schemas"]["AdminBitailsProviderConfigUpdateRequest"];
-            whatsonchain?: components["schemas"]["AdminRestProviderConfigUpdateRequest"];
-            junglebus?: components["schemas"]["AdminJungleBusProviderConfigUpdateRequest"];
+            realtimePrimaryProvider: string;
+            rawTxPrimaryProvider: string;
+            restPrimaryProvider: string;
+            bitailsTransport: string;
+            bitails: components["schemas"]["AdminBitailsProviderConfigUpdateRequest"];
+            whatsonchain: components["schemas"]["AdminRestProviderConfigUpdateRequest"];
+            junglebus: components["schemas"]["AdminJungleBusProviderConfigUpdateRequest"];
         };
         AdminProviderConfigValuesResponse: {
             realtimePrimaryProvider?: string | null;
             rawTxPrimaryProvider?: string | null;
             restPrimaryProvider?: string | null;
             bitailsTransport?: string | null;
-            bitails?: components["schemas"]["AdminBitailsProviderConfigResponse"];
-            whatsonchain?: components["schemas"]["AdminRestProviderConfigResponse"];
-            junglebus?: components["schemas"]["AdminJungleBusProviderConfigResponse"];
+            bitails: components["schemas"]["AdminBitailsProviderConfigResponse"];
+            whatsonchain: components["schemas"]["AdminRestProviderConfigResponse"];
+            junglebus: components["schemas"]["AdminJungleBusProviderConfigResponse"];
         };
         AdminProviderLinkResponse: {
-            label?: string | null;
-            url?: string | null;
+            label: string;
+            url: string;
         };
         AdminProviderRecommendationsResponse: {
             realtimePrimaryProvider?: string | null;
@@ -2921,14 +2959,14 @@ export interface components {
             rawTxFetchProvider?: string | null;
         };
         AdminProvidersResponse: {
-            recommendations?: components["schemas"]["AdminProviderRecommendationsResponse"];
-            config?: components["schemas"]["AdminProviderConfigResponse"];
-            providers?: components["schemas"]["AdminProviderCatalogItemResponse"][] | null;
+            recommendations: components["schemas"]["AdminProviderRecommendationsResponse"];
+            config: components["schemas"]["AdminProviderConfigResponse"];
+            providers: components["schemas"]["AdminProviderCatalogItemResponse"][];
         };
         AdminRealtimeSourcePolicyResponse: {
-            static?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"];
-            override?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"];
-            effective?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"];
+            static?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"] | null;
+            override?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"] | null;
+            effective?: components["schemas"]["AdminRealtimeSourcePolicyValuesResponse"] | null;
             overrideActive: boolean;
             restartRequired: boolean;
             allowedPrimarySources?: string[] | null;
@@ -2951,15 +2989,15 @@ export interface components {
             baseUrl?: string | null;
         };
         AdminRestProviderConfigUpdateRequest: {
-            apiKey?: string | null;
-            baseUrl?: string | null;
+            apiKey: string;
+            baseUrl: string;
         };
         AdminRuntimeSourcesResponse: {
-            realtimePolicy?: components["schemas"]["AdminRealtimeSourcePolicyResponse"];
+            realtimePolicy?: components["schemas"]["AdminRealtimeSourcePolicyResponse"] | null;
         };
         AdminTrackedAddressResponse: {
-            address?: string | null;
-            name?: string | null;
+            address: string;
+            name: string;
             isTombstoned: boolean;
             /** Format: int64 */
             tombstonedAt?: number | null;
@@ -2969,8 +3007,8 @@ export interface components {
             updatedAt?: number | null;
             failureReason?: string | null;
             integritySafe?: boolean | null;
-            readiness?: components["schemas"]["TrackedEntityReadinessResponse"];
-            summary?: components["schemas"]["AdminTrackedAddressSummaryResponse"];
+            readiness: components["schemas"]["TrackedEntityReadinessResponse"];
+            summary?: components["schemas"]["AdminTrackedAddressSummaryResponse"] | null;
         };
         AdminTrackedAddressSummaryResponse: {
             /** Format: int64 */
@@ -2993,7 +3031,7 @@ export interface components {
             lastTransactionBlockHeight?: number | null;
             /** Format: int64 */
             lastProjectionSequence?: number | null;
-            tokenBalances?: components["schemas"]["AdminTrackedTokenBalanceSummaryResponse"][] | null;
+            tokenBalances: components["schemas"]["AdminTrackedTokenBalanceSummaryResponse"][];
         };
         AdminTrackedEntityDeleteResponse: {
             entityType?: string | null;
@@ -3004,13 +3042,13 @@ export interface components {
             tombstonedAt?: number | null;
         };
         AdminTrackedTokenBalanceSummaryResponse: {
-            tokenId?: string | null;
+            tokenId: string;
             /** Format: int64 */
             satoshis: number;
         };
         AdminTrackedTokenResponse: {
-            tokenId?: string | null;
-            symbol?: string | null;
+            tokenId: string;
+            symbol: string;
             isTombstoned: boolean;
             /** Format: int64 */
             tombstonedAt?: number | null;
@@ -3020,8 +3058,8 @@ export interface components {
             updatedAt?: number | null;
             failureReason?: string | null;
             integritySafe?: boolean | null;
-            readiness?: components["schemas"]["TrackedEntityReadinessResponse"];
-            summary?: components["schemas"]["AdminTrackedTokenSummaryResponse"];
+            readiness: components["schemas"]["TrackedEntityReadinessResponse"];
+            summary?: components["schemas"]["AdminTrackedTokenSummaryResponse"] | null;
         };
         AdminTrackedTokenSummaryResponse: {
             protocolType?: string | null;
@@ -3060,8 +3098,8 @@ export interface components {
             tokenIds?: string[] | null;
         };
         BroadcastReceiptDto: {
-            txId?: string | null;
-            state?: string | null;
+            txId: string;
+            state: string;
             /** Format: int64 */
             createdAtMs: number;
             failReason?: string | null;
@@ -3114,12 +3152,12 @@ export interface components {
             utxoSet?: components["schemas"]["UtxoDto"][] | null;
         };
         HeadersTipDto: {
-            hash?: string | null;
+            hash: string;
             /** Format: int64 */
             height: number;
             /** Format: int64 */
             timestampMs: number;
-            prevHash?: string | null;
+            prevHash: string;
         };
         HistoryEnvelopeBackfillStatusResponse: {
             /** Format: int64 */
@@ -3144,7 +3182,7 @@ export interface components {
             entityId?: string | null;
             accepted: boolean;
             messageCode?: string | null;
-            history?: components["schemas"]["TrackedHistoryStatusResponse"];
+            history?: components["schemas"]["TrackedHistoryStatusResponse"] | null;
         };
         JungleBusBlockSyncStatusResponse: {
             primary: boolean;
@@ -3233,17 +3271,17 @@ export interface components {
             announceFailed: number;
         };
         P2pAlertEventDto: {
-            id?: string | null;
+            id: string;
             /** Format: int64 */
             alertUnixMs: number;
-            type?: string | null;
-            detail?: string | null;
-            context?: {
-                [key: string]: string | null;
-            } | null;
+            type: string;
+            detail: string;
+            context: {
+                [key: string]: string;
+            };
         };
         P2pAlertResponse: {
-            alerts?: components["schemas"]["P2pAlertEventDto"][] | null;
+            alerts: components["schemas"]["P2pAlertEventDto"][];
         };
         P2pHealthDto: {
             bound: boolean;
@@ -3253,7 +3291,7 @@ export interface components {
             targetPoolSize: number;
             /** Format: int32 */
             subnet24Diversity: number;
-            activePeers?: string[] | null;
+            activePeers: string[];
             inboundEnabled: boolean;
         };
         ProjectionCacheInvalidationDomainResponse: {
@@ -3295,9 +3333,9 @@ export interface components {
             evictions: number;
             /** Format: double */
             hitRatio: number;
-            invalidation?: components["schemas"]["ProjectionCacheInvalidationTelemetryResponse"];
-            projectionLag?: components["schemas"]["ProjectionLagResponse"];
-            historyEnvelopeBackfill?: components["schemas"]["HistoryEnvelopeBackfillStatusResponse"];
+            invalidation?: components["schemas"]["ProjectionCacheInvalidationTelemetryResponse"] | null;
+            projectionLag?: components["schemas"]["ProjectionLagResponse"] | null;
+            historyEnvelopeBackfill?: components["schemas"]["HistoryEnvelopeBackfillStatusResponse"] | null;
         };
         ProjectionLagItemResponse: {
             projection?: string | null;
@@ -3309,9 +3347,9 @@ export interface components {
         ProjectionLagResponse: {
             /** Format: int64 */
             journalTailSequence: number;
-            address?: components["schemas"]["ProjectionLagItemResponse"];
-            token?: components["schemas"]["ProjectionLagItemResponse"];
-            txLifecycle?: components["schemas"]["ProjectionLagItemResponse"];
+            address?: components["schemas"]["ProjectionLagItemResponse"] | null;
+            token?: components["schemas"]["ProjectionLagItemResponse"] | null;
+            txLifecycle?: components["schemas"]["ProjectionLagItemResponse"] | null;
         };
         ProviderCapabilityStatusResponse: {
             enabled: boolean;
@@ -3322,7 +3360,7 @@ export interface components {
             /** Format: date-time */
             lastErrorAt?: string | null;
             lastErrorCode?: string | null;
-            rateLimitState?: components["schemas"]["RateLimitStateResponse"];
+            rateLimitState?: components["schemas"]["RateLimitStateResponse"] | null;
             active: boolean;
         };
         ProviderStatusResponse: {
@@ -3337,7 +3375,7 @@ export interface components {
             /** Format: date-time */
             lastErrorAt?: string | null;
             lastErrorCode?: string | null;
-            rateLimitState?: components["schemas"]["RateLimitStateResponse"];
+            rateLimitState?: components["schemas"]["RateLimitStateResponse"] | null;
             capabilities?: {
                 [key: string]: components["schemas"]["ProviderCapabilityStatusResponse"];
             } | null;
@@ -3358,11 +3396,11 @@ export interface components {
             persistenceActive: boolean;
             retentionPolicy?: string | null;
             compression?: string | null;
-            location?: components["schemas"]["StorageLocationStatusResponse"];
+            location?: components["schemas"]["StorageLocationStatusResponse"] | null;
             notes?: string[] | null;
         };
         RootedTokenHistoryStatusResponse: {
-            trustedRoots?: string[] | null;
+            trustedRoots: string[];
             /** Format: int32 */
             trustedRootCount: number;
             /** Format: int32 */
@@ -3371,20 +3409,20 @@ export interface components {
             unknownRootFindingCount: number;
             rootedHistorySecure: boolean;
             blockingUnknownRoot: boolean;
-            unknownRootFindings?: string[] | null;
+            unknownRootFindings: string[];
         };
         /** @enum {string} */
         ScriptType: "Unknown" | "P2PK" | "P2PKH" | "P2SH" | "P2MS" | "NullData" | "P2STAS" | "Mnee1Sat" | "DSTAS" | "P2MPKH";
         SetupAdminAccessRequest: {
             enabled: boolean;
-            username?: string | null;
-            password?: string | null;
+            username: string;
+            password: string;
         };
         SetupAllowedOptionsResponse: {
-            rawTxPrimaryProviders?: string[] | null;
-            restFallbackProviders?: string[] | null;
-            realtimePrimaryProviders?: string[] | null;
-            bitailsTransports?: string[] | null;
+            rawTxPrimaryProviders: string[];
+            restFallbackProviders: string[];
+            realtimePrimaryProviders: string[];
+            bitailsTransports: string[];
         };
         SetupBitailsProviderDefaultsResponse: {
             apiKey?: string | null;
@@ -3394,9 +3432,9 @@ export interface components {
             zmqBlockUrl?: string | null;
         };
         SetupCompleteRequest: {
-            admin?: components["schemas"]["SetupAdminAccessRequest"];
-            providers?: components["schemas"]["SetupProviderSelectionRequest"];
-            blockSync?: components["schemas"]["SetupJungleBusBlockSyncRequest"];
+            admin: components["schemas"]["SetupAdminAccessRequest"];
+            providers: components["schemas"]["SetupProviderSelectionRequest"];
+            blockSync: components["schemas"]["SetupJungleBusBlockSyncRequest"];
         };
         SetupDefaultsResponse: {
             rawTxPrimaryProvider?: string | null;
@@ -3409,8 +3447,8 @@ export interface components {
             blockSubscriptionId?: string | null;
         };
         SetupJungleBusBlockSyncRequest: {
-            baseUrl?: string | null;
-            blockSubscriptionId?: string | null;
+            baseUrl: string;
+            blockSubscriptionId: string;
         };
         SetupJungleBusProviderDefaultsResponse: {
             apiKey?: string | null;
@@ -3423,31 +3461,31 @@ export interface components {
             zmqBlockUrl?: string | null;
         };
         SetupNodeRealtimeConfigRequest: {
-            zmqTxUrl?: string | null;
-            zmqBlockUrl?: string | null;
+            zmqTxUrl: string;
+            zmqBlockUrl: string;
         };
         SetupOptionsResponse: {
-            status?: components["schemas"]["SetupStatusResponse"];
-            defaults?: components["schemas"]["SetupDefaultsResponse"];
-            allowed?: components["schemas"]["SetupAllowedOptionsResponse"];
-            blockSync?: components["schemas"]["SetupJungleBusBlockSyncDefaultsResponse"];
-            providerConfig?: components["schemas"]["SetupProviderFormDefaultsResponse"];
+            status: components["schemas"]["SetupStatusResponse"];
+            defaults: components["schemas"]["SetupDefaultsResponse"];
+            allowed: components["schemas"]["SetupAllowedOptionsResponse"];
+            blockSync: components["schemas"]["SetupJungleBusBlockSyncDefaultsResponse"];
+            providerConfig: components["schemas"]["SetupProviderFormDefaultsResponse"];
         };
         SetupProviderFormDefaultsResponse: {
-            bitails?: components["schemas"]["SetupBitailsProviderDefaultsResponse"];
-            whatsonchain?: components["schemas"]["SetupRestProviderDefaultsResponse"];
-            junglebus?: components["schemas"]["SetupJungleBusProviderDefaultsResponse"];
-            node?: components["schemas"]["SetupNodeProviderDefaultsResponse"];
+            bitails: components["schemas"]["SetupBitailsProviderDefaultsResponse"];
+            whatsonchain: components["schemas"]["SetupRestProviderDefaultsResponse"];
+            junglebus: components["schemas"]["SetupJungleBusProviderDefaultsResponse"];
+            node: components["schemas"]["SetupNodeProviderDefaultsResponse"];
         };
         SetupProviderSelectionRequest: {
-            rawTxPrimaryProvider?: string | null;
-            restFallbackProvider?: string | null;
-            realtimePrimaryProvider?: string | null;
-            bitailsTransport?: string | null;
-            bitails?: components["schemas"]["AdminBitailsProviderConfigUpdateRequest"];
-            whatsonchain?: components["schemas"]["AdminRestProviderConfigUpdateRequest"];
-            junglebus?: components["schemas"]["AdminJungleBusProviderConfigUpdateRequest"];
-            node?: components["schemas"]["SetupNodeRealtimeConfigRequest"];
+            rawTxPrimaryProvider: string;
+            restFallbackProvider: string;
+            realtimePrimaryProvider: string;
+            bitailsTransport: string;
+            bitails: components["schemas"]["AdminBitailsProviderConfigUpdateRequest"];
+            whatsonchain: components["schemas"]["AdminRestProviderConfigUpdateRequest"];
+            junglebus: components["schemas"]["AdminJungleBusProviderConfigUpdateRequest"];
+            node: components["schemas"]["SetupNodeRealtimeConfigRequest"];
         };
         SetupRestProviderDefaultsResponse: {
             apiKey?: string | null;
@@ -3460,8 +3498,8 @@ export interface components {
             adminUsername?: string | null;
         };
         SourceMetricsResponse: {
-            latest?: components["schemas"]["SourceMetricsSnapshot"];
-            history?: components["schemas"]["SourceMetricsSnapshot"][] | null;
+            latest?: components["schemas"]["SourceMetricsSnapshot"] | null;
+            history: components["schemas"]["SourceMetricsSnapshot"][];
         };
         SourceMetricsSnapshot: {
             id: string;
@@ -3511,7 +3549,7 @@ export interface components {
             endpoint?: string | null;
         };
         StorageStatusResponse: {
-            rawTransactionPayloads?: components["schemas"]["RawTransactionPayloadStorageStatusResponse"];
+            rawTransactionPayloads?: components["schemas"]["RawTransactionPayloadStorageStatusResponse"] | null;
         };
         SyncStatusResponse: {
             /** Format: int32 */
@@ -3545,11 +3583,11 @@ export interface components {
             history?: components["schemas"]["TokenHistoryItemResponse"][] | null;
             /** Format: int32 */
             totalCount: number;
-            historyStatus?: components["schemas"]["TrackedHistoryStatusResponse"];
+            historyStatus?: components["schemas"]["TrackedHistoryStatusResponse"] | null;
         };
         TokenHistoryUpgradeRequest: {
             tokenId: string;
-            tokenHistoryPolicy?: components["schemas"]["TokenHistoryPolicyRequest"];
+            tokenHistoryPolicy?: components["schemas"]["TokenHistoryPolicyRequest"] | null;
         };
         TokenStateResponse: {
             tokenId?: string | null;
@@ -3568,9 +3606,9 @@ export interface components {
         };
         TrackedEntityReadinessResponse: {
             tracked: boolean;
-            entityType?: string | null;
-            entityId?: string | null;
-            lifecycleStatus?: string | null;
+            entityType: string;
+            entityId: string;
+            lifecycleStatus: string;
             readable: boolean;
             authoritative: boolean;
             degraded: boolean;
@@ -3578,10 +3616,10 @@ export interface components {
             lagBlocks?: number | null;
             /** Format: double */
             progress?: number | null;
-            history?: components["schemas"]["TrackedHistoryStatusResponse"];
+            history: components["schemas"]["TrackedHistoryStatusResponse"];
         };
         TrackedHistoryBackfillStatusResponse: {
-            status?: string | null;
+            status: string;
             /** Format: int64 */
             requestedAt?: number | null;
             /** Format: int64 */
@@ -3597,7 +3635,7 @@ export interface components {
             errorCode?: string | null;
         };
         TrackedHistoryCoverageResponse: {
-            mode?: string | null;
+            mode: string;
             fullCoverage: boolean;
             /** Format: int32 */
             authoritativeFromBlockHeight?: number | null;
@@ -3605,10 +3643,10 @@ export interface components {
             authoritativeFromObservedAt?: number | null;
         };
         TrackedHistoryStatusResponse: {
-            historyReadiness?: string | null;
-            coverage?: components["schemas"]["TrackedHistoryCoverageResponse"];
-            backfillStatus?: components["schemas"]["TrackedHistoryBackfillStatusResponse"];
-            rootedToken?: components["schemas"]["RootedTokenHistoryStatusResponse"];
+            historyReadiness: string;
+            coverage?: components["schemas"]["TrackedHistoryCoverageResponse"] | null;
+            backfillStatus?: components["schemas"]["TrackedHistoryBackfillStatusResponse"] | null;
+            rootedToken?: components["schemas"]["RootedTokenHistoryStatusResponse"] | null;
         };
         TransactionStateResponse: {
             txId?: string | null;
@@ -3709,13 +3747,13 @@ export interface components {
         WatchAddressRequest: {
             address?: string | null;
             name?: string | null;
-            historyPolicy?: components["schemas"]["HistoryPolicyRequest"];
+            historyPolicy?: components["schemas"]["HistoryPolicyRequest"] | null;
         };
         WatchStasTokenRequest: {
             tokenId?: string | null;
             symbol?: string | null;
-            historyPolicy?: components["schemas"]["HistoryPolicyRequest"];
-            tokenHistoryPolicy?: components["schemas"]["TokenHistoryPolicyRequest"];
+            historyPolicy?: components["schemas"]["HistoryPolicyRequest"] | null;
+            tokenHistoryPolicy?: components["schemas"]["TokenHistoryPolicyRequest"] | null;
         };
     };
     responses: never;

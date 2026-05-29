@@ -1,3 +1,4 @@
+#nullable enable
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -112,5 +113,6 @@ public sealed class AdminMetricsController : ControllerBase
 /// for W6 + external consumers.
 /// </summary>
 public sealed record SourceMetricsResponse(
-    SourceMetricsSnapshot Latest,
+    // Null until the aggregator has written its first snapshot.
+    SourceMetricsSnapshot? Latest,
     IReadOnlyList<SourceMetricsSnapshot> History);

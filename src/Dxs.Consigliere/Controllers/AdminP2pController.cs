@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +9,7 @@ using Dxs.Bsv.P2p.Chain;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
+using Dxs.Consigliere.Dto.Responses.Admin;
 using Dxs.Consigliere.Services.P2p;
 using Dxs.Consigliere.Setup;
 
@@ -79,37 +81,37 @@ public class AdminP2pController(
 
     /// <summary>Every peer we have seen, with stats. Useful for soak reports.</summary>
     [HttpGet("peers")]
-    public async Task<ActionResult<object>> Peers(CancellationToken ct)
+    public async Task<ActionResult<AdminPeersResponse>> Peers(CancellationToken ct)
     {
         var all = await health.ListAllAsync(ct);
         var snapshot = all
             .OrderByDescending(r => r.LastConnectedUtc ?? DateTime.MinValue)
             .ThenByDescending(r => r.SuccessCount)
-            .Select(r => new
+            .Select(r => new AdminPeerRow
             {
-                endpoint = r.Key,
-                source = r.Source.ToString(),
-                userAgent = r.UserAgent,
-                protocolVersion = r.ProtocolVersion,
-                services = r.Services,
-                successCount = r.SuccessCount,
-                failCount = r.FailCount,
-                firstSeen = r.FirstSeenUtc,
-                lastSeen = r.LastSeenUtc,
-                lastConnected = r.LastConnectedUtc,
-                negativeUntil = r.NegativeUntilUtc,
-                lastFailureReason = r.LastFailureReason,
-                subnet24 = r.Subnet24,
+                Endpoint = r.Key,
+                Source = r.Source.ToString(),
+                UserAgent = r.UserAgent,
+                ProtocolVersion = r.ProtocolVersion,
+                Services = r.Services,
+                SuccessCount = r.SuccessCount,
+                FailCount = r.FailCount,
+                FirstSeen = r.FirstSeenUtc,
+                LastSeen = r.LastSeenUtc,
+                LastConnected = r.LastConnectedUtc,
+                NegativeUntil = r.NegativeUntilUtc,
+                LastFailureReason = r.LastFailureReason,
+                Subnet24 = r.Subnet24,
             })
-            .ToList();
+            .ToArray();
 
-        return Ok(new
+        return Ok(new AdminPeersResponse
         {
-            total = snapshot.Count,
-            successful = snapshot.Count(p => p.successCount > 0),
-            failed = snapshot.Count(p => p.failCount > 0),
-            distinctSubnets = snapshot.Select(p => p.subnet24).Distinct().Count(),
-            peers = snapshot,
+            Total = snapshot.Length,
+            Successful = snapshot.Count(p => p.SuccessCount > 0),
+            Failed = snapshot.Count(p => p.FailCount > 0),
+            DistinctSubnets = snapshot.Select(p => p.Subnet24).Distinct().Count(),
+            Peers = snapshot,
         });
     }
 

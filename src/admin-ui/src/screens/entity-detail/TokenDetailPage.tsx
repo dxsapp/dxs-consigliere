@@ -91,19 +91,19 @@ export const TokenDetailPage = observer(function TokenDetailPage({
                 Summary
               </Typography>
               <Stack divider={<Divider flexItem />} spacing={1}>
-                <Row k="Protocol" v={data.summary.protocolType} />
-                <Row k="Validation" v={data.summary.validationStatus} />
+                <Row k="Protocol" v={data.summary.protocolType ?? "—"} />
+                <Row k="Validation" v={data.summary.validationStatus ?? "—"} />
                 {data.summary.issuer && <Row k="Issuer" v={data.summary.issuer} />}
                 {data.summary.redeemAddress && (
                   <Row k="Redeem address" v={data.summary.redeemAddress} />
                 )}
-                {data.summary.localKnownSupplySatoshis !== null && (
+                {data.summary.localKnownSupplySatoshis != null && (
                   <Row
                     k="Known supply"
                     v={data.summary.localKnownSupplySatoshis.toLocaleString()}
                   />
                 )}
-                {data.summary.burnedSatoshis !== null && (
+                {data.summary.burnedSatoshis != null && (
                   <Row k="Burned" v={data.summary.burnedSatoshis.toLocaleString()} />
                 )}
                 <Row k="Holders" v={`${data.summary.holderCount}`} />

@@ -1,3 +1,4 @@
+#nullable enable
 namespace Dxs.Consigliere.WebSockets;
 
 /// <summary>
@@ -17,4 +18,4 @@ public sealed record BroadcastReceiptDto(
     string TxId,
     string State,
     long CreatedAtMs,
-    string FailReason = null);
+    string? FailReason = null);

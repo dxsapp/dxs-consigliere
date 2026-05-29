@@ -122,7 +122,7 @@ export class P2pStore {
     const scored = all.map((p) => {
       const total = p.successCount + p.failCount;
       const accept = total === 0 ? 0 : p.successCount / total;
-      const recency = recencyFromLastSeen(p.lastSeen, now);
+      const recency = recencyFromLastSeen(p.lastSeen ?? null, now);
       const diversity = (subnetCounts.get(p.subnet24) ?? 0) === 1 ? 1 : 0;
       const composite = Math.round(
         (0.5 * accept + 0.3 * recency + 0.2 * diversity) * 100

@@ -1,3 +1,4 @@
+#nullable enable
 namespace Dxs.Consigliere.Dto.Responses.History;
 
 public sealed class RootedTokenHistoryStatusResponse

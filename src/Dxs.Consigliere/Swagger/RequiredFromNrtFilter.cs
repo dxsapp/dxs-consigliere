@@ -44,8 +44,9 @@ public sealed class RequiredFromNrtFilter : ISchemaFilter
                     _ => null,
                 };
                 if (info is null) continue;
-                if (info.WriteState == NullabilityState.NotNull
-                    || info.ReadState == NullabilityState.NotNull)
+                var notNull = info.WriteState == NullabilityState.NotNull
+                    || info.ReadState == NullabilityState.NotNull;
+                if (notNull)
                 {
                     required.Add(jsonName);
                     // S6: also flip the schema-level `nullable`
@@ -58,6 +59,31 @@ public sealed class RequiredFromNrtFilter : ISchemaFilter
                     {
                         openApiProperty.Nullable = false;
                     }
+                }
+                else if (schema.Properties.TryGetValue(jsonName, out var nullableProperty)
+                    && nullableProperty is not null
+                    && nullableProperty.Reference is not null)
+                {
+                    // wave-A4 S3: a nullable object-typed property is
+                    // emitted by Swashbuckle as a bare `$ref` with no
+                    // `nullable` flag — so openapi-typescript drops the
+                    // `| null` and the generated property becomes
+                    // `prop?: T` (T | undefined) even though the wire
+                    // value is literally JSON `null` (e.g. a list
+                    // response whose `summary` is null).
+                    //
+                    // OpenAPI 3.0 forbids sibling keywords next to a
+                    // `$ref`, and Microsoft.OpenApi silently drops a
+                    // `Nullable` set directly on the ref. Wrap the ref
+                    // in an `allOf` + `nullable: true` so the union is
+                    // preserved; openapi-typescript then emits
+                    // `prop?: T | null` and the screens keep their
+                    // null checks.
+                    schema.Properties[jsonName] = new OpenApiSchema
+                    {
+                        Nullable = true,
+                        AllOf = [new OpenApiSchema { Reference = nullableProperty.Reference }],
+                    };
                 }
             }
             catch

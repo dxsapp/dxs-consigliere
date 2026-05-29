@@ -1,3 +1,4 @@
+#nullable enable
 namespace Dxs.Consigliere.Dto.Requests;
 
 public sealed class AdminLoginRequest

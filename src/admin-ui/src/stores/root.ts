@@ -8,6 +8,7 @@ import type { IAdminClient } from "@/lib/admin/admin-client";
 import type { IAuthClient } from "@/lib/auth/client";
 import type { ISignalRClient } from "@/lib/signalr/client";
 import type { AdminLoginRequest } from "@/types/auth";
+import type { SetupStatusResponse } from "@/types/admin";
 import type { AppError } from "@/types/errors";
 
 /**
@@ -196,12 +197,7 @@ export class AuthStore {
    * call gets a transient `GET /me` failure that would otherwise
    * leave the LoginPage banner stale.
    */
-  applySetupStatus(res: {
-    setupRequired: boolean;
-    setupCompleted: boolean;
-    adminEnabled: boolean;
-    adminUsername: string | null;
-  }) {
+  applySetupStatus(res: SetupStatusResponse) {
     runInAction(() => {
       this.setupRequired = res.setupRequired;
       this.enabled = res.adminEnabled;

@@ -113,7 +113,7 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function mask(v: string | null): string {
+function mask(v: string | null | undefined): string {
   if (!v) return "—";
   if (v.length <= 4) return "***";
   return `${v.slice(0, 2)}***${v.slice(-2)}`;

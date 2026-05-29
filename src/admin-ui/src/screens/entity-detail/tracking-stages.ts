@@ -75,7 +75,7 @@ export function readinessStages(r: TrackedEntityReadinessResponse | null): Entit
         : "active",
       detail: r.degraded
         ? "Degraded — backing source has a known incident"
-        : r.lagBlocks !== null && r.lagBlocks > 0
+        : r.lagBlocks != null && r.lagBlocks > 0
         ? `Lag ${r.lagBlocks} block(s)`
         : null,
     },
