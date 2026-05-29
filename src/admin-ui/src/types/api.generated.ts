@@ -1600,7 +1600,34 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AdminTrackAddressRequest"];
+                    "text/json": components["schemas"]["AdminTrackAddressRequest"];
+                    "application/*+json": components["schemas"]["AdminTrackAddressRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AdminTrackedAddressResponse"];
+                        "application/json": components["schemas"]["AdminTrackedAddressResponse"];
+                        "text/json": components["schemas"]["AdminTrackedAddressResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1639,7 +1666,34 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["AdminTrackTokenRequest"];
+                    "text/json": components["schemas"]["AdminTrackTokenRequest"];
+                    "application/*+json": components["schemas"]["AdminTrackTokenRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AdminTrackedTokenResponse"];
+                        "application/json": components["schemas"]["AdminTrackedTokenResponse"];
+                        "text/json": components["schemas"]["AdminTrackedTokenResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2994,6 +3048,17 @@ export interface components {
         };
         AdminRuntimeSourcesResponse: {
             realtimePolicy?: components["schemas"]["AdminRealtimeSourcePolicyResponse"] | null;
+        };
+        AdminTrackAddressRequest: {
+            address?: string | null;
+            name?: string | null;
+            historyMode?: string | null;
+        };
+        AdminTrackTokenRequest: {
+            tokenId?: string | null;
+            symbol?: string | null;
+            historyMode?: string | null;
+            trustedRoots?: string[] | null;
         };
         AdminTrackedAddressResponse: {
             address: string;

@@ -1,7 +1,9 @@
 using Dxs.Bsv;
 using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Models.Tracking;
 using Dxs.Consigliere.Data.Tracking;
+using Dxs.Consigliere.Dto.Requests;
 using Dxs.Consigliere.Dto.Responses.Admin;
 using Dxs.Consigliere.Services;
 using Dxs.Consigliere.Setup;
@@ -33,6 +35,72 @@ public class AdminTrackedController(
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
         => Ok(await queryService.GetTrackedTokensAsync(includeTombstoned, cancellationToken));
+
+    [HttpPost("addresses")]
+    [Produces(typeof(AdminTrackedAddressResponse))]
+    public async Task<IActionResult> TrackAddress(
+        [FromBody] AdminTrackAddressRequest request,
+        [FromServices] ITrackedEntityRegistrationStore registrationStore,
+        [FromServices] IAdminTrackingQueryService queryService,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Address))
+            return BadRequest(new { code = "address_required" });
+
+        if (!Address.TryParse(request.Address.Trim(), out var parsed))
+            return BadRequest($"Unable to parse Address: \"{request.Address}\"");
+
+        var historyMode = NormalizeHistoryMode(request.HistoryMode);
+        if (historyMode is null)
+            return BadRequest(new { code = "invalid_history_mode" });
+
+        await registrationStore.RegisterAddressAsync(
+            parsed.Value, request.Name?.Trim() ?? string.Empty, historyMode, cancellationToken);
+
+        var response = await queryService.GetTrackedAddressAsync(parsed.Value, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("tokens")]
+    [Produces(typeof(AdminTrackedTokenResponse))]
+    public async Task<IActionResult> TrackToken(
+        [FromBody] AdminTrackTokenRequest request,
+        [FromServices] ITrackedEntityRegistrationStore registrationStore,
+        [FromServices] IAdminTrackingQueryService queryService,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.TokenId))
+            return BadRequest(new { code = "token_id_required" });
+
+        if (!TokenId.TryParse(request.TokenId.Trim(), networkProvider.Network, out var parsed))
+            return BadRequest($"Unable to parse TokenId: \"{request.TokenId}\"");
+
+        var historyMode = NormalizeHistoryMode(request.HistoryMode);
+        if (historyMode is null)
+            return BadRequest(new { code = "invalid_history_mode" });
+
+        var trustedRoots = request.TrustedRoots is { Length: > 0 } ? request.TrustedRoots : null;
+
+        await registrationStore.RegisterTokenAsync(
+            parsed.Value, request.Symbol?.Trim() ?? string.Empty, historyMode, trustedRoots, cancellationToken);
+
+        var response = await queryService.GetTrackedTokenAsync(parsed.Value, cancellationToken);
+        return Ok(response);
+    }
+
+    private static string NormalizeHistoryMode(string requested)
+    {
+        if (string.IsNullOrWhiteSpace(requested))
+            return TrackedEntityHistoryMode.ForwardOnly;
+
+        var trimmed = requested.Trim();
+        return trimmed switch
+        {
+            TrackedEntityHistoryMode.ForwardOnly => TrackedEntityHistoryMode.ForwardOnly,
+            TrackedEntityHistoryMode.FullHistory => TrackedEntityHistoryMode.FullHistory,
+            _ => null
+        };
+    }
 
     [HttpGet("address/{address}")]
     [Produces(typeof(AdminTrackedAddressResponse))]
