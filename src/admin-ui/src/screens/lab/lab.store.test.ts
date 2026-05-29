@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LabStore, type LabStoreOptions } from "./lab.store";
 import { MockAdminClient } from "@/lib/mock/admin";
 import type { LabKey } from "@/screens/lab/lab.tx";
@@ -41,6 +41,9 @@ function makeStore(opts?: { buildSend?: LabStoreOptions["buildSend"] }) {
 }
 
 describe("LabStore", () => {
+  // The lab wallet persists to localStorage; isolate each test.
+  beforeEach(() => localStorage.clear());
+
   it("generate() derives a stable address and auto-tracks it", async () => {
     const { store, trackSpy, generateKey } = makeStore();
 
@@ -121,5 +124,37 @@ describe("LabStore", () => {
     await store.send("1Destination000000000000000000000000", 1_000);
     expect(buildSend).not.toHaveBeenCalled();
     expect(store.error).toMatch(/generate a key/i);
+  });
+
+  it("generate() persists the wallet so a new store restores it after refresh", async () => {
+    const first = makeStore();
+    await first.store.generate();
+    expect(localStorage.getItem("consigliere.lab.wallet")).toContain(FAKE_KEY.address);
+
+    // Simulate a page refresh: a brand-new store (no generate) hydrates
+    // the keypair from localStorage and start() loads its UTXOs.
+    const second = makeStore();
+    expect(second.store.address).toBe(FAKE_KEY.address);
+    expect(second.store.key?.wif).toBe(FAKE_KEY.wif);
+    await second.store.start();
+    expect(second.store.balanceSats).toBe(100_000);
+    // The restored store can spend without regenerating.
+    await second.store.send("1Destination000000000000000000000000", 10_000);
+    expect(second.broadcastSpy).toHaveBeenCalledWith("deadbeef");
+  });
+
+  it("reset() wipes the wallet from memory and localStorage", async () => {
+    const { store } = makeStore();
+    await store.generate();
+    expect(localStorage.getItem("consigliere.lab.wallet")).not.toBeNull();
+
+    store.reset();
+
+    expect(store.key).toBeNull();
+    expect(store.address).toBeNull();
+    expect(store.utxos).toEqual([]);
+    expect(localStorage.getItem("consigliere.lab.wallet")).toBeNull();
+    // A fresh store no longer restores anything.
+    expect(makeStore().store.address).toBeNull();
   });
 });

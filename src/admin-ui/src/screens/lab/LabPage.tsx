@@ -40,7 +40,11 @@ import type { IAdminClient } from "@/lib/admin/admin-client";
  */
 export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClient }) {
   const store = useMemo(() => new LabStore({ admin }), [admin]);
-  useEffect(() => () => store.dispose(), [store]);
+  useEffect(() => {
+    // Restore a persisted wallet's UTXOs on mount; abort on unmount.
+    void store.start();
+    return () => store.dispose();
+  }, [store]);
 
   const [revealWif, setRevealWif] = useState(false);
   const [destination, setDestination] = useState("");
@@ -59,7 +63,10 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
         <AlertTitle>Lab tool — real mainnet transactions</AlertTitle>
         This builds and broadcasts REAL mainnet transactions with REAL funds.
         Keep amounts small. The private key is generated and signs entirely in
-        your browser and is never sent to the backend.
+        your browser and is never sent to the backend. It is saved in this
+        browser (localStorage) so a refresh keeps the wallet — use{" "}
+        <strong>Reset wallet</strong> to wipe it. Demo-grade keys; not for
+        custody.
       </Alert>
 
       {store.error && <Alert severity="error">{store.error}</Alert>}
@@ -71,14 +78,31 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
         />
         <CardContent>
           <Stack spacing={2}>
-            <Button
-              variant="contained"
-              onClick={() => void store.generate()}
-              disabled={store.generating}
-              data-testid="lab-generate"
-            >
-              {store.generating ? "Generating…" : "Generate key"}
-            </Button>
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              <Button
+                variant="contained"
+                onClick={() => void store.generate()}
+                disabled={store.generating}
+                data-testid="lab-generate"
+              >
+                {store.generating
+                  ? "Generating…"
+                  : store.key
+                    ? "Regenerate key"
+                    : "Generate key"}
+              </Button>
+              {store.key && (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  onClick={() => store.reset()}
+                  disabled={store.generating || store.sending}
+                  data-testid="lab-reset"
+                >
+                  Reset wallet
+                </Button>
+              )}
+            </Stack>
 
             {store.key && (
               <Stack spacing={2}>

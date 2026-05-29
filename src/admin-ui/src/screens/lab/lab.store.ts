@@ -21,9 +21,11 @@ import {
  *   send()     → select UTXOs → build+sign P2PKH (client-side) →
  *                broadcastRawTx(rawHex) → store the receipt
  *
- * CRITICAL: the private key / WIF NEVER leaves the browser. Only the
- * address (to track) and the signed `rawHex` (to broadcast) are sent
- * to the backend.
+ * CRITICAL: the private key / WIF is never sent to the BACKEND. Only the
+ * address (to track) and the signed `rawHex` (to broadcast) cross the
+ * wire. For lab continuity the keypair IS persisted to `localStorage`
+ * (browser-local) so a page refresh doesn't lose the wallet — these are
+ * demo-grade keys (the page banner says so); use "Reset wallet" to wipe.
  *
  * The SDK build/sign calls are injected (defaults = the real wrapper)
  * so the orchestration can be unit-tested with the elliptic-curve SDK
@@ -60,12 +62,33 @@ export class LabStore {
     this.admin = opts.admin;
     this.generateKeyFn = opts.generateKey ?? generateLabKey;
     this.buildSendFn = opts.buildSend ?? buildP2pkhSend;
+    // Restore a previously-generated lab wallet so a page refresh keeps
+    // the address + spend ability (see the class-doc note on persistence).
+    this.key = loadWallet();
     makeAutoObservable(this, {}, { autoBind: true });
+  }
+
+  /** Call on mount: if a wallet was restored from localStorage, load its
+   *  UTXOs so the balance/coins show without re-generating. */
+  async start(): Promise<void> {
+    if (this.key) await this.refresh();
   }
 
   dispose(): void {
     this.inflight?.abort();
     this.inflight = null;
+  }
+
+  /** Wipe the lab wallet from memory + localStorage. */
+  reset(): void {
+    this.inflight?.abort();
+    this.inflight = null;
+    this.key = null;
+    this.utxos = [];
+    this.receipt = null;
+    this.error = null;
+    this.status = "idle";
+    clearWallet();
   }
 
   /** Total spendable balance (sats) across the loaded UTXO set. */
@@ -97,6 +120,7 @@ export class LabStore {
         name: "lab",
         historyMode: "forward_only",
       });
+      saveWallet(key);
       runInAction(() => {
         this.key = key;
         this.utxos = [];
@@ -214,6 +238,46 @@ export class LabStore {
         this.sending = false;
       });
     }
+  }
+}
+
+const LAB_WALLET_KEY = "consigliere.lab.wallet";
+
+/** Browser-local persistence of the lab keypair (demo-grade keys; lab
+ *  continuity across refresh). All access is guarded so SSR / disabled
+ *  storage / malformed JSON degrade to "no wallet" rather than throwing. */
+function loadWallet(): LabKey | null {
+  try {
+    const raw = globalThis.localStorage?.getItem(LAB_WALLET_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<LabKey>;
+    if (
+      parsed &&
+      typeof parsed.address === "string" &&
+      typeof parsed.wif === "string" &&
+      typeof parsed._privHex === "string"
+    ) {
+      return { address: parsed.address, wif: parsed.wif, _privHex: parsed._privHex };
+    }
+  } catch {
+    /* unavailable / malformed — treat as no wallet */
+  }
+  return null;
+}
+
+function saveWallet(key: LabKey): void {
+  try {
+    globalThis.localStorage?.setItem(LAB_WALLET_KEY, JSON.stringify(key));
+  } catch {
+    /* storage unavailable — wallet stays in memory only */
+  }
+}
+
+function clearWallet(): void {
+  try {
+    globalThis.localStorage?.removeItem(LAB_WALLET_KEY);
+  } catch {
+    /* nothing to do */
   }
 }
 
