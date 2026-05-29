@@ -6,7 +6,7 @@ related: docs/stream-tasks/bsv-mempool-observer-wave/ (Wave 2 — P2P observer l
          docs/stream-tasks/admin-realtime-source-policy-wave/ (capability-routing model);
          docs/stream-tasks/observation-source-metrics-wave/ (per-source metrics base);
          docs/stream-tasks/admin-ui-wave-A4-turnkey-and-ga/evidence/closeout.md (turnkey local mode)
-status: approved (planning only — no slices executed yet)
+status: done (S1+S2+S3+S5 shipped; S4 not_opened — already delivered by Wave 4)
 ---
 
 # Thin-node primary source — routed realtime + rawTx
@@ -155,11 +155,11 @@ Out of scope (rationale — do NOT pull in):
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S1 | `provider-routing` | todo | — | `dotnet build … -c Release`; unit: routing resolves `p2p` as primary for RealtimeIngest + RawTxFetch when `BsvP2pConfig.Enabled`, and is skipped when disabled | `p2p` registered as a catalog descriptor (`[RealtimeIngest, RawTxFetch]`); `ExternalChainProviderName.P2p`; recommendation constants + candidate arrays include `p2p`; `CanServe` gates `p2p` on `BsvP2pConfig.Enabled` | `audits/S1-slice-audit-prompt.md` |
-| S2 | `provider-routing` | todo | S1 | unit: `p2p` hit returns raw bytes; `p2p` miss/timeout → null → fetch-service falls through to junglebus/whatsonchain; transport fault logs + continues | `RawTransactionFetchService` has a `p2p` case that issues `getdata` → awaits first `tx` frame (timeout, null-on-miss) via the existing per-session dispatcher; external auto-fallback proven | `audits/S2-slice-audit-prompt.md` |
-| S3 | `realtime-orchestration` | todo | S1 | unit/integration: with `p2p` primary, Bitails + JungleBus realtime runners both active concurrently with the P2P observer; with 0 P2P peers, external runners still append to the journal | Realtime "primary" no longer silences other runners; all configured realtime sources observe in parallel; cold-start ingest proven independent of P2P pool | `audits/S3-slice-audit-prompt.md` |
-| S4 | `source-metrics` | todo | S3 | contract green; unit: first-seen attribution picks the earliest source per txid and records others' lag; admin metrics expose it | Per-source first-seen latency recorded + surfaced in the admin metrics screen ("who saw it first") | `audits/S4-slice-audit-prompt.md` |
-| S5 | `setup-wizard` | todo | S1 | `pnpm verify` + `pnpm test:contract` 24/24 + `dotnet build … -c Release`; fresh setup persists `p2p` realtime+rawtx primary; wizard shows p2p default | Providers step remodeled (p2p primary default, external = fallback, JungleBus = block sync); DTO + store + generated types updated; no hand-mirrored type reintroduced | `audits/S5-slice-audit-prompt.md` |
+| S1 | `provider-routing` | **done** | — | `dotnet build … -c Release`; unit: routing resolves `p2p` as primary for RealtimeIngest + RawTxFetch when `BsvP2pConfig.Enabled`, and is skipped when disabled | `p2p` registered as a catalog descriptor (`[RealtimeIngest, RawTxFetch]`); `ExternalChainProviderName.P2p`; recommendation constants + candidate arrays include `p2p`; `CanServe` gates `p2p` on `BsvP2pConfig.Enabled` | `audits/S1-slice-audit-prompt.md` |
+| S2 | `provider-routing` | **done** | S1 | unit: `p2p` hit returns raw bytes; `p2p` miss/timeout → null → fetch-service falls through to junglebus/whatsonchain; transport fault logs + continues | `RawTransactionFetchService` has a `p2p` case that issues `getdata` → awaits first `tx` frame (timeout, null-on-miss) via the existing per-session dispatcher; external auto-fallback proven | `audits/S2-slice-audit-prompt.md` |
+| S3 | `realtime-orchestration` | **done** | S1 | unit/integration: with `p2p` primary, Bitails + JungleBus realtime runners both active concurrently with the P2P observer; with 0 P2P peers, external runners still append to the journal | Realtime "primary" no longer silences other runners; all configured realtime sources observe in parallel; cold-start ingest proven independent of P2P pool | `audits/S3-slice-audit-prompt.md` |
+| S4 | `source-metrics` | **not_opened** | S3 | already-delivered: verified `SourceVisibilityTracker` + `/api/admin/metrics/sources` + UI sparklines exist | **Already delivered by the program's Wave 4 (`observation-source-metrics-wave`).** `TxObservationJournalWriter` calls `RecordObservation(txId, message.Source, …)` for EVERY source, so `p2p` first-seen wins + lag buckets are tracked source-agnostically; the admin metrics screen renders per-source first-seen sparklines (`source-metrics.store.test.ts` asserts `firstSeenSeries("p2p")`). No new code needed. | `audits/S4-slice-audit-prompt.md` |
+| S5 | `setup-wizard` | **done** | S1 | `pnpm verify` + `pnpm test:contract` 24/24 + `dotnet build … -c Release`; fresh setup persists `p2p` realtime+rawtx primary; wizard shows p2p default | Providers step remodeled (p2p primary default, external = fallback, JungleBus = block sync); DTO + store + generated types updated; no hand-mirrored type reintroduced | `audits/S5-slice-audit-prompt.md` |
 
 ## Definition of Done
 
@@ -182,9 +182,9 @@ commit, never `--amend`):
 
 | slice | commit | summary |
 |---|---|---|
-| S1 | _pending_ | _register p2p as routable provider + defaults_ |
-| S2 | _pending_ | _P2P rawTx fetch + external auto-fallback_ |
-| S3 | _pending_ | _all realtime sources concurrent; cold-start honest_ |
-| S4 | _pending_ | _per-source first-seen latency metric_ |
-| S5 | _pending_ | _wizard Providers remodel → p2p primary default_ |
-| Audit folds | _pending_ | _per-slice findings folded_ |
+| S1 | `1c2ccda` | register p2p as routable provider + defaults |
+| S2 | `8d65a1b` | P2P rawTx fetch + external auto-fallback |
+| S3 | `e29f572` | all realtime sources concurrent; cold-start honest |
+| S4 | none | not_opened — already delivered by Wave 4 source-metrics |
+| S5 | `783726a` | wizard Providers remodel → p2p primary default |
+| Audit folds | none | per-slice audit prompts written; no findings folded as of closeout |
