@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SetupWizardPage } from "./SetupWizardPage";
 import { ThemeProvider } from "@/app/ThemeProvider";
 import { MockAdminClient } from "@/lib/mock/admin";
@@ -25,69 +25,57 @@ function renderWizard() {
   return { admin, auth, ...result };
 }
 
+function fillAdmin() {
+  act(() => {
+    fireEvent.change(screen.getByLabelText(/operator name/i), {
+      target: { value: "admin-a2" },
+    });
+    // MUI duplicates the password label across confirm; pin by name
+    fireEvent.change(screen.getAllByLabelText(/^password/i)[0], {
+      target: { value: "ConsigliereA2!" },
+    });
+    fireEvent.change(screen.getByLabelText(/confirm password/i), {
+      target: { value: "ConsigliereA2!" },
+    });
+  });
+}
+
 describe("SetupWizardPage", () => {
-  it("renders all four step labels + lands on step 1", async () => {
+  it("renders the single admin-account step (no provider/block-sync steps)", async () => {
     renderWizard();
     await waitFor(() => {
       expect(screen.getByTestId("setup-step-1")).toBeInTheDocument();
     });
-    expect(screen.getByText("Admin account")).toBeInTheDocument();
-    expect(screen.getByText("Providers")).toBeInTheDocument();
-    expect(screen.getByText("Block sync")).toBeInTheDocument();
-    expect(screen.getByText("Review")).toBeInTheDocument();
+    expect(screen.getByText(/create your admin account/i)).toBeInTheDocument();
+    // The old multi-step rail is gone.
+    expect(screen.queryByText("Providers")).not.toBeInTheDocument();
+    expect(screen.queryByText("Block sync")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review")).not.toBeInTheDocument();
   });
 
-  it("Continue is disabled until step 1 is valid", async () => {
+  it("Create account is disabled until the admin form is valid", async () => {
     renderWizard();
     await waitFor(() => {
       expect(screen.getByTestId("setup-step-1")).toBeInTheDocument();
     });
-    const cta = screen.getByRole("button", { name: /continue/i });
+    const cta = screen.getByRole("button", { name: /create account/i });
     expect(cta).toBeDisabled();
 
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/operator name/i), {
-        target: { value: "admin-a2" },
-      });
-      // MUI duplicates the password label across confirm; pin by name
-      fireEvent.change(screen.getAllByLabelText(/^password/i)[0], {
-        target: { value: "ConsigliereA2!" },
-      });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), {
-        target: { value: "ConsigliereA2!" },
-      });
-    });
+    fillAdmin();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /continue/i })).not.toBeDisabled();
+      expect(screen.getByRole("button", { name: /create account/i })).not.toBeDisabled();
     });
   });
 
-  it("walks all the way to step 4 + the Complete setup button appears", async () => {
+  it("redirects to /login on submit success", async () => {
     renderWizard();
+    await waitFor(() => expect(screen.getByTestId("setup-step-1")).toBeInTheDocument());
+
+    fillAdmin();
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
     await waitFor(() => {
-      expect(screen.getByTestId("setup-step-1")).toBeInTheDocument();
+      expect(screen.getByTestId("login-landing")).toBeInTheDocument();
     });
-
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/operator name/i), { target: { value: "admin-a2" } });
-      fireEvent.change(screen.getAllByLabelText(/^password/i)[0], { target: { value: "ConsigliereA2!" } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: "ConsigliereA2!" } });
-    });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-
-    await waitFor(() => expect(screen.getByTestId("setup-step-2")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-
-    await waitFor(() => expect(screen.getByTestId("setup-step-3")).toBeInTheDocument());
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/block subscription id/i), {
-        target: { value: "smoke-sub" },
-      });
-    });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-
-    await waitFor(() => expect(screen.getByTestId("setup-step-4")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /complete setup/i })).not.toBeDisabled();
   });
 
   it("clears auth.setupRequired post-submit even if hydrate fails (S0-audit M1)", async () => {
@@ -116,23 +104,8 @@ describe("SetupWizardPage", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("setup-step-1")).toBeInTheDocument());
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/operator name/i), { target: { value: "admin-a2" } });
-      fireEvent.change(screen.getAllByLabelText(/^password/i)[0], { target: { value: "ConsigliereA2!" } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: "ConsigliereA2!" } });
-    });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => expect(screen.getByTestId("setup-step-2")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => expect(screen.getByTestId("setup-step-3")).toBeInTheDocument());
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/block subscription id/i), {
-        target: { value: "smoke-sub" },
-      });
-    });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => expect(screen.getByTestId("setup-step-4")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /complete setup/i }));
+    fillAdmin();
+    fireEvent.click(screen.getByRole("button", { name: /create account/i }));
 
     // Even with the broken /me, the wizard must redirect AND
     // auth.setupRequired must be false (so the LoginPage banner
@@ -164,34 +137,7 @@ describe("SetupWizardPage", () => {
     );
     expect(screen.getByTestId("setup-wizard-loading")).toBeInTheDocument();
     // No wizard chrome flashes while options are in flight.
-    expect(screen.queryByText(/first-run setup/i)).not.toBeInTheDocument();
-    expect(screen.queryByText("Admin account")).not.toBeInTheDocument();
-  });
-
-  it("redirects to /login on submit success", async () => {
-    renderWizard();
-    await waitFor(() => expect(screen.getByTestId("setup-step-1")).toBeInTheDocument());
-
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/operator name/i), { target: { value: "admin-a2" } });
-      fireEvent.change(screen.getAllByLabelText(/^password/i)[0], { target: { value: "ConsigliereA2!" } });
-      fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: "ConsigliereA2!" } });
-    });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => expect(screen.getByTestId("setup-step-2")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => expect(screen.getByTestId("setup-step-3")).toBeInTheDocument());
-    act(() => {
-      fireEvent.change(screen.getByLabelText(/block subscription id/i), {
-        target: { value: "smoke-sub" },
-      });
-    });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
-    await waitFor(() => expect(screen.getByTestId("setup-step-4")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: /complete setup/i }));
-    await waitFor(() => {
-      expect(screen.getByTestId("login-landing")).toBeInTheDocument();
-    });
+    expect(screen.queryByText(/create your admin account/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("setup-step-1")).not.toBeInTheDocument();
   });
 });

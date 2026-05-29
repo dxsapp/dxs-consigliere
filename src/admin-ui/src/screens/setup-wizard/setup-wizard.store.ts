@@ -7,11 +7,22 @@ import type {
 } from "@/types/admin";
 
 /**
- * wave-A2 S0 — first-run setup wizard store.
+ * wave simplified-first-run-wizard S2 — first-run setup wizard store.
  *
- * Mirrors the wave-A1 detail-store pattern: abortable inflight,
- * no permanent `disposed` flag (S4-S6 audit fold), `start()`
- * idempotent under StrictMode.
+ * Collapsed from the original four-step flow (Admin → Providers →
+ * Block sync → Review) to a SINGLE required step: create the admin
+ * account. The thin node runs on the built-in P2P source, so no
+ * external providers and no JungleBus block subscription are needed
+ * to reach a working product. Providers + history sync remain
+ * configurable later via the Settings screens.
+ *
+ * `buildRequest` therefore sends the `admin` object only. The
+ * generated `SetupCompleteRequest` still types `providers`/`blockSync`
+ * as present (contract shape unchanged — wave-A4 S3: types stay
+ * generated re-exports), so we send them as EMPTY objects. The
+ * backend (S1) treats an empty providers selection + empty block sync
+ * as "absent" → keeps the seeded p2p-primary defaults, skips the
+ * provider-config apply, and never requires a subscription.
  *
  * State shape:
  *   loading   — initial fetch of /api/setup/options in flight
@@ -27,35 +38,17 @@ export type SetupWizardStatus =
   | "submitted"
   | "error";
 
-export type SetupWizardStep = 1 | 2 | 3 | 4;
+/**
+ * Single-step first-run flow. The type is retained (rather than
+ * inlined) so the page's `data-testid="setup-step-1"` and any future
+ * re-expansion stay explicit.
+ */
+export type SetupWizardStep = 1;
 
 export interface SetupWizardAdminForm {
   username: string;
   password: string;
   confirmPassword: string;
-}
-
-export interface SetupWizardProvidersForm {
-  rawTxPrimaryProvider: string;
-  restFallbackProvider: string;
-  realtimePrimaryProvider: string;
-  bitailsTransport: string;
-  bitailsApiKey: string;
-  bitailsBaseUrl: string;
-  bitailsWebsocketBaseUrl: string;
-  bitailsZmqTxUrl: string;
-  bitailsZmqBlockUrl: string;
-  whatsonchainApiKey: string;
-  whatsonchainBaseUrl: string;
-  junglebusBaseUrl: string;
-  junglebusMempoolSubscriptionId: string;
-  nodeZmqTxUrl: string;
-  nodeZmqBlockUrl: string;
-}
-
-export interface SetupWizardBlockSyncForm {
-  baseUrl: string;
-  blockSubscriptionId: string;
 }
 
 export interface SetupWizardOptions {
@@ -79,8 +72,6 @@ export class SetupWizardStore {
     password: "",
     confirmPassword: "",
   };
-  providers: SetupWizardProvidersForm = blankProvidersForm();
-  blockSync: SetupWizardBlockSyncForm = { baseUrl: "", blockSubscriptionId: "" };
 
   private readonly client: IAdminClient;
   private inflight: AbortController | null = null;
@@ -105,7 +96,6 @@ export class SetupWizardStore {
       if (ctl.signal.aborted) return;
       runInAction(() => {
         this.options = opts;
-        this.applyDefaults(opts);
         this.status = "ready";
         this.error = null;
       });
@@ -125,35 +115,6 @@ export class SetupWizardStore {
     this.inflight = null;
   }
 
-  // ── Step navigation ─────────────────────────────────────────
-
-  goNext(): void {
-    if (this.errorsForStep(this.step).length > 0) return;
-    if (this.step >= 4) return;
-    this.step = (this.step + 1) as SetupWizardStep;
-  }
-
-  goBack(): void {
-    if (this.step <= 1) return;
-    this.step = (this.step - 1) as SetupWizardStep;
-  }
-
-  jumpTo(step: SetupWizardStep): void {
-    // Backward jumps are always allowed. Forward jumps are allowed
-    // only when every step we'd skip is clean — that way the
-    // operator can land on the Review step via the Stepper rail
-    // once the form is fully filled, but cannot bypass a step that
-    // still has errors (e.g. password confirmation).
-    if (step <= this.step) {
-      this.step = step;
-      return;
-    }
-    for (let s = this.step; s < step; s++) {
-      if (this.errorsForStep(s as SetupWizardStep).length > 0) return;
-    }
-    this.step = step;
-  }
-
   // ── Field setters ───────────────────────────────────────────
 
   setAdminField<K extends keyof SetupWizardAdminForm>(
@@ -163,47 +124,23 @@ export class SetupWizardStore {
     this.admin = { ...this.admin, [key]: value };
   }
 
-  setProvidersField<K extends keyof SetupWizardProvidersForm>(
-    key: K,
-    value: SetupWizardProvidersForm[K]
-  ): void {
-    this.providers = { ...this.providers, [key]: value };
-  }
-
-  setBlockSyncField<K extends keyof SetupWizardBlockSyncForm>(
-    key: K,
-    value: SetupWizardBlockSyncForm[K]
-  ): void {
-    this.blockSync = { ...this.blockSync, [key]: value };
-  }
-
   // ── Validation ──────────────────────────────────────────────
 
   errorsForStep(step: SetupWizardStep): FieldError[] {
     switch (step) {
       case 1:
         return this.adminErrors();
-      case 2:
-        return this.providersErrors();
-      case 3:
-        return this.blockSyncErrors();
-      case 4:
-        return [
-          ...this.adminErrors(),
-          ...this.providersErrors(),
-          ...this.blockSyncErrors(),
-        ];
       default:
         return [];
     }
   }
 
+  /**
+   * Ready to complete once the admin account fields validate. There is
+   * no provider/block-sync gating in the first-run flow any more.
+   */
   get canSubmit(): boolean {
-    return (
-      this.status === "ready" &&
-      this.step === 4 &&
-      this.errorsForStep(4).length === 0
-    );
+    return this.status === "ready" && this.adminErrors().length === 0;
   }
 
   // ── Submit ──────────────────────────────────────────────────
@@ -239,31 +176,6 @@ export class SetupWizardStore {
 
   // ── Internals ───────────────────────────────────────────────
 
-  private applyDefaults(opts: SetupOptionsResponse): void {
-    const p = opts.providerConfig;
-    this.providers = {
-      rawTxPrimaryProvider: opts.defaults.rawTxPrimaryProvider ?? "",
-      restFallbackProvider: opts.defaults.restFallbackProvider ?? "",
-      realtimePrimaryProvider: opts.defaults.realtimePrimaryProvider ?? "",
-      bitailsTransport: opts.defaults.bitailsTransport ?? "",
-      bitailsApiKey: p.bitails.apiKey ?? "",
-      bitailsBaseUrl: p.bitails.baseUrl ?? "",
-      bitailsWebsocketBaseUrl: p.bitails.websocketBaseUrl ?? "",
-      bitailsZmqTxUrl: p.bitails.zmqTxUrl ?? "",
-      bitailsZmqBlockUrl: p.bitails.zmqBlockUrl ?? "",
-      whatsonchainApiKey: p.whatsonchain.apiKey ?? "",
-      whatsonchainBaseUrl: p.whatsonchain.baseUrl ?? "",
-      junglebusBaseUrl: p.junglebus.baseUrl ?? "",
-      junglebusMempoolSubscriptionId: p.junglebus.mempoolSubscriptionId ?? "",
-      nodeZmqTxUrl: p.node.zmqTxUrl ?? "",
-      nodeZmqBlockUrl: p.node.zmqBlockUrl ?? "",
-    };
-    this.blockSync = {
-      baseUrl: opts.blockSync.baseUrl ?? "",
-      blockSubscriptionId: opts.blockSync.blockSubscriptionId ?? "",
-    };
-  }
-
   private adminErrors(): FieldError[] {
     const errors: FieldError[] = [];
     if (this.admin.username.trim().length < 3) {
@@ -278,54 +190,14 @@ export class SetupWizardStore {
     return errors;
   }
 
-  private providersErrors(): FieldError[] {
-    const errors: FieldError[] = [];
-    const allowed = this.options?.allowed;
-    if (!allowed) {
-      errors.push({ field: "providers", message: "Options not loaded yet" });
-      return errors;
-    }
-    if (!allowed.rawTxPrimaryProviders.includes(this.providers.rawTxPrimaryProvider)) {
-      errors.push({ field: "providers.rawTxPrimaryProvider", message: "Choose a primary rawTx provider" });
-    }
-    if (!allowed.restFallbackProviders.includes(this.providers.restFallbackProvider)) {
-      errors.push({ field: "providers.restFallbackProvider", message: "Choose a REST fallback provider" });
-    }
-    if (!allowed.realtimePrimaryProviders.includes(this.providers.realtimePrimaryProvider)) {
-      errors.push({ field: "providers.realtimePrimaryProvider", message: "Choose a realtime primary provider" });
-    }
-    if (!allowed.bitailsTransports.includes(this.providers.bitailsTransport)) {
-      errors.push({ field: "providers.bitailsTransport", message: "Choose a Bitails transport" });
-    }
-    for (const [field, value] of [
-      ["providers.bitailsBaseUrl", this.providers.bitailsBaseUrl],
-      ["providers.bitailsWebsocketBaseUrl", this.providers.bitailsWebsocketBaseUrl],
-      ["providers.whatsonchainBaseUrl", this.providers.whatsonchainBaseUrl],
-      ["providers.junglebusBaseUrl", this.providers.junglebusBaseUrl],
-    ] as const) {
-      if (value.trim().length === 0) {
-        errors.push({ field, message: "URL is required" });
-        continue;
-      }
-      if (!isHttpUrl(value)) {
-        errors.push({ field, message: "Must be an http(s) URL" });
-      }
-    }
-    return errors;
-  }
-
-  private blockSyncErrors(): FieldError[] {
-    const errors: FieldError[] = [];
-    if (this.blockSync.baseUrl.trim().length === 0 || !isHttpUrl(this.blockSync.baseUrl)) {
-      errors.push({ field: "blockSync.baseUrl", message: "Must be an http(s) URL" });
-    }
-    if (this.blockSync.blockSubscriptionId.trim().length === 0) {
-      // Mirrors backend rule (SetupWizardService.cs:111).
-      errors.push({ field: "blockSync.blockSubscriptionId", message: "JungleBus block subscription ID is required" });
-    }
-    return errors;
-  }
-
+  /**
+   * Admin-only complete request. `providers`/`blockSync` are sent as
+   * empty objects: the backend (S1) reads an empty provider selection +
+   * empty block sync as "absent" and keeps the seeded p2p-primary
+   * defaults — no third-party provider or subscription required. The
+   * fields stay present only because the generated DTO types them as
+   * required (contract shape unchanged).
+   */
   private buildRequest(): SetupCompleteRequest {
     return {
       admin: {
@@ -334,65 +206,36 @@ export class SetupWizardStore {
         password: this.admin.password,
       },
       providers: {
-        rawTxPrimaryProvider: this.providers.rawTxPrimaryProvider,
-        restFallbackProvider: this.providers.restFallbackProvider,
-        realtimePrimaryProvider: this.providers.realtimePrimaryProvider,
-        bitailsTransport: this.providers.bitailsTransport,
+        rawTxPrimaryProvider: "",
+        restFallbackProvider: "",
+        realtimePrimaryProvider: "",
+        bitailsTransport: "",
         bitails: {
-          apiKey: this.providers.bitailsApiKey,
-          baseUrl: this.providers.bitailsBaseUrl,
-          websocketBaseUrl: this.providers.bitailsWebsocketBaseUrl,
-          zmqTxUrl: this.providers.bitailsZmqTxUrl,
-          zmqBlockUrl: this.providers.bitailsZmqBlockUrl,
+          apiKey: "",
+          baseUrl: "",
+          websocketBaseUrl: "",
+          zmqTxUrl: "",
+          zmqBlockUrl: "",
         },
         whatsonchain: {
-          apiKey: this.providers.whatsonchainApiKey,
-          baseUrl: this.providers.whatsonchainBaseUrl,
+          apiKey: "",
+          baseUrl: "",
         },
         junglebus: {
-          baseUrl: this.providers.junglebusBaseUrl,
-          mempoolSubscriptionId: this.providers.junglebusMempoolSubscriptionId,
-          blockSubscriptionId: this.blockSync.blockSubscriptionId.trim(),
+          baseUrl: "",
+          mempoolSubscriptionId: "",
+          blockSubscriptionId: "",
         },
         node: {
-          zmqTxUrl: this.providers.nodeZmqTxUrl,
-          zmqBlockUrl: this.providers.nodeZmqBlockUrl,
+          zmqTxUrl: "",
+          zmqBlockUrl: "",
         },
       },
       blockSync: {
-        baseUrl: this.blockSync.baseUrl.trim(),
-        blockSubscriptionId: this.blockSync.blockSubscriptionId.trim(),
+        baseUrl: "",
+        blockSubscriptionId: "",
       },
     };
-  }
-}
-
-function blankProvidersForm(): SetupWizardProvidersForm {
-  return {
-    rawTxPrimaryProvider: "",
-    restFallbackProvider: "",
-    realtimePrimaryProvider: "",
-    bitailsTransport: "",
-    bitailsApiKey: "",
-    bitailsBaseUrl: "",
-    bitailsWebsocketBaseUrl: "",
-    bitailsZmqTxUrl: "",
-    bitailsZmqBlockUrl: "",
-    whatsonchainApiKey: "",
-    whatsonchainBaseUrl: "",
-    junglebusBaseUrl: "",
-    junglebusMempoolSubscriptionId: "",
-    nodeZmqTxUrl: "",
-    nodeZmqBlockUrl: "",
-  };
-}
-
-function isHttpUrl(value: string): boolean {
-  try {
-    const u = new URL(value);
-    return u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    return false;
   }
 }
 

@@ -6,37 +6,34 @@ import {
   CardContent,
   CardHeader,
   LinearProgress,
-  Step,
-  StepLabel,
-  Stepper,
   Stack,
 } from "@mui/material";
 import { observer } from "mobx-react-lite";
 import { useEffect, useMemo } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Step1AdminAccess } from "@/screens/setup-wizard/steps/Step1AdminAccess";
-import { Step2Providers } from "@/screens/setup-wizard/steps/Step2Providers";
-import { Step3BlockSync } from "@/screens/setup-wizard/steps/Step3BlockSync";
-import { Step4Review } from "@/screens/setup-wizard/steps/Step4Review";
-import { SetupWizardStore, type SetupWizardStep } from "@/screens/setup-wizard/setup-wizard.store";
+import { SetupWizardStore } from "@/screens/setup-wizard/setup-wizard.store";
 import { LOGIN_PATH } from "@/app/routes";
 import type { IAdminClient } from "@/lib/admin/admin-client";
 import type { AuthStore } from "@/stores/root";
 
 /**
- * wave-A2 S0 — public first-run setup wizard.
+ * wave simplified-first-run-wizard S2 — public first-run setup wizard.
  *
  * Mounted at `/setup` outside `AuthGuard`. Pulls
- * `GET /api/setup/options` on mount, walks the operator
- * through 4 steps, posts `POST /api/setup/complete`, then
- * redirects to `/login` (operator signs in with the
- * credentials they just chose).
+ * `GET /api/setup/options` on mount, asks the operator for the ONE
+ * required thing — an admin account — posts `POST /api/setup/complete`,
+ * then redirects to `/login` (operator signs in with the credentials
+ * they just chose).
  *
- * Already-completed installs are bounced to `/login` on
- * mount; no setup form rendered.
+ * The node runs on the built-in P2P thin node, so no provider config
+ * and no JungleBus block subscription are required to finish setup.
+ * Providers + history sync are optional and configurable later under
+ * Settings.
+ *
+ * Already-completed installs are bounced to `/login` on mount; no
+ * setup form rendered.
  */
-const STEP_LABELS = ["Admin account", "Providers", "Block sync", "Review"] as const;
-
 export const SetupWizardPage = observer(function SetupWizardPage({
   admin,
   auth,
@@ -90,7 +87,7 @@ export const SetupWizardPage = observer(function SetupWizardPage({
   // wave-A2 S0-audit L1: while the initial getSetupOptions() is in
   // flight we render a neutral loader instead of the full wizard
   // chrome — otherwise an already-completed install briefly shows
-  // the Stepper rail before the redirect lands.
+  // the form before the redirect lands.
   if (
     store.options &&
     store.options.status.setupCompleted &&
@@ -116,10 +113,10 @@ export const SetupWizardPage = observer(function SetupWizardPage({
 
   return (
     <Box sx={{ minHeight: "100vh", py: 6, px: { xs: 2, sm: 4 }, bgcolor: "background.default" }}>
-      <Card sx={{ maxWidth: 880, mx: "auto" }}>
+      <Card sx={{ maxWidth: 560, mx: "auto" }}>
         <CardHeader
-          title="Consigliere — first-run setup"
-          subheader="Configure the admin account + provider routing before signing in."
+          title="Consigliere — create your admin account"
+          subheader="That's the only step. The node runs on the built-in P2P thin node — no subscriptions or third-party providers needed. Providers and history sync are optional under Settings."
         />
         <CardContent>
           {/* Initial loading is handled by the outer skeleton
@@ -144,23 +141,7 @@ export const SetupWizardPage = observer(function SetupWizardPage({
             store.status === "submitting" ||
             store.status === "submitted") && (
             <Stack spacing={3}>
-              <Stepper activeStep={store.step - 1} alternativeLabel>
-                {STEP_LABELS.map((label, idx) => (
-                  <Step
-                    key={label}
-                    completed={store.step > idx + 1}
-                    onClick={() => store.jumpTo((idx + 1) as SetupWizardStep)}
-                    sx={{ cursor: "pointer" }}
-                  >
-                    <StepLabel>{label}</StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
-
-              {store.step === 1 && <Step1AdminAccess store={store} />}
-              {store.step === 2 && <Step2Providers store={store} />}
-              {store.step === 3 && <Step3BlockSync store={store} />}
-              {store.step === 4 && <Step4Review store={store} />}
+              <Step1AdminAccess store={store} />
 
               {store.error && store.status === "ready" && (
                 <Alert severity="error">{store.error}</Alert>
@@ -172,35 +153,15 @@ export const SetupWizardPage = observer(function SetupWizardPage({
                 </Alert>
               )}
 
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack direction="row" justifyContent="flex-end" alignItems="center">
                 <Button
-                  variant="text"
-                  disabled={store.step === 1 || store.status !== "ready"}
-                  onClick={() => store.goBack()}
+                  variant="contained"
+                  color="primary"
+                  disabled={!store.canSubmit || store.status === "submitting"}
+                  onClick={() => void store.submit()}
                 >
-                  Back
+                  {store.status === "submitting" ? "Creating account…" : "Create account"}
                 </Button>
-                {store.step < 4 && (
-                  <Button
-                    variant="contained"
-                    disabled={
-                      store.status !== "ready" || store.errorsForStep(store.step).length > 0
-                    }
-                    onClick={() => store.goNext()}
-                  >
-                    Continue
-                  </Button>
-                )}
-                {store.step === 4 && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    disabled={!store.canSubmit || store.status === "submitting"}
-                    onClick={() => void store.submit()}
-                  >
-                    {store.status === "submitting" ? "Submitting…" : "Complete setup"}
-                  </Button>
-                )}
               </Stack>
             </Stack>
           )}

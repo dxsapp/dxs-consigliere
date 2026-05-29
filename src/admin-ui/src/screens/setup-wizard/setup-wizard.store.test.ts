@@ -2,22 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { SetupWizardStore } from "./setup-wizard.store";
 import { MockAdminClient } from "@/lib/mock/admin";
 
-function fillValidForm(store: SetupWizardStore) {
+function fillValidAdmin(store: SetupWizardStore) {
   store.setAdminField("username", "operator-a2");
   store.setAdminField("password", "ConsigliereA2!");
   store.setAdminField("confirmPassword", "ConsigliereA2!");
-  // Providers + blockSync pre-filled by start() from mock options.
-  store.setBlockSyncField("blockSubscriptionId", "smoke-test-block-sub");
 }
 
 describe("SetupWizardStore", () => {
-  it("hydrates options + pre-fills providers + blockSync from mock", async () => {
+  it("hydrates options on start", async () => {
     const store = new SetupWizardStore({ admin: new MockAdminClient() });
     await store.start();
     expect(store.status).toBe("ready");
+    expect(store.step).toBe(1);
     expect(store.options?.allowed.bitailsTransports).toContain("websocket");
-    expect(store.providers.bitailsBaseUrl).toBe("https://api.bitails.io");
-    expect(store.blockSync.baseUrl).toBe("https://junglebus.gorillapool.io");
     store.dispose();
   });
 
@@ -38,63 +35,48 @@ describe("SetupWizardStore", () => {
     store.dispose();
   });
 
-  it("rejects URLs that are not http(s)", async () => {
+  it("canSubmit is false until the admin form is valid (no provider/block-sync gating)", async () => {
     const store = new SetupWizardStore({ admin: new MockAdminClient() });
+    expect(store.canSubmit).toBe(false); // not ready yet
     await store.start();
-    store.setProvidersField("bitailsBaseUrl", "ftp://bad");
-    expect(
-      store.errorsForStep(2).some((e) => e.field === "providers.bitailsBaseUrl")
-    ).toBe(true);
-    store.setProvidersField("bitailsBaseUrl", "https://api.bitails.io");
-    expect(
-      store.errorsForStep(2).some((e) => e.field === "providers.bitailsBaseUrl")
-    ).toBe(false);
+    expect(store.canSubmit).toBe(false); // admin form empty
+    fillValidAdmin(store);
+    // No providers or block-sync input is required — admin alone unlocks completion.
+    expect(store.canSubmit).toBe(true);
     store.dispose();
   });
 
-  it("requires the JungleBus block subscription ID (mirrors backend rule)", async () => {
-    const store = new SetupWizardStore({ admin: new MockAdminClient() });
-    await store.start();
-    expect(
-      store.errorsForStep(3).some((e) => e.field === "blockSync.blockSubscriptionId")
-    ).toBe(true);
-    store.setBlockSyncField("blockSubscriptionId", "sub-1");
-    expect(
-      store.errorsForStep(3).some((e) => e.field === "blockSync.blockSubscriptionId")
-    ).toBe(false);
-    store.dispose();
-  });
-
-  it("goNext refuses to advance when the current step is invalid", async () => {
-    const store = new SetupWizardStore({ admin: new MockAdminClient() });
-    await store.start();
-    store.goNext();
-    expect(store.step).toBe(1); // blocked by admin form errors
-    fillValidForm(store);
-    store.goNext();
-    expect(store.step).toBe(2);
-    store.goNext();
-    expect(store.step).toBe(3);
-    store.goNext();
-    expect(store.step).toBe(4);
-    store.dispose();
-  });
-
-  it("submit posts the complete request + flips status to submitted", async () => {
+  it("submit posts an admin-only request (empty providers/blockSync) + flips to submitted", async () => {
     const admin = new MockAdminClient();
     const spy = vi.spyOn(admin, "completeSetup");
     const store = new SetupWizardStore({ admin });
     await store.start();
-    fillValidForm(store);
-    store.jumpTo(4);
+    fillValidAdmin(store);
     await store.submit();
     expect(spy).toHaveBeenCalledTimes(1);
     const req = spy.mock.calls[0][0];
+    expect(req.admin.enabled).toBe(true);
     expect(req.admin.username).toBe("operator-a2");
-    expect(req.blockSync.blockSubscriptionId).toBe("smoke-test-block-sub");
-    expect(req.providers.junglebus.blockSubscriptionId).toBe("smoke-test-block-sub");
+    // Providers + block sync are sent empty so the backend keeps the
+    // seeded p2p-primary defaults — no subscription required.
+    expect(req.providers.realtimePrimaryProvider).toBe("");
+    expect(req.providers.rawTxPrimaryProvider).toBe("");
+    expect(req.providers.bitailsTransport).toBe("");
+    expect(req.blockSync.baseUrl).toBe("");
+    expect(req.blockSync.blockSubscriptionId).toBe("");
     expect(store.status).toBe("submitted");
     expect(store.submittedStatus?.setupCompleted).toBe(true);
+    store.dispose();
+  });
+
+  it("submit is a no-op while the admin form is invalid", async () => {
+    const admin = new MockAdminClient();
+    const spy = vi.spyOn(admin, "completeSetup");
+    const store = new SetupWizardStore({ admin });
+    await store.start();
+    await store.submit(); // admin form empty → blocked
+    expect(spy).not.toHaveBeenCalled();
+    expect(store.status).toBe("ready");
     store.dispose();
   });
 
@@ -103,8 +85,7 @@ describe("SetupWizardStore", () => {
     vi.spyOn(admin, "completeSetup").mockRejectedValueOnce(new Error("boom"));
     const store = new SetupWizardStore({ admin });
     await store.start();
-    fillValidForm(store);
-    store.jumpTo(4);
+    fillValidAdmin(store);
     await store.submit();
     expect(store.status).toBe("ready");
     expect(store.error).toBe("boom");
@@ -126,16 +107,5 @@ describe("SetupWizardStore", () => {
     void store.start();
     store.dispose();
     expect(signalRef.current?.aborted).toBe(true);
-  });
-
-  it("canSubmit is false until everything passes + step is 4", async () => {
-    const store = new SetupWizardStore({ admin: new MockAdminClient() });
-    await store.start();
-    expect(store.canSubmit).toBe(false);
-    fillValidForm(store);
-    expect(store.canSubmit).toBe(false); // wrong step
-    store.jumpTo(4);
-    expect(store.canSubmit).toBe(true);
-    store.dispose();
   });
 });
