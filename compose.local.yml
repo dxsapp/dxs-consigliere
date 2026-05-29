@@ -1,0 +1,75 @@
+# wave-A4 S1 — local turnkey run mode.
+#
+# The "pull → run → wizard → working" path for a self-hoster on
+# their own machine. Standalone (NOT an overlay on compose.yml):
+# it runs the PUBLISHED image rather than building, and serves
+# plain HTTP on localhost:5000 — no Caddy, no domain, no ACME,
+# no cert warning, zero mandatory env.
+#
+#   # 1. get a free JungleBus subscription id (gorillapool.io)
+#   # 2. start the stack:
+#   docker compose -f compose.local.yml up -d
+#   # 3. open http://localhost:5000 → complete the first-run wizard
+#   # 4. add a watched address → it indexes live
+#
+# Pin a specific release with CONSIGLIERE_TAG (default: latest):
+#   CONSIGLIERE_TAG=1.2.3 docker compose -f compose.local.yml up -d
+#
+# This is the LOCAL profile. It deliberately runs plain HTTP +
+# cookieSecure=SameAsRequest so the admin cookie sets over
+# http://localhost. Production keeps TLS-always +
+# cookieSecure=Always behind Caddy — see compose.prod.yml +
+# docs/runbook.md. Do NOT expose this profile to the public
+# internet as-is.
+
+services:
+  ravendb:
+    image: ravendb/ravendb:7.1-latest
+    container_name: consigliere-ravendb
+    restart: unless-stopped
+    environment:
+      RAVEN_License_Eula_Accepted: "true"
+      RAVEN_Setup_Mode: "None"
+      RAVEN_Security_UnsecuredAccessAllowed: "PrivateNetwork"
+      RAVEN_PublicServerUrl: "http://ravendb:8080"
+    # Internal-only: the host never needs to reach Raven directly.
+    expose:
+      - "8080"
+    volumes:
+      - raven-data:/var/lib/ravendb/data
+
+  consigliere:
+    # Pull the published image — no local build. Override the tag
+    # via CONSIGLIERE_TAG.
+    image: dxs/consigliere:${CONSIGLIERE_TAG:-latest}
+    container_name: consigliere-app
+    restart: unless-stopped
+    depends_on:
+      ravendb:
+        condition: service_started
+    environment:
+      # `Local` loads base appsettings.json (Network=Mainnet, the
+      # 8 background tasks, ScanMempoolOnStart=true) — the real
+      # working config — plus the explicit local overrides below.
+      # No appsettings.Local.json is REQUIRED for this to work:
+      # env vars are authoritative over the JSON layer, so this
+      # runs even on an older published image that predates the
+      # appsettings.Local.json file.
+      DOTNET_ENVIRONMENT: Local
+      ASPNETCORE_ENVIRONMENT: Local
+      ASPNETCORE_HTTP_PORTS: "5000"
+      RavenDb__Urls__0: "http://ravendb:8080"
+      RavenDb__DbName: "Consigliere"
+      Consigliere__Secrets__Dir: "/var/lib/consigliere/secrets"
+      # Plain-HTTP localhost front door: the admin cookie must set
+      # without the Secure flag. LOCAL ONLY — prod stays Always.
+      Consigliere__AdminAuth__cookieSecure: "SameAsRequest"
+    # The local front door: published to the host.
+    ports:
+      - "5000:5000"
+    volumes:
+      - consigliere-secrets:/var/lib/consigliere/secrets
+
+volumes:
+  raven-data:
+  consigliere-secrets:

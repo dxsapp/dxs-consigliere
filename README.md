@@ -66,6 +66,58 @@ Addresses can be **added dynamically at runtime**, allowing payment processors t
 
 [Docker Hub](https://hub.docker.com/r/dxs/consigliere)
 
+### Run locally (recommended for self-hosting)
+
+The fastest path to a working node on your own machine: pull
+the published image, run one compose command, finish the
+first-run wizard in the browser. No domain, no TLS cert, no
+manual config.
+
+```bash
+# 1. Get a free JungleBus subscription id from GorillaPool
+#    (https://gorillapool.io) — you'll paste it into the wizard.
+
+# 2. Start the stack (RavenDB + Consigliere, published image):
+docker compose -f compose.local.yml up -d
+
+# 3. Open the admin UI and complete the first-run wizard:
+#    http://localhost:5000
+#    → admin account → providers → block-sync (paste the
+#      JungleBus subscription id) → confirm.
+
+# 4. Add a watched address (Tracked Addresses screen). It starts
+#    indexing live — no restart needed: the block-sync + realtime
+#    ingest tasks watch the provider config and re-bind themselves
+#    when the wizard writes it.
+```
+
+Pin a specific release instead of `latest`:
+
+```bash
+CONSIGLIERE_TAG=1.2.3 docker compose -f compose.local.yml up -d
+```
+
+Stop / wipe:
+
+```bash
+docker compose -f compose.local.yml down       # stop
+docker compose -f compose.local.yml down -v     # stop + delete data
+```
+
+> This local profile serves **plain HTTP on `localhost:5000`**
+> (cookie `Secure` flag relaxed so login works over http). It is
+> for a single machine on a trusted network — **do not expose it
+> to the public internet as-is**. For an internet-facing
+> deployment use the TLS-fronted prod profile
+> (`docker compose -f compose.yml -f compose.prod.yml --profile
+> prod up -d`) and follow [`docs/runbook.md`](docs/runbook.md).
+
+### Advanced: bring-your-own RavenDB + BSV node (ZMQ)
+
+If you run your own RavenDB + a full BSV node and prefer the
+node/ZMQ ingest path over managed providers, run the image
+directly and add watched addresses via the Admin API:
+
 ```bash
 docker run -p 5000:5000 \
   -e "RavenDb__Urls__0=http://ravendb:8080" \
@@ -80,7 +132,7 @@ docker run -p 5000:5000 \
   dxs/consigliere:latest
 ```
 
-Use Admin API to add addresses/tokens to watch after startup.
+Use the Admin API to add addresses/tokens to watch after startup.
 
 ### Docker Release Policy
 
@@ -117,13 +169,20 @@ Required GitHub secrets for the workflow:
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_TOKEN`
 
-### Docker Compose E2E Smoke
+### Docker Compose E2E Smoke (contributors / CI)
 
-For local end-to-end smoke testing, the repository now includes a root `compose.yml`.
+> Running the product? Use [Run locally](#run-locally-recommended-for-self-hosting)
+> above — it pulls the published image and gives you live ingest
+> through the wizard. The `compose.yml` stack below **builds from
+> source** and **disables background tasks** (no live ingest); it
+> exists for admin-shell / API smoke + SPA validation, not as a
+> product run.
+
+For local end-to-end smoke testing of the source tree, the repository includes a root `compose.yml`.
 This stack is intentionally minimal:
 
 - `ravendb`
-- `consigliere`
+- `consigliere` (built from source)
 
 It is designed for admin-shell and API smoke testing, not for live chain ingest.
 The compose profile:
