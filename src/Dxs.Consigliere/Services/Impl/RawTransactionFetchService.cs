@@ -2,6 +2,7 @@ using Dxs.Bsv.Rpc.Models;
 using Dxs.Bsv.Rpc.Services;
 using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Runtime;
+using Dxs.Consigliere.Services.P2p;
 using Dxs.Infrastructure.Bitails;
 using Dxs.Infrastructure.Common;
 using Dxs.Infrastructure.JungleBus;
@@ -19,6 +20,7 @@ public sealed class RawTransactionFetchService(
     IBitailsRestApiClient bitailsRestApiClient,
     IWhatsOnChainRestApiClient whatsonChainRestApiClient,
     IRpcClient rpcClient,
+    IP2pRawTransactionClient p2pRawTransactionClient,
     ILogger<RawTransactionFetchService> logger
 ) : IRawTransactionFetchService
 {
@@ -75,6 +77,7 @@ public sealed class RawTransactionFetchService(
             ExternalChainProviderName.Bitails => await bitailsRestApiClient.GetTransactionRawOrNullAsync(txId, cancellationToken),
             ExternalChainProviderName.WhatsOnChain => ParseHexOrNull(await whatsonChainRestApiClient.GetTransactionRawOrNullAsync(txId, cancellationToken)),
             SourceCapabilityRouting.NodeProvider => ParseHexOrNull(await rpcClient.GetRawTransactionAsString(txId).EnsureSuccess()),
+            ExternalChainProviderName.P2p => await p2pRawTransactionClient.TryGetRawAsync(txId, cancellationToken),
             _ => throw new InvalidOperationException($"Unsupported raw transaction provider `{provider}`.")
         };
 

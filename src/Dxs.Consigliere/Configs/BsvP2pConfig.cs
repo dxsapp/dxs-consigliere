@@ -67,6 +67,18 @@ public sealed class BsvP2pConfig
     /// </summary>
     public int MempoolMaxFetchedTxBytes { get; set; } = 32 * 1024 * 1024;
 
+    /// <summary>
+    /// thin-node-primary-source S2 — bound for the on-demand
+    /// <c>getdata(MSG_TX)</c> rawTx fetch issued by
+    /// <c>IP2pRawTransactionClient</c> when <c>p2p</c> is the resolved
+    /// rawTx primary. On expiry the client returns <c>null</c> so
+    /// <c>RawTransactionFetchService</c> falls through to the external
+    /// providers (whatsonchain / junglebus / bitails). Default 3000 ms —
+    /// long enough for a mempool-resident tx to arrive from a ready peer,
+    /// short enough not to stall a confirmed-tx fetch's fallback.
+    /// </summary>
+    public int RawTxFetchTimeoutMs { get; set; } = 3000;
+
     public const int DefaultTxMaxSizeBytes = 2 * 1024 * 1024;
 }
 

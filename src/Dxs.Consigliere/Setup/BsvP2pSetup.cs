@@ -27,6 +27,11 @@ public static class BsvP2pSetup
             // thin-node-primary-source S1 — expose the thin node as a
             // routable provider (`p2p`) in the external-chain catalog.
             .AddSingleton<Dxs.Infrastructure.Common.IExternalChainProviderDiagnostics, P2pProviderDiagnostics>()
+            // thin-node-primary-source S2 — on-demand getdata(MSG_TX)
+            // rawTx fetch consumed by RawTransactionFetchService when
+            // `p2p` is the resolved rawTx primary. Singleton: stateless,
+            // shares the singleton health + dispatcher registry.
+            .AddSingleton<IP2pRawTransactionClient, P2pRawTransactionClient>()
             // Gate 3 — tx lifecycle
             .AddSingleton<OutgoingTransactionStore>()
             .AddSingleton<TxPolicyValidator>()
