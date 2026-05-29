@@ -245,9 +245,9 @@ public class ConsigliereConfigBindingTests
         var sources = provider.GetRequiredService<IOptions<ConsigliereSourcesConfig>>().Value;
 
         Assert.Equal("hybrid", sources.Routing.PreferredMode);
-        Assert.Equal("bitails", sources.Routing.PrimarySource);
+        Assert.Equal("p2p", sources.Routing.PrimarySource);
         Assert.Equal(["junglebus", "node"], sources.Routing.FallbackSources);
-        Assert.Equal("bitails", sources.Capabilities.RealtimeIngest.Source);
+        Assert.Equal("p2p", sources.Capabilities.RealtimeIngest.Source);
         Assert.Equal("bitails", sources.Capabilities.HistoricalAddressScan.Source);
         Assert.Empty(sources.Capabilities.HistoricalAddressScan.FallbackSources);
         Assert.Equal("bitails", sources.Capabilities.HistoricalTokenScan.Source);

@@ -220,6 +220,77 @@ public class SourceCapabilityRoutingTests
         Assert.Empty(route.FallbackSources);
     }
 
+    [Fact]
+    public void Resolve_RealtimeIngest_UsesP2pPrimary_WhenP2pEnabledAndSelected()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        EnableP2p(sourcesConfig);
+        sourcesConfig.Capabilities.RealtimeIngest.Source = ExternalChainProviderName.P2p;
+        sourcesConfig.Capabilities.RealtimeIngest.FallbackSources = [ExternalChainProviderName.Bitails];
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.RealtimeIngest,
+            sourcesConfig,
+            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.P2p, route.PrimarySource);
+    }
+
+    [Fact]
+    public void Resolve_RawTxFetch_UsesP2pPrimary_WhenP2pEnabledAndSelected()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        EnableP2p(sourcesConfig);
+        sourcesConfig.Capabilities.RawTxFetch.Source = ExternalChainProviderName.P2p;
+        sourcesConfig.Capabilities.RawTxFetch.FallbackSources = [ExternalChainProviderName.WhatsOnChain];
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.RawTxFetch,
+            sourcesConfig,
+            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateCatalog());
+
+        Assert.Equal(ExternalChainProviderName.P2p, route.PrimarySource);
+        Assert.Equal([ExternalChainProviderName.WhatsOnChain], route.FallbackSources);
+    }
+
+    [Fact]
+    public void Resolve_RealtimeIngest_SkipsP2p_WhenP2pDisabled_AndFallsToNextAllowed()
+    {
+        var sourcesConfig = CreateSourcesConfig();
+        // P2p left disabled (the helper does not enable it). Even when
+        // selected as the primary, a disabled p2p must not be routed.
+        sourcesConfig.Providers.JungleBus.EnabledCapabilities =
+        [
+            ExternalChainCapability.RealtimeIngest,
+            ExternalChainCapability.BlockBackfill,
+            ExternalChainCapability.RawTxFetch
+        ];
+        sourcesConfig.Capabilities.RealtimeIngest.Source = ExternalChainProviderName.P2p;
+        sourcesConfig.Capabilities.RealtimeIngest.FallbackSources = [ExternalChainProviderName.JungleBus];
+
+        var route = SourceCapabilityRouting.Resolve(
+            ExternalChainCapability.RealtimeIngest,
+            sourcesConfig,
+            new AppConfig { JungleBus = new JungleBusConfig { Enabled = true } },
+            CreateCatalog());
+
+        Assert.NotEqual(ExternalChainProviderName.P2p, route.PrimarySource);
+        Assert.Equal(ExternalChainProviderName.JungleBus, route.PrimarySource);
+    }
+
+    private static void EnableP2p(ConsigliereSourcesConfig config)
+        => config.Providers.P2p = new P2pSourceConfig
+        {
+            Enabled = true,
+            EnabledCapabilities =
+            [
+                ExternalChainCapability.RealtimeIngest,
+                ExternalChainCapability.RawTxFetch
+            ]
+        };
+
     private static ConsigliereSourcesConfig CreateSourcesConfig()
     {
         return new ConsigliereSourcesConfig

@@ -16,12 +16,13 @@ public sealed class AdminProviderConfigService(
     IExternalChainProviderCatalog providerCatalog
 ) : IAdminProviderConfigService
 {
-    private const string RecommendedRealtimeProvider = ExternalChainProviderName.Bitails;
+    private const string RecommendedRealtimeProvider = ExternalChainProviderName.P2p;
     private const string RecommendedRestProvider = ExternalChainProviderName.WhatsOnChain;
-    private const string RecommendedRawTxProvider = ExternalChainProviderName.JungleBus;
+    private const string RecommendedRawTxProvider = ExternalChainProviderName.P2p;
 
     private static readonly string[] CandidateRealtimePrimarySources =
     [
+        ExternalChainProviderName.P2p,
         ExternalChainProviderName.Bitails,
         ExternalChainProviderName.JungleBus,
         SourceCapabilityRouting.NodeProvider
@@ -35,6 +36,7 @@ public sealed class AdminProviderConfigService(
 
     private static readonly string[] CandidateRawTxPrimaryProviders =
     [
+        ExternalChainProviderName.P2p,
         ExternalChainProviderName.JungleBus,
         ExternalChainProviderName.Bitails,
         ExternalChainProviderName.WhatsOnChain
@@ -252,11 +254,43 @@ public sealed class AdminProviderConfigService(
         var effectiveValues = BuildConfigValues(effectiveConfig, effectiveJungleBus);
         return
         [
+            BuildP2pCard(descriptors, effectiveValues),
             BuildProviderCard(ExternalChainProviderName.Bitails, "Bitails", descriptors, staticConfig, effectiveValues),
             BuildProviderCard(ExternalChainProviderName.WhatsOnChain, "WhatsOnChain", descriptors, staticConfig, effectiveValues),
             BuildProviderCard(ExternalChainProviderName.JungleBus, "JungleBus", descriptors, staticConfig, effectiveValues, effectiveJungleBus),
             BuildNodeZmqCard(staticConfig, effectiveValues)
         ];
+    }
+
+    private static AdminProviderCatalogItemResponse BuildP2pCard(
+        IReadOnlyDictionary<string, ExternalChainProviderDescriptor> descriptors,
+        AdminProviderConfigValuesResponse effectiveValues)
+    {
+        descriptors.TryGetValue(ExternalChainProviderName.P2p, out var descriptor);
+        var activeFor = new List<string>();
+        if (string.Equals(effectiveValues.RealtimePrimaryProvider, ExternalChainProviderName.P2p, StringComparison.OrdinalIgnoreCase))
+            activeFor.Add("realtime");
+        if (string.Equals(effectiveValues.RawTxPrimaryProvider, ExternalChainProviderName.P2p, StringComparison.OrdinalIgnoreCase))
+            activeFor.Add("raw_tx_fetch");
+
+        return new AdminProviderCatalogItemResponse
+        {
+            ProviderId = ExternalChainProviderName.P2p,
+            DisplayName = "Thin node (P2P)",
+            Roles = ["realtime", "raw_tx_fetch", "infrastructure"],
+            SupportedCapabilities = descriptor?.Capabilities?.ToArray()
+                ?? [ExternalChainCapability.RealtimeIngest, ExternalChainCapability.RawTxFetch],
+            RecommendedFor = ["realtime", "raw_tx_fetch"],
+            ActiveFor = [.. activeFor],
+            // The thin node needs no operator-supplied endpoint or key —
+            // it bootstraps over the BSV P2P network. It is therefore
+            // never "missing requirements"; it is active when selected,
+            // otherwise configured-and-ready.
+            Status = activeFor.Count > 0 ? "active" : "configured",
+            Description = "In-house BSV P2P thin node. Default primary for realtime + rawTx: observes the network directly and serves raw transactions via getdata. No endpoint or API key required; external providers stay on as automatic fallback while the peer pool warms up.",
+            MissingRequirements = [],
+            HelpLinks = []
+        };
     }
 
     private AdminProviderCatalogItemResponse BuildProviderCard(
@@ -724,6 +758,12 @@ public sealed class AdminProviderConfigService(
                    config.Providers.Node.EnabledCapabilities.Contains(ExternalChainCapability.RealtimeIngest, StringComparer.OrdinalIgnoreCase);
         }
 
+        if (string.Equals(provider, ExternalChainProviderName.P2p, StringComparison.OrdinalIgnoreCase))
+        {
+            return config.Providers.P2p.Enabled &&
+                   config.Providers.P2p.EnabledCapabilities.Contains(ExternalChainCapability.RealtimeIngest, StringComparer.OrdinalIgnoreCase);
+        }
+
         if (!descriptors.TryGetValue(provider, out var descriptor))
             return false;
 
@@ -768,6 +808,12 @@ public sealed class AdminProviderConfigService(
         ConsigliereSourcesConfig config,
         IReadOnlyDictionary<string, ExternalChainProviderDescriptor> descriptors)
     {
+        if (string.Equals(provider, ExternalChainProviderName.P2p, StringComparison.OrdinalIgnoreCase))
+        {
+            return config.Providers.P2p.Enabled &&
+                   config.Providers.P2p.EnabledCapabilities.Contains(ExternalChainCapability.RawTxFetch, StringComparer.OrdinalIgnoreCase);
+        }
+
         if (!descriptors.TryGetValue(provider, out var descriptor))
             return false;
 
@@ -844,6 +890,16 @@ public sealed class AdminProviderConfigService(
             },
             Providers = new SourceProvidersConfig
             {
+                P2p = new P2pSourceConfig
+                {
+                    Enabled = source.Providers.P2p.Enabled,
+                    ConnectTimeout = source.Providers.P2p.ConnectTimeout,
+                    RequestTimeout = source.Providers.P2p.RequestTimeout,
+                    StreamTimeout = source.Providers.P2p.StreamTimeout,
+                    IdleTimeout = source.Providers.P2p.IdleTimeout,
+                    EnabledCapabilities = [.. source.Providers.P2p.EnabledCapabilities],
+                    RateLimits = source.Providers.P2p.RateLimits
+                },
                 Node = new NodeSourceConfig
                 {
                     Enabled = source.Providers.Node.Enabled,

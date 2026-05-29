@@ -23,6 +23,7 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
     private static readonly HashSet<string> KnownProviders = new(StringComparer.OrdinalIgnoreCase)
     {
         "node",
+        "p2p",
         "junglebus",
         "bitails",
         "whatsonchain"
@@ -168,6 +169,7 @@ public class ConsigliereSourcesConfigValidation : IValidateOptions<ConsigliereSo
         => new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
         {
             ["node"] = options.Providers.Node.Enabled,
+            ["p2p"] = options.Providers.P2p.Enabled,
             ["junglebus"] = options.Providers.JungleBus.Enabled,
             ["bitails"] = options.Providers.Bitails.Enabled,
             ["whatsonchain"] = options.Providers.Whatsonchain.Enabled

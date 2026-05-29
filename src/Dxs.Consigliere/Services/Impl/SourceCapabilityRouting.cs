@@ -165,6 +165,16 @@ public static class SourceCapabilityRouting
                 sourcesConfig.Providers.Node.EnabledCapabilities.Contains(capability, StringComparer.OrdinalIgnoreCase);
         }
 
+        if (string.Equals(provider, ExternalChainProviderName.P2p, StringComparison.OrdinalIgnoreCase))
+        {
+            // Routability of the thin node is its own config gate (mirrors
+            // `node`). Whether the P2P subsystem is actually running is a
+            // separate switch (BsvP2pConfig.Enabled); when it is off, the
+            // fetch finds no peers and the route's fallbacks take over.
+            return sourcesConfig.Providers.P2p.Enabled &&
+                sourcesConfig.Providers.P2p.EnabledCapabilities.Contains(capability, StringComparer.OrdinalIgnoreCase);
+        }
+
         if (!descriptorByProvider.TryGetValue(provider, out var descriptor))
             return false;
 

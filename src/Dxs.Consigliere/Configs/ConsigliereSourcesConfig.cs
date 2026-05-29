@@ -13,6 +13,7 @@ public class ConsigliereSourcesConfig
 public class SourceProvidersConfig
 {
     public NodeSourceConfig Node { get; set; } = new();
+    public P2pSourceConfig P2p { get; set; } = new();
     public JungleBusSourceConfig JungleBus { get; set; } = new();
     public BitailsSourceConfig Bitails { get; set; } = new();
     public WhatsOnChainSourceConfig Whatsonchain { get; set; } = new();
@@ -20,6 +21,21 @@ public class SourceProvidersConfig
     public static SourceProvidersConfig CreateDefaults()
         => new()
         {
+            // The in-house thin node. Routable-by-default for the two
+            // capabilities it can serve; the actual P2P subsystem is
+            // gated separately by `Consigliere:Broadcast:P2p:Enabled`
+            // (BsvP2pConfig). When that subsystem is off the routing
+            // still lists p2p primary, but every fetch finds no peers
+            // and falls through to the external providers — safe.
+            P2p = new P2pSourceConfig
+            {
+                Enabled = true,
+                EnabledCapabilities =
+                [
+                    ExternalChainCapability.RealtimeIngest,
+                    ExternalChainCapability.RawTxFetch
+                ]
+            },
             Node = new NodeSourceConfig
             {
                 Enabled = true,
@@ -98,7 +114,10 @@ public class SourceRoutingConfig
         => new()
         {
             PreferredMode = "hybrid",
-            PrimarySource = ExternalChainProviderName.Bitails,
+            // Generic primary; per-capability overrides below win. Seeds
+            // the fresh-install realtime default (see
+            // AdminProviderConfigService.BuildDefaultProviderConfigDocument).
+            PrimarySource = ExternalChainProviderName.P2p,
             FallbackSources = [ExternalChainProviderName.JungleBus, "node"],
             VerificationSource = "node"
         };
@@ -136,8 +155,8 @@ public class SourceCapabilitiesConfig
             },
             RealtimeIngest = new RoutedCapabilityOverrideConfig
             {
-                Source = ExternalChainProviderName.Bitails,
-                FallbackSources = [ExternalChainProviderName.JungleBus, "node"]
+                Source = ExternalChainProviderName.P2p,
+                FallbackSources = [ExternalChainProviderName.Bitails, ExternalChainProviderName.JungleBus, "node"]
             },
             BlockBackfill = new RoutedCapabilityOverrideConfig
             {
@@ -146,8 +165,12 @@ public class SourceCapabilitiesConfig
             },
             RawTxFetch = new RoutedCapabilityOverrideConfig
             {
-                Source = ExternalChainProviderName.JungleBus,
-                FallbackSources = [ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.Bitails]
+                Source = ExternalChainProviderName.P2p,
+                // whatsonchain leads the fallback list: it is the
+                // confirmed-tx source a p2p `getdata` miss falls back to,
+                // and GetDefaultRestPrimaryProvider seeds the REST
+                // primary from FallbackSources[0].
+                FallbackSources = [ExternalChainProviderName.WhatsOnChain, ExternalChainProviderName.JungleBus, ExternalChainProviderName.Bitails]
             },
             ValidationFetch = new RoutedCapabilityOverrideConfig
             {
@@ -199,6 +222,16 @@ public class SourceProviderConfig
 public class NodeSourceConfig : SourceProviderConfig
 {
     public NodeSourceConnectionConfig Connection { get; set; } = new();
+}
+
+/// <summary>
+/// The in-house BSV P2P thin node as a routable source. It needs no
+/// connection config (peers are discovered via DNS seeds + addr
+/// gossip; the subsystem is configured under
+/// <c>Consigliere:Broadcast:P2p</c> / <see cref="BsvP2pConfig"/>).
+/// </summary>
+public class P2pSourceConfig : SourceProviderConfig
+{
 }
 
 public class JungleBusSourceConfig : SourceProviderConfig

@@ -128,9 +128,9 @@ public class AdminRuntimeSourcePolicyServiceTests
 
         var result = await service.GetProvidersAsync();
 
-        Assert.Equal(ExternalChainProviderName.Bitails, result.Recommendations.RealtimePrimaryProvider);
+        Assert.Equal(ExternalChainProviderName.P2p, result.Recommendations.RealtimePrimaryProvider);
         Assert.Equal(ExternalChainProviderName.WhatsOnChain, result.Recommendations.RestPrimaryProvider);
-        Assert.Equal(ExternalChainProviderName.JungleBus, result.Recommendations.RawTxFetchProvider);
+        Assert.Equal(ExternalChainProviderName.P2p, result.Recommendations.RawTxFetchProvider);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.Bitails);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.WhatsOnChain);
         Assert.Contains(result.Providers, x => x.ProviderId == ExternalChainProviderName.JungleBus);

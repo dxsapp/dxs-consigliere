@@ -24,6 +24,9 @@ public static class BsvP2pSetup
             // Gate 2 — peer pool
             .AddSingleton<BsvP2pHealth>()
             .AddHostedService<BsvP2pHostedService>()
+            // thin-node-primary-source S1 — expose the thin node as a
+            // routable provider (`p2p`) in the external-chain catalog.
+            .AddSingleton<Dxs.Infrastructure.Common.IExternalChainProviderDiagnostics, P2pProviderDiagnostics>()
             // Gate 3 — tx lifecycle
             .AddSingleton<OutgoingTransactionStore>()
             .AddSingleton<TxPolicyValidator>()
