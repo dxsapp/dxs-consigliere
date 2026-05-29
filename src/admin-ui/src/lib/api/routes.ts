@@ -29,6 +29,18 @@ export const adminTrackedAddressPath = (address: string) =>
 export const adminTrackedTokenPath = (tokenId: string) =>
   `/api/admin/tracked/token/${encodeURIComponent(tokenId)}`;
 
+/** Tracked-entity collection endpoints — GET (list) + POST (track new)
+ *  share the path. `includeTombstoned` is an optional GET query flag. */
+export const adminTrackedAddressesPath = (includeTombstoned = false): string =>
+  includeTombstoned
+    ? "/api/admin/tracked/addresses?includeTombstoned=true"
+    : "/api/admin/tracked/addresses";
+
+export const adminTrackedTokensPath = (includeTombstoned = false): string =>
+  includeTombstoned
+    ? "/api/admin/tracked/tokens?includeTombstoned=true"
+    : "/api/admin/tracked/tokens";
+
 /** S6 — canonical broadcast entrypoint (POST {rawHex} → BroadcastReceiptDto). */
 export const TX_BROADCAST_PATH = "/api/tx/broadcast";
 

@@ -27,9 +27,19 @@ const TransactionDetailPage = lazy(() =>
     default: m.TransactionDetailPage,
   }))
 );
+const AddressesPage = lazy(() =>
+  import("@/screens/addresses/AddressesPage").then((m) => ({
+    default: m.AddressesPage,
+  }))
+);
 const AddressDetailPage = lazy(() =>
   import("@/screens/entity-detail/AddressDetailPage").then((m) => ({
     default: m.AddressDetailPage,
+  }))
+);
+const TokensPage = lazy(() =>
+  import("@/screens/tokens/TokensPage").then((m) => ({
+    default: m.TokensPage,
   }))
 );
 const TokenDetailPage = lazy(() =>
@@ -211,7 +221,14 @@ function AuthedRoutes({ root }: { root: RootStore }) {
           </Suspense>
         }
       />
-      <Route path="/addresses" element={<PlaceholderPage id="addresses" title="Addresses" ownerSlice="S5+" description="Address lookup landing." />} />
+      <Route
+        path="/addresses"
+        element={
+          <Suspense fallback={null}>
+            <AddressesPage admin={root.admin} />
+          </Suspense>
+        }
+      />
       <Route
         path="/addresses/:address"
         element={
@@ -220,7 +237,14 @@ function AuthedRoutes({ root }: { root: RootStore }) {
           </Suspense>
         }
       />
-      <Route path="/tokens" element={<PlaceholderPage id="tokens" title="Tokens" ownerSlice="S5+" description="DSTAS / native token lookup landing." />} />
+      <Route
+        path="/tokens"
+        element={
+          <Suspense fallback={null}>
+            <TokensPage admin={root.admin} />
+          </Suspense>
+        }
+      />
       <Route
         path="/tokens/:tokenId"
         element={

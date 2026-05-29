@@ -11,13 +11,17 @@ import {
   adminAuditLogPath,
   adminP2pHeadersRecentPath,
   adminTrackedAddressPath,
+  adminTrackedAddressesPath,
   adminTrackedTokenPath,
+  adminTrackedTokensPath,
   TX_BROADCAST_PATH,
 } from "@/lib/api/routes";
 import type {
   AdminAuditLogResponse,
   AdminPeersResponse,
   AdminProvidersResponse,
+  AdminTrackAddressRequest,
+  AdminTrackTokenRequest,
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
@@ -47,6 +51,23 @@ export interface IAdminClient {
   getSourceMetrics(opts?: { lastN?: number; signal?: AbortSignal }): Promise<SourceMetricsResponse>;
   getTrackedAddress(address: string, signal?: AbortSignal): Promise<AdminTrackedAddressResponse>;
   getTrackedToken(tokenId: string, signal?: AbortSignal): Promise<AdminTrackedTokenResponse>;
+  /** Track-a-new — list + add tracked addresses / tokens. */
+  getTrackedAddresses(
+    includeTombstoned?: boolean,
+    signal?: AbortSignal
+  ): Promise<AdminTrackedAddressResponse[]>;
+  getTrackedTokens(
+    includeTombstoned?: boolean,
+    signal?: AbortSignal
+  ): Promise<AdminTrackedTokenResponse[]>;
+  trackAddress(
+    req: AdminTrackAddressRequest,
+    signal?: AbortSignal
+  ): Promise<AdminTrackedAddressResponse>;
+  trackToken(
+    req: AdminTrackTokenRequest,
+    signal?: AbortSignal
+  ): Promise<AdminTrackedTokenResponse>;
   /** S6 — submits a raw-hex tx via the canonical broadcast endpoint. */
   broadcastRaw(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
   /** S7 — alert history (page-delta polling per A1 M1). */
@@ -99,6 +120,36 @@ export class AdminClient implements IAdminClient {
   getTrackedToken(tokenId: string, signal?: AbortSignal) {
     return this.api.get<AdminTrackedTokenResponse>(
       adminTrackedTokenPath(tokenId),
+      { signal }
+    );
+  }
+
+  getTrackedAddresses(includeTombstoned = false, signal?: AbortSignal) {
+    return this.api.get<AdminTrackedAddressResponse[]>(
+      adminTrackedAddressesPath(includeTombstoned),
+      { signal }
+    );
+  }
+
+  getTrackedTokens(includeTombstoned = false, signal?: AbortSignal) {
+    return this.api.get<AdminTrackedTokenResponse[]>(
+      adminTrackedTokensPath(includeTombstoned),
+      { signal }
+    );
+  }
+
+  trackAddress(req: AdminTrackAddressRequest, signal?: AbortSignal) {
+    return this.api.post<AdminTrackedAddressResponse>(
+      adminTrackedAddressesPath(),
+      req,
+      { signal }
+    );
+  }
+
+  trackToken(req: AdminTrackTokenRequest, signal?: AbortSignal) {
+    return this.api.post<AdminTrackedTokenResponse>(
+      adminTrackedTokensPath(),
+      req,
       { signal }
     );
   }

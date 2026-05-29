@@ -132,6 +132,11 @@ export type AdminTrackedTokenSummaryResponse =
 
 export type AdminTrackedTokenResponse = components["schemas"]["AdminTrackedTokenResponse"];
 
+/** Track-a-new-entity request bodies posted to the collection endpoints
+ *  (`POST /api/admin/tracked/addresses` / `.../tokens`). */
+export type AdminTrackAddressRequest = components["schemas"]["AdminTrackAddressRequest"];
+export type AdminTrackTokenRequest = components["schemas"]["AdminTrackTokenRequest"];
+
 /** S10 — setup wizard status (`GET /api/setup/status`). */
 export type SetupStatusResponse = components["schemas"]["SetupStatusResponse"];
 

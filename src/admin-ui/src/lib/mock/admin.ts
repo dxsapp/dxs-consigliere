@@ -4,6 +4,8 @@ import type {
   AdminAuditLogResponse,
   AdminPeersResponse,
   AdminProvidersResponse,
+  AdminTrackAddressRequest,
+  AdminTrackTokenRequest,
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
@@ -33,6 +35,12 @@ export class MockAdminClient implements IAdminClient {
    *  entry on /audit-log") actually exercise the wired flow. */
   private auditEntries: AdminAuditLogResponse["entries"] = [];
   private auditSeeded = false;
+
+  /** In-memory tracked-entity lists so the track-a-new flow round-trips
+   *  in mock mode (POST appends → subsequent GET returns it). Lazily
+   *  seeded from the detail seeds on first access. */
+  private trackedAddresses: AdminTrackedAddressResponse[] | null = null;
+  private trackedTokens: AdminTrackedTokenResponse[] | null = null;
 
   /** Snapshot timestamps base; tests can override via constructor. */
   constructor(private readonly nowMs: () => number = () => Date.now()) {}
@@ -65,6 +73,65 @@ export class MockAdminClient implements IAdminClient {
   async getTrackedToken(tokenId: string): Promise<AdminTrackedTokenResponse> {
     const { seedToken } = await import("@/lib/mock/admin-tracked-seed");
     return seedToken(tokenId, this.nowMs());
+  }
+
+  private async ensureTrackedSeeded(): Promise<void> {
+    if (this.trackedAddresses && this.trackedTokens) return;
+    const { seedAddress, seedToken } = await import("@/lib/mock/admin-tracked-seed");
+    const now = this.nowMs();
+    if (!this.trackedAddresses) {
+      this.trackedAddresses = [
+        seedAddress("1HotWallet0000000000000000000000000", now),
+        seedAddress("1ColdVault0000000000000000000000000", now),
+      ];
+    }
+    if (!this.trackedTokens) {
+      this.trackedTokens = [seedToken("tok-dstas-0001", now)];
+    }
+  }
+
+  async getTrackedAddresses(includeTombstoned = false): Promise<AdminTrackedAddressResponse[]> {
+    await this.ensureTrackedSeeded();
+    const all = this.trackedAddresses ?? [];
+    return includeTombstoned ? [...all] : all.filter((a) => !a.isTombstoned);
+  }
+
+  async getTrackedTokens(includeTombstoned = false): Promise<AdminTrackedTokenResponse[]> {
+    await this.ensureTrackedSeeded();
+    const all = this.trackedTokens ?? [];
+    return includeTombstoned ? [...all] : all.filter((t) => !t.isTombstoned);
+  }
+
+  async trackAddress(req: AdminTrackAddressRequest): Promise<AdminTrackedAddressResponse> {
+    await this.ensureTrackedSeeded();
+    const address = (req.address ?? "").trim();
+    if (!address) throw makeAppError("Validation", "address_required", 400);
+    if (this.trackedAddresses!.some((a) => a.address === address)) {
+      throw makeAppError("Validation", "already_tracked", 400);
+    }
+    const { seedAddress } = await import("@/lib/mock/admin-tracked-seed");
+    const created: AdminTrackedAddressResponse = {
+      ...seedAddress(address, this.nowMs()),
+      name: (req.name ?? "").trim() || address,
+    };
+    this.trackedAddresses = [created, ...this.trackedAddresses!];
+    return created;
+  }
+
+  async trackToken(req: AdminTrackTokenRequest): Promise<AdminTrackedTokenResponse> {
+    await this.ensureTrackedSeeded();
+    const tokenId = (req.tokenId ?? "").trim();
+    if (!tokenId) throw makeAppError("Validation", "token_required", 400);
+    if (this.trackedTokens!.some((t) => t.tokenId === tokenId)) {
+      throw makeAppError("Validation", "already_tracked", 400);
+    }
+    const { seedToken } = await import("@/lib/mock/admin-tracked-seed");
+    const created: AdminTrackedTokenResponse = {
+      ...seedToken(tokenId, this.nowMs()),
+      symbol: (req.symbol ?? "").trim() || "TOKEN",
+    };
+    this.trackedTokens = [created, ...this.trackedTokens!];
+    return created;
   }
 
   async getAlerts(opts: { lastN?: number; since?: number } = {}): Promise<P2pAlertResponse> {
