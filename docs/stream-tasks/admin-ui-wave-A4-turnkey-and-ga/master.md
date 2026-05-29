@@ -170,7 +170,7 @@ backfill commit, never `--amend`):
 
 | slice | commit | summary |
 |---|---|---|
-| S1 | _pending_ | _local turnkey run mode (image + real config + plain-HTTP localhost) + README quickstart_ |
+| S1 | `fd67479` | local turnkey run mode (image + real config + plain-HTTP localhost) + README quickstart_ |
 | S3 | _pending_ | _NRT hand-mirrored-interface sweep → generated re-exports_ |
 | S2 | _pending_ | _real prod bring-up + 24h soak + runbook stopwatch evidence_ |
 | Audit folds | _pending_ | _per-slice findings folded_ |
