@@ -9,6 +9,7 @@ import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
+  GetUtxoSetResponse,
   HeadersTipDto,
   P2pAlertResponse,
   P2pHealthDto,
@@ -210,6 +211,36 @@ export class MockAdminClient implements IAdminClient {
     return { totalMatched: filtered.length, entries: filtered.slice(0, take) };
   }
 
+  /** tx-lab S1 — deterministic UTXO seed keyed off the address so the
+   *  lab flow round-trips in mock mode: a freshly-generated lab address
+   *  gets one ~100k-sat P2PKH coin to spend. The locking script is a
+   *  real `OP_DUP OP_HASH160 <h160> OP_EQUALVERIFY OP_CHECKSIG` so the
+   *  SDK can build+sign against it offline. */
+  async getAddressUtxos(address: string, _signal?: AbortSignal): Promise<GetUtxoSetResponse> {
+    const trimmed = (address ?? "").trim();
+    if (!trimmed) return { utxoSet: [] };
+    const hash160Hex = mockHash160FromAddress(trimmed);
+    const scriptPubKey = `76a914${hash160Hex}88ac`;
+    return {
+      utxoSet: [
+        {
+          id: `${trimmed}-0`,
+          txId: hexFold(trimmed),
+          vout: 0,
+          address: trimmed,
+          tokenId: "",
+          satoshis: 100_000,
+          scriptPubKey,
+          scriptType: "P2PKH",
+        },
+      ],
+    };
+  }
+
+  broadcastRawTx(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto> {
+    return this.broadcastRaw(rawHex, signal);
+  }
+
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {
     // Deterministic pseudo-txid: sha-like fold of rawHex; we only
     // need a stable 64-hex-char string for the UI confirmation.
@@ -401,6 +432,14 @@ function writeMockAuthCredentials(creds: { username: string; password: string })
  *  per call; uniqueness is the only requirement. */
 function randomMockId(): string {
   return Math.random().toString(16).slice(2, 10).padStart(8, "0");
+}
+
+/** Deterministic 40-hex-char (20-byte) pseudo-hash160 for a mock UTXO
+ *  locking script. Not the address's real hash160 — the lab store
+ *  signs against whatever script the UTXO carries, so a stable fake is
+ *  sufficient for the mock-mode round-trip. */
+function mockHash160FromAddress(input: string): string {
+  return hexFold(input).slice(0, 40);
 }
 
 function hexFold(input: string): string {

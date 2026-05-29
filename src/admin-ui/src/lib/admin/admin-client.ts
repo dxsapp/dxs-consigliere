@@ -14,6 +14,7 @@ import {
   adminTrackedAddressesPath,
   adminTrackedTokenPath,
   adminTrackedTokensPath,
+  addressUtxosPath,
   TX_BROADCAST_PATH,
 } from "@/lib/api/routes";
 import type {
@@ -25,6 +26,7 @@ import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
+  GetUtxoSetResponse,
   HeadersTipDto,
   P2pAlertResponse,
   P2pHealthDto,
@@ -70,6 +72,12 @@ export interface IAdminClient {
   ): Promise<AdminTrackedTokenResponse>;
   /** S6 — submits a raw-hex tx via the canonical broadcast endpoint. */
   broadcastRaw(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
+  /** tx-lab S1 — same-origin UTXO lookup for the lab screen. */
+  getAddressUtxos(address: string, signal?: AbortSignal): Promise<GetUtxoSetResponse>;
+  /** tx-lab S1 — broadcast a client-side-signed raw P2PKH tx. Alias of
+   *  `broadcastRaw` named after the slice's wire verb; the lab store
+   *  only ever sends the finished `rawHex`, never the private key. */
+  broadcastRawTx(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
   /** S7 — alert history (page-delta polling per A1 M1). */
   getAlerts(opts?: { lastN?: number; since?: number; signal?: AbortSignal }): Promise<P2pAlertResponse>;
   /** S8 — peers diagnostic. */
@@ -160,6 +168,14 @@ export class AdminClient implements IAdminClient {
       { rawHex },
       { signal }
     );
+  }
+
+  getAddressUtxos(address: string, signal?: AbortSignal) {
+    return this.api.get<GetUtxoSetResponse>(addressUtxosPath(address), { signal });
+  }
+
+  broadcastRawTx(rawHex: string, signal?: AbortSignal) {
+    return this.broadcastRaw(rawHex, signal);
   }
 
   getAlerts(opts: { lastN?: number; since?: number; signal?: AbortSignal } = {}) {

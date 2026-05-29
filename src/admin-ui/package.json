@@ -29,6 +29,7 @@
     "@mui/material": "^7.0.0",
     "@mui/x-charts": "^8.0.0",
     "@mui/x-data-grid": "^8.0.0",
+    "dxs-bsv-token-sdk": "^1.0.4",
     "framer-motion": "^12.0.0",
     "mobx": "^6.13.0",
     "mobx-persist-store": "^1.1.4",

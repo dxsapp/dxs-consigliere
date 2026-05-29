@@ -35,6 +35,8 @@ function stubAdmin(overrides: Partial<{ health: P2pHealthDto; peers: AdminPeersR
     trackAddress: mock.trackAddress.bind(mock),
     trackToken: mock.trackToken.bind(mock),
     broadcastRaw: mock.broadcastRaw.bind(mock),
+    getAddressUtxos: mock.getAddressUtxos.bind(mock),
+    broadcastRawTx: mock.broadcastRawTx.bind(mock),
     getAlerts: mock.getAlerts.bind(mock),
     getPeers: async () => overrides.peers ?? mock.getPeers(),
     getHeadersTip: mock.getHeadersTip.bind(mock),

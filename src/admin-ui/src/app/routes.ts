@@ -9,6 +9,7 @@ import HubIcon from "@mui/icons-material/Hub";
 import InsightsIcon from "@mui/icons-material/Insights";
 import LinearScaleIcon from "@mui/icons-material/LinearScale";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import ScienceIcon from "@mui/icons-material/Science";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import TokenIcon from "@mui/icons-material/Token";
@@ -74,6 +75,8 @@ export const NAV_ROUTES: NavRoute[] = [
   // wave-A3 S3: forensic record of destructive admin ops.
   { id: "audit-log", label: "Audit Log", icon: FactCheckIcon, path: "/audit-log", section: "system" },
   { id: "providers", label: "Providers", icon: CloudIcon, path: "/providers", section: "system" },
+  // tx-lab S1: client-side keygen → fund → P2PKH send → P2P broadcast.
+  { id: "lab", label: "Transaction Lab", icon: ScienceIcon, path: "/lab", section: "system" },
   { id: "setup", label: "Setup", icon: TuneIcon, path: "/setup", section: "system" },
 ];
 

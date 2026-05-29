@@ -217,6 +217,11 @@ export type P2pAlertResponse = components["schemas"]["P2pAlertResponse"];
 /** S6 — frozen receipt shape returned by `POST /api/tx/broadcast`. */
 export type BroadcastReceiptDto = components["schemas"]["BroadcastReceiptDto"];
 
+/** tx-lab S1 — frozen wire shapes for the lab UTXO lookup
+ *  (`GET /api/address/{address}/utxos`). */
+export type GetUtxoSetResponse = components["schemas"]["GetUtxoSetResponse"];
+export type UtxoDto = components["schemas"]["UtxoDto"];
+
 /** wave-A3 S6 — audit-log surface (first DTOs migrated onto codegen). */
 export type AdminAuditLogEntryResponse = components["schemas"]["AdminAuditLogEntryResponse"];
 export type AdminAuditLogResponse = components["schemas"]["AdminAuditLogResponse"];

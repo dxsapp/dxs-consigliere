@@ -95,6 +95,11 @@ const SetupWizardPage = lazy(() =>
     default: m.SetupWizardPage,
   }))
 );
+// tx-lab S1: the lab screen + its in-browser BSV SDK are code-split so
+// the SDK's elliptic-curve weight stays out of the cold-load shell.
+const LabPage = lazy(() =>
+  import("@/screens/lab/LabPage").then((m) => ({ default: m.LabPage }))
+);
 
 // S6-audit M2: RootStore is constructed asynchronously because the
 // mock-mode factory dynamic-imports the mock module on demand. In
@@ -324,6 +329,14 @@ function AuthedRoutes({ root }: { root: RootStore }) {
         element={
           <Suspense fallback={null}>
             <ProvidersPage admin={root.admin} />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/lab"
+        element={
+          <Suspense fallback={null}>
+            <LabPage admin={root.admin} />
           </Suspense>
         }
       />

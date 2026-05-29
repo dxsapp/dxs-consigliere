@@ -44,6 +44,12 @@ export const adminTrackedTokensPath = (includeTombstoned = false): string =>
 /** S6 — canonical broadcast entrypoint (POST {rawHex} → BroadcastReceiptDto). */
 export const TX_BROADCAST_PATH = "/api/tx/broadcast";
 
+/** tx-lab S1 — non-admin (same-origin) UTXO lookup for the lab screen.
+ *  GET /api/address/{address}/utxos → GetUtxoSetResponse. Address is
+ *  path-encoded so a stray separator round-trips intact. */
+export const addressUtxosPath = (address: string): string =>
+  `/api/address/${encodeURIComponent(address)}/utxos`;
+
 /** S7 — alert history (page-delta polling per A1 M1). Backend caps
  *  lastN ≤ min(retention, 1440); `since` is unix-ms exclusive. */
 export const adminAlertsPath = (opts: { lastN?: number; since?: number } = {}): string => {
