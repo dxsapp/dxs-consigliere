@@ -1,0 +1,22 @@
+# wave-A4 S1 — local-BUILD overlay for compose.local.yml.
+#
+# Until a `dxs/consigliere:vX.Y.Z` image is published, there is
+# nothing to pull. This overlay adds `build:` to the consigliere
+# service so the SAME local run mode (Local env, plain HTTP on
+# :5000, real Mainnet config) runs from a source build instead.
+#
+#   docker compose -f compose.local.yml -f compose.local-build.yml up -d --build
+#
+# Compose merges this onto compose.local.yml: the service keeps
+# its `image: dxs/consigliere:${CONSIGLIERE_TAG:-latest}` name AND
+# gains a build context, so the built image is tagged with that
+# name. `--build` forces a rebuild; drop it to reuse the last
+# build. Once a release is cut, use compose.local.yml ALONE to
+# pull instead.
+
+services:
+  consigliere:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    pull_policy: build

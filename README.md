@@ -68,16 +68,24 @@ Addresses can be **added dynamically at runtime**, allowing payment processors t
 
 ### Run locally (recommended for self-hosting)
 
-The fastest path to a working node on your own machine: pull
-the published image, run one compose command, finish the
-first-run wizard in the browser. No domain, no TLS cert, no
-manual config.
+The fastest path to a working node on your own machine: one
+compose command, finish the first-run wizard in the browser. No
+domain, no TLS cert, no manual config.
+
+> **No published image yet.** Until a `dxs/consigliere:vX.Y.Z`
+> release is cut, build from source with the local-build overlay
+> (first command below). Once a release exists, drop the overlay
+> and `compose.local.yml` pulls the published image instead
+> (second command).
 
 ```bash
 # 1. Get a free JungleBus subscription id from GorillaPool
 #    (https://gorillapool.io) — you'll paste it into the wizard.
 
-# 2. Start the stack (RavenDB + Consigliere, published image):
+# 2. Start the stack (RavenDB + Consigliere).
+#    NOW (build from source — no published image yet):
+docker compose -f compose.local.yml -f compose.local-build.yml up -d --build
+#    LATER (once a release is published — pull, no build):
 docker compose -f compose.local.yml up -d
 
 # 3. Open the admin UI and complete the first-run wizard:
@@ -91,13 +99,14 @@ docker compose -f compose.local.yml up -d
 #    when the wizard writes it.
 ```
 
-Pin a specific release instead of `latest`:
+Pin a specific release instead of `latest` (post-release path):
 
 ```bash
 CONSIGLIERE_TAG=1.2.3 docker compose -f compose.local.yml up -d
 ```
 
-Stop / wipe:
+Stop / wipe (add `-f compose.local-build.yml` too if you started
+with the build overlay):
 
 ```bash
 docker compose -f compose.local.yml down       # stop
