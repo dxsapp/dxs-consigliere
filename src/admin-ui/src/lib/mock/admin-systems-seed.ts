@@ -212,15 +212,18 @@ export function seedSetupOptions(status: SetupStatusResponse): SetupOptionsRespo
   return {
     status,
     defaults: {
-      rawTxPrimaryProvider: "junglebus",
+      // thin-node-primary-source wave S5 — the thin node (`p2p`) is the
+      // recommended realtime + rawTx primary; external providers are the
+      // measurable fallback. Mirrors AdminProviderConfigService recommendations.
+      rawTxPrimaryProvider: "p2p",
       restFallbackProvider: "whatsonchain",
-      realtimePrimaryProvider: "bitails",
+      realtimePrimaryProvider: "p2p",
       bitailsTransport: "websocket",
     },
     allowed: {
-      rawTxPrimaryProviders: ["junglebus", "bitails", "whatsonchain"],
+      rawTxPrimaryProviders: ["p2p", "junglebus", "bitails", "whatsonchain"],
       restFallbackProviders: ["whatsonchain", "bitails"],
-      realtimePrimaryProviders: ["bitails", "junglebus"],
+      realtimePrimaryProviders: ["p2p", "bitails", "junglebus"],
       bitailsTransports: ["websocket"],
     },
     blockSync: {

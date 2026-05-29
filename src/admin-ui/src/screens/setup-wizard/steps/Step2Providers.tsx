@@ -8,6 +8,21 @@ import {
 import { observer } from "mobx-react-lite";
 import type { SetupWizardStore } from "@/screens/setup-wizard/setup-wizard.store";
 
+// thin-node-primary-source wave S5 — human-readable labels for the
+// routable provider values the backend returns. The thin node (`p2p`)
+// is the recommended realtime + rawTx primary and needs no URL/key.
+const PROVIDER_LABELS: Record<string, string> = {
+  p2p: "Thin node (P2P)",
+  bitails: "Bitails",
+  junglebus: "JungleBus",
+  whatsonchain: "WhatsOnChain",
+  node: "Bitcoin SV node (RPC)",
+};
+
+function providerLabel(value: string): string {
+  return PROVIDER_LABELS[value.toLowerCase()] ?? value;
+}
+
 export const Step2Providers = observer(function Step2Providers({
   store,
 }: {
@@ -20,15 +35,18 @@ export const Step2Providers = observer(function Step2Providers({
   return (
     <Stack spacing={2} data-testid="setup-step-2">
       <Typography variant="body2" color="text.secondary">
-        Choose the primary providers Consigliere will route through.
-        The realtime + rawTx + REST trio is required; per-provider
+        Consigliere indexes BSV straight from the P2P network by default:
+        the thin node (P2P) is the recommended realtime + rawTx primary
+        and needs no URL or API key. The external providers below are
+        configured as measurable fallbacks; JungleBus also serves
+        historical block sync (configured in the next step). Per-provider
         URLs are pre-filled from public defaults.
       </Typography>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
           select
-          label="Realtime primary"
+          label="Realtime primary (recommended: Thin node)"
           value={store.providers.realtimePrimaryProvider}
           onChange={(e) => store.setProvidersField("realtimePrimaryProvider", e.target.value)}
           error={errors.has("providers.realtimePrimaryProvider")}
@@ -37,12 +55,12 @@ export const Step2Providers = observer(function Step2Providers({
           size="small"
         >
           {allowed.realtimePrimaryProviders.map((p) => (
-            <MenuItem key={p} value={p}>{p}</MenuItem>
+            <MenuItem key={p} value={p}>{providerLabel(p)}</MenuItem>
           ))}
         </TextField>
         <TextField
           select
-          label="RawTx primary"
+          label="RawTx primary (recommended: Thin node)"
           value={store.providers.rawTxPrimaryProvider}
           onChange={(e) => store.setProvidersField("rawTxPrimaryProvider", e.target.value)}
           error={errors.has("providers.rawTxPrimaryProvider")}
@@ -51,7 +69,7 @@ export const Step2Providers = observer(function Step2Providers({
           size="small"
         >
           {allowed.rawTxPrimaryProviders.map((p) => (
-            <MenuItem key={p} value={p}>{p}</MenuItem>
+            <MenuItem key={p} value={p}>{providerLabel(p)}</MenuItem>
           ))}
         </TextField>
         <TextField
@@ -65,14 +83,21 @@ export const Step2Providers = observer(function Step2Providers({
           size="small"
         >
           {allowed.restFallbackProviders.map((p) => (
-            <MenuItem key={p} value={p}>{p}</MenuItem>
+            <MenuItem key={p} value={p}>{providerLabel(p)}</MenuItem>
           ))}
         </TextField>
       </Stack>
 
       <Divider />
 
-      <Typography variant="overline" color="text.secondary">Bitails</Typography>
+      <Typography variant="body2" color="text.secondary">
+        Fallback providers — used when the thin node cannot serve a
+        request (e.g. confirmed/historical rawTx the peers do not relay).
+        They also run as redundant realtime observers so a cold-start
+        peer pool never stalls ingest.
+      </Typography>
+
+      <Typography variant="overline" color="text.secondary">Bitails (fallback)</Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
         <TextField
           select
@@ -117,7 +142,7 @@ export const Step2Providers = observer(function Step2Providers({
 
       <Divider />
 
-      <Typography variant="overline" color="text.secondary">WhatsOnChain</Typography>
+      <Typography variant="overline" color="text.secondary">WhatsOnChain (fallback)</Typography>
       <TextField
         label="Base URL"
         value={store.providers.whatsonchainBaseUrl}
@@ -137,7 +162,9 @@ export const Step2Providers = observer(function Step2Providers({
 
       <Divider />
 
-      <Typography variant="overline" color="text.secondary">JungleBus</Typography>
+      <Typography variant="overline" color="text.secondary">
+        JungleBus (fallback + historical block sync)
+      </Typography>
       <TextField
         label="Base URL"
         value={store.providers.junglebusBaseUrl}
