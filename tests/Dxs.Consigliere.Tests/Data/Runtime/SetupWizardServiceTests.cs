@@ -28,30 +28,33 @@ public class SetupWizardServiceTests
     }
 
     [Fact]
-    public async Task CompleteAsync_RejectsMissingJungleBusBlockSyncFields()
+    public async Task CompleteAsync_AdminOnly_Succeeds_WithoutProvidersOrBlockSync()
     {
+        // simplified-first-run-wizard: the admin account is the only required
+        // step. With no Providers + no BlockSync, setup completes on the
+        // seeded p2p-primary defaults, P2P is enabled, and the provider-config
+        // apply is SKIPPED (no third-party subscription required).
         var provider = new Mock<IAdminProviderConfigService>(MockBehavior.Strict);
-        var service = CreateService(provider.Object);
+        var runtimeSettings = new Mock<IOperatorRuntimeSettingsService>(MockBehavior.Strict);
+        runtimeSettings
+            .Setup(x => x.SetP2pEnabledAsync(true, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
-        var exception = await Assert.ThrowsAsync<SetupWizardException>(() =>
-            service.CompleteAsync(
-                new SetupCompleteRequest
-                {
-                    Admin = new SetupAdminAccessRequest { Enabled = false },
-                    Providers = new SetupProviderSelectionRequest
-                    {
-                        RawTxPrimaryProvider = ExternalChainProviderName.JungleBus,
-                        RestFallbackProvider = ExternalChainProviderName.WhatsOnChain,
-                        RealtimePrimaryProvider = ExternalChainProviderName.Bitails,
-                        BitailsTransport = BitailsRealtimeTransportMode.Websocket,
-                        Whatsonchain = new AdminRestProviderConfigUpdateRequest
-                        {
-                            BaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
-                        }
-                    }
-                }));
+        var service = CreateService(provider.Object, runtimeSettings.Object);
 
-        Assert.Equal("junglebus_block_sync_base_url_required", exception.Code);
+        var status = await service.CompleteAsync(new SetupCompleteRequest
+        {
+            Admin = new SetupAdminAccessRequest { Enabled = false }
+        });
+
+        Assert.True(status.SetupCompleted);
+        provider.Verify(
+            x => x.ApplyProviderConfigAsync(
+                It.IsAny<AdminProviderConfigUpdateRequest>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        runtimeSettings.Verify(
+            x => x.SetP2pEnabledAsync(true, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

@@ -105,34 +105,56 @@ public sealed class SetupWizardService(
                 throw new SetupWizardException("admin_password_required");
         }
 
+        // simplified-first-run-wizard wave: Providers + BlockSync are
+        // OPTIONAL. A fresh operator completes setup with the admin account
+        // alone — the seeded defaults (p2p-primary realtime+rawTx, external
+        // fallback) remain and NO JungleBus subscription is required. The
+        // legacy multi-step flow (explicit provider/block-sync selection)
+        // still validates + applies. Providers + block sync are otherwise
+        // configurable later via the Settings screens.
         var blockSync = request.BlockSync ?? new SetupJungleBusBlockSyncRequest();
-        if (string.IsNullOrWhiteSpace(blockSync.BaseUrl))
+        var blockSyncBaseUrl = blockSync.BaseUrl?.Trim() ?? string.Empty;
+        var blockSyncSubId = blockSync.BlockSubscriptionId?.Trim() ?? string.Empty;
+        var hasAnyBlockSync = blockSyncBaseUrl.Length > 0 || blockSyncSubId.Length > 0;
+
+        // If block sync is started, BOTH fields are required (no half-config).
+        if (hasAnyBlockSync && blockSyncBaseUrl.Length == 0)
             throw new SetupWizardException("junglebus_block_sync_base_url_required");
-        if (string.IsNullOrWhiteSpace(blockSync.BlockSubscriptionId))
+        if (hasAnyBlockSync && blockSyncSubId.Length == 0)
             throw new SetupWizardException("junglebus_block_subscription_id_required");
 
-        var jungleBus = request.Providers?.Junglebus ?? new AdminJungleBusProviderConfigUpdateRequest();
-        if (string.IsNullOrWhiteSpace(jungleBus.BaseUrl))
-            jungleBus.BaseUrl = blockSync.BaseUrl.Trim();
-        if (string.IsNullOrWhiteSpace(jungleBus.BlockSubscriptionId))
-            jungleBus.BlockSubscriptionId = blockSync.BlockSubscriptionId.Trim();
+        var providers = request.Providers;
+        var hasProviderSelection = providers is not null && (
+            !string.IsNullOrWhiteSpace(providers.RealtimePrimaryProvider)
+            || !string.IsNullOrWhiteSpace(providers.RawTxPrimaryProvider)
+            || !string.IsNullOrWhiteSpace(providers.RestFallbackProvider)
+            || !string.IsNullOrWhiteSpace(providers.BitailsTransport));
 
-        var providerResult = await providerConfigService.ApplyProviderConfigAsync(
-            new AdminProviderConfigUpdateRequest
-            {
-                RawTxPrimaryProvider = request.Providers?.RawTxPrimaryProvider,
-                RestPrimaryProvider = request.Providers?.RestFallbackProvider,
-                RealtimePrimaryProvider = request.Providers?.RealtimePrimaryProvider,
-                BitailsTransport = request.Providers?.BitailsTransport,
-                Bitails = request.Providers?.Bitails ?? new AdminBitailsProviderConfigUpdateRequest(),
-                Whatsonchain = request.Providers?.Whatsonchain ?? new AdminRestProviderConfigUpdateRequest(),
-                Junglebus = jungleBus
-            },
-            admin.Enabled ? admin.Username?.Trim() ?? "setup" : "setup",
-            cancellationToken);
+        if (hasProviderSelection || hasAnyBlockSync)
+        {
+            var jungleBus = providers?.Junglebus ?? new AdminJungleBusProviderConfigUpdateRequest();
+            if (string.IsNullOrWhiteSpace(jungleBus.BaseUrl) && blockSyncBaseUrl.Length > 0)
+                jungleBus.BaseUrl = blockSyncBaseUrl;
+            if (string.IsNullOrWhiteSpace(jungleBus.BlockSubscriptionId) && blockSyncSubId.Length > 0)
+                jungleBus.BlockSubscriptionId = blockSyncSubId;
 
-        if (!providerResult.Success)
-            throw new SetupWizardException(providerResult.ErrorCode ?? "invalid_provider_configuration");
+            var providerResult = await providerConfigService.ApplyProviderConfigAsync(
+                new AdminProviderConfigUpdateRequest
+                {
+                    RawTxPrimaryProvider = providers?.RawTxPrimaryProvider,
+                    RestPrimaryProvider = providers?.RestFallbackProvider,
+                    RealtimePrimaryProvider = providers?.RealtimePrimaryProvider,
+                    BitailsTransport = providers?.BitailsTransport,
+                    Bitails = providers?.Bitails ?? new AdminBitailsProviderConfigUpdateRequest(),
+                    Whatsonchain = providers?.Whatsonchain ?? new AdminRestProviderConfigUpdateRequest(),
+                    Junglebus = jungleBus
+                },
+                admin.Enabled ? admin.Username?.Trim() ?? "setup" : "setup",
+                cancellationToken);
+
+            if (!providerResult.Success)
+                throw new SetupWizardException(providerResult.ErrorCode ?? "invalid_provider_configuration");
+        }
 
         var document = new SetupBootstrapDocument
         {
