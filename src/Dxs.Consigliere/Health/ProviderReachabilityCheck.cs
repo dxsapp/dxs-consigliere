@@ -35,17 +35,66 @@ namespace Dxs.Consigliere.Health;
 ///
 /// Descriptions never include URLs or status codes — this
 /// endpoint is anonymous (k8s probes can't ship cookies).
+///
+/// S2/S3-audit L3: `/health/ready` is anonymous + rate-limit-
+/// exempt, and each hit fires one outbound HEAD per enabled
+/// provider. To stop that becoming an amplification / self-DoS
+/// vector, the probe result is cached for <see cref="CacheTtl"/>
+/// behind a single-flight gate — a flood collapses to at most
+/// one provider-probe-set per window. The check is registered as
+/// a singleton (see <c>HealthChecksSetup</c>) so the cache
+/// persists across requests.
 /// </summary>
 public sealed class ProviderReachabilityCheck(
     IAdminProviderConfigService providerConfigService,
     IHttpClientFactory httpClientFactory) : IHealthCheck
 {
     private static readonly TimeSpan PerTargetTimeout = TimeSpan.FromSeconds(5);
+    internal static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(5);
     internal const string HttpClientName = "consigliere-health-provider";
+
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private HealthCheckResult _cached;
+    private DateTimeOffset _cachedAtUtc = DateTimeOffset.MinValue;
+    private bool _hasCached;
 
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
+    {
+        if (TryGetFresh(out var cached)) return cached;
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            // Double-check: a concurrent caller may have just
+            // refreshed the cache while we waited on the gate.
+            if (TryGetFresh(out cached)) return cached;
+
+            var result = await ProbeAllAsync(cancellationToken);
+            _cached = result;
+            _cachedAtUtc = DateTimeOffset.UtcNow;
+            _hasCached = true;
+            return result;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private bool TryGetFresh(out HealthCheckResult result)
+    {
+        if (_hasCached && DateTimeOffset.UtcNow - _cachedAtUtc < CacheTtl)
+        {
+            result = _cached;
+            return true;
+        }
+        result = default;
+        return false;
+    }
+
+    private async Task<HealthCheckResult> ProbeAllAsync(CancellationToken cancellationToken)
     {
         ConsigliereSourcesConfig effective;
         try

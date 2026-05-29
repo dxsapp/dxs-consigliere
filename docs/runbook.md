@@ -592,10 +592,27 @@ drop the Secure flag.
 
 Caddy forwards the original scheme + client IP via
 `X-Forwarded-Proto` and `X-Forwarded-For`. Kestrel honours
-both via `app.UseForwardedHeaders()`. For deployments behind
-a known upstream LB, see
-`src/Dxs.Consigliere/Setup/ProxyHeadersSetup.cs` to tighten
-`KnownProxies`.
+both via `app.UseForwardedHeaders()`.
+
+By default Kestrel trusts the forwarded headers from any
+immediate caller — safe ONLY because Caddy overwrites
+`X-Forwarded-For` with the real client IP and Kestrel is
+not published to the host (compose `expose`, not `ports`).
+If you publish `:5000` directly, drop Caddy, or front the
+stack with another LB, restrict which hop is trusted via
+**string** config (these bind from env, unlike the
+framework's `IPAddress`-typed lists):
+
+```sh
+# Trust only the docker bridge network (example CIDR):
+export Consigliere__ForwardedHeaders__KnownNetworks__0=172.16.0.0/12
+# …or a specific upstream proxy IP:
+export Consigliere__ForwardedHeaders__KnownProxies__0=10.0.0.5
+```
+
+When at least one entry is set, ONLY those proxies/networks
+are trusted. Malformed entries are skipped (they don't
+crash startup).
 
 ## Appendix B — Rate limiting
 

@@ -10,7 +10,7 @@ public class Startup(IConfiguration configuration)
     public void ConfigureServices(IServiceCollection services)
     {
         services
-            .AddConsigliereForwardedHeaders()
+            .AddConsigliereForwardedHeaders(configuration)
             .AddConsigliereHealthChecks()
             .AddConsigliereRateLimiting(configuration)
             .AddPersistenceZoneServices(configuration)

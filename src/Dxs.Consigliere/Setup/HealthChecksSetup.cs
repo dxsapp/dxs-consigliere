@@ -20,6 +20,11 @@ public static class HealthChecksSetup
     public static IServiceCollection AddConsigliereHealthChecks(this IServiceCollection services)
     {
         services.AddHttpClient(ProviderReachabilityCheck.HttpClientName);
+        // S2/S3-audit L3: singleton so the provider-probe cache
+        // (single-flight, 5s TTL) persists across requests instead
+        // of being rebuilt per health hit. AddCheck<T> resolves the
+        // registered singleton via GetServiceOrCreateInstance.
+        services.AddSingleton<ProviderReachabilityCheck>();
         services.AddHealthChecks()
             .AddCheck<RavenHealthCheck>(
                 name: "raven",

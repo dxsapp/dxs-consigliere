@@ -32,6 +32,49 @@ public sealed class ProviderReachabilityCheckTests
     }
 
     [Fact]
+    public async Task Result_is_cached_so_a_flood_collapses_to_one_probe_set()
+    {
+        // S2/S3-audit L3: `/health/ready` is anonymous +
+        // rate-limit-exempt. Two back-to-back checks (well within
+        // the 5s TTL) must fire the outbound probe-set ONCE, not
+        // twice — otherwise a flood amplifies into 3 outbound HEADs
+        // per hit.
+        var probeCalls = 0;
+        var check = BuildCheck(AllEnabled(), (_, _) =>
+        {
+            Interlocked.Increment(ref probeCalls);
+            return Reply(HttpStatusCode.OK);
+        });
+
+        var first = await check.CheckHealthAsync(new HealthCheckContext());
+        var second = await check.CheckHealthAsync(new HealthCheckContext());
+
+        Assert.Equal(HealthStatus.Healthy, first.Status);
+        Assert.Equal(HealthStatus.Healthy, second.Status);
+        // 3 enabled targets × ONE probe-set (second call served
+        // from cache).
+        Assert.Equal(3, probeCalls);
+    }
+
+    [Fact]
+    public async Task Concurrent_floods_single_flight_to_one_probe_set()
+    {
+        // The single-flight gate must collapse concurrent cold-cache
+        // callers to one probe-set too.
+        var probeCalls = 0;
+        var check = BuildCheck(AllEnabled(), (_, _) =>
+        {
+            Interlocked.Increment(ref probeCalls);
+            return Reply(HttpStatusCode.OK);
+        });
+
+        await Task.WhenAll(Enumerable.Range(0, 10)
+            .Select(_ => check.CheckHealthAsync(new HealthCheckContext())));
+
+        Assert.Equal(3, probeCalls);
+    }
+
+    [Fact]
     public async Task One_target_down_returns_Degraded_and_lists_it()
     {
         var check = BuildCheck(AllEnabled(), (url, _) =>

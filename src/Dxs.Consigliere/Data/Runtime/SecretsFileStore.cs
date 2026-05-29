@@ -201,17 +201,24 @@ public sealed class SecretsFileStore : IRealtimeSourcePolicyOverrideStore
     {
         var dir = Path.GetDirectoryName(_filePath)!;
         Directory.CreateDirectory(dir);
+        // S5-audit L4: lock the containing dir to 700 (owner-only)
+        // so even a transiently-0644 file inside is never readable
+        // by other local users.
+        SetOwnerOnlyDir(dir);
 
         var tempPath = _filePath + ".tmp";
-        await using (var stream = File.Create(tempPath))
+        await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
         {
+            // S5-audit L4: chmod 600 while the file is still EMPTY,
+            // BEFORE the plaintext secrets are serialized into it.
+            // The prior `File.Create` + post-write chmod left a
+            // window where the populated file sat at the default
+            // umask (typically 0644) — world-readable on a
+            // multi-user host. Now the secrets only ever land in an
+            // already-locked-down file.
+            SetOwnerReadWrite(tempPath);
             await JsonSerializer.SerializeAsync(stream, document, JsonOptions, cancellationToken);
         }
-
-        // chmod 600 on POSIX BEFORE replacing — owner-rw only.
-        // Docker secrets mount 444 by default and refuse mode
-        // changes; in that case we accept the existing mode.
-        SetOwnerReadWrite(tempPath);
 
         File.Move(tempPath, _filePath, overwrite: true);
         SetOwnerReadWrite(_filePath);
@@ -235,5 +242,18 @@ public sealed class SecretsFileStore : IRealtimeSourcePolicyOverrideStore
         {
             // Same as above for tmpfs-style mounts.
         }
+    }
+
+    private static void SetOwnerOnlyDir(string path)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return;
+        try
+        {
+            File.SetUnixFileMode(path,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+        catch (UnauthorizedAccessException) { /* mounted dir, accept */ }
+        catch (IOException) { /* tmpfs-style mount, accept */ }
     }
 }
