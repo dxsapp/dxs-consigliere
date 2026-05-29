@@ -33,11 +33,31 @@ pre-wizard) keep the config seed (false) and never touch the network.
 - Toggle is safe both ways: routing/rawTx/realtime/broadcast already tolerate
   the subsystem being on or off; start/stop is idempotent + serialized.
 
+## Live end-to-end — CONFIRMED (2026-05-29)
+
+Operator ran the turnkey Local stack
+(`docker compose -f compose.local.yml -f compose.local-build.yml up -d --build`)
+with `BsvP2pConfig.Enabled` at its default (false), completed the first-run
+wizard, and the thin node came up **live, no restart**. The admin P2P Pool
+screen (`/api/admin/p2p/{health,peers}`) showed, immediately after wizard
+completion:
+
+- Pool **6/8** (supervisor brought the pool up and is converging to the
+  target), `/24 diversity 6`.
+- 6 config-seed peers handshaked (`Source: Config`, composite 100, e.g.
+  `135.181.137.155:8333` ok 44/0).
+- addr-gossip discovery active (`185.152.150.197:8333`, `Source: AddrGossip`).
+- 1874 peers discovered · 7 successful · 52 failed — expected cold-start
+  acceptance ratio (UA filtering, per project memory), not a defect.
+
+This confirms the full chain `wizard Complete → P2pEnabled=true (DB) →
+RavenDB Changes API → supervisor → pool live`, with no appsettings edit and
+no restart — the wave's definition of done.
+
 ## Residuals (honest)
 
-- **Live pool start/stop is operator-run / integration, evidence-pending** —
-  unit coverage is the pure start/stop decision + idempotency + CI-safe-off,
-  not the real peer network bring-up.
+- **Soak / sustained pool health** beyond first-minute bring-up is still
+  operator-run (the >24h Gate-2 soak is a separate track).
 - **Changes-connection drop** silently disables the live toggle until restart
   (boot-time state still applies) — follow-up candidate.
 - **No admin toggle endpoint/UI** and **no migration of other settings** —
