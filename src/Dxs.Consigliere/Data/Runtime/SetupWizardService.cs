@@ -15,7 +15,8 @@ public interface ISetupWizardService
 
 public sealed class SetupWizardService(
     ISetupBootstrapStore setupStore,
-    IAdminProviderConfigService providerConfigService
+    IAdminProviderConfigService providerConfigService,
+    IOperatorRuntimeSettingsService runtimeSettings
 ) : ISetupWizardService
 {
     public SetupStatusResponse GetStatus()
@@ -144,6 +145,16 @@ public sealed class SetupWizardService(
         };
 
         await setupStore.SaveAsync(document, cancellationToken);
+
+        // wizard-enabled-p2p-runtime-toggle S1: completing setup turns the
+        // thin node ON. Persisted to the runtime-settings doc (DB
+        // authoritative); the P2P hosted service picks it up live via the
+        // Changes API — no restart.
+        await runtimeSettings.SetP2pEnabledAsync(
+            true,
+            admin.Enabled ? admin.Username.Trim() : "setup",
+            cancellationToken);
+
         return MapStatus(document);
     }
 

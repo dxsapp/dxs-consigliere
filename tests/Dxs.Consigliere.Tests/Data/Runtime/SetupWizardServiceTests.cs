@@ -132,10 +132,57 @@ public class SetupWizardServiceTests
         Assert.Equal("mempool-sub", captured.Junglebus.MempoolSubscriptionId);
     }
 
-    private static SetupWizardService CreateService(IAdminProviderConfigService providerConfigService)
+    [Fact]
+    public async Task CompleteAsync_EnablesP2pThinNode()
+    {
+        var provider = new Mock<IAdminProviderConfigService>(MockBehavior.Strict);
+        provider.Setup(x => x.ApplyProviderConfigAsync(
+                It.IsAny<AdminProviderConfigUpdateRequest>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AdminProviderConfigMutationResult(true));
+
+        var runtimeSettings = new Mock<IOperatorRuntimeSettingsService>(MockBehavior.Strict);
+        runtimeSettings.Setup(x => x.SetP2pEnabledAsync(true, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var service = CreateService(provider.Object, runtimeSettings.Object);
+
+        var status = await service.CompleteAsync(new SetupCompleteRequest
+        {
+            Admin = new SetupAdminAccessRequest { Enabled = false },
+            BlockSync = new SetupJungleBusBlockSyncRequest
+            {
+                BaseUrl = "https://junglebus.gorillapool.io",
+                BlockSubscriptionId = "block-sub"
+            },
+            Providers = new SetupProviderSelectionRequest
+            {
+                RawTxPrimaryProvider = ExternalChainProviderName.P2p,
+                RestFallbackProvider = ExternalChainProviderName.WhatsOnChain,
+                RealtimePrimaryProvider = ExternalChainProviderName.P2p,
+                BitailsTransport = BitailsRealtimeTransportMode.Websocket,
+                Whatsonchain = new AdminRestProviderConfigUpdateRequest
+                {
+                    BaseUrl = "https://api.whatsonchain.com/v1/bsv/main"
+                }
+            }
+        });
+
+        Assert.True(status.SetupCompleted);
+        // Completing the wizard turns the thin node ON (DB-authoritative).
+        runtimeSettings.Verify(
+            x => x.SetP2pEnabledAsync(true, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private static SetupWizardService CreateService(
+        IAdminProviderConfigService providerConfigService,
+        IOperatorRuntimeSettingsService runtimeSettings = null)
         => new(
             new InMemorySetupBootstrapStore(),
-            providerConfigService);
+            providerConfigService,
+            runtimeSettings ?? Mock.Of<IOperatorRuntimeSettingsService>());
 
     private static Mock<IAdminProviderConfigService> CreateProviderConfigService()
     {

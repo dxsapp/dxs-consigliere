@@ -50,6 +50,8 @@ public static class IndexerStateSetup
             .AddSingleton<SecretsFileStore>()
             .AddSingleton<IRealtimeSourcePolicyOverrideStore>(sp => sp.GetRequiredService<SecretsFileStore>())
             .AddSingleton<ISetupBootstrapStore, SetupBootstrapStore>()
+            .AddSingleton<IOperatorRuntimeSettingsStore, OperatorRuntimeSettingsStore>()
+            .AddSingleton<IOperatorRuntimeSettingsService, OperatorRuntimeSettingsService>()
             .AddSingleton<IAdminProviderConfigService, AdminProviderConfigService>()
             .AddSingleton<ISetupWizardService, SetupWizardService>()
             .AddSingleton<IAdminRuntimeSourcePolicyService, AdminRuntimeSourcePolicyService>()
