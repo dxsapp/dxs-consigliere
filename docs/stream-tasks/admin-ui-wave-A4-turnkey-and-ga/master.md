@@ -1,7 +1,7 @@
 ---
 created: 2026-05-21
 type: wave
-status: approved (planning only — no slices executed yet)
+status: done (S1+S3 shipped; S2 prepared, real-infra run operator-pending)
 parent: docs/stream-tasks/admin-ui-wave-A3-security-observability/
 related: docs/stream-tasks/admin-ui-wave-A3-security-observability/evidence/closeout.md (wave-A3 closed at HEAD 41942b3);
          docs/stream-tasks/admin-ui-wave-A3-security-observability/audits/A2-hardening.md (the 4 Low fixes that preceded this wave);
@@ -144,8 +144,8 @@ Out of scope (with rationale — do NOT pull these in):
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
 | S1 | `compose`/deploy | **done** | — | From a clean checkout: `docker compose -f compose.yml -f compose.local.yml up -d` (or chosen invocation) → `http://localhost:5000` → wizard completes (no domain, no cert warning) → a watched address indexes with a real JungleBus sub id; `docker compose --profile prod config` still materialises TLS-always + `cookieSecure=Always` (prod posture intact) | Local mode pulls `dxs/consigliere:${TAG:-latest}`, runs real-ingest config, serves plain HTTP on `:5000`, needs ZERO mandatory env; wizard→live-ingest confirmed restart-free (or restart documented); README "Run locally" quickstart replaces the E2E-smoke framing | `audits/S1-slice-audit-prompt.md` |
-| S3 | `contract-types` | todo | S1 (none hard; ordered before S2 because pure-code) | `grep -rn "interface Admin\|interface P2p\|interface Source\|interface Setup" src/admin-ui/src/types/{admin,auth}.ts` returns ZERO matches; `pnpm verify` green at each step; `pnpm test:contract` still 24/24 | Remaining ~30 response `Dto.cs` files `#nullable enable`d + NotNull props initialised; swagger + `api.generated.ts` regenerated with populated `required`; `types/{admin,auth}.ts` are pure generated re-exports | `audits/S3-slice-audit-prompt.md` |
-| S2 | `ops-validation` | todo | S1 (local mode lets a reviewer rehearse the flow first) | Real VM + real domain: Let's Encrypt cert issues (chain captured), wizard completes, broadcast reaches real peers; ≥24h soak shows no task leak / ingest stays live / audit `@expires` holds; a non-author stands the stack up from ONLY `docs/runbook.md` in <45 min (timed) | GA sign-off evidence in `evidence/` OR infra-dependent sub-steps explicitly marked "operator-run, evidence pending" — never fabricated | `audits/S2-slice-audit-prompt.md` |
+| S3 | `contract-types` | **done** | S1 (none hard; ordered before S2 because pure-code) | `grep -rn "interface Admin\|interface P2p\|interface Source\|interface Setup" src/admin-ui/src/types/{admin,auth}.ts` returns ZERO matches; `pnpm verify` green at each step; `pnpm test:contract` still 24/24 | Remaining ~30 response `Dto.cs` files `#nullable enable`d + NotNull props initialised; swagger + `api.generated.ts` regenerated with populated `required`; `types/{admin,auth}.ts` are pure generated re-exports | `audits/S3-slice-audit-prompt.md` |
+| S2 | `ops-validation` | **prepared — operator-run pending** | S1 (local mode lets a reviewer rehearse the flow first) | Real VM + real domain: Let's Encrypt cert issues (chain captured), wizard completes, broadcast reaches real peers; ≥24h soak shows no task leak / ingest stays live / audit `@expires` holds; a non-author stands the stack up from ONLY `docs/runbook.md` in <45 min (timed) | GA sign-off evidence in `evidence/` OR infra-dependent sub-steps explicitly marked "operator-run, evidence pending" — never fabricated | `audits/S2-slice-audit-prompt.md` |
 
 ## Definition of Done
 
@@ -170,7 +170,7 @@ backfill commit, never `--amend`):
 
 | slice | commit | summary |
 |---|---|---|
-| S1 | `fd67479` | local turnkey run mode (image + real config + plain-HTTP localhost) + README quickstart_ |
-| S3 | _pending_ | _NRT hand-mirrored-interface sweep → generated re-exports_ |
-| S2 | _pending_ | _real prod bring-up + 24h soak + runbook stopwatch evidence_ |
-| Audit folds | _pending_ | _per-slice findings folded_ |
+| S1 | `fd67479` | local turnkey run mode (image + real config + plain-HTTP localhost) + README quickstart |
+| S2 | `f4eb1d7` | GA-validation prep — soak harness + operator checklist + S1 evidence (real-infra run operator-pending) |
+| S3 | `bf68fe2` | NRT hand-mirrored-interface sweep → generated re-exports (peers endpoint sealed) |
+| Audit folds | none | S1/S2/S3 audit prompts written; no MAJOR/HIGH findings folded as of closeout |
