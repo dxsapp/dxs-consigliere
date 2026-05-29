@@ -3,11 +3,16 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Dxs.Consigliere.Configs;
+using Dxs.Consigliere.Data.Runtime;
 using Dxs.Consigliere.Services.P2p;
 
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+
+using Moq;
+
+using Raven.Client.Documents;
 
 namespace Dxs.Consigliere.Tests.P2p;
 
@@ -80,7 +85,15 @@ public class InboundConfigStubTests
             Enabled = p2pEnabled,
             Inbound = new InboundConfig { Enabled = inboundEnabled, ListenPort = listenPort },
         };
-        var service = new BsvP2pHostedService(Options.Create(cfg), health, loggerFactory);
+        var settings = new Mock<IOperatorRuntimeSettingsService>();
+        settings.Setup(x => x.GetP2pEnabledAsync(It.IsAny<CancellationToken>())).ReturnsAsync(p2pEnabled);
+        // Moq's default IDocumentStore returns null from Changes(); the
+        // service's subscribe is wrapped in try/catch, so the live-toggle
+        // watch degrades to a logged warning and StartAsync still applies
+        // the boot-time state. Good enough for these inbound-stub pins.
+        var documentStore = Mock.Of<IDocumentStore>();
+        var service = new BsvP2pHostedService(
+            Options.Create(cfg), health, settings.Object, documentStore, loggerFactory);
         return (service, health, logger);
     }
 

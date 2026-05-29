@@ -75,6 +75,7 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
     private readonly TimeSpan _reconcileInterval = TimeSpan.FromSeconds(5);
     private CancellationTokenSource? _cts;
     private Task? _reconcileLoop;
+    private bool _loaderInitialized;
     private int _disposed;
 
     public P2pMempoolIngestRunner(
@@ -105,20 +106,18 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         _logger = logger;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!_p2pConfig.Enabled)
-        {
-            _logger.LogInformation("P2pMempoolIngestRunner disabled (P2P off).");
-            return;
-        }
-
-        // Initialise the watchlist on the way up — the runner is the
-        // production owner of the loader's lifecycle.
-        await _loader.InitializeAsync(cancellationToken);
-
+        // Always run. The reconcile loop is inert until the P2P pool is up
+        // (BsvP2pHealth.Bound), so the runtime toggle that brings the pool
+        // up (BsvP2pHostedService, seeded from the wizard) also activates
+        // mempool observation — no restart (wizard-enabled-p2p-runtime-toggle
+        // S2). The watchlist load is DEFERRED to the first tick the pool is
+        // up, so a disabled P2P subsystem (CI/E2E, pre-wizard) does zero
+        // Raven work here.
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _reconcileLoop = Task.Run(() => ReconcileLoopAsync(_cts.Token), CancellationToken.None);
+        return Task.CompletedTask;
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -144,7 +143,20 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
     {
         while (!ct.IsCancellationRequested)
         {
-            try { Reconcile(); }
+            try
+            {
+                if (_health.Bound)
+                {
+                    await EnsureWatchlistLoadedAsync(ct);
+                    Reconcile();
+                }
+                else if (!_wiredSessions.IsEmpty)
+                {
+                    // Pool went down — drop stale session wirings so a later
+                    // pool restart re-wires fresh sessions cleanly.
+                    _wiredSessions.Clear();
+                }
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "P2pMempoolIngestRunner reconcile tick failed");
@@ -152,6 +164,15 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
             try { await Task.Delay(_reconcileInterval, ct); }
             catch (OperationCanceledException) { break; }
         }
+    }
+
+    private async Task EnsureWatchlistLoadedAsync(CancellationToken ct)
+    {
+        if (_loaderInitialized) return;
+        // The runner is the production owner of the loader's lifecycle;
+        // initialise it once, lazily, the first time the pool is up.
+        await _loader.InitializeAsync(ct);
+        _loaderInitialized = true;
     }
 
     /// <summary>

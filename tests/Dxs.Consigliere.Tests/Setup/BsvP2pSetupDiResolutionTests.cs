@@ -57,6 +57,11 @@ public class BsvP2pSetupDiResolutionTests
         services.Configure<ConsigliereStorageConfig>(config.GetSection("Consigliere:Storage"));
         services.AddSingleton<IDocumentStore>(_ => Mock.Of<IDocumentStore>());
         services.AddSingleton<IRawTransactionPayloadStore>(_ => Mock.Of<IRawTransactionPayloadStore>());
+        // wizard-enabled-p2p-runtime-toggle S2: BsvP2pHostedService now
+        // reads the effective P2P-enabled state through this service
+        // (registered in IndexerStateSetup in production).
+        services.AddSingleton<Dxs.Consigliere.Data.Runtime.IOperatorRuntimeSettingsService>(
+            _ => Mock.Of<Dxs.Consigliere.Data.Runtime.IOperatorRuntimeSettingsService>());
         // Wave 6 S7 — P2pAlertPoller depends on ISnapshotPersistence
         // (registered in MetricsSetup in production). The W6 DI test
         // mocks it here so the W6 zone resolves without pulling the
