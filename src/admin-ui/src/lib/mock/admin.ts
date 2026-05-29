@@ -164,7 +164,7 @@ export class MockAdminClient implements IAdminClient {
         username: "admin",
         action: "broadcast_tx",
         targetId: txId,
-        context: JSON.stringify({ rawHexLength: rawHex.length, source: "admin-ui" }),
+        context: JSON.stringify({ rawHexLength: rawHex.length, source: "operator" }),
       },
       ...this.auditEntries,
     ];
@@ -187,7 +187,7 @@ export class MockAdminClient implements IAdminClient {
         username: "admin",
         action: "broadcast_tx",
         targetId: "f".repeat(64),
-        context: JSON.stringify({ rawHexLength: 512, source: "admin-ui" }),
+        context: JSON.stringify({ rawHexLength: 512, source: "operator" }),
       },
       {
         id: `audit-log/${now - 600_000}/00112233`,
@@ -195,7 +195,7 @@ export class MockAdminClient implements IAdminClient {
         username: "admin",
         action: "broadcast_tx",
         targetId: "e".repeat(64),
-        context: JSON.stringify({ rawHexLength: 384, source: "admin-ui" }),
+        context: JSON.stringify({ rawHexLength: 384, source: "operator" }),
       },
       {
         id: `audit-log/${now - 3_600_000}/44556677`,
@@ -203,7 +203,7 @@ export class MockAdminClient implements IAdminClient {
         username: "ops",
         action: "broadcast_tx",
         targetId: "d".repeat(64),
-        context: JSON.stringify({ rawHexLength: 256, source: "admin-ui" }),
+        context: JSON.stringify({ rawHexLength: 256, source: "operator" }),
       },
     ];
     this.auditSeeded = true;

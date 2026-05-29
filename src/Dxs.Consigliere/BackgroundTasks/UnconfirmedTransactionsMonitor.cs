@@ -152,7 +152,7 @@ public class UnconfirmedTransactionsMonitor(
                         // removed. Re-broadcast goes through the unified P2P
                         // path; the receipt's State + FailReason capture
                         // success / failure shape.
-                        var receipt = await broadcastService.BroadcastAsync(data.Value.Hex);
+                        var receipt = await broadcastService.BroadcastAsync(data.Value.Hex, BroadcastSource.System);
                         // W5 A2 L3 fix: a duplicate submission can return an
                         // existing receipt already at MempoolSeen / Mined /
                         // Confirmed; treat all post-Validated active states

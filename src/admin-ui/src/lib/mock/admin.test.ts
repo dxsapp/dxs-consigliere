@@ -26,7 +26,7 @@ describe("MockAdminClient broadcast → audit-log flow", () => {
     const audit = await client.getAuditLog({ lastN: 1 });
     const ctx = JSON.parse(audit.entries[0].context!);
     expect(ctx.rawHexLength).toBe(raw.length);
-    expect(ctx.source).toBe("admin-ui");
+    expect(ctx.source).toBe("operator");
     // Defense-in-depth: the rawHex itself must NOT appear in
     // the context payload (slice contract — no broadcast
     // payload leaks).

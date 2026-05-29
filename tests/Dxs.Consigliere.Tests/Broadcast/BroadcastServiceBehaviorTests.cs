@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -162,7 +163,7 @@ public class BroadcastServiceBehaviorTests
     {
         var (service, _, _, _, _) = Build(wireP2p: false);
 
-        var receipt = await service.BroadcastAsync(SampleTxHex);
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
 
         Assert.Equal(OutgoingTxState.Failed, receipt.State);
         Assert.Contains("P2P broadcast subsystem not enabled", receipt.FailReason ?? "");
@@ -173,7 +174,7 @@ public class BroadcastServiceBehaviorTests
     {
         var (service, repo, _, _, _) = Build();
 
-        var receipt = await service.BroadcastAsync(rawHex: "");
+        var receipt = await service.BroadcastAsync(rawHex: "", BroadcastSource.Operator);
 
         Assert.Equal(OutgoingTxState.PolicyInvalid, receipt.State);
         Assert.NotNull(receipt.FailReason);
@@ -188,7 +189,7 @@ public class BroadcastServiceBehaviorTests
         // doesn't overwrite the Validated state.
         announcer.ReadyPeers = 1;
 
-        var receipt = await service.BroadcastAsync(SampleTxHex);
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
 
         Assert.Equal(OutgoingTxState.Validated, receipt.State);
         Assert.NotNull(receipt.TxId);
@@ -208,7 +209,7 @@ public class BroadcastServiceBehaviorTests
     {
         var (service, _, announcer, _, _) = Build();
 
-        await service.BroadcastAsync(SampleTxHex);
+        await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
         await PollUntil(() => announcer.Calls.Count >= 1);
 
         var call = Assert.Single(announcer.Calls);
@@ -246,7 +247,7 @@ public class BroadcastServiceBehaviorTests
         validator.IsDuplicateOverride = _ => true;
         validator.ExtractTxIdOverride = _ => "aabbccdd";
 
-        var receipt = await service.BroadcastAsync(SampleTxHex);
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
 
         // Receipt mirrors the existing document.
         Assert.Equal("aabbccdd", receipt.TxId);
@@ -272,7 +273,7 @@ public class BroadcastServiceBehaviorTests
         var (service, repo, announcer, _, _) = Build();
         announcer.ReadyPeers = 0;
 
-        var receipt = await service.BroadcastAsync(SampleTxHex);
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
         Assert.Equal(OutgoingTxState.Validated, receipt.State);
 
         // Wait for background dispatch task to land its Save.
@@ -296,13 +297,54 @@ public class BroadcastServiceBehaviorTests
         // mandated context shape (rawHexLength + source).
         var (service, _, _, _, audit) = Build();
 
-        var receipt = await service.BroadcastAsync(SampleTxHex);
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
         Assert.Equal(OutgoingTxState.Validated, receipt.State);
 
         var call = Assert.Single(audit.Calls);
         Assert.Equal(AuditActionNames.BroadcastTx, call.Action);
         Assert.Equal(receipt.TxId, call.TargetId);
         Assert.NotNull(call.Context);
+        // S3-followup-2: the context carries the caller's honest
+        // provenance, not a hardcoded "admin-ui".
+        var ctxJson = System.Text.Json.JsonSerializer.Serialize(call.Context);
+        Assert.Contains("\"source\":\"operator\"", ctxJson);
+    }
+
+    [Fact]
+    public async Task BroadcastAsync_HonestSource_StampedPerCaller()
+    {
+        // S3-followup-2: each provenance lands its own wire string.
+        var (service, _, _, _, audit) = Build();
+        await service.BroadcastAsync(SampleTxHex, BroadcastSource.Wallet);
+        await service.BroadcastAsync(SampleTxHex, BroadcastSource.System);
+        await service.BroadcastAsync(SampleTxHex, BroadcastSource.Api);
+
+        var sources = audit.Calls
+            .Select(c => System.Text.Json.JsonSerializer.Serialize(c.Context))
+            .ToList();
+        Assert.Contains(sources, s => s.Contains("\"source\":\"wallet\""));
+        Assert.Contains(sources, s => s.Contains("\"source\":\"system\""));
+        Assert.Contains(sources, s => s.Contains("\"source\":\"api\""));
+    }
+
+    [Fact]
+    public async Task BroadcastAsync_AuditFailure_NonOperator_ProceedsAnyway()
+    {
+        // S3-followup-2: fail-stop is operator-only. A System
+        // (background monitor) broadcast whose audit write fails
+        // MUST still persist + announce — otherwise a degraded
+        // Raven audit store would silently halt the Wave-5
+        // "always-eventually-broadcast" retry loop.
+        var (service, repo, announcer, _, audit) = Build();
+        audit.ResultOverride = () => false;
+
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.System);
+
+        Assert.Equal(OutgoingTxState.Validated, receipt.State);
+        Assert.NotEqual("audit_write_failed", receipt.FailReason ?? "");
+        await PollUntil(() => announcer.Calls.Count >= 1);
+        Assert.NotEmpty(announcer.Calls);
+        Assert.NotEmpty(repo.SaveCalls);
     }
 
     [Fact]
@@ -314,7 +356,7 @@ public class BroadcastServiceBehaviorTests
         var (service, repo, announcer, _, audit) = Build();
         audit.ResultOverride = () => false;
 
-        var receipt = await service.BroadcastAsync(SampleTxHex);
+        var receipt = await service.BroadcastAsync(SampleTxHex, BroadcastSource.Operator);
 
         Assert.Equal(OutgoingTxState.Failed, receipt.State);
         Assert.Equal("audit_write_failed", receipt.FailReason);

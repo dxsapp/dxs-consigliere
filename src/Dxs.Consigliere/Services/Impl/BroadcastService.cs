@@ -46,7 +46,7 @@ public class BroadcastService(
     internal IOutgoingTransactionRepository OutgoingStore { get; set; }
     internal ITxAnnouncer Announcer { get; set; }
 
-    public async Task<BroadcastReceipt> BroadcastAsync(string rawHex, string clientConnectionId = null, CancellationToken ct = default)
+    public async Task<BroadcastReceipt> BroadcastAsync(string rawHex, BroadcastSource source, string clientConnectionId = null, CancellationToken ct = default)
     {
         if (PolicyValidator is null || OutgoingStore is null)
         {
@@ -57,21 +57,28 @@ public class BroadcastService(
 
         var validation = await PolicyValidator.ValidateAsync(rawHex, ct);
 
-        // wave-A3 S3: audit BEFORE the actual broadcast. If the
-        // audit write fails the slice contract is fail-stop —
-        // a transaction must NOT go out without a forensic
-        // record of who clicked the button. Context is the
-        // minimum non-leaky payload (length + source); raw hex
-        // bytes are explicitly excluded per the slice's
-        // what-not-to-do constraint.
+        // wave-A3 S3: audit BEFORE the actual broadcast. Context is
+        // the minimum non-leaky payload (length + honest source);
+        // raw hex bytes are excluded per the slice's what-not-to-do
+        // constraint.
+        //
+        // S3-followup-2: `source` is the caller's true provenance,
+        // not a hardcoded "admin-ui". Fail-stop applies ONLY to
+        // operator-initiated broadcasts — the destructive-admin
+        // action S3 was built to gate. Wallet / api / system
+        // broadcasts are audited best-effort (RecordAsync logs its
+        // own failure) so a degraded Raven audit store can't halt
+        // the wallet path or the background rebroadcast monitor —
+        // the latter would otherwise break the Wave-5
+        // "always-eventually-broadcast" contract.
         if (validation.IsValid)
         {
             var auditOk = await auditLogger.RecordAsync(
                 AuditActionNames.BroadcastTx,
                 validation.TxId,
-                new { rawHexLength = rawHex?.Length ?? 0, source = "admin-ui" },
+                new { rawHexLength = rawHex?.Length ?? 0, source = source.ToWire() },
                 cancellationToken: ct);
-            if (!auditOk)
+            if (!auditOk && source == BroadcastSource.Operator)
             {
                 return new BroadcastReceipt(
                     null,

@@ -43,16 +43,23 @@ public class IBroadcastServiceShapeTests
     [Fact]
     public void Interface_BroadcastAsync_SignatureIsCanonical()
     {
-        // (string rawHex, string clientConnectionId = null, CancellationToken ct = default)
+        // wave-A3 S3-followup-2: a required `BroadcastSource source`
+        // was threaded in as p[1] so the audit trail records honest
+        // provenance instead of a hardcoded "admin-ui".
+        // (string rawHex, BroadcastSource source,
+        //  string clientConnectionId = null, CancellationToken ct = default)
         var method = typeof(IBroadcastService).GetMethod(nameof(IBroadcastService.BroadcastAsync));
         Assert.NotNull(method);
         var p = method!.GetParameters();
-        Assert.Equal(3, p.Length);
+        Assert.Equal(4, p.Length);
         Assert.Equal("rawHex", p[0].Name);
         Assert.Equal(typeof(string), p[0].ParameterType);
-        Assert.Equal("clientConnectionId", p[1].Name);
-        Assert.True(p[1].HasDefaultValue);
-        Assert.Equal("ct", p[2].Name);
-        Assert.Equal(typeof(System.Threading.CancellationToken), p[2].ParameterType);
+        Assert.Equal("source", p[1].Name);
+        Assert.Equal(typeof(BroadcastSource), p[1].ParameterType);
+        Assert.False(p[1].HasDefaultValue); // required — callers must declare provenance
+        Assert.Equal("clientConnectionId", p[2].Name);
+        Assert.True(p[2].HasDefaultValue);
+        Assert.Equal("ct", p[3].Name);
+        Assert.Equal(typeof(System.Threading.CancellationToken), p[3].ParameterType);
     }
 }

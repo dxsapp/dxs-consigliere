@@ -120,8 +120,16 @@ public class TransactionController : BaseController
         if (body is null || string.IsNullOrEmpty(body.RawHex))
             return BadRequest(new { error = "rawHex required" });
 
+        // S3-followup-2: `/api/tx/broadcast` is a shared endpoint —
+        // the admin UI hits it with a cookie (authenticated), but
+        // external wallet API clients hit it anonymously. The audit
+        // `source` is derived from the resolved principal so the
+        // forensic record distinguishes the two.
+        var source = User?.Identity?.IsAuthenticated == true
+            ? BroadcastSource.Operator
+            : BroadcastSource.Api;
         var receipt = await broadcastService.BroadcastAsync(
-            body.RawHex, clientConnectionId: null, cancellationToken);
+            body.RawHex, source, clientConnectionId: null, cancellationToken);
         return Ok(new BroadcastReceiptDto(
             receipt.TxId, receipt.State.ToString(), receipt.CreatedAtMs, receipt.FailReason));
     }
