@@ -4,7 +4,7 @@ type: wave
 parent: docs/stream-tasks/consigliere-thin-node-observer-program/
 related: docs/stream-tasks/thin-node-primary-source-wave/evidence/closeout.md (p2p is the routed default; subsystem still off by default);
          docs/stream-tasks/admin-ui-wave-A4-turnkey-and-ga/ (turnkey local mode + restart-free wizard→ingest)
-status: approved (planning only — no slices executed yet)
+status: done (S1+S2 shipped; live pool start/stop evidence-pending)
 ---
 
 # Wizard-enabled P2P + runtime toggle
@@ -118,8 +118,8 @@ Out of scope (rationale):
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S1 | `runtime-settings` | todo | — | `dotnet build … -c Release`; unit: settings service seeds `P2pEnabled` from `BsvP2pConfig.Enabled` when no doc exists, returns the DB value when present; wizard `CompleteAsync` persists `P2pEnabled=true` | `OperatorRuntimeSettingsDocument` + store/service with seed-from-config + typed `P2pEnabled`; wizard completion writes it; no secret in the doc | `audits/S1-slice-audit-prompt.md` |
-| S2 | `p2p-lifecycle` | todo | S1 | `dotnet build … -c Release`; unit/integration: supervisor brings the pool up when effective-enabled flips true and tears it down on false (idempotent); Changes-API watch triggers it; with no DB override + config seed false, pool stays down (CI/E2E safe) | `BsvP2pHostedService` is a runtime supervisor (no early-return gate); effective-enabled = DB ?? config; live start/stop via Changes-API watch; observer active when pool is up; restart-free proven | `audits/S2-slice-audit-prompt.md` |
+| S1 | `runtime-settings` | **done** | — | `dotnet build … -c Release`; unit: settings service seeds `P2pEnabled` from `BsvP2pConfig.Enabled` when no doc exists, returns the DB value when present; wizard `CompleteAsync` persists `P2pEnabled=true` | `OperatorRuntimeSettingsDocument` + store/service with seed-from-config + typed `P2pEnabled`; wizard completion writes it; no secret in the doc | `audits/S1-slice-audit-prompt.md` |
+| S2 | `p2p-lifecycle` | **done** | S1 | `dotnet build … -c Release`; unit/integration: supervisor brings the pool up when effective-enabled flips true and tears it down on false (idempotent); Changes-API watch triggers it; with no DB override + config seed false, pool stays down (CI/E2E safe) | `BsvP2pHostedService` is a runtime supervisor (no early-return gate); effective-enabled = DB ?? config; live start/stop via Changes-API watch; observer active when pool is up; restart-free proven | `audits/S2-slice-audit-prompt.md` |
 
 ## Definition of Done
 
@@ -137,6 +137,6 @@ Out of scope (rationale):
 
 | slice | commit | summary |
 |---|---|---|
-| S1 | _pending_ | _runtime-settings doc + seed + wizard writes P2pEnabled_ |
-| S2 | _pending_ | _P2P hosted-service supervisor + live toggle via Changes API_ |
-| Audit folds | _pending_ | _per-slice findings folded_ |
+| S1 | `34ecce0` | runtime-settings doc + seed + wizard writes P2pEnabled |
+| S2 | `01ac6f3` | P2P hosted-service supervisor + live toggle via Changes API |
+| Audit folds | none | per-slice audit prompts written; no findings folded as of closeout |
