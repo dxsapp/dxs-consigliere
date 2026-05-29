@@ -26,7 +26,13 @@ the browser. Built for the demo video to the BSV Association.
 - v1 = P2PKH only; tokens / full builder / custodial keys are out of scope.
 - SDK lazy-chunked; shell bundle at 97.8% of the 200 KB cap.
 
+## Follow-up
+- `6ab7281` — persist the lab wallet to localStorage (keypair) so a page
+  refresh keeps the address + spend ability; added "Reset wallet". The key is
+  still never sent to the backend (browser-local only; demo-grade).
+
 ## Delivery
 | slice | commit | status |
 |---|---|---|
 | S1 lab screen | `1ffe0e2` | done |
+| follow-up: localStorage persistence | `6ab7281` | done |
