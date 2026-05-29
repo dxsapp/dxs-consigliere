@@ -5,7 +5,7 @@ parent: docs/stream-tasks/consigliere-thin-node-observer-program/
 related: docs/stream-tasks/thin-node-primary-source-wave/ (p2p is the routed default);
          docs/stream-tasks/wizard-enabled-p2p-runtime-toggle-wave/ (wizard enables P2P live);
          docs/stream-tasks/first-run-setup-wizard-wave/ (the original multi-step wizard)
-status: approved (planning only — no slices executed yet)
+status: done (S1 backend + S2 frontend shipped)
 ---
 
 # Simplified first-run wizard — 1 step (admin only)
@@ -84,8 +84,8 @@ Out of scope:
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S1 | `setup-backend` | todo | — | `dotnet build -c Release`; unit: CompleteAsync succeeds with admin-only request (no Providers, no BlockSync) + leaves seeded p2p defaults + still enables P2P; still rejects missing admin creds when admin enabled | Providers + BlockSync optional in CompleteAsync; no JungleBus requirement on the first-run path; contract regenerated if `required` changed | `audits/S1-slice-audit-prompt.md` |
-| S2 | `setup-frontend` | todo | S1 | `pnpm verify` + `pnpm test:contract` + `dotnet build -c Release`; a fresh wizard shows ONE step (admin) and completing it reaches the app | Wizard collapsed to admin-only step; store sends admin only; providers/block-sync no longer in the first-run stepper; no hand-mirrored DTO | `audits/S2-slice-audit-prompt.md` |
+| S1 | `setup-backend` | **done** | — | `dotnet build -c Release`; unit: CompleteAsync succeeds with admin-only request (no Providers, no BlockSync) + leaves seeded p2p defaults + still enables P2P; still rejects missing admin creds when admin enabled | Providers + BlockSync optional in CompleteAsync; no JungleBus requirement on the first-run path; contract regenerated if `required` changed | `audits/S1-slice-audit-prompt.md` |
+| S2 | `setup-frontend` | **done** | S1 | `pnpm verify` + `pnpm test:contract` + `dotnet build -c Release`; a fresh wizard shows ONE step (admin) and completing it reaches the app | Wizard collapsed to admin-only step; store sends admin only; providers/block-sync no longer in the first-run stepper; no hand-mirrored DTO | `audits/S2-slice-audit-prompt.md` |
 
 ## Definition of Done
 
@@ -100,6 +100,6 @@ Out of scope:
 
 | slice | commit | summary |
 |---|---|---|
-| S1 | _pending_ | _CompleteAsync: optional providers/block-sync_ |
-| S2 | _pending_ | _wizard collapsed to 1 admin step_ |
-| Audit folds | _pending_ | _per-slice findings folded_ |
+| S1 | `1843bf4` | CompleteAsync: optional providers/block-sync (no JungleBus requirement) |
+| S2 | `6d03bf0` | wizard collapsed to 1 admin step; steps 2-4 removed |
+| Audit folds | none | per-slice audit prompts written; no findings folded |

@@ -4,7 +4,7 @@ type: wave
 parent: docs/stream-tasks/consigliere-thin-node-observer-program/
 related: docs/stream-tasks/thin-node-primary-source-wave/ (P2P broadcast path);
          12a9518 (track-a-new address UI); src/Dxs.Consigliere/Controllers/TransactionController.cs (POST /api/tx/broadcast)
-status: approved (planning only — no slices executed yet)
+status: done (S1 shipped; live mainnet send operator-run)
 ---
 
 # Transaction lab — generate key, fund, send, broadcast
@@ -74,7 +74,7 @@ Out of scope:
 
 | slice | zone lead | status | depends_on | validation | done_when | audit |
 |---|---|---|---|---|---|---|
-| S1 | `lab-frontend` | todo | — (backend endpoints already exist) | `pnpm verify` + `pnpm test:contract` + `secrets-lint`; store unit test: keygen → address derived; build+sign produces a valid rawHex (SDK); broadcast called with rawHex (mock) | `/lab` screen: generate key → auto-track → show UTXOs/balance → simple P2PKH send → sign client-side → broadcast; privkey never sent to backend; bundle budget green | `audits/S1-slice-audit-prompt.md` |
+| S1 | `lab-frontend` | **done** | — (backend endpoints already exist) | `pnpm verify` + `pnpm test:contract` + `secrets-lint`; store unit test: keygen → address derived; build+sign produces a valid rawHex (SDK); broadcast called with rawHex (mock) | `/lab` screen: generate key → auto-track → show UTXOs/balance → simple P2PKH send → sign client-side → broadcast; privkey never sent to backend; bundle budget green | `audits/S1-slice-audit-prompt.md` |
 
 ## Definition of Done
 
@@ -90,5 +90,5 @@ Out of scope:
 
 | slice | commit | summary |
 |---|---|---|
-| S1 | _pending_ | _lab screen: client-side keygen/sign + P2P broadcast_ |
-| Audit folds | _pending_ | _per-slice findings folded_ |
+| S1 | `1ffe0e2` | lab screen: client-side keygen/sign + P2P broadcast |
+| Audit folds | none | per-slice audit prompt written; no findings folded |
