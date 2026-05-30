@@ -115,7 +115,15 @@ public sealed class RavenAuditRetentionConfigurator(IDocumentStore documentStore
                 new ConfigureExpirationOperation(new ExpirationConfiguration
                 {
                     Disabled = false,
-                    DeleteFrequencyInSec = 60,
+                    // 36h is the minimum sweep frequency the free RavenDB
+                    // license permits ("license doesn't allow modifying the
+                    // expiration frequency below 36 hours"). A sub-36h value
+                    // (we used 60s) makes ConfigureExpirationOperation throw a
+                    // LicenseLimitException on the turnkey/free stack, which
+                    // fail-stops every Operator broadcast (the lab included).
+                    // Audit docs still expire at the 365-day @expires header;
+                    // only the background sweep cadence is relaxed.
+                    DeleteFrequencyInSec = 36 * 60 * 60,
                 }),
                 cancellationToken);
         }

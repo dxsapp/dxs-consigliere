@@ -240,30 +240,58 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
               </Stack>
             </Box>
 
-            {store.receipt && (
-              <Alert severity="success" sx={{ mt: 3 }} data-testid="lab-receipt">
-                <AlertTitle>Broadcast accepted — {store.receipt.state}</AlertTitle>
-                <Stack spacing={0.5}>
-                  <Box sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
-                    {store.receipt.txId}
-                  </Box>
-                  {address && (
-                    <Link
-                      component={RouterLink}
-                      to={`/addresses/${address}`}
-                    >
-                      View tracked lab address
-                    </Link>
-                  )}
-                </Stack>
-              </Alert>
-            )}
+            {store.receipt &&
+              (() => {
+                const { state, failReason, txId } = store.receipt;
+                const failed = isFailedState(state) || Boolean(failReason);
+                return (
+                  <Alert
+                    severity={failed ? "error" : "success"}
+                    sx={{ mt: 3 }}
+                    data-testid="lab-receipt"
+                  >
+                    <AlertTitle>
+                      {failed ? "Broadcast rejected" : "Broadcast accepted"} — {state}
+                    </AlertTitle>
+                    <Stack spacing={0.5}>
+                      {failReason && (
+                        <Box data-testid="lab-receipt-reason">Reason: {failReason}</Box>
+                      )}
+                      {txId && (
+                        <Box sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
+                          {txId}
+                        </Box>
+                      )}
+                      {address && !failed && (
+                        <Link component={RouterLink} to={`/addresses/${address}`}>
+                          View tracked lab address
+                        </Link>
+                      )}
+                    </Stack>
+                  </Alert>
+                );
+              })()}
           </CardContent>
         </Card>
       )}
     </Stack>
   );
 });
+
+// Terminal failure states of OutgoingTxState (the rest are progressing /
+// success states). A receipt is also treated as failed if it carries a
+// failReason (e.g. audit_write_failed, p2p_disabled).
+const FAILED_STATES = new Set([
+  "Failed",
+  "PolicyInvalid",
+  "InvalidRejected",
+  "ConflictRejected",
+  "EvictedOrDropped",
+  "ObserverUnknown",
+]);
+function isFailedState(state: string): boolean {
+  return FAILED_STATES.has(state);
+}
 
 function CopyButton({ value, title }: { value: string; title: string }) {
   return (
