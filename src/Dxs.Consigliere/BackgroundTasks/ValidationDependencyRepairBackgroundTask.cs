@@ -16,5 +16,14 @@ public sealed class ValidationDependencyRepairBackgroundTask(
     public override string Name => nameof(ValidationDependencyRepairBackgroundTask);
 
     protected override Task RunAsync(CancellationToken cancellationToken)
-        => processor.ProcessDueAsync(cancellationToken);
+    {
+        // Policy: validate with locally-available data only — no on-the-fly
+        // reverse-lineage ancestor fetching from external providers. Default
+        // off; flip Consigliere:Validation:ReverseLineageRepairEnabled to
+        // re-enable provider-backed backfill.
+        if (!appConfig.Value.Validation.ReverseLineageRepairEnabled)
+            return Task.CompletedTask;
+
+        return processor.ProcessDueAsync(cancellationToken);
+    }
 }

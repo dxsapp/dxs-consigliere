@@ -1,7 +1,10 @@
+using Dxs.Consigliere.Configs;
 using Dxs.Consigliere.Data.Models;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Transactions;
 using Dxs.Consigliere.Extensions;
+
+using Microsoft.Extensions.Options;
 
 using Raven.Client.Documents;
 
@@ -10,7 +13,8 @@ namespace Dxs.Consigliere.BackgroundTasks;
 public sealed class ValidationDependencyRepairScheduler(
     IDocumentStore documentStore,
     ITokenValidationDependencyStore dependencyStore,
-    IValidationRepairWorkItemStore workItemStore
+    IValidationRepairWorkItemStore workItemStore,
+    IOptions<AppConfig> appConfig
 ) : IValidationDependencyRepairScheduler
 {
     public async Task<ValidationRepairWorkItemDocument?> ScheduleTransactionAsync(
@@ -19,6 +23,13 @@ public sealed class ValidationDependencyRepairScheduler(
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(txId);
+
+        // Policy: no on-the-fly reverse-lineage ancestor fetching (default).
+        // Don't schedule repair work — validation uses locally-available data
+        // only. Avoids the self-feeding loop that fetched ancestors of
+        // out-of-scope STAS tx from external providers.
+        if (!appConfig.Value.Validation.ReverseLineageRepairEnabled)
+            return null;
 
         using var session = documentStore.GetNoCacheNoTrackingSession();
         var transaction = await session.LoadAsync<MetaTransaction>(txId, cancellationToken);
