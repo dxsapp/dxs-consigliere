@@ -9,6 +9,8 @@ using Dxs.Consigliere.Data.Models.Addresses;
 using Dxs.Consigliere.Data.Models.Transactions;
 using Dxs.Consigliere.Data.Tokens.Dstas;
 using Dxs.Consigliere.Extensions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Raven.Client.Documents;
 using Raven.Client.Documents.Linq;
 using Raven.Client.Documents.Session;
@@ -20,9 +22,12 @@ public sealed class AddressProjectionRebuilder(
     RavenObservationJournalReader journalReader,
     IProjectionCacheInvalidationSink cacheInvalidationSink,
     IProjectionReadCacheKeyFactory cacheKeyFactory,
-    IProjectionCacheInvalidationTelemetry invalidationTelemetry
+    IProjectionCacheInvalidationTelemetry invalidationTelemetry,
+    ILogger<AddressProjectionRebuilder>? logger = null
 )
 {
+    private readonly ILogger _log = logger ?? NullLogger<AddressProjectionRebuilder>.Instance;
+
     public AddressProjectionRebuilder(IDocumentStore documentStore, RavenObservationJournalReader journalReader)
         : this(documentStore, journalReader, new NoopProjectionReadCache(), new ProjectionReadCacheKeyFactory(), new ProjectionCacheInvalidationTelemetry())
     {
@@ -212,8 +217,22 @@ public sealed class AddressProjectionRebuilder(
         CancellationToken cancellationToken
     )
     {
+        // SKIP (not halt) a record whose tx body we don't have. The journal
+        // is replayed strictly in order and the caller stops the WHOLE
+        // rebuild on a false return — so a single un-projectable record
+        // (e.g. a legacy P2P observation journaled before the MetaTransaction
+        // was persisted) would otherwise stall every address's balance
+        // forever. Returning true advances the checkpoint past it; the tx is
+        // simply not projected (it has no body to credit from). The
+        // ingestion paths now persist the MetaTransaction BEFORE journaling,
+        // so in practice this only trips on legacy/poison records.
         if (!batchContext.MetaTransactions.TryGetValue(observation.TxId, out var metaTransaction))
-            return false;
+        {
+            _log.LogWarning(
+                "AddressProjection: skipping observation {TxId} (seq {Seq}) — no MetaTransaction; not projectable",
+                observation.TxId, record.Sequence.Value);
+            return true;
+        }
 
         var outputIds = (metaTransaction.Outputs ?? []).Select(x => x.Id).ToArray();
         var loadedOutputs = outputIds
@@ -222,7 +241,12 @@ public sealed class AddressProjectionRebuilder(
             .ToArray();
 
         if (loadedOutputs.Length != outputIds.Length)
-            return false;
+        {
+            _log.LogWarning(
+                "AddressProjection: skipping observation {TxId} (seq {Seq}) — {Loaded}/{Expected} MetaOutputs loaded",
+                observation.TxId, record.Sequence.Value, loadedOutputs.Length, outputIds.Length);
+            return true;
+        }
 
         var credits = loadedOutputs
             .Where(x => ShouldProjectOutput(metaTransaction, x!))

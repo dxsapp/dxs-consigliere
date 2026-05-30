@@ -350,7 +350,14 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "OnTxArrived: SaveTransaction failed for {Txid}", txid);
+            // The MetaTransaction MUST exist before we journal the
+            // observation — the address projection credits the balance from
+            // it and skips observations without one. If the save fails, do
+            // NOT journal (that would create an un-projectable record);
+            // Forget the txid so another peer's inv can retry the fetch+save.
+            _logger.LogWarning(ex, "OnTxArrived: SaveTransaction failed for {Txid}; not journaling", txid);
+            _watcher.Forget(txid);
+            return;
         }
 
         RawTransactionPayloadReference? payloadRef = null;
