@@ -27,6 +27,14 @@ const FAKE_KEY: LabKey = {
   _privHex: "11".repeat(32),
 };
 
+// No-op timers so auto-poll never starts a real interval under jsdom.
+function noopTimers(): Pick<LabStoreOptions, "setInterval" | "clearInterval"> {
+  return {
+    setInterval: () => 0 as unknown as ReturnType<typeof setInterval>,
+    clearInterval: () => {},
+  };
+}
+
 function makeStore(opts?: { buildSend?: LabStoreOptions["buildSend"] }) {
   const admin = new MockAdminClient();
   const trackSpy = vi.spyOn(admin, "trackAddress");
@@ -36,7 +44,7 @@ function makeStore(opts?: { buildSend?: LabStoreOptions["buildSend"] }) {
   const buildSend =
     opts?.buildSend ??
     vi.fn(async () => ({ rawHex: "deadbeef", selectedSats: 100_000, inputCount: 1 }));
-  const store = new LabStore({ admin, generateKey, buildSend });
+  const store = new LabStore({ admin, generateKey, buildSend, ...noopTimers() });
   return { admin, store, trackSpy, utxosSpy, broadcastSpy, generateKey, buildSend };
 }
 
@@ -110,6 +118,7 @@ describe("LabStore", () => {
       admin,
       generateKey: async () => FAKE_KEY,
       buildSend: async () => ({ rawHex: "abcd", selectedSats: 100_000, inputCount: 1 }),
+      ...noopTimers(),
     });
     await store.generate();
 
@@ -141,6 +150,30 @@ describe("LabStore", () => {
     // The restored store can spend without regenerating.
     await second.store.send("1Destination000000000000000000000000", 10_000);
     expect(second.broadcastSpy).toHaveBeenCalledWith("deadbeef");
+  });
+
+  it("auto-polls the balance after a key is generated", async () => {
+    let tick: (() => void) | null = null;
+    const admin = new MockAdminClient();
+    const utxosSpy = vi.spyOn(admin, "getAddressUtxos");
+    const store = new LabStore({
+      admin,
+      generateKey: async () => FAKE_KEY,
+      buildSend: async () => ({ rawHex: "x", selectedSats: 0, inputCount: 0 }),
+      setInterval: (cb) => {
+        tick = cb;
+        return 1 as unknown as ReturnType<typeof setInterval>;
+      },
+      clearInterval: () => {},
+    });
+
+    await store.generate(); // starts polling + an initial refresh
+    const afterGenerate = utxosSpy.mock.calls.length;
+    expect(tick).not.toBeNull();
+
+    tick!(); // simulate a poll tick → should refresh the balance again
+    await Promise.resolve();
+    expect(utxosSpy.mock.calls.length).toBeGreaterThan(afterGenerate);
   });
 
   it("reset() wipes the wallet from memory and localStorage", async () => {

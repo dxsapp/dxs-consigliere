@@ -63,7 +63,8 @@ export interface BuildSendResult {
   inputCount: number;
 }
 
-const DEFAULT_SATS_PER_BYTE = 0.5;
+// 100 sat/kB = 0.1 sat/byte — the lab's flat fee rate.
+const DEFAULT_SATS_PER_BYTE = 0.1;
 const WIF_COMPRESSED_FLAG = 0x01;
 
 /** Lazily loads the SDK so it lands in the lab route chunk, never the

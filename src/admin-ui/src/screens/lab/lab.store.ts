@@ -39,7 +39,14 @@ export interface LabStoreOptions {
   /** Injectable for tests — defaults to the real SDK wrapper. */
   generateKey?: () => Promise<LabKey>;
   buildSend?: (params: BuildSendParams) => Promise<BuildSendResult>;
+  /** Balance auto-refresh interval (ms). Default 6s. */
+  pollMs?: number;
+  /** Injectable timers (tests pass no-ops to avoid real intervals). */
+  setInterval?: (cb: () => void, ms: number) => ReturnType<typeof setInterval>;
+  clearInterval?: (h: ReturnType<typeof setInterval>) => void;
 }
+
+const DEFAULT_POLL_MS = 6_000;
 
 export class LabStore {
   key: LabKey | null = null;
@@ -56,12 +63,19 @@ export class LabStore {
   private readonly admin: IAdminClient;
   private readonly generateKeyFn: () => Promise<LabKey>;
   private readonly buildSendFn: (params: BuildSendParams) => Promise<BuildSendResult>;
+  private readonly pollMs: number;
+  private readonly setIntervalFn: NonNullable<LabStoreOptions["setInterval"]>;
+  private readonly clearIntervalFn: NonNullable<LabStoreOptions["clearInterval"]>;
+  private timer: ReturnType<typeof setInterval> | null = null;
   private inflight: AbortController | null = null;
 
   constructor(opts: LabStoreOptions) {
     this.admin = opts.admin;
     this.generateKeyFn = opts.generateKey ?? generateLabKey;
     this.buildSendFn = opts.buildSend ?? buildP2pkhSend;
+    this.pollMs = opts.pollMs ?? DEFAULT_POLL_MS;
+    this.setIntervalFn = opts.setInterval ?? ((cb, ms) => setInterval(cb, ms));
+    this.clearIntervalFn = opts.clearInterval ?? ((h) => clearInterval(h));
     // Restore a previously-generated lab wallet so a page refresh keeps
     // the address + spend ability (see the class-doc note on persistence).
     this.key = loadWallet();
@@ -69,18 +83,23 @@ export class LabStore {
   }
 
   /** Call on mount: if a wallet was restored from localStorage, load its
-   *  UTXOs so the balance/coins show without re-generating. */
+   *  UTXOs and start auto-refreshing so the balance updates on its own
+   *  after the address is funded (no manual Refresh needed). */
   async start(): Promise<void> {
-    if (this.key) await this.refresh();
+    if (!this.key) return;
+    this.startPolling();
+    await this.refresh();
   }
 
   dispose(): void {
+    this.stopPolling();
     this.inflight?.abort();
     this.inflight = null;
   }
 
   /** Wipe the lab wallet from memory + localStorage. */
   reset(): void {
+    this.stopPolling();
     this.inflight?.abort();
     this.inflight = null;
     this.key = null;
@@ -89,6 +108,16 @@ export class LabStore {
     this.error = null;
     this.status = "idle";
     clearWallet();
+  }
+
+  private startPolling(): void {
+    if (this.timer) return;
+    this.timer = this.setIntervalFn(() => void this.refresh(), this.pollMs);
+  }
+
+  private stopPolling(): void {
+    if (this.timer) this.clearIntervalFn(this.timer);
+    this.timer = null;
   }
 
   /** Total spendable balance (sats) across the loaded UTXO set. */
@@ -127,6 +156,7 @@ export class LabStore {
         this.receipt = null;
         this.status = "ready";
       });
+      this.startPolling();
       await this.refresh();
     } catch (err) {
       runInAction(() => {
