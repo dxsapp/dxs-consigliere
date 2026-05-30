@@ -72,6 +72,11 @@ public class BroadcastServiceProductionDiTests
         services.Configure<ConsigliereStorageConfig>(config.GetSection("Consigliere:Storage"));
         services.AddSingleton<IDocumentStore>(_ => Mock.Of<IDocumentStore>());
         services.AddSingleton<IRawTransactionPayloadStore>(_ => Mock.Of<IRawTransactionPayloadStore>());
+        // ObservedTxIngestor (shared by the P2P observer + self-broadcast
+        // path) takes ITransactionStore so a broadcast credits the watched
+        // address projection; the real graph registers it in Startup.
+        services.AddSingleton<Dxs.Bsv.BitcoinMonitor.ITransactionStore>(_ =>
+            Mock.Of<Dxs.Bsv.BitcoinMonitor.ITransactionStore>());
         services.AddSingleton<INetworkProvider>(_ => new FakeNetworkProviderForBroadcastDi());
         services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<TxObservation>>>());
         services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<BlockObservation>>>());
@@ -80,6 +85,11 @@ public class BroadcastServiceProductionDiTests
             _ => new Dxs.Common.BackgroundTasks.BackgroundTasksConfig());
         services.AddSingleton<TxObservationJournalWriter>();
         services.AddSingleton<IBitcoindService>(_ => Mock.Of<IBitcoindService>());
+        // BroadcastService ctor takes IAuditLogger (wave-A3 S3 operator
+        // audit). Registered for real in CorePlatformSetup, which this
+        // partial graph doesn't call — mock it so IBroadcastService resolves.
+        services.AddSingleton<Dxs.Consigliere.Services.Audit.IAuditLogger>(_ =>
+            Mock.Of<Dxs.Consigliere.Services.Audit.IAuditLogger>());
         services.AddSingleton<IPublisher>(_ => Mock.Of<IPublisher>());
         services.AddSingleton<IHubContext<WalletHub, IWalletHub>>(_ =>
             Mock.Of<IHubContext<WalletHub, IWalletHub>>());
@@ -132,6 +142,7 @@ public class BroadcastServiceProductionDiTests
         Assert.NotNull(service.PolicyValidator);
         Assert.NotNull(service.OutgoingStore);
         Assert.NotNull(service.Announcer);
+        Assert.NotNull(service.Ingestor);
     }
 
     private sealed class FakeNetworkProviderForBroadcastDi : INetworkProvider

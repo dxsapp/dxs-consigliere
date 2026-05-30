@@ -64,13 +64,10 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
     private readonly WatchlistMatcher _matcher;
     private readonly MempoolWatcher _watcher;
     private readonly SourceObservationRecorder _recorder;
-    private readonly TxObservationJournalWriter _journal;
-    private readonly ITransactionStore _transactionStore;
-    private readonly IRawTransactionPayloadStore _payloadStore;
+    private readonly ObservedTxIngestor _ingestor;
     private readonly PerSessionDispatcherRegistry _dispatcherRegistry;
     private readonly MempoolWatcherOptions _watcherOptions;
     private readonly BsvP2pConfig _p2pConfig;
-    private readonly INetworkProvider _network;
     private readonly ILogger<P2pMempoolIngestRunner> _logger;
 
     private readonly ConcurrentDictionary<PeerSession, byte> _wiredSessions = new(ReferenceEqualityComparer.Instance);
@@ -100,14 +97,14 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         _matcher = matcher;
         _watcher = watcher;
         _recorder = recorder;
-        _journal = journal;
-        _transactionStore = transactionStore;
-        _payloadStore = payloadStore;
         _dispatcherRegistry = dispatcherRegistry;
         _watcherOptions = watcherOptions.Value;
         _p2pConfig = p2pOptions.Value;
-        _network = network;
         _logger = logger;
+        // The ingest core (parse → match → save → payload → journal) is
+        // shared with the self-broadcast path via ObservedTxIngestor; the
+        // runner owns only the P2P inv/getdata transport + its metrics.
+        _ingestor = new ObservedTxIngestor(matcher, transactionStore, payloadStore, journal, network, logger);
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -312,111 +309,24 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
 
     private async Task OnTxArrivedAsync(string txid, byte[] rawBytes)
     {
-        // Parse defensively — Transaction.Parse can throw on malformed.
-        Transaction? tx;
-        try { tx = Transaction.Parse(rawBytes, _network.Network); }
-        catch (Exception ex)
+        // Delegate to the shared ingest core; map its outcome to the
+        // P2P-specific metrics + dedupe-cache retry policy the runner owns.
+        var outcome = await _ingestor.IngestAsync(txid, rawBytes, TxObservationSource.P2p);
+        switch (outcome)
         {
-            _logger.LogDebug(ex, "OnTxArrived: failed to parse {Txid}", txid);
-            _recorder.RecordParseError();
-            return;
+            case TxIngestOutcome.ParseError:
+                _recorder.RecordParseError();
+                break;
+            case TxIngestOutcome.Unmatched:
+                _recorder.RecordUnmatched();
+                break;
+            case TxIngestOutcome.SaveFailed:
+                // Forget so another peer's inv can retry the fetch + save.
+                _watcher.Forget(txid);
+                break;
+            case TxIngestOutcome.Matched:
+                _recorder.RecordMatched();
+                break;
         }
-        if (tx is null) { _recorder.RecordParseError(); return; }
-
-        var parsed = ToParsedTx(tx, rawBytes, txid);
-        var result = _matcher.Match(parsed);
-
-        if (result is MatchResult.None)
-        {
-            _recorder.RecordUnmatched();
-            return;
-        }
-
-        // Hit — persist the MetaTransaction, raw payload, and journal entry.
-        //
-        // The MetaTransaction (+ MetaOutputs) is what the
-        // AddressProjectionRebuilder reads to CREDIT the watched address's
-        // UTXO set / balance — it bails on an observation whose txid has no
-        // MetaTransaction. The legacy TransactionFilter creates it via
-        // SaveTransaction; the P2P observer must do the same, otherwise a
-        // P2P-observed mempool payment is journaled ("seen") but never
-        // credits the balance ("not useful"). Mempool tx → no block coords.
-        try
-        {
-            await _transactionStore.SaveTransaction(
-                tx,
-                DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-                firstOutToRedeem: null);
-        }
-        catch (Exception ex)
-        {
-            // The MetaTransaction MUST exist before we journal the
-            // observation — the address projection credits the balance from
-            // it and skips observations without one. If the save fails, do
-            // NOT journal (that would create an un-projectable record);
-            // Forget the txid so another peer's inv can retry the fetch+save.
-            _logger.LogWarning(ex, "OnTxArrived: SaveTransaction failed for {Txid}; not journaling", txid);
-            _watcher.Forget(txid);
-            return;
-        }
-
-        RawTransactionPayloadReference? payloadRef = null;
-        try
-        {
-            payloadRef = await _payloadStore.SaveAsync(
-                txid,
-                Convert.ToHexString(rawBytes).ToLowerInvariant());
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "OnTxArrived: payload save failed for {Txid}", txid);
-        }
-
-        var observation = new TxObservation(
-            TxObservationEventType.SeenInMempool,
-            TxObservationSource.P2p,
-            txid,
-            DateTimeOffset.UtcNow);
-        var ok = await _journal.AppendAsync(observation, payloadRef, TxObservationSource.P2p);
-        if (ok) _recorder.RecordMatched();
-    }
-
-    private ParsedTx ToParsedTx(Transaction tx, byte[] rawBytes, string txid)
-    {
-        // Audit W2 A2 H2: the live ingest path now consumes the S1
-        // TxScriptParser contract directly (canonical 25-byte P2PKH
-        // output check, compressed + uncompressed P2PKH input pubkey
-        // derivation, defensive token parsing). The earlier shortcut
-        // through Output.Address / Input.Address bypassed the
-        // contract — UnlockingScriptReader only derives input
-        // addresses for 33-byte compressed pubkeys, which would drop
-        // matches for uncompressed P2PKH inputs that S1 explicitly
-        // supports.
-        var outputHashes = new List<byte[]>(tx.Outputs.Count);
-        var outputTokens = new List<string>();
-        for (var i = 0; i < tx.Outputs.Count; i++)
-        {
-            var script = tx.Outputs[i].ScriptPubKey.Materialize(rawBytes);
-            if (TxScriptParser.TryParseP2pkhOutput(script, out var h))
-            {
-                outputHashes.Add(h.ToArray());
-                continue;
-            }
-            if (TxScriptParser.TryParseTokenId(script, _network.Network, out var tokenId)
-                && !string.IsNullOrEmpty(tokenId))
-            {
-                outputTokens.Add(tokenId);
-            }
-        }
-        var inputHashes = new List<byte[]>(tx.Inputs.Count);
-        for (var i = 0; i < tx.Inputs.Count; i++)
-        {
-            var input = tx.Inputs[i];
-            if (input.Coinbase) continue;
-            var scriptSig = input.ScriptSig.Materialize(rawBytes);
-            if (TxScriptParser.TryParseP2pkhInputPubkey(scriptSig, out var h) && h is not null)
-                inputHashes.Add(h);
-        }
-        return new ParsedTx(txid, outputHashes, inputHashes, outputTokens);
     }
 }
