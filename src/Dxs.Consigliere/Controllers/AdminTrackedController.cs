@@ -42,6 +42,7 @@ public class AdminTrackedController(
         [FromBody] AdminTrackAddressRequest request,
         [FromServices] ITrackedEntityRegistrationStore registrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
+        [FromServices] Services.P2p.RavenWatchlistLoader watchlistLoader,
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
     {
@@ -62,6 +63,11 @@ public class AdminTrackedController(
         // same composition as POST /api/admin/manage/address. Without this
         // the address stays scope_not_ready forever (no background promoter).
         await lifecycleOrchestrator.BeginTrackingAddressAsync(parsed.Value, cancellationToken);
+        // Add to the P2P mempool matcher SYNCHRONOUSLY so a tx broadcast
+        // right after tracking is matched live — don't rely on the Changes-API
+        // hot-reload lag (which leaves a race window where the funding tx is
+        // missed and, with no block sync, never recovered).
+        watchlistLoader.TrackAddressNow(parsed.Value);
 
         var response = await queryService.GetTrackedAddressAsync(parsed.Value, cancellationToken);
         return Ok(response);
@@ -73,6 +79,7 @@ public class AdminTrackedController(
         [FromBody] AdminTrackTokenRequest request,
         [FromServices] ITrackedEntityRegistrationStore registrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
+        [FromServices] Services.P2p.RavenWatchlistLoader watchlistLoader,
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
     {
@@ -92,6 +99,9 @@ public class AdminTrackedController(
             parsed.Value, request.Symbol?.Trim() ?? string.Empty, historyMode, trustedRoots, cancellationToken);
         // Promote past "registered" to readable immediately (see TrackAddress).
         await lifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
+        // Synchronously add to the P2P matcher (see TrackAddress) so tx are
+        // matched live without the Changes-API hot-reload race.
+        watchlistLoader.TrackTokenNow(parsed.Value);
 
         var response = await queryService.GetTrackedTokenAsync(parsed.Value, cancellationToken);
         return Ok(response);

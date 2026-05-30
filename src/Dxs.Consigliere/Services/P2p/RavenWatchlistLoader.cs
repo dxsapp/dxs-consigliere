@@ -217,6 +217,23 @@ public sealed class RavenWatchlistLoader : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Synchronously add an address to the in-memory matcher. Called by the
+    /// tracking flow so a freshly-tracked address matches mempool tx
+    /// IMMEDIATELY, without waiting for the RavenDB Changes-API hot-reload to
+    /// round-trip — that lag leaves a race window where an incoming tx (or a
+    /// funding tx broadcast right after tracking) is seen before the address
+    /// is in the matcher and is then never re-evaluated. Idempotent +
+    /// thread-safe; the Changes-API path stays as the backstop for edits made
+    /// outside this process.
+    /// </summary>
+    public void TrackAddressNow(string address)
+        => ApplyAddressAdd(new WatchingAddress { Address = address });
+
+    /// <summary>Synchronously add a token to the matcher — see <see cref="TrackAddressNow"/>.</summary>
+    public void TrackTokenNow(string tokenId)
+        => ApplyTokenAdd(new WatchingToken { TokenId = tokenId });
+
     private void ApplyAddressAdd(WatchingAddress doc)
     {
         if (doc is null || string.IsNullOrEmpty(doc.Address)) return;
