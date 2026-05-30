@@ -42,6 +42,7 @@ public class AdminTrackedController(
         [FromBody] AdminTrackAddressRequest request,
         [FromServices] ITrackedEntityRegistrationStore registrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
+        [FromServices] ITransactionFilter transactionFilter,
         [FromServices] Services.P2p.RavenWatchlistLoader watchlistLoader,
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
@@ -63,6 +64,14 @@ public class AdminTrackedController(
         // same composition as POST /api/admin/manage/address. Without this
         // the address stays scope_not_ready forever (no background promoter).
         await lifecycleOrchestrator.BeginTrackingAddressAsync(parsed.Value, cancellationToken);
+        // Add to the legacy TransactionFilter watch-set so EVERY source that
+        // feeds the shared TxMessageBus (block processing, node ZMQ, and the
+        // external realtime runners) also matches + indexes this address —
+        // not just the P2P observer. The legacy /manage/address endpoint does
+        // the same; the track endpoint must too, or block/confirm and
+        // bus-sourced tx never see the address.
+        transactionFilter.ManageUtxoSetForAddress(parsed);
+        // Add to the P2P mempool matcher SYNCHRONOUSLY so a tx broadcast
         // Add to the P2P mempool matcher SYNCHRONOUSLY so a tx broadcast
         // right after tracking is matched live — don't rely on the Changes-API
         // hot-reload lag (which leaves a race window where the funding tx is
@@ -79,6 +88,7 @@ public class AdminTrackedController(
         [FromBody] AdminTrackTokenRequest request,
         [FromServices] ITrackedEntityRegistrationStore registrationStore,
         [FromServices] ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
+        [FromServices] ITransactionFilter transactionFilter,
         [FromServices] Services.P2p.RavenWatchlistLoader watchlistLoader,
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
@@ -99,6 +109,8 @@ public class AdminTrackedController(
             parsed.Value, request.Symbol?.Trim() ?? string.Empty, historyMode, trustedRoots, cancellationToken);
         // Promote past "registered" to readable immediately (see TrackAddress).
         await lifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
+        // Wire the legacy TransactionFilter watch-set too (see TrackAddress).
+        transactionFilter.ManageUtxoSetForToken(parsed);
         // Synchronously add to the P2P matcher (see TrackAddress) so tx are
         // matched live without the Changes-API hot-reload race.
         watchlistLoader.TrackTokenNow(parsed.Value);
