@@ -39,10 +39,22 @@ namespace Dxs.Consigliere.Services.P2p;
 /// </summary>
 public sealed class TxRelayCoordinator : ITxAnnouncer
 {
+    /// <summary>
+    /// How many ready peers to hold back from the initial inv announce so
+    /// they can act as relay-back listeners. A peer never echoes a tx back
+    /// to the peer it received it from, so if we announced to ALL peers
+    /// none could ever relay it back — the self-broadcast would never be
+    /// independently confirmed and the mempool observer would never re-see
+    /// it to credit the watched address. The reserved peers learn the tx
+    /// from the network and inv(txid) it back to us.
+    /// </summary>
+    public const int DefaultRelayReserveListeners = 2;
+
     private readonly BsvP2pHealth _health;
     private readonly OutgoingTransactionStore _store;
     private readonly ILogger<TxRelayCoordinator> _logger;
     private readonly PerSessionDispatcherRegistry? _dispatcherRegistry;
+    private readonly int _reserveListeners;
 
     // txid → raw hex bytes (populated during Dispatching). Key is the
     // canonical display-order txid (matches OutgoingTransactionStore + the
@@ -60,12 +72,14 @@ public sealed class TxRelayCoordinator : ITxAnnouncer
         BsvP2pHealth health,
         OutgoingTransactionStore store,
         ILogger<TxRelayCoordinator> logger,
-        PerSessionDispatcherRegistry? dispatcherRegistry = null)
+        PerSessionDispatcherRegistry? dispatcherRegistry = null,
+        int relayReserveListeners = DefaultRelayReserveListeners)
     {
         _health = health;
         _store = store;
         _logger = logger;
         _dispatcherRegistry = dispatcherRegistry;
+        _reserveListeners = Math.Max(0, relayReserveListeners);
     }
 
     /// <summary>
@@ -88,24 +102,39 @@ public sealed class TxRelayCoordinator : ITxAnnouncer
             return 0;
         }
 
+        // Wire getdata / relay-back / reject handlers on EVERY ready peer —
+        // including the ones we deliberately DON'T announce to below. The
+        // reserved peers are our relay-back listeners: they learn the tx
+        // from the network and inv(txid) it back to us, which advances
+        // PeerRelayed here AND lets the mempool observer fetch + ingest it
+        // (crediting the watched address). If we announced to all peers,
+        // none would relay it back (a peer never echoes a tx to the peer it
+        // got it from) and the self-broadcast could never be confirmed.
+        if (_dispatcherRegistry is not null)
+        {
+            foreach (var session in sessions)
+                EnsureWiredViaDispatcher(session);
+        }
+
+        // Hold back up to _reserveListeners peers, but always announce to at
+        // least one.
+        var reserve = Math.Min(_reserveListeners, sessions.Count - 1);
+        var announceTargets = sessions.Take(sessions.Count - reserve);
+
         // txId is canonical display-order; on the wire we need it
         // byte-reversed (audit W2 A2 H1).
         var txidBytes = TxHashOrder.DisplayHexToWire(txId);
         var inv = InvMessage.ForTx(txidBytes);
         var served = 0;
 
-        foreach (var session in sessions)
+        foreach (var session in announceTargets)
         {
             try
             {
                 await session.SendInvAsync(inv, ct);
                 served++;
 
-                if (_dispatcherRegistry is not null)
-                {
-                    EnsureWiredViaDispatcher(session);
-                }
-                else
+                if (_dispatcherRegistry is null)
                 {
                     // Legacy path: one read loop per (txid, session) pair.
                     _ = WatchSessionLegacyAsync(session, txId, rawBytes, ct);
@@ -116,6 +145,11 @@ public sealed class TxRelayCoordinator : ITxAnnouncer
                 _logger.LogDebug(ex, "Failed to announce {TxId} to {Peer}", txId, session.Remote);
             }
         }
+
+        if (reserve > 0)
+            _logger.LogInformation(
+                "Announced {TxId} to {Served}/{Total} peers; reserved {Reserve} as relay-back listeners",
+                txId, served, sessions.Count, reserve);
 
         return served;
     }
