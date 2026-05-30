@@ -57,6 +57,11 @@ public class BsvP2pSetupDiResolutionTests
         services.Configure<ConsigliereStorageConfig>(config.GetSection("Consigliere:Storage"));
         services.AddSingleton<IDocumentStore>(_ => Mock.Of<IDocumentStore>());
         services.AddSingleton<IRawTransactionPayloadStore>(_ => Mock.Of<IRawTransactionPayloadStore>());
+        // P2pMempoolIngestRunner now writes the MetaTransaction on a watchlist
+        // match so the address UTXO/balance projection can build (registered
+        // in production via BsvRuntimeSetup → IMetaTransactionStore).
+        services.AddSingleton<Dxs.Bsv.BitcoinMonitor.ITransactionStore>(
+            _ => Mock.Of<Dxs.Bsv.BitcoinMonitor.ITransactionStore>());
         // wizard-enabled-p2p-runtime-toggle S2: BsvP2pHostedService now
         // reads the effective P2P-enabled state through this service
         // (registered in IndexerStateSetup in production).

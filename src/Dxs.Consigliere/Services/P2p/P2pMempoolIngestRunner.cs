@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 using Dxs.Bsv;
+using Dxs.Bsv.BitcoinMonitor;
 using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Bsv.Models;
 using Dxs.Bsv.P2p;
@@ -64,6 +65,7 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
     private readonly MempoolWatcher _watcher;
     private readonly SourceObservationRecorder _recorder;
     private readonly TxObservationJournalWriter _journal;
+    private readonly ITransactionStore _transactionStore;
     private readonly IRawTransactionPayloadStore _payloadStore;
     private readonly PerSessionDispatcherRegistry _dispatcherRegistry;
     private readonly MempoolWatcherOptions _watcherOptions;
@@ -85,6 +87,7 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         MempoolWatcher watcher,
         SourceObservationRecorder recorder,
         TxObservationJournalWriter journal,
+        ITransactionStore transactionStore,
         IRawTransactionPayloadStore payloadStore,
         PerSessionDispatcherRegistry dispatcherRegistry,
         IOptions<MempoolWatcherOptions> watcherOptions,
@@ -98,6 +101,7 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         _watcher = watcher;
         _recorder = recorder;
         _journal = journal;
+        _transactionStore = transactionStore;
         _payloadStore = payloadStore;
         _dispatcherRegistry = dispatcherRegistry;
         _watcherOptions = watcherOptions.Value;
@@ -328,7 +332,27 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
             return;
         }
 
-        // Hit — persist raw + append journal entry.
+        // Hit — persist the MetaTransaction, raw payload, and journal entry.
+        //
+        // The MetaTransaction (+ MetaOutputs) is what the
+        // AddressProjectionRebuilder reads to CREDIT the watched address's
+        // UTXO set / balance — it bails on an observation whose txid has no
+        // MetaTransaction. The legacy TransactionFilter creates it via
+        // SaveTransaction; the P2P observer must do the same, otherwise a
+        // P2P-observed mempool payment is journaled ("seen") but never
+        // credits the balance ("not useful"). Mempool tx → no block coords.
+        try
+        {
+            await _transactionStore.SaveTransaction(
+                tx,
+                DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                firstOutToRedeem: null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "OnTxArrived: SaveTransaction failed for {Txid}", txid);
+        }
+
         RawTransactionPayloadReference? payloadRef = null;
         try
         {

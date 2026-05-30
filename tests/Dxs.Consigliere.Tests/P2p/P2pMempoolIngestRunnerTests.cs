@@ -163,6 +163,7 @@ public class P2pMempoolIngestRunnerTests
             watcher,
             recorder,
             journal,
+            Moq.Mock.Of<Dxs.Bsv.BitcoinMonitor.ITransactionStore>(),
             payload,
             registry,
             Options.Create(new MempoolWatcherOptions { GetDataTimeoutMs = 1_000 }),
@@ -420,7 +421,8 @@ public class P2pMempoolIngestRunnerTests
             NullLogger<RavenWatchlistLoader>.Instance);
         matcher.MarkLoaded();
         var runner = new P2pMempoolIngestRunner(
-            health, loader, matcher, watcher, recorder, journal, payload, registry,
+            health, loader, matcher, watcher, recorder, journal,
+            Moq.Mock.Of<Dxs.Bsv.BitcoinMonitor.ITransactionStore>(), payload, registry,
             Options.Create(new MempoolWatcherOptions { MaxGetDataPerSec = 1, GetDataTimeoutMs = 1_000 }),
             Options.Create(new BsvP2pConfig { Enabled = true, MempoolMaxFetchedTxBytes = 32 * 1024 * 1024 }),
             new FakeNetwork(),
