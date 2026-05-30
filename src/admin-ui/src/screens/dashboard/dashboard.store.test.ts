@@ -194,7 +194,7 @@ describe("DashboardStore", () => {
     store.dispose();
   });
 
-  it("reports degraded health when poolSize < target", async () => {
+  it("reports degraded only when the pool is critically low (below half target)", async () => {
     const partial = adminStub({
       getP2pHealth: async () => ({
         bound: true,
@@ -209,6 +209,26 @@ describe("DashboardStore", () => {
     const { store } = build({ admin: partial });
     await store.start();
     expect(store.healthSummary.status).toBe("degraded");
+    store.dispose();
+  });
+
+  it("reports online for a healthy-but-not-full pool (6/8)", async () => {
+    // The reported case: a warming/steady pool with several peers must NOT
+    // read as "system degraded" just because it's below the full target.
+    const partial = adminStub({
+      getP2pHealth: async () => ({
+        bound: true,
+        poolSize: 6,
+        targetPoolSize: 8,
+        subnet24Diversity: 5,
+        activePeers: [],
+        inboundEnabled: false,
+      }),
+      getSourceMetrics: async () => ({ latest: null, history: [] } as SourceMetricsResponse),
+    });
+    const { store } = build({ admin: partial });
+    await store.start();
+    expect(store.healthSummary.status).toBe("online");
     store.dispose();
   });
 

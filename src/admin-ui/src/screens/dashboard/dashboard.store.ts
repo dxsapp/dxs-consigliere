@@ -162,10 +162,17 @@ export class DashboardStore {
     if (this.health.poolSize === 0) {
       return { status: "offline", label: "Pool empty" };
     }
-    if (this.health.poolSize < this.health.targetPoolSize) {
-      return { status: "degraded", label: `Pool ${this.health.poolSize}/${this.health.targetPoolSize}` };
+    // A node is operationally healthy well before the pool is FULL — it can
+    // observe + broadcast with a handful of peers. Only flag "degraded" when
+    // the pool is critically low (below half the target, floor 2), so a
+    // normally-warming or steady-but-not-full pool (e.g. 6/8) reads as
+    // online instead of "system degraded".
+    const label = `Pool ${this.health.poolSize}/${this.health.targetPoolSize}`;
+    const healthyFloor = Math.max(2, Math.ceil(this.health.targetPoolSize / 2));
+    if (this.health.poolSize < healthyFloor) {
+      return { status: "degraded", label };
     }
-    return { status: "online", label: `Pool ${this.health.poolSize}/${this.health.targetPoolSize}` };
+    return { status: "online", label };
   }
 
   // ── Internal ─────────────────────────────────────────────────
