@@ -25,17 +25,6 @@ public static class TxObservationSource
     /// sources observe the same txid.
     /// </summary>
     public const string P2p = "p2p";
-
-    /// <summary>
-    /// A transaction this node itself built and broadcast (the lab /
-    /// operator broadcast path). The raw bytes are available locally at
-    /// dispatch time, so the broadcast feeds them straight into the same
-    /// match → SaveTransaction → journal ingest pipeline an observed
-    /// mempool tx takes — otherwise a self-broadcast that pays/spends a
-    /// watched address would never credit/debit its projection (the node
-    /// dedupes its own tx when peers relay it back).
-    /// </summary>
-    public const string Self = "self";
 }
 
 public sealed record TxObservation(

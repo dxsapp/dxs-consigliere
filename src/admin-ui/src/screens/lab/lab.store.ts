@@ -1,6 +1,5 @@
 import { makeAutoObservable, runInAction } from "mobx";
 import type { IAdminClient } from "@/lib/admin/admin-client";
-import type { BroadcastReceiptDto } from "@/types/admin";
 import {
   buildP2pkhSend,
   generateLabKey,
@@ -16,16 +15,25 @@ import {
  * per-action AbortController.
  *
  * The self-contained loop:
- *   generate() → new keypair in-browser → auto-track its address
- *   refresh()  → GET /api/address/{addr}/utxos → spendable balance
- *   send()     → select UTXOs → build+sign P2PKH (client-side) →
- *                broadcastRawTx(rawHex) → store the receipt
+ *   generate()      → new keypair in-browser → auto-track its address
+ *   refresh()       → GET /api/address/{addr}/utxos → spendable balance
+ *   createAndSign() → select UTXOs → build+sign P2PKH (client-side) →
+ *                     store the raw hex for the operator to copy
+ *
+ * The lab deliberately does NOT broadcast: it only builds + signs and
+ * surfaces the raw tx hex. The operator copies it into the Broadcast
+ * inspector (POST /api/tx/broadcast) and watches the round-trip there —
+ * a tx is only "executed" once peers accept it and relay it back, which
+ * the node's own P2P observer then credits to this address (the balance
+ * updates on the next auto-refresh). Keeping build/sign and broadcast as
+ * two explicit steps is clearer for a demo.
  *
  * CRITICAL: the private key / WIF is never sent to the BACKEND. Only the
- * address (to track) and the signed `rawHex` (to broadcast) cross the
- * wire. For lab continuity the keypair IS persisted to `localStorage`
- * (browser-local) so a page refresh doesn't lose the wallet — these are
- * demo-grade keys (the page banner says so); use "Reset wallet" to wipe.
+ * address (to track) crosses the wire from here; the signed `rawHex` is
+ * shown for the operator to broadcast. For lab continuity the keypair IS
+ * persisted to `localStorage` (browser-local) so a page refresh doesn't
+ * lose the wallet — these are demo-grade keys (the page banner says so);
+ * use "Reset wallet" to wipe.
  *
  * The SDK build/sign calls are injected (defaults = the real wrapper)
  * so the orchestration can be unit-tested with the elliptic-curve SDK
@@ -51,13 +59,15 @@ const DEFAULT_POLL_MS = 6_000;
 export class LabStore {
   key: LabKey | null = null;
   utxos: LabUtxo[] = [];
-  receipt: BroadcastReceiptDto | null = null;
+  /** The last built+signed raw tx hex, for the operator to copy into the
+   *  Broadcast inspector. Null until createAndSign() succeeds. */
+  signedHex: string | null = null;
 
   status: LabStatus = "idle";
   /** Independent flags so the UI can show per-action spinners. */
   generating = false;
   refreshing = false;
-  sending = false;
+  building = false;
   error: string | null = null;
 
   private readonly admin: IAdminClient;
@@ -104,7 +114,7 @@ export class LabStore {
     this.inflight = null;
     this.key = null;
     this.utxos = [];
-    this.receipt = null;
+    this.signedHex = null;
     this.error = null;
     this.status = "idle";
     clearWallet();
@@ -153,7 +163,7 @@ export class LabStore {
       runInAction(() => {
         this.key = key;
         this.utxos = [];
-        this.receipt = null;
+        this.signedHex = null;
         this.status = "ready";
       });
       this.startPolling();
@@ -210,12 +220,13 @@ export class LabStore {
   }
 
   /**
-   * Build + sign a P2PKH send client-side, then broadcast the raw hex.
-   * Change returns to the lab address. Surfaces insufficient-funds and
-   * broadcast (400 body) errors.
+   * Build + sign a P2PKH send entirely client-side and store the raw hex.
+   * Change returns to the lab address. Does NOT broadcast — the operator
+   * copies `signedHex` into the Broadcast inspector. Surfaces
+   * insufficient-funds errors.
    */
-  async send(destination: string, amountSats: number): Promise<void> {
-    if (this.sending) return;
+  async createAndSign(destination: string, amountSats: number): Promise<void> {
+    if (this.building) return;
     const key = this.key;
     if (!key) {
       runInAction(() => {
@@ -237,9 +248,9 @@ export class LabStore {
     }
 
     runInAction(() => {
-      this.sending = true;
+      this.building = true;
       this.error = null;
-      this.receipt = null;
+      this.signedHex = null;
     });
     try {
       const { rawHex } = await this.buildSendFn({
@@ -248,13 +259,10 @@ export class LabStore {
         amountSats,
         utxos: this.utxos,
       });
-      const receipt = await this.admin.broadcastRawTx(rawHex);
       runInAction(() => {
-        this.receipt = receipt;
+        this.signedHex = rawHex;
         this.status = "ready";
       });
-      // Refresh the UTXO set so the spent coin disappears.
-      await this.refresh();
     } catch (err) {
       runInAction(() => {
         this.status = "error";
@@ -265,7 +273,7 @@ export class LabStore {
       });
     } finally {
       runInAction(() => {
-        this.sending = false;
+        this.building = false;
       });
     }
   }

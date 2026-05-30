@@ -8,9 +8,9 @@ import type { LabKey } from "@/screens/lab/lab.tx";
  *
  * What is REAL here:
  *  - the LabStore orchestration (generate → trackAddress → refresh,
- *    send → buildSend → broadcastRawTx → refresh, error surfacing)
+ *    createAndSign → buildSend → store signedHex, error surfacing)
  *  - the MockAdminClient (real wire shapes: trackAddress,
- *    getAddressUtxos seed, broadcastRawTx receipt).
+ *    getAddressUtxos seed).
  *
  * What is MOCKED:
  *  - the in-browser SDK crypto wrapper (`generateLabKey` /
@@ -39,7 +39,7 @@ function makeStore(opts?: { buildSend?: LabStoreOptions["buildSend"] }) {
   const admin = new MockAdminClient();
   const trackSpy = vi.spyOn(admin, "trackAddress");
   const utxosSpy = vi.spyOn(admin, "getAddressUtxos");
-  const broadcastSpy = vi.spyOn(admin, "broadcastRawTx");
+  const broadcastSpy = vi.spyOn(admin, "broadcastRaw");
   const generateKey = vi.fn(async () => FAKE_KEY);
   const buildSend =
     opts?.buildSend ??
@@ -80,57 +80,40 @@ describe("LabStore", () => {
     expect(store.balanceSats).toBe(100_000);
   });
 
-  it("send() builds a rawHex and broadcasts exactly that hex", async () => {
+  it("createAndSign() builds the rawHex and stores it WITHOUT broadcasting", async () => {
     const { store, buildSend, broadcastSpy } = makeStore();
     await store.generate();
 
-    await store.send("1Destination000000000000000000000000", 50_000);
+    await store.createAndSign("1Destination000000000000000000000000", 50_000);
 
     expect(buildSend).toHaveBeenCalledOnce();
     const buildArgs = (buildSend as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(buildArgs.fromWif).toBe(FAKE_KEY.wif);
     expect(buildArgs.amountSats).toBe(50_000);
-    // Broadcast received the exact rawHex the wrapper produced — and
-    // nothing key-related.
-    expect(broadcastSpy).toHaveBeenCalledWith("deadbeef");
-    expect(store.receipt?.txId).toBeTruthy();
+    // The signed hex is surfaced for the operator to copy — the lab never
+    // broadcasts (the operator pastes it into the Broadcast inspector).
+    expect(store.signedHex).toBe("deadbeef");
+    expect(broadcastSpy).not.toHaveBeenCalled();
     expect(store.error).toBeNull();
   });
 
-  it("send() surfaces insufficient-funds as a clear error", async () => {
+  it("createAndSign() surfaces insufficient-funds as a clear error", async () => {
     const buildSend = vi.fn(async () => {
       throw new Error("INSUFFICIENT_FUNDS");
     });
     const { store, broadcastSpy } = makeStore({ buildSend });
     await store.generate();
 
-    await store.send("1Destination000000000000000000000000", 999_999_999);
+    await store.createAndSign("1Destination000000000000000000000000", 999_999_999);
 
     expect(store.error).toMatch(/insufficient funds/i);
-    expect(store.receipt).toBeNull();
+    expect(store.signedHex).toBeNull();
     expect(broadcastSpy).not.toHaveBeenCalled();
   });
 
-  it("send() surfaces a broadcast 400 body via the admin client error", async () => {
-    const admin = new MockAdminClient();
-    vi.spyOn(admin, "broadcastRawTx").mockRejectedValue(new Error("16: bad-txns-inputs-missingorspent"));
-    const store = new LabStore({
-      admin,
-      generateKey: async () => FAKE_KEY,
-      buildSend: async () => ({ rawHex: "abcd", selectedSats: 100_000, inputCount: 1 }),
-      ...noopTimers(),
-    });
-    await store.generate();
-
-    await store.send("1Destination000000000000000000000000", 1_000);
-
-    expect(store.error).toContain("bad-txns-inputs-missingorspent");
-    expect(store.receipt).toBeNull();
-  });
-
-  it("send() refuses without a generated key", async () => {
+  it("createAndSign() refuses without a generated key", async () => {
     const { store, buildSend } = makeStore();
-    await store.send("1Destination000000000000000000000000", 1_000);
+    await store.createAndSign("1Destination000000000000000000000000", 1_000);
     expect(buildSend).not.toHaveBeenCalled();
     expect(store.error).toMatch(/generate a key/i);
   });
@@ -147,9 +130,9 @@ describe("LabStore", () => {
     expect(second.store.key?.wif).toBe(FAKE_KEY.wif);
     await second.store.start();
     expect(second.store.balanceSats).toBe(100_000);
-    // The restored store can spend without regenerating.
-    await second.store.send("1Destination000000000000000000000000", 10_000);
-    expect(second.broadcastSpy).toHaveBeenCalledWith("deadbeef");
+    // The restored store can build+sign without regenerating.
+    await second.store.createAndSign("1Destination000000000000000000000000", 10_000);
+    expect(second.store.signedHex).toBe("deadbeef");
   });
 
   it("auto-polls the balance after a key is generated", async () => {

@@ -54,16 +54,6 @@ public static class BsvP2pSetup
             .AddSingleton<WatchlistMatcher>()
             .AddSingleton<RavenWatchlistLoader>()
             .AddSingleton<SourceObservationRecorder>()
-            // Shared ingest core (parse → match → save → journal), used by
-            // both the P2P observer and the self-broadcast path. ILogger is
-            // non-generic on the ctor, so resolve it explicitly.
-            .AddSingleton<ObservedTxIngestor>(sp => new ObservedTxIngestor(
-                sp.GetRequiredService<WatchlistMatcher>(),
-                sp.GetRequiredService<Dxs.Bsv.BitcoinMonitor.ITransactionStore>(),
-                sp.GetRequiredService<Dxs.Consigliere.Data.IRawTransactionPayloadStore>(),
-                sp.GetRequiredService<Dxs.Consigliere.BackgroundTasks.TxObservationJournalWriter>(),
-                sp.GetRequiredService<Dxs.Consigliere.Services.INetworkProvider>(),
-                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ObservedTxIngestor>>()))
             .AddSingleton<MempoolWatcher>(sp =>
                 new MempoolWatcher(sp.GetRequiredService<IOptions<MempoolWatcherOptions>>().Value))
             .AddHostedService<P2pMempoolIngestRunner>()
@@ -116,8 +106,7 @@ public static class BsvP2pSetup
         BroadcastService broadcastService,
         TxPolicyValidator validator,
         OutgoingTransactionStore store,
-        TxRelayCoordinator relay,
-        ObservedTxIngestor ingestor)
+        TxRelayCoordinator relay)
     {
         // A2 M1 fix: BroadcastService now takes IOutgoingTransactionRepository
         // + ITxAnnouncer (interfaces). OutgoingTransactionStore implements
@@ -126,7 +115,6 @@ public static class BsvP2pSetup
         broadcastService.PolicyValidator = validator;
         broadcastService.OutgoingStore = store;
         broadcastService.Announcer = relay;
-        broadcastService.Ingestor = ingestor;
     }
 }
 
@@ -138,13 +126,12 @@ public sealed class BroadcastServiceP2pWirer(
     Services.IBroadcastService broadcastService,
     TxPolicyValidator validator,
     OutgoingTransactionStore store,
-    TxRelayCoordinator relay,
-    ObservedTxIngestor ingestor)
+    TxRelayCoordinator relay)
 {
     public void Wire()
     {
         if (broadcastService is BroadcastService bs)
-            BsvP2pSetup.ConfigureBroadcastServiceP2p(bs, validator, store, relay, ingestor);
+            BsvP2pSetup.ConfigureBroadcastServiceP2p(bs, validator, store, relay);
     }
 }
 

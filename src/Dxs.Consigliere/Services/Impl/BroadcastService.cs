@@ -7,7 +7,6 @@
 // fee-rate source (SatoshisPerByte forwarder). IDocumentStore was
 // dropped by A2 L1 (the legacy Broadcast doc writer was the only
 // consumer).
-using Dxs.Bsv.BitcoinMonitor.Models;
 using Dxs.Consigliere.Data.Models.P2p;
 using Dxs.Consigliere.Data.P2p;
 using Dxs.Consigliere.Services.Audit;
@@ -46,14 +45,6 @@ public class BroadcastService(
     internal IBroadcastPolicyValidator PolicyValidator { get; set; }
     internal IOutgoingTransactionRepository OutgoingStore { get; set; }
     internal ITxAnnouncer Announcer { get; set; }
-
-    // Feeds a successfully-validated self-broadcast into the SAME ingest
-    // pipeline an observed mempool tx takes (match → SaveTransaction →
-    // journal), so a broadcast that pays/spends a watched address updates
-    // its projection immediately instead of waiting for a peer to relay
-    // the tx back (which the node dedupes as its own). Property-injected
-    // alongside the other P2P bits in BsvP2pSetup.
-    internal ObservedTxIngestor Ingestor { get; set; }
 
     public async Task<BroadcastReceipt> BroadcastAsync(string rawHex, BroadcastSource source, string clientConnectionId = null, CancellationToken ct = default)
     {
@@ -120,27 +111,14 @@ public class BroadcastService(
         };
         await OutgoingStore.SaveAsync(tx, ct);
 
-        // Feed our own validated tx into the shared ingest pipeline so a
-        // broadcast that pays/spends a watched address credits/debits its
-        // projection right away. Best-effort: the tx is already validated +
-        // queued for dispatch, so an ingest hiccup must not fail the
-        // broadcast (the projection also self-heals if a peer relays the tx
-        // back later). Ingestor is null only when the P2P subsystem is off,
-        // which the guard above already excludes.
-        if (Ingestor is not null)
-        {
-            try
-            {
-                var rawBytes = Convert.FromHexString(rawHex);
-                var outcome = await Ingestor.IngestAsync(validation.TxId, rawBytes, TxObservationSource.Self);
-                if (outcome is TxIngestOutcome.SaveFailed)
-                    logger.LogWarning("Self-ingest SaveTransaction failed for {TxId}", validation.TxId);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Self-ingest failed for {TxId}", validation.TxId);
-            }
-        }
+        // NOTE: we deliberately do NOT feed our own tx into the address
+        // projection here. A self-broadcast is "executed" only once it
+        // round-trips — peers accept it and relay inv(txid) back, the P2P
+        // mempool observer fetches + matches it (source=p2p), and only then
+        // does it credit/debit the watched address. Optimistically crediting
+        // our own unconfirmed tx would show a balance the network hasn't
+        // accepted. The OutgoingTransaction lifecycle (Dispatching →
+        // PeerAcked → PeerRelayed → MempoolSeen → …) tracks that round-trip.
 
         // Fire-and-forget dispatch — lifecycle worker picks it up if this fails.
         _ = Task.Run(async () =>

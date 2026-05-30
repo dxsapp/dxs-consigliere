@@ -74,10 +74,6 @@ export interface IAdminClient {
   broadcastRaw(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
   /** tx-lab S1 — same-origin UTXO lookup for the lab screen. */
   getAddressUtxos(address: string, signal?: AbortSignal): Promise<GetUtxoSetResponse>;
-  /** tx-lab S1 — broadcast a client-side-signed raw P2PKH tx. Alias of
-   *  `broadcastRaw` named after the slice's wire verb; the lab store
-   *  only ever sends the finished `rawHex`, never the private key. */
-  broadcastRawTx(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
   /** S7 — alert history (page-delta polling per A1 M1). */
   getAlerts(opts?: { lastN?: number; since?: number; signal?: AbortSignal }): Promise<P2pAlertResponse>;
   /** S8 — peers diagnostic. */
@@ -172,10 +168,6 @@ export class AdminClient implements IAdminClient {
 
   getAddressUtxos(address: string, signal?: AbortSignal) {
     return this.api.get<GetUtxoSetResponse>(addressUtxosPath(address), { signal });
-  }
-
-  broadcastRawTx(rawHex: string, signal?: AbortSignal) {
-    return this.broadcastRaw(rawHex, signal);
   }
 
   getAlerts(opts: { lastN?: number; since?: number; signal?: AbortSignal } = {}) {

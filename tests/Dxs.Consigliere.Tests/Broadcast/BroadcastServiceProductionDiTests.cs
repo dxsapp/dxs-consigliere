@@ -72,11 +72,6 @@ public class BroadcastServiceProductionDiTests
         services.Configure<ConsigliereStorageConfig>(config.GetSection("Consigliere:Storage"));
         services.AddSingleton<IDocumentStore>(_ => Mock.Of<IDocumentStore>());
         services.AddSingleton<IRawTransactionPayloadStore>(_ => Mock.Of<IRawTransactionPayloadStore>());
-        // ObservedTxIngestor (shared by the P2P observer + self-broadcast
-        // path) takes ITransactionStore so a broadcast credits the watched
-        // address projection; the real graph registers it in Startup.
-        services.AddSingleton<Dxs.Bsv.BitcoinMonitor.ITransactionStore>(_ =>
-            Mock.Of<Dxs.Bsv.BitcoinMonitor.ITransactionStore>());
         services.AddSingleton<INetworkProvider>(_ => new FakeNetworkProviderForBroadcastDi());
         services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<TxObservation>>>());
         services.AddSingleton(_ => Mock.Of<IObservationJournalAppender<ObservationJournalEntry<BlockObservation>>>());
@@ -142,7 +137,6 @@ public class BroadcastServiceProductionDiTests
         Assert.NotNull(service.PolicyValidator);
         Assert.NotNull(service.OutgoingStore);
         Assert.NotNull(service.Announcer);
-        Assert.NotNull(service.Ingestor);
     }
 
     private sealed class FakeNetworkProviderForBroadcastDi : INetworkProvider

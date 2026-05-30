@@ -237,10 +237,6 @@ export class MockAdminClient implements IAdminClient {
     };
   }
 
-  broadcastRawTx(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto> {
-    return this.broadcastRaw(rawHex, signal);
-  }
-
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {
     // Deterministic pseudo-txid: sha-like fold of rawHex; we only
     // need a stable 64-hex-char string for the UI confirmation.

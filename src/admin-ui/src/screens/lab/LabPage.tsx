@@ -32,11 +32,13 @@ import type { IAdminClient } from "@/lib/admin/admin-client";
 /**
  * tx-lab S1 — Transaction Lab. Demonstrates the self-contained loop:
  * generate a key in-browser → its address is auto-tracked → fund it →
- * build + sign a P2PKH send client-side → broadcast over the node's own
- * P2P pool → see the receipt. No third-party provider involved.
+ * build + sign a P2PKH send client-side → copy the raw hex into the
+ * Broadcast inspector. No third-party provider involved.
  *
- * The private key never leaves the browser — only the address (to
- * track) and the signed raw hex (to broadcast) cross the wire.
+ * The lab builds + signs but does NOT broadcast: the operator pastes the
+ * raw hex into the Broadcast inspector and watches the round-trip there.
+ * The private key never leaves the browser — only the address (to track)
+ * crosses the wire from here.
  */
 export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClient }) {
   const store = useMemo(() => new LabStore({ admin }), [admin]);
@@ -50,8 +52,6 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("");
 
-  const address = store.address;
-
   return (
     <Stack spacing={3}>
       <Stack direction="row" alignItems="baseline" spacing={2} flexWrap="wrap" useFlexGap>
@@ -61,10 +61,10 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
 
       <Alert severity="warning" variant="outlined">
         <AlertTitle>Lab tool — real mainnet transactions</AlertTitle>
-        This builds and broadcasts REAL mainnet transactions with REAL funds.
-        Keep amounts small. The private key is generated and signs entirely in
-        your browser and is never sent to the backend. It is saved in this
-        browser (localStorage) so a refresh keeps the wallet — use{" "}
+        This builds and signs REAL mainnet transactions with REAL funds. Keep
+        amounts small. The private key is generated and signs entirely in your
+        browser and is never sent to the backend. It is saved in this browser
+        (localStorage) so a refresh keeps the wallet — use{" "}
         <strong>Reset wallet</strong> to wipe it. Demo-grade keys; not for
         custody.
       </Alert>
@@ -96,7 +96,7 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
                   variant="outlined"
                   color="warning"
                   onClick={() => store.reset()}
-                  disabled={store.generating || store.sending}
+                  disabled={store.generating || store.building}
                   data-testid="lab-reset"
                 >
                   Reset wallet
@@ -202,15 +202,15 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
       {store.key && (
         <Card>
           <CardHeader
-            title="3 · Send (P2PKH)"
-            subheader="Signed in your browser, broadcast over the node's P2P pool. Change returns to the lab address."
+            title="3 · Create &amp; sign (P2PKH)"
+            subheader="Built and signed in your browser. Change returns to the lab address. The lab does not broadcast — copy the raw hex below into the Broadcast inspector."
           />
           <CardContent>
             <Box
               component="form"
               onSubmit={(e) => {
                 e.preventDefault();
-                void store.send(destination, Number(amount));
+                void store.createAndSign(destination, Number(amount));
               }}
             >
               <Stack spacing={2}>
@@ -232,66 +232,49 @@ export const LabPage = observer(function LabPage({ admin }: { admin: IAdminClien
                 <Button
                   type="submit"
                   variant="contained"
-                  disabled={store.sending}
-                  data-testid="lab-send"
+                  disabled={store.building}
+                  data-testid="lab-create-sign"
                 >
-                  {store.sending ? "Signing & broadcasting…" : "Build, sign & broadcast"}
+                  {store.building ? "Signing…" : "Create & sign"}
                 </Button>
               </Stack>
             </Box>
 
-            {store.receipt &&
-              (() => {
-                const { state, failReason, txId } = store.receipt;
-                const failed = isFailedState(state) || Boolean(failReason);
-                return (
-                  <Alert
-                    severity={failed ? "error" : "success"}
-                    sx={{ mt: 3 }}
-                    data-testid="lab-receipt"
-                  >
-                    <AlertTitle>
-                      {failed ? "Broadcast rejected" : "Broadcast accepted"} — {state}
-                    </AlertTitle>
-                    <Stack spacing={0.5}>
-                      {failReason && (
-                        <Box data-testid="lab-receipt-reason">Reason: {failReason}</Box>
-                      )}
-                      {txId && (
-                        <Box sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
-                          {txId}
-                        </Box>
-                      )}
-                      {address && !failed && (
-                        <Link component={RouterLink} to={`/addresses/${address}`}>
-                          View tracked lab address
-                        </Link>
-                      )}
-                    </Stack>
-                  </Alert>
-                );
-              })()}
+            {store.signedHex && (
+              <Stack spacing={1} sx={{ mt: 3 }} data-testid="lab-signed-tx">
+                <Typography variant="subtitle2">
+                  Signed raw transaction
+                </Typography>
+                <TextField
+                  value={store.signedHex}
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  slotProps={{ input: { readOnly: true } }}
+                  InputProps={{
+                    sx: { fontFamily: "monospace", wordBreak: "break-all" },
+                    endAdornment: (
+                      <CopyButton value={store.signedHex} title="Copy raw hex" />
+                    ),
+                  }}
+                  data-testid="lab-signed-hex"
+                />
+                <Typography variant="body2" color="text.secondary">
+                  Copy this hex and paste it into the{" "}
+                  <Link component={RouterLink} to="/broadcast-inspector">
+                    Broadcast inspector
+                  </Link>{" "}
+                  to send it over the node&apos;s P2P pool. The balance above
+                  updates once peers accept and relay the tx back.
+                </Typography>
+              </Stack>
+            )}
           </CardContent>
         </Card>
       )}
     </Stack>
   );
 });
-
-// Terminal failure states of OutgoingTxState (the rest are progressing /
-// success states). A receipt is also treated as failed if it carries a
-// failReason (e.g. audit_write_failed, p2p_disabled).
-const FAILED_STATES = new Set([
-  "Failed",
-  "PolicyInvalid",
-  "InvalidRejected",
-  "ConflictRejected",
-  "EvictedOrDropped",
-  "ObserverUnknown",
-]);
-function isFailedState(state: string): boolean {
-  return FAILED_STATES.has(state);
-}
 
 function CopyButton({ value, title }: { value: string; title: string }) {
   return (
