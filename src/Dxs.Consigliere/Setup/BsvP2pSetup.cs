@@ -33,6 +33,8 @@ public static class BsvP2pSetup
             // shares the singleton health + dispatcher registry.
             .AddSingleton<IP2pRawTransactionClient, P2pRawTransactionClient>()
             // Gate 3 — tx lifecycle
+            .AddSingleton<Dxs.Consigliere.Data.P2p.IBroadcastStateNotifier,
+                Dxs.Consigliere.WebSockets.HubBroadcastStateNotifier>()
             .AddSingleton<OutgoingTransactionStore>()
             .AddSingleton<TxPolicyValidator>()
             .AddSingleton<TxRelayCoordinator>()

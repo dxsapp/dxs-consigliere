@@ -13,7 +13,9 @@ namespace Dxs.Consigliere.Data.P2p;
 /// <summary>
 /// CRUD + queries for <see cref="OutgoingTransaction"/> documents.
 /// </summary>
-public sealed class OutgoingTransactionStore(IDocumentStore documentStore) : IOutgoingTransactionRepository
+public sealed class OutgoingTransactionStore(
+    IDocumentStore documentStore,
+    IBroadcastStateNotifier notifier = null) : IOutgoingTransactionRepository
 {
     public async Task<OutgoingTransaction> GetAsync(string txId, CancellationToken ct = default)
     {
@@ -27,6 +29,15 @@ public sealed class OutgoingTransactionStore(IDocumentStore documentStore) : IOu
         using var session = documentStore.OpenAsyncSession();
         await session.StoreAsync(tx, tx.Id, ct);
         await session.SaveChangesAsync(ct);
+
+        // Push the new state to clients watching this txid so the Broadcast
+        // inspector stepper advances live. Best-effort: a hub hiccup must not
+        // fail the persisted state transition.
+        if (notifier is not null)
+        {
+            try { await notifier.NotifyStateAsync(tx); }
+            catch { /* lifecycle is persisted; the live push is advisory */ }
+        }
     }
 
     public async Task<OutgoingTransaction> GetOrNullAsync(string txId, CancellationToken ct = default)
