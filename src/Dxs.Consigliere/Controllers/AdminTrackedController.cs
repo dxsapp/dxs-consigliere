@@ -41,6 +41,7 @@ public class AdminTrackedController(
     public async Task<IActionResult> TrackAddress(
         [FromBody] AdminTrackAddressRequest request,
         [FromServices] ITrackedEntityRegistrationStore registrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
     {
@@ -56,6 +57,11 @@ public class AdminTrackedController(
 
         await registrationStore.RegisterAddressAsync(
             parsed.Value, request.Name?.Trim() ?? string.Empty, historyMode, cancellationToken);
+        // Begin tracking so the entity is promoted past "registered" to
+        // readable immediately (anchors realtime at the current tip) — the
+        // same composition as POST /api/admin/manage/address. Without this
+        // the address stays scope_not_ready forever (no background promoter).
+        await lifecycleOrchestrator.BeginTrackingAddressAsync(parsed.Value, cancellationToken);
 
         var response = await queryService.GetTrackedAddressAsync(parsed.Value, cancellationToken);
         return Ok(response);
@@ -66,6 +72,7 @@ public class AdminTrackedController(
     public async Task<IActionResult> TrackToken(
         [FromBody] AdminTrackTokenRequest request,
         [FromServices] ITrackedEntityRegistrationStore registrationStore,
+        [FromServices] ITrackedEntityLifecycleOrchestrator lifecycleOrchestrator,
         [FromServices] IAdminTrackingQueryService queryService,
         CancellationToken cancellationToken = default)
     {
@@ -83,6 +90,8 @@ public class AdminTrackedController(
 
         await registrationStore.RegisterTokenAsync(
             parsed.Value, request.Symbol?.Trim() ?? string.Empty, historyMode, trustedRoots, cancellationToken);
+        // Promote past "registered" to readable immediately (see TrackAddress).
+        await lifecycleOrchestrator.BeginTrackingTokenAsync(parsed.Value, cancellationToken);
 
         var response = await queryService.GetTrackedTokenAsync(parsed.Value, cancellationToken);
         return Ok(response);
