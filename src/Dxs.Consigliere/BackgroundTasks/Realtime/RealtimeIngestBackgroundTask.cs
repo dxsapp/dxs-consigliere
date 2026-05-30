@@ -55,7 +55,7 @@ public sealed class RealtimeIngestBackgroundTask(
     {
         var sources = await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken);
         var route = ResolveRoute(sources);
-        var enabledRunners = ResolveEnabledExternalRunners(sources);
+        var enabledRunners = SelectActiveRunners(sources, route);
         var signature = await BuildSignatureAsync(enabledRunners, route, cancellationToken);
 
         _logger.LogInformation(
@@ -74,7 +74,7 @@ public sealed class RealtimeIngestBackgroundTask(
             await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
             var currentSources = await runtimeSourcePolicyService.GetEffectiveSourcesConfigAsync(cancellationToken);
             var currentRoute = ResolveRoute(currentSources);
-            var currentRunners = ResolveEnabledExternalRunners(currentSources);
+            var currentRunners = SelectActiveRunners(currentSources, currentRoute);
             var currentSignature = await BuildSignatureAsync(currentRunners, currentRoute, cancellationToken);
 
             if (string.Equals(signature, currentSignature, StringComparison.Ordinal))
@@ -138,6 +138,26 @@ public sealed class RealtimeIngestBackgroundTask(
     /// runner. <c>p2p</c> and <c>node</c> are excluded: they run via their
     /// own always-on wiring, not as runners on this task.
     /// </summary>
+    /// <summary>
+    /// Which external runners actually run. Default (no-providers posture):
+    /// only the runner that IS the resolved realtime primary — so with the
+    /// thin node (<c>p2p</c>) as primary, NO external realtime runner runs
+    /// and the node makes zero third-party calls for realtime ingest. Set
+    /// <c>Realtime:ExternalRedundancyEnabled=true</c> to run every capable
+    /// external runner concurrently (the thin-node-primary S3 redundancy
+    /// behaviour).
+    /// </summary>
+    private IReadOnlyList<string> SelectActiveRunners(ConsigliereSourcesConfig sources, SourceCapabilityRoute route)
+    {
+        var capable = ResolveEnabledExternalRunners(sources);
+        if (_appConfig.Realtime.ExternalRedundancyEnabled)
+            return capable;
+
+        return capable
+            .Where(r => string.Equals(r, route.PrimarySource, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
     internal static IReadOnlyList<string> ResolveEnabledExternalRunners(ConsigliereSourcesConfig sources)
     {
         var runners = new List<string>(2);
