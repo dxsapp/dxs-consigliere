@@ -129,6 +129,24 @@ export const BroadcastInspectorPage = observer(function BroadcastInspectorPage({
                 <Alert severity="warning">failReason: {receipt.failReason}</Alert>
               )}
               {store && (
+                <Stack spacing={0.5}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+                    <Typography variant="body2" color="text.secondary">
+                      Step {store.progress.stepNumber} of {store.progress.totalSteps} ·{" "}
+                      {store.progress.label}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {store.progress.percent}%
+                    </Typography>
+                  </Stack>
+                  <LinearProgress
+                    variant="determinate"
+                    value={store.progress.percent}
+                    color={store.progress.failed ? "error" : "primary"}
+                  />
+                </Stack>
+              )}
+              {store && (
                 <EntityTimeline
                   stages={store.stagesView}
                   ariaLabel="broadcast inspector lifecycle"

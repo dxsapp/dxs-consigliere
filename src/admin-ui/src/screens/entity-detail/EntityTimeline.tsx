@@ -49,6 +49,9 @@ export interface EntityTimelineStage {
   status: EntityTimelineStageStatus;
   /** Optional unix-ms timestamp shown as a subtitle. */
   timestampMs?: number | null;
+  /** Optional one-line explanation of what this stage means, shown
+   *  under the label even before the stage is reached (demo legend). */
+  description?: ReactNode;
   /** Optional rich detail rendered under the step label. */
   detail?: ReactNode;
 }
@@ -115,6 +118,16 @@ export function EntityTimeline({
             <Typography variant="body1" component="div">
               {s.label}
             </Typography>
+            {s.description && (
+              <Typography
+                component="div"
+                variant="caption"
+                color="text.secondary"
+                sx={{ display: "block", mt: 0.25, fontStyle: "italic" }}
+              >
+                {s.description}
+              </Typography>
+            )}
             {s.detail && (
               <Typography
                 component="div"

@@ -61,6 +61,17 @@ const STAGE_BY_STATE: Record<OutgoingTxState, number | null> = {
 
 const STAGE_LABELS = ["Validated", "Dispatching", "Peer-relayed", "Mined", "Confirmed"] as const;
 
+// One-line, demo-friendly explanation of each stage. Aligned by index to
+// STAGE_LABELS. Shown under every step (even before it's reached) so a
+// viewer understands the thin-node broadcast lifecycle at a glance.
+const STAGE_DESCRIPTIONS: readonly string[] = [
+  "Local policy checks passed (size, fee, format). Nothing has left the node yet.",
+  "Announced to peers (inv); a peer requested the raw bytes (getdata) and the node served them.",
+  "A peer that learned the tx from the network relayed it back — independent proof it propagated into peer mempools.",
+  "A block containing the transaction was observed by the node.",
+  "Reached the required confirmation depth — settled.",
+];
+
 export interface TransactionDetailStoreOptions {
   txId: string;
   bus: EventBus;
@@ -167,9 +178,42 @@ export class TransactionDetailStore {
         label: STAGE_LABELS[idx],
         status,
         timestampMs: newest?.updatedAtMs ?? null,
+        description: STAGE_DESCRIPTIONS[idx],
         detail: newest ? this.renderDetail(events) : null,
       };
     });
+  }
+
+  /** Coarse progress for a "Step N of M" + bar in the UI. `percent` is
+   *  0–100 across the 5 stages; `failed` flips the bar to the error tint.
+   *  Derived from stagesView so it stays in sync with the timeline. */
+  get progress(): {
+    stepNumber: number;
+    totalSteps: number;
+    label: string;
+    percent: number;
+    failed: boolean;
+  } {
+    const stages = this.stagesView;
+    const total = stages.length;
+    const doneCount = stages.filter((s) => s.status === "done").length;
+    const activeIdx = stages.findIndex((s) => s.status === "active");
+    const failedIdx = stages.findIndex((s) => s.status === "failed");
+    const currentIdx =
+      failedIdx >= 0
+        ? failedIdx
+        : activeIdx >= 0
+        ? activeIdx
+        : doneCount > 0
+        ? doneCount - 1
+        : 0;
+    return {
+      stepNumber: currentIdx + 1,
+      totalSteps: total,
+      label: stages[currentIdx]?.label ?? "",
+      percent: total > 1 ? Math.round((currentIdx / (total - 1)) * 100) : 0,
+      failed: failedIdx >= 0,
+    };
   }
 
   // ── Internal ─────────────────────────────────────────────────
