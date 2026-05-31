@@ -7,11 +7,13 @@ import {
   Chip,
   CircularProgress,
   LinearProgress,
+  Link,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import ReplayIcon from "@mui/icons-material/Replay";
 import { observer } from "mobx-react-lite";
@@ -176,6 +178,13 @@ export const BroadcastInspectorPage = observer(function BroadcastInspectorPage({
  * seen. Proves a P2P-broadcast tx (no third-party submission) reached the
  * public indexers. Each row stops polling the moment it's seen.
  */
+// Public explorer tx-page URLs, by source. JungleBus is intentionally
+// absent — it has no transaction UI to link to.
+const EXPLORER_TX_URL: Partial<Record<string, (txId: string) => string>> = {
+  woc: (t) => `https://whatsonchain.com/tx/${t}`,
+  bitails: (t) => `https://bitails.io/tx/${t}`,
+};
+
 const ExternalSightings = observer(function ExternalSightings({
   admin,
   txId,
@@ -217,6 +226,17 @@ const ExternalSightings = observer(function ExternalSightings({
           <Typography variant="caption" color="text.secondary">
             {s.seen ? "seen" : s.polling ? "checking…" : "not seen"}
           </Typography>
+          {s.seen && EXPLORER_TX_URL[s.source] && (
+            <Link
+              href={EXPLORER_TX_URL[s.source]!(txId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="caption"
+              sx={{ display: "inline-flex", alignItems: "center", gap: 0.25 }}
+            >
+              open <OpenInNewIcon sx={{ fontSize: 12 }} />
+            </Link>
+          )}
         </Stack>
       ))}
     </Stack>
