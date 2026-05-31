@@ -56,6 +56,54 @@ public class TransactionController : BaseController
         }
     }
 
+    /// <summary>
+    /// Demo aid: ask a public explorer whether it has seen this txid yet.
+    /// The Broadcast inspector polls one source per second until seen, to
+    /// independently prove a P2P-broadcast tx reached third-party indexers.
+    /// `source` ∈ { woc, bitails, junglebus }. Provider errors / not-found
+    /// return seen=false so the caller simply polls again.
+    /// </summary>
+    [HttpGet("{id}/external-sighting/{source}")]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Produces(typeof(ExternalSightingResponse))]
+    public async Task<IActionResult> GetExternalSighting(
+        string id,
+        string source,
+        [FromServices] Dxs.Infrastructure.WoC.IWhatsOnChainRestApiClient woc,
+        [FromServices] Dxs.Infrastructure.Bitails.IBitailsRestApiClient bitails,
+        [FromServices] Dxs.Infrastructure.JungleBus.IJungleBusRawTransactionClient jungleBus,
+        CancellationToken cancellationToken
+    )
+    {
+        if (string.IsNullOrWhiteSpace(id) || id.Length != 64)
+            return BadRequest("invalid txid");
+
+        var src = (source ?? string.Empty).ToLowerInvariant();
+        bool seen;
+        try
+        {
+            seen = src switch
+            {
+                "woc" or "whatsonchain" => await woc.IsBroadcastedAsync(id, cancellationToken),
+                "bitails" => await bitails.IsBroadcastedAsync(id, cancellationToken),
+                "junglebus" => (await jungleBus.GetTransactionRawOrNullAsync(id, cancellationToken)) is { Length: > 0 },
+                _ => throw new ArgumentOutOfRangeException(nameof(source)),
+            };
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return BadRequest("unknown source (expected: woc | bitails | junglebus)");
+        }
+        catch
+        {
+            // Provider hiccup or not-yet-indexed — report not seen; the
+            // inspector polls again on its next tick.
+            seen = false;
+        }
+
+        return Ok(new ExternalSightingResponse { Source = src, Seen = seen });
+    }
+
     [HttpGet("batch/get")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [Produces(typeof(Dictionary<string, string>))]

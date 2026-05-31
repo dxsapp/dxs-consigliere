@@ -16,6 +16,7 @@ function buildAdmin(getAuditLog: IAdminClient["getAuditLog"]): IAdminClient {
     trackToken: vi.fn(),
     broadcastRaw: vi.fn(),
     getAddressUtxos: vi.fn(),
+    getExternalSighting: vi.fn(),
     getAlerts: vi.fn(),
     getPeers: vi.fn(),
     getHeadersTip: vi.fn(),

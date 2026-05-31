@@ -217,6 +217,9 @@ export type P2pAlertResponse = components["schemas"]["P2pAlertResponse"];
 /** S6 — frozen receipt shape returned by `POST /api/tx/broadcast`. */
 export type BroadcastReceiptDto = components["schemas"]["BroadcastReceiptDto"];
 
+/** Broadcast inspector — per-source public-explorer sighting check. */
+export type ExternalSightingResponse = components["schemas"]["ExternalSightingResponse"];
+
 /** tx-lab S1 — frozen wire shapes for the lab UTXO lookup
  *  (`GET /api/address/{address}/utxos`). */
 export type GetUtxoSetResponse = components["schemas"]["GetUtxoSetResponse"];

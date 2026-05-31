@@ -44,6 +44,12 @@ export const adminTrackedTokensPath = (includeTombstoned = false): string =>
 /** S6 — canonical broadcast entrypoint (POST {rawHex} → BroadcastReceiptDto). */
 export const TX_BROADCAST_PATH = "/api/tx/broadcast";
 
+/** Broadcast inspector — ask a public explorer if it has seen a txid yet.
+ *  GET /api/tx/{id}/external-sighting/{source} → ExternalSightingResponse.
+ *  source ∈ { woc, bitails, junglebus }. */
+export const txExternalSightingPath = (txId: string, source: string): string =>
+  `/api/tx/${encodeURIComponent(txId)}/external-sighting/${encodeURIComponent(source)}`;
+
 /** tx-lab S1 — non-admin (same-origin) UTXO lookup for the lab screen.
  *  GET /api/address/{address}/utxos → GetUtxoSetResponse. Address is
  *  path-encoded so a stray separator round-trips intact. */

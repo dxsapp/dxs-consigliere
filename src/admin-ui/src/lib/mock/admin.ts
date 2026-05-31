@@ -9,6 +9,7 @@ import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
+  ExternalSightingResponse,
   GetUtxoSetResponse,
   HeadersTipDto,
   P2pAlertResponse,
@@ -235,6 +236,15 @@ export class MockAdminClient implements IAdminClient {
         },
       ],
     };
+  }
+
+  async getExternalSighting(
+    _txId: string,
+    source: string,
+    _signal?: AbortSignal
+  ): Promise<ExternalSightingResponse> {
+    // Mock mode: report seen so the inspector's indicators light up.
+    return { source: (source ?? "").toLowerCase(), seen: true };
   }
 
   async broadcastRaw(rawHex: string, _signal?: AbortSignal): Promise<BroadcastReceiptDto> {

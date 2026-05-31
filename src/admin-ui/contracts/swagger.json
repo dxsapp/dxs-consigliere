@@ -2592,6 +2592,56 @@
         }
       }
     },
+    "/api/tx/{id}/external-sighting/{source}": {
+      "get": {
+        "tags": [
+          "Transaction"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request"
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalSightingResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalSightingResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExternalSightingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tx/batch/get": {
       "get": {
         "tags": [
@@ -4191,6 +4241,22 @@
               "$ref": "#/components/schemas/TokenHistoryUpgradeRequest"
             },
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExternalSightingResponse": {
+        "required": [
+          "seen",
+          "source"
+        ],
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "seen": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

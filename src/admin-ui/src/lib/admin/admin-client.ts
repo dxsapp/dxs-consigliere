@@ -15,6 +15,7 @@ import {
   adminTrackedTokenPath,
   adminTrackedTokensPath,
   addressUtxosPath,
+  txExternalSightingPath,
   TX_BROADCAST_PATH,
 } from "@/lib/api/routes";
 import type {
@@ -26,6 +27,7 @@ import type {
   AdminTrackedAddressResponse,
   AdminTrackedTokenResponse,
   BroadcastReceiptDto,
+  ExternalSightingResponse,
   GetUtxoSetResponse,
   HeadersTipDto,
   P2pAlertResponse,
@@ -74,6 +76,13 @@ export interface IAdminClient {
   broadcastRaw(rawHex: string, signal?: AbortSignal): Promise<BroadcastReceiptDto>;
   /** tx-lab S1 — same-origin UTXO lookup for the lab screen. */
   getAddressUtxos(address: string, signal?: AbortSignal): Promise<GetUtxoSetResponse>;
+  /** Broadcast inspector — does the named public explorer see this txid yet?
+   *  source ∈ { woc, bitails, junglebus }. */
+  getExternalSighting(
+    txId: string,
+    source: string,
+    signal?: AbortSignal
+  ): Promise<ExternalSightingResponse>;
   /** S7 — alert history (page-delta polling per A1 M1). */
   getAlerts(opts?: { lastN?: number; since?: number; signal?: AbortSignal }): Promise<P2pAlertResponse>;
   /** S8 — peers diagnostic. */
@@ -168,6 +177,13 @@ export class AdminClient implements IAdminClient {
 
   getAddressUtxos(address: string, signal?: AbortSignal) {
     return this.api.get<GetUtxoSetResponse>(addressUtxosPath(address), { signal });
+  }
+
+  getExternalSighting(txId: string, source: string, signal?: AbortSignal) {
+    return this.api.get<ExternalSightingResponse>(
+      txExternalSightingPath(txId, source),
+      { signal }
+    );
   }
 
   getAlerts(opts: { lastN?: number; since?: number; signal?: AbortSignal } = {}) {

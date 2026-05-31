@@ -2585,6 +2585,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tx/{id}/external-sighting/{source}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                    source: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ExternalSightingResponse"];
+                        "application/json": components["schemas"]["ExternalSightingResponse"];
+                        "text/json": components["schemas"]["ExternalSightingResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tx/batch/get": {
         parameters: {
             query?: never;
@@ -3180,6 +3227,10 @@ export interface components {
         };
         BulkTokenHistoryUpgradeRequest: {
             items?: components["schemas"]["TokenHistoryUpgradeRequest"][] | null;
+        };
+        ExternalSightingResponse: {
+            source: string;
+            seen: boolean;
         };
         GetAddressHistoryRequest: {
             /** Format: int32 */
