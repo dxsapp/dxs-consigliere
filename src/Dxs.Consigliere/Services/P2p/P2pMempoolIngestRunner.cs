@@ -90,7 +90,8 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         IOptions<MempoolWatcherOptions> watcherOptions,
         IOptions<BsvP2pConfig> p2pOptions,
         INetworkProvider network,
-        ILogger<P2pMempoolIngestRunner> logger)
+        ILogger<P2pMempoolIngestRunner> logger,
+        Dxs.Consigliere.Data.P2p.IOutgoingMempoolSightingSink mempoolSink = null)
     {
         _health = health;
         _loader = loader;
@@ -103,8 +104,11 @@ public sealed class P2pMempoolIngestRunner : IHostedService, IAsyncDisposable
         _logger = logger;
         // The ingest core (parse → match → save → payload → journal) is
         // shared with the self-broadcast path via ObservedTxIngestor; the
-        // runner owns only the P2P inv/getdata transport + its metrics.
-        _ingestor = new ObservedTxIngestor(matcher, transactionStore, payloadStore, journal, network, logger);
+        // runner owns only the P2P inv/getdata transport + its metrics. The
+        // mempool sink lets an ingested relay-back of OUR own tx advance its
+        // outgoing lifecycle to MempoolSeen (optional → null in unit tests).
+        _ingestor = new ObservedTxIngestor(
+            matcher, transactionStore, payloadStore, journal, network, logger, mempoolSink);
     }
 
     public Task StartAsync(CancellationToken cancellationToken)

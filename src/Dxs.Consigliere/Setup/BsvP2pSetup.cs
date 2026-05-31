@@ -40,6 +40,10 @@ public static class BsvP2pSetup
             .AddSingleton<TxRelayCoordinator>()
             .AddSingleton<OutgoingTransactionMonitor>()
             .AddHostedService(sp => sp.GetRequiredService<OutgoingTransactionMonitor>())
+            // The mempool observer advances OUR broadcasts to MempoolSeen on
+            // the first relay-back ingest via this sink (same monitor instance).
+            .AddSingleton<Dxs.Consigliere.Data.P2p.IOutgoingMempoolSightingSink>(
+                sp => sp.GetRequiredService<OutgoingTransactionMonitor>())
             // Wave 1 — headers chain
             .Configure<HeadersChainOptions>(configuration.GetSection("Consigliere:Broadcast:P2p:Headers"))
             .AddSingleton<HeadersChain>(sp =>

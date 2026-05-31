@@ -39,7 +39,8 @@ public sealed class ObservedTxIngestor(
     IRawTransactionPayloadStore payloadStore,
     TxObservationJournalWriter journal,
     INetworkProvider network,
-    ILogger logger)
+    ILogger logger,
+    Dxs.Consigliere.Data.P2p.IOutgoingMempoolSightingSink mempoolSink = null)
 {
     public async Task<TxIngestOutcome> IngestAsync(string txid, byte[] rawBytes, string source)
     {
@@ -87,6 +88,16 @@ public sealed class ObservedTxIngestor(
             txid,
             DateTimeOffset.UtcNow);
         await journal.AppendAsync(observation, payloadRef, source);
+
+        // If this matched tx is one of OUR broadcasts, this ingest is the
+        // first independent confirmation it propagated — advance its outgoing
+        // lifecycle to MempoolSeen. No-ops for any non-outgoing txid.
+        if (mempoolSink is not null)
+        {
+            try { await mempoolSink.OnMempoolSightingAsync(txid); }
+            catch (Exception ex) { logger.LogDebug(ex, "ingest({Source}): mempool-sighting hook failed for {Txid}", source, txid); }
+        }
+
         return TxIngestOutcome.Matched;
     }
 

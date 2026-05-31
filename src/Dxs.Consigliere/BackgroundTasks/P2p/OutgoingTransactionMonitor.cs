@@ -26,7 +26,7 @@ public sealed class OutgoingTransactionMonitor(
     CommonBackgroundTasksConfig config,
     IOptions<BsvP2pConfig> p2pOptions,
     ILogger<OutgoingTransactionMonitor> logger
-) : PeriodicTask(config, logger)
+) : PeriodicTask(config, logger), IOutgoingMempoolSightingSink
 {
     private readonly BsvP2pConfig _p2pCfg = p2pOptions.Value;
 
@@ -123,8 +123,11 @@ public sealed class OutgoingTransactionMonitor(
     public async Task OnMempoolSightingAsync(string txId, CancellationToken ct = default)
     {
         var doc = await store.GetOrNullAsync(txId, ct);
-        if (doc is null) return;
+        if (doc is null) return; // not one of our broadcasts — ignore
         if (doc.State is OutgoingTxState.MempoolSeen or OutgoingTxState.Mined or OutgoingTxState.Confirmed) return;
+        // Don't revive a tx peers already terminally rejected (a stray
+        // mempool sighting must not flip ConflictRejected/Failed back to seen).
+        if (OutgoingTxStates.IsTerminal(doc.State)) return;
 
         doc.State = OutgoingTxState.MempoolSeen;
         doc.MempoolSeenAtMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
